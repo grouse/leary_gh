@@ -1,0 +1,9 @@
+input.cpp
+// @ToDo: cleanup input and load actions/keybinds from unordered hashmap/similar
+
+rendering.cpp
+// @TODO @cleanup: consider cleaning up
+// @TODO @cleanup: move into load_object function
+// @TODO @cleanup: store struct of arrays of VBO	
+// @TODO @cleanup: store struct of arrays of UVBO	
+// @TODO @cleanup: move hardcoded shader loading into something cleaner and smarter

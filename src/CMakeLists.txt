@@ -1,0 +1,9 @@
+set(PROJECT_SOURCES
+	${CMAKE_SOURCE_DIR}/src/main.cpp
+	${CMAKE_SOURCE_DIR}/src/rendering.cpp
+	${CMAKE_SOURCE_DIR}/src/physics.cpp
+	${CMAKE_SOURCE_DIR}/src/input.cpp
+	${CMAKE_SOURCE_DIR}/src/util.cpp
+	${CMAKE_SOURCE_DIR}/src/settings.cpp
+	${CMAKE_SOURCE_DIR}/src/debug.cpp
+PARENT_SCOPE)
