@@ -21,7 +21,7 @@ pkg_search_module(SDL2 REQUIRED sdl2)
 include_directories(${SDL2_INCLUDE_DIRS})
 set(LIBS ${LIBS} ${SDL2_LIBRARIES})
 
-find_package(OpenGL REQUIRED OpenGL)
+find_package(OpenGL REQUIRED)
 include_directories(${OPENGL_INCLUDE_DIRS})
 set(LIBS ${LIBS} ${OPENGL_LIBRARIES})
 
