@@ -101,8 +101,8 @@ std::string Environment::resolvePath(eEnvironmentFolder type, const char* filena
 		ssize_t len = readlink("/proc/self/exe", path, sb.st_size + 1);
 		path[len]   = '\0';
 
-		// the path includes the exe name, so find last '/' and insert a terminating null-char right
-		// before it, e.g. /path/to/exe -> /path/to\0/exe
+		// the path includes the exe name, so find last '/' and replace it with a terminating '\0'
+		//     e.g. /path/to/exe -> /path/to\0exe
 		char* pch        = strrchr(path, '/');
 		path[pch - path] = '\0';
 
