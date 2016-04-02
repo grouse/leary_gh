@@ -67,6 +67,7 @@ list(APPEND leary_ENGINE_CORE_SOURCE
 list(APPEND leary_ENGINE_RENDER_SOURCE
 	${CMAKE_CURRENT_SOURCE_DIR}/engine/render/rendering.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/engine/render/texture.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/engine/render/shader.cpp
 )
 
 list(APPEND leary_ENGINE_UTIL_SOURCE
@@ -96,6 +97,7 @@ list(APPEND leary_ENGINE_CORE_HEADER
 list(APPEND leary_ENGINE_RENDER_HEADER
 	${CMAKE_CURRENT_SOURCE_DIR}/engine/render/rendering.h
 	${CMAKE_CURRENT_SOURCE_DIR}/engine/render/texture.h
+	${CMAKE_CURRENT_SOURCE_DIR}/engine/render/shader.h
 )
 
 list(APPEND leary_ENGINE_UTIL_HEADER
