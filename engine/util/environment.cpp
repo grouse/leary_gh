@@ -115,7 +115,7 @@ std::string Environment::resolvePath(eEnvironmentFolder type, const char* filena
 	case eEnvironmentFolder::UserPreferences:
 	{
 		char* path = getenv("XDG_DATA_HOME");
-		if (path != NULL && 0) {
+		if (path != NULL) {
 			resolved += path;
 			resolved += "/grouse_games/preferences/";
 		} else {
