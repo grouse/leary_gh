@@ -89,6 +89,33 @@ std::string Environment::resolvePath(eEnvironmentFolder type, const char* filena
 		          "Unhandled Environment Folder type: %d", type);
 		break;
 	}
+#elif LEARY_LINUX
+	switch (type) {
+	case eEnvironmentFolder::GameData:
+	{
+		struct stat sb;
+		stat("/proc/self/exe", &sb);
+
+		char* path  = new char[sb.st_size + 1];
+		ssize_t len = readlink("/proc/self/exe", path, sb.st_size + 1);
+		buffer[len] = '\0';
+
+		// the path includes the exe name, so find last '/' and insert a terminating null-char right
+		// before it, e.g. /path/to/exe -> /path/to\0/exe
+		char* pch        = strrchr(buffer, '/');
+		path[pch - path] = '\0';
+
+		resolved += path;
+		resolved += "/data/";
+
+		delete[] buffer;
+		break;
+	}
+	default:
+		LEARY_LOGF(eLogType::Warning,
+		          "Unhandled Environment Folder type: %d", type);
+		break;
+	}
 #else
 	LEARY_UNIMPLEMENTED_FUNCTION;
 	LEARY_UNUSED(type);
@@ -154,6 +181,53 @@ void Environment::createDirectory(const char* path)
 	}
 
 	LEARY_ASSERT_PRINT(result == ERROR_SUCCESS, error);
+#endif
+#elif LEARY_LINUX
+	int result = mkdir(path, 0755);
+	LEARY_UNUSED(result);
+
+#if LEARY_DEBUG
+	const char* error;
+
+	switch (errno) {
+	case EACCES:
+		error = "Search permission is denied on a component of the path prefix, or write "
+		        "permission is denied on the parent directory of the directory to be created.";
+		break;
+	case EEXIST:
+		error = "The named file exists.";
+		break;
+	case ELOOP:
+		error = "A loop exists in symbolic links encountered during resolution of the path "
+		        "argument.";
+		break;
+	case EMLINK:
+		error = "The link count of the parent directory would exceed {LINK_MAX}.";
+		break;
+	case ENAMETOOLONG:
+		error = "The length of the path argument exceeds {PATH_MAX} or a pathname component is "
+		        "longer than {NAME_MAX}";
+		break;
+	case ENOENT:
+		error = "A component of the path prefix specified by path does not name an existing "
+		        "directory or path is an empty string.";
+		break;
+	case ENOSPC:
+		error = "The file system does not contain enough space to hold the contents of the new "
+		        "directory or to extend the parent directory of the new directory.";
+		break;
+	case ENOTDIR:
+		error = "A component of the path prefix is not a directory.";
+		break;
+	case EROFS:
+		error = "The parent directory resides on a read-only file system.";
+		break;
+	default:
+		error = "Unknown error";
+		break;
+	} 
+
+	LEARY_ASSERT_PRINT(result == 0, error);
 #endif
 #else
 	LEARY_UNIMPLEMENTED_FUNCTION;
