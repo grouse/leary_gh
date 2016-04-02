@@ -46,5 +46,4 @@ public:
 	static void createDirectory(const char* path);
 };
 
-
 #endif // LEARY_ENVIRONMENT_H
