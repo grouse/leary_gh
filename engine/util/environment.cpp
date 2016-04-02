@@ -197,7 +197,22 @@ void Environment::createDirectory(const char* path)
 	LEARY_ASSERT_PRINT(result == ERROR_SUCCESS, error);
 #endif
 #elif LEARY_LINUX
-	int result = mkdir(path, 0755);
+	const size_t len = strlen(path);
+	char* tmp = new char[len + 1];
+	strcpy(tmp, path);
+
+	if (tmp[len - 1] == '/')
+		tmp[len - 1] = '\0';
+
+	for (char* p = tmp + 1; *p; p++) {
+		if (*p == '/') {
+			*p = '\0';
+			mkdir(tmp, 0755);
+			*p = '/';
+		}	
+	}
+
+	int result = mkdir(tmp, 0775);
 	LEARY_UNUSED(result);
 
 #if LEARY_DEBUG
