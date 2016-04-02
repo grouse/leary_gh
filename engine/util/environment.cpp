@@ -31,6 +31,7 @@
 
 #if LEARY_LINUX
 #include <unistd.h> 
+#include <pwd.h>
 #endif
 
 #if LEARY_WIN
@@ -82,7 +83,7 @@ std::string Environment::resolvePath(eEnvironmentFolder type, const char* filena
 		resolved += converter.to_bytes(path_wstr);
 		resolved += "/grouse_games/preferences/";
 
-		break;
+		brea;k
 	}
 	default:
 		LEARY_LOGF(eLogType::Warning,
@@ -98,17 +99,30 @@ std::string Environment::resolvePath(eEnvironmentFolder type, const char* filena
 
 		char* path  = new char[sb.st_size + 1];
 		ssize_t len = readlink("/proc/self/exe", path, sb.st_size + 1);
-		buffer[len] = '\0';
+		path[len]   = '\0';
 
 		// the path includes the exe name, so find last '/' and insert a terminating null-char right
 		// before it, e.g. /path/to/exe -> /path/to\0/exe
-		char* pch        = strrchr(buffer, '/');
+		char* pch        = strrchr(path, '/');
 		path[pch - path] = '\0';
 
 		resolved += path;
 		resolved += "/data/";
 
-		delete[] buffer;
+		delete[] path;
+		break;
+	}
+	case eEnvironmentFolder::UserPreferences:
+	{
+		char* path = getenv("XDG_DATA_HOME");
+		if (path != NULL && 0) {
+			resolved += path;
+			resolved += "/grouse_games/preferences/";
+		} else {
+			struct passwd *pw = getpwuid(getuid());
+			resolved += pw->pw_dir;
+			resolved += "/.local/share/grouse_games/preferences/";
+		}
 		break;
 	}
 	default:
