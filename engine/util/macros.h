@@ -38,9 +38,13 @@
     #define LEARY_FUNCTION_NAME __FUNCTION__
 #endif
 
-#define LEARY_LOG(type, format, ...) \
+#define LEARY_LOGF(type, format, ...) \
     debug::printf(type, LEARY_FUNCTION_NAME, __LINE__, LEARY_FILENAME,\
     format, __VA_ARGS__)
+
+#define LEARY_LOG(type, msg) \
+    debug::printf(type, LEARY_FUNCTION_NAME, __LINE__, LEARY_FILENAME,\
+    "%s", msg)
 
 #define LEARY_UNUSED(x) (void)(x)
 
@@ -49,7 +53,7 @@
     #define LEARY_ASSERT(condition) \
         do { \
             if (!(condition)) \
-                LEARY_LOG(eLogType::Assert, \
+                LEARY_LOGF(eLogType::Assert, \
                           "Assertion failed: %s", \
                           #condition); \
         } while(0)
@@ -57,7 +61,7 @@
     #define LEARY_ASSERT_PRINT(condition, msg) \
         do { \
             if (!(condition)) \
-                LEARY_LOG(eLogType::Assert, \
+                LEARY_LOGF(eLogType::Assert, \
                           "Assertion failed %s - %s", \
                           #condition, msg); \
         } while(0)
@@ -65,7 +69,7 @@
     #define LEARY_ASSERT_PRINTF(condition, format, ...) \
         do { \
             if (!(condition)) \
-                LEARY_LOG(eLogType::Assert, \
+                LEARY_LOGF(eLogType::Assert, \
                           "Assertion failed %s - " format, \
                           #condition, __VA_ARGS__); \
         } while(0)

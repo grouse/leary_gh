@@ -81,7 +81,7 @@ std::string Environment::resolvePath(eEnvironmentFolder type, const char* filena
 		break;
 	}
 	default:
-		LEARY_LOG(eLogType::Warning,
+		LEARY_LOGF(eLogType::Warning,
 		          "Unhandled Environment Folder type: %d", type);
 		break;
 	}

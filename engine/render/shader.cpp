@@ -47,7 +47,7 @@ bool Program::create(Shader* shaders, size_t num_shaders)
 	if (result == GL_TRUE)
 	{
 		mvp_location = glGetUniformLocation(id, "MVP");
-		LEARY_LOG(eLogType::Info, "Linked OpenGL shader program %d", id);
+		LEARY_LOGF(eLogType::Info, "Linked OpenGL shader program %d", id);
 		return true;
 	}
 	else
@@ -58,7 +58,7 @@ bool Program::create(Shader* shaders, size_t num_shaders)
 		char *result_log = new char[static_cast<size_t>(result_log_length + 1)];
 		glGetProgramInfoLog(id, result_log_length, NULL, result_log);
 
-		LEARY_LOG(eLogType::Error,
+		LEARY_LOGF(eLogType::Error,
 				  "Failed to link OpenGL shader program %d: %s",
 				  id, result_log);
 
@@ -90,7 +90,7 @@ bool Shader::create(uint32_t type, const char* const filename)
 		shader_source_stream.close();
 	}
 	else {
-		LEARY_LOG(eLogType::Error, 
+		LEARY_LOGF(eLogType::Error, 
 		          "Failed to open shader file: %s", 
 		          file_path.c_str());
 		return 0;
@@ -109,7 +109,7 @@ bool Shader::create(uint32_t type, const char* const filename)
 	if (result == GL_TRUE)
 	{
 		this->type = type;
-		LEARY_LOG(eLogType::Info, "Compiled shader %s", file_path.c_str());
+		LEARY_LOGF(eLogType::Info, "Compiled shader %s", file_path.c_str());
 		return true;
 	}
 	else
@@ -122,7 +122,7 @@ bool Shader::create(uint32_t type, const char* const filename)
 		char *result_log = new char[static_cast<size_t>(result_log_length + 1)];
 		glGetShaderInfoLog(id, result_log_length, NULL, result_log);
 
-		LEARY_LOG(eLogType::Error,
+		LEARY_LOGF(eLogType::Error,
 			"Failed to compile shader %s %s", file_path.c_str(), result_log);
 
 		delete[] result_log;
