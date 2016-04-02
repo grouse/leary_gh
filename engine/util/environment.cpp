@@ -29,6 +29,10 @@
 
 #include <algorithm>
 
+#if LEARY_LINUX
+#include <unistd.h> 
+#endif
+
 #if LEARY_WIN
 #include <io.h>
 
