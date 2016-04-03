@@ -262,6 +262,7 @@ else()
 	)
 endif()
 
+add_compile_options(-w)
 target_compile_options(leary
 	PRIVATE ${PROJECT_COMPILE_OPTIONS}
 )
