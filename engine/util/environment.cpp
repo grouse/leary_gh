@@ -44,6 +44,8 @@
 #include <codecvt>
 #endif
 
+#include <memory>
+
 const char* get_data_base_path(void);
 const char* get_preferences_base_path(void);
 
@@ -51,19 +53,19 @@ std::string Environment::resolvePath(eEnvironmentFolder type, const char* filena
 {
 	std::string resolved = "";
 
-	static const char* data_base_path        = get_data_base_path();
-	static const char* preferences_base_path = get_preferences_base_path();
+	static const std::unique_ptr<const char> data_base_path       (get_data_base_path());
+	static const std::unique_ptr<const char> preferences_base_path(get_preferences_base_path());
 
 	switch (type) {
 	case eEnvironmentFolder::GameData:
 	{
-		resolved += data_base_path;
+		resolved += data_base_path.get();
 		resolved += "/data/";
 		break;
 	}
 	case eEnvironmentFolder::UserPreferences:
 	{
-		resolved += preferences_base_path;
+		resolved += preferences_base_path.get();
 		resolved += "/grouse_games/preferences/";
 		break;
 	}
@@ -177,7 +179,7 @@ void Environment::createDirectory(const char* path)
 		break;
 	case ENOENT:
 		error = "A component of the path prefix specified by path does not name an existing "
-		        "directory or path is an empty string.;"
+		        "directory or path is an empty string.";
 		break;
 	case ENOSPC:
 		error = "The file system does not contain enough space to hold the contents of the new "
