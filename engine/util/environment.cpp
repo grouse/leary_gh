@@ -177,7 +177,7 @@ void Environment::createDirectory(const char* path)
 		break;
 	case ENOENT:
 		error = "A component of the path prefix specified by path does not name an existing "
-		        "directory or path is an empty string.";
+		        "directory or path is an empty string.;"
 		break;
 	case ENOSPC:
 		error = "The file system does not contain enough space to hold the contents of the new "
@@ -252,8 +252,10 @@ const char* get_preferences_base_path()
 
 	return converter.to_bytes(path_wstr);
 #elif LEARY_LINUX
-	char* path = getenv("XDG_DATA_HOME");
-	if (path != NULL) {
+	char* env_var = getenv("XDG_DATA_HOME");
+	if (env_var != NULL) {
+		char* path = new char[strlen(env_var)];
+		strcpy(path, env_var);
 		return path;
 	} else {
 		struct passwd *pw = getpwuid(getuid());
@@ -261,7 +263,7 @@ const char* get_preferences_base_path()
 		const size_t append_path_len = strlen(append_path);
 		const size_t base_path_len   = strlen(pw->pw_dir);
 
-		path = new char[append_path_len + base_path_len + 1];
+		char* path = new char[append_path_len + base_path_len + 1];
 		strcpy(path, pw->pw_dir);
 		strcat(path, append_path);
 		return path;
