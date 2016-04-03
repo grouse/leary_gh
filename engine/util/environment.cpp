@@ -44,75 +44,8 @@
 #include <codecvt>
 #endif
 
-const char* get_data_base_path()
-{
-#if LEARY_WIN
-	TCHAR   path[MAX_PATH];
-	HMODULE hModule = GetModuleHandle(NULL);
-
-	GetModuleFileName(hModule, path, MAX_PATH);
-	PathRemoveFileSpec(path);
-
-	return path;
-#elif LEARY_LINUX
-	struct stat sb;
-	stat("/proc/self/exe", &sb);
-
-	char* path  = new char[sb.st_size + 1];
-	ssize_t len = readlink("/proc/self/exe", path, sb.st_size + 1);
-	path[len]   = '\0';
-
-	// the path includes the exe name, so find last '/' and replace it with a terminating '\0'
-	//     e.g. p/ath/to/exe -> /path/to\0exe
-	char* pch        = strrchr(path, '/');
-	path[pch - path] = '\0';
-
-	return path;
-#else
-	LEARY_UNIMPLEMENTED_FUNCTION;
-	return "";
-#endif
-}
-
-const char* get_preferences_base_path()
-{
-#if LEARY_WIN
-	LPWSTR path = NULL;
-	HRESULT result = 
-		SHGetKnownFolderPath(FOLDERID_LocalAppData, 
-		                     KF_FLAG_CREATE, 
-		                     NULL, 
-		                     &path);
-
-	LEARY_ASSERT(result == S_OK);
-	LEARY_UNUSED(result);
-
-	std::wstring path_wstr = path;
-
-	typedef std::codecvt_utf8<wchar_t> convert_type;
-	std::wstring_convert<convert_type, wchar_t> converter;
-
-	return converter.to_bytes(path_wstr);
-#elif LEARY_LINUX
-	char* path = getenv("XDG_DATA_HOME");
-	if (path != NULL) {
-		return path;
-	} else {
-		struct passwd *pw = getpwuid(getuid());
-		const char* append_path = "/.local/share";
-		const size_t append_path_len = strlen(append_path);
-		const size_t base_path_len   = strlen(pw->pw_dir);
-
-		path = new char[append_path_len + base_path_len + 1];
-		strcpy(path, pw->pw_dir);
-		strcat(path, append_path);
-		return path;
-	}
-#else
-	LEARY_UNIMPLEMENTED_FUNCTION;
-	return "";
-#endif
-}
+const char* get_data_base_path(void);
+const char* get_preferences_base_path(void);
 
 std::string Environment::resolvePath(eEnvironmentFolder type, const char* filename)
 {
@@ -266,5 +199,75 @@ void Environment::createDirectory(const char* path)
 #else
 	LEARY_UNIMPLEMENTED_FUNCTION;
 	LEARY_UNUSED(path);
+#endif
+}
+
+const char* get_data_base_path()
+{
+#if LEARY_WIN
+	TCHAR   path[MAX_PATH];
+	HMODULE hModule = GetModuleHandle(NULL);
+
+	GetModuleFileName(hModule, path, MAX_PATH);
+	PathRemoveFileSpec(path);
+
+	return path;
+#elif LEARY_LINUX
+	struct stat sb;
+	stat("/proc/self/exe", &sb);
+
+	char* path  = new char[sb.st_size + 1];
+	ssize_t len = readlink("/proc/self/exe", path, sb.st_size + 1);
+	path[len]   = '\0';
+
+	// the path includes the exe name, so find last '/' and replace it with a terminating '\0'
+	//     e.g. p/ath/to/exe -> /path/to\0exe
+	char* pch        = strrchr(path, '/');
+	path[pch - path] = '\0';
+
+	return path;
+#else
+	LEARY_UNIMPLEMENTED_FUNCTION;
+	return "";
+#endif
+}
+
+const char* get_preferences_base_path()
+{
+#if LEARY_WIN
+	LPWSTR path = NULL;
+	HRESULT result = 
+		SHGetKnownFolderPath(FOLDERID_LocalAppData, 
+		                     KF_FLAG_CREATE, 
+		                     NULL, 
+		                     &path);
+
+	LEARY_ASSERT(result == S_OK);
+	LEARY_UNUSED(result);
+
+	std::wstring path_wstr = path;
+
+	typedef std::codecvt_utf8<wchar_t> convert_type;
+	std::wstring_convert<convert_type, wchar_t> converter;
+
+	return converter.to_bytes(path_wstr);
+#elif LEARY_LINUX
+	char* path = getenv("XDG_DATA_HOME");
+	if (path != NULL) {
+		return path;
+	} else {
+		struct passwd *pw = getpwuid(getuid());
+		const char* append_path = "/.local/share";
+		const size_t append_path_len = strlen(append_path);
+		const size_t base_path_len   = strlen(pw->pw_dir);
+
+		path = new char[append_path_len + base_path_len + 1];
+		strcpy(path, pw->pw_dir);
+		strcat(path, append_path);
+		return path;
+	}
+#else
+	LEARY_UNIMPLEMENTED_FUNCTION;
+	return "";
 #endif
 }
