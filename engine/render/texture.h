@@ -41,15 +41,21 @@ class TextureManager
 {
 public:
 	void init();
-	void destroy();
 
 	Texture load(std::string);
 	void unload(std::string); 
 
+	static void create();
+	static void destroy();
+	static TextureManager* get();
+
 private:
+	TextureManager() {}
+	~TextureManager() {}
+	static TextureManager* m_instance;
+
+
 	std::unordered_map<std::string, Texture> textures;
 };
-
-static TextureManager gTextureManager;
 
 #endif // LEARY_TEXTURE_H

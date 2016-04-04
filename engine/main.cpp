@@ -44,7 +44,8 @@ int main(int, char *[])
 	Rendering::create();
 	Rendering* rendering = Rendering::get();
 
-	gTextureManager.init();
+	TextureManager::create();
+	TextureManager::get()->init();
 
 	bool quit = false;
 	while (!quit) {
@@ -66,7 +67,7 @@ int main(int, char *[])
 		rendering->update();
 	}
 
-	gTextureManager.destroy();
+	TextureManager::destroy();
 
 	Rendering::destroy();
 

@@ -27,14 +27,29 @@
 
 #include <SOIL.h>
 
+TextureManager *TextureManager::m_instance = nullptr;
+
 void TextureManager::init() 
 {
 
 }
 
+void TextureManager::create()
+{
+	if (m_instance == nullptr)
+		m_instance = new TextureManager();
+}
+
 void TextureManager::destroy() 
 {
+	if (m_instance != nullptr)
+		delete m_instance;
 
+}
+
+TextureManager* TextureManager::get()
+{
+	return m_instance;
 }
 
 Texture TextureManager::load(std::string file) 
