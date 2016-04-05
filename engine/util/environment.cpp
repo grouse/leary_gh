@@ -213,7 +213,10 @@ const char* get_data_base_path()
 	GetModuleFileName(hModule, path, MAX_PATH);
 	PathRemoveFileSpec(path);
 
-	return path;
+	char* retPath = new char[strlen(path)];
+	strcpy(retPath, path);
+
+	return retPath;
 #elif LEARY_LINUX
 	struct stat sb;
 	stat("/proc/self/exe", &sb);
@@ -248,6 +251,7 @@ const char* get_preferences_base_path()
 	LEARY_UNUSED(result);
 
 	std::wstring path_wstr = path;
+	CoTaskMemFree(path);
 
 	typedef std::codecvt_utf8<wchar_t> convert_type;
 	std::wstring_convert<convert_type, wchar_t> converter;
