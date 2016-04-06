@@ -44,14 +44,12 @@ bool Program::create(Shader* shaders, size_t num_shaders)
 	int32_t result;
 	glGetProgramiv(id, GL_LINK_STATUS, &result);
 
-	if (result == GL_TRUE)
-	{
+	if (result == GL_TRUE) {
 		mvp_location = glGetUniformLocation(id, "MVP");
 		LEARY_LOGF(eLogType::Info, "Linked OpenGL shader program %d", id);
+
 		return true;
-	}
-	else
-	{
+	} else {
 		int32_t result_log_length;
 		glGetProgramiv(id, GL_INFO_LOG_LENGTH, &result_log_length);
 
@@ -75,9 +73,8 @@ void Program::destroy()
 
 bool Shader::create(uint32_t type, const char* const filename)
 {
-	std::string file_path =
-		Environment::resolvePath(eEnvironmentFolder::GameData, "shaders/") +
-		filename;
+	std::string file_path = Environment::resolvePath(eEnvironmentFolder::GameData, "shaders/") +
+		                    filename;
 
 	std::string   shader_source;
 	std::ifstream shader_source_stream(file_path, std::ios::in);
@@ -88,8 +85,7 @@ bool Shader::create(uint32_t type, const char* const filename)
 			shader_source += "\n" + line;
 
 		shader_source_stream.close();
-	}
-	else {
+	} else {
 		LEARY_LOGF(eLogType::Error, 
 		          "Failed to open shader file: %s", 
 		          file_path.c_str());
@@ -106,27 +102,25 @@ bool Shader::create(uint32_t type, const char* const filename)
 	int32_t result = GL_FALSE;
 	glGetShaderiv(id, GL_COMPILE_STATUS, &result);
 
-	if (result == GL_TRUE)
-	{
+	if (result == GL_TRUE) {
 		this->type = type;
 		LEARY_LOGF(eLogType::Info, "Compiled shader %s", file_path.c_str());
+
 		return true;
-	}
-	else
-	{
-		int32_t result_log_length;
-		glGetShaderiv(id, GL_INFO_LOG_LENGTH, &result_log_length);
+	} 
 
-		LEARY_ASSERT(result_log_length >= 0);
-		
-		char *result_log = new char[static_cast<size_t>(result_log_length + 1)];
-		glGetShaderInfoLog(id, result_log_length, NULL, result_log);
+	int32_t result_log_length;
+	glGetShaderiv(id, GL_INFO_LOG_LENGTH, &result_log_length);
 
-		LEARY_LOGF(eLogType::Error,
-			"Failed to compile shader %s %s", file_path.c_str(), result_log);
+	LEARY_ASSERT(result_log_length >= 0);
+	
+	char *result_log = new char[static_cast<size_t>(result_log_length + 1)];
+	glGetShaderInfoLog(id, result_log_length, NULL, result_log);
 
-		delete[] result_log;
-	}
+	LEARY_LOGF(eLogType::Error,
+		"Failed to compile shader %s %s", file_path.c_str(), result_log);
+
+	delete[] result_log;
 	
 	return false;
 }

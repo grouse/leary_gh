@@ -92,8 +92,7 @@ std::string Environment::resolvePath(eEnvironmentFolder type, const char* filena
 
 bool Environment::directoryExists(const char* path)
 {
-	if (access(path, 0) == 0)
-	{
+	if (access(path, 0) == 0) {
 		struct stat status;
 		stat(path, &status);
 
@@ -240,12 +239,11 @@ const char* get_data_base_path()
 const char* get_preferences_base_path()
 {
 #if LEARY_WIN
-	LPWSTR path = NULL;
-	HRESULT result = 
-		SHGetKnownFolderPath(FOLDERID_LocalAppData, 
-		                     KF_FLAG_CREATE, 
-		                     NULL, 
-		                     &path);
+	LPWSTR path    = NULL;
+	HRESULT result = SHGetKnownFolderPath(FOLDERID_LocalAppData, 
+		                                  KF_FLAG_CREATE, 
+		                                  NULL, 
+		                                  &path);
 
 	LEARY_ASSERT(result == S_OK);
 	LEARY_UNUSED(result);
@@ -262,6 +260,7 @@ const char* get_preferences_base_path()
 	if (env_var != NULL) {
 		char* path = new char[strlen(env_var)];
 		strcpy(path, env_var);
+
 		return path;
 	} else {
 		struct passwd *pw = getpwuid(getuid());
@@ -272,6 +271,7 @@ const char* get_preferences_base_path()
 		char* path = new char[append_path_len + base_path_len + 1];
 		strcpy(path, pw->pw_dir);
 		strcat(path, append_path);
+		
 		return path;
 	}
 #else

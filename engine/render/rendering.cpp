@@ -71,11 +71,11 @@ Rendering::Rendering()
 
 	// initialise camera
 	const float vertical_fov = glm::radians(45.0f);
-	const float aspect_ratio = 
-		static_cast<float>(settings->video.resolution.width) / 
-		static_cast<float>(settings->video.resolution.height);
-	const float near_plane = 0.1f;
-	const float far_plane  = 100.0f;
+	const float aspect_ratio = static_cast<float>(settings->video.resolution.width) / 
+		                       static_cast<float>(settings->video.resolution.height);
+
+	const float near_plane   = 0.1f;
+	const float far_plane    = 100.0f;
 
 	camera.projection = glm::perspective(vertical_fov, aspect_ratio, 
 	                                     near_plane, far_plane);
@@ -152,12 +152,7 @@ void Rendering::update()
 	glEnableVertexAttribArray(0);
 	glBindBuffer(GL_ARRAY_BUFFER, test_mesh.vbo);
 
-	glVertexAttribPointer(0, 
-	                      3, 
-	                      GL_FLOAT, 
-	                      GL_FALSE, 
-	                      0, 
-	                      (void*)0);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
 
 	glm::mat4 model = glm::mat4(1.0f);
 	glm::mat4 mvp   = camera.projection * camera.view * model;

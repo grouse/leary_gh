@@ -91,8 +91,7 @@ Settings* Settings::get()
 
 void Settings::load(const char* filename) 
 {
-	std::string file_path = 
-		Environment::resolvePath(eEnvironmentFolder::UserPreferences, filename);
+	std::string file_path = Environment::resolvePath(eEnvironmentFolder::UserPreferences, filename);
 
 	std::fstream stream(file_path, std::ios::in);
 	LEARY_ASSERT(stream.is_open());
@@ -101,8 +100,7 @@ void Settings::load(const char* filename)
 		return;
 
 	ini_map_t values;
-	while (!stream.eof())
-	{
+	while (!stream.eof()) {
 		char delim;
 		std::string key, value;
 
@@ -124,8 +122,7 @@ void Settings::load(const char* filename)
 
 void Settings::save(const char* filename) const
 {
-	std::string file_path = 
-		Environment::resolvePath(eEnvironmentFolder::UserPreferences, filename);
+	std::string file_path = Environment::resolvePath(eEnvironmentFolder::UserPreferences, filename);
 
 	FILE *file = fopen(file_path.c_str(), "w");
 	LEARY_ASSERT(file != NULL);

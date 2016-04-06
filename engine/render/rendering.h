@@ -35,16 +35,14 @@
 #include "shader.h"
 
 
-struct Mesh
-{
+struct Mesh {
 	uint32_t vbo;
 
 	size_t   num_vertices;
 	void    *data;
 };
 
-class Rendering 
-{
+class Rendering {
 public:
 	static Rendering* get() { return m_instance; }
 	static void create();
@@ -66,8 +64,7 @@ private:
 
 	Program m_program;
 
-	struct Camera
-	{
+	struct Camera {
 		glm::mat4 projection;
 		glm::mat4 view;
 

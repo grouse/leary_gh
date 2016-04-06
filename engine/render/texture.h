@@ -31,14 +31,12 @@
 #include <GL/glew.h>
 #include <SDL_opengl.h>
 
-struct Texture 
-{
+struct Texture {
 	GLuint id;
 	unsigned int refcount;
 };
 
-class TextureManager 
-{
+class TextureManager {
 public:
 	void init();
 

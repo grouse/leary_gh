@@ -27,8 +27,7 @@
 
 #include "prefix.h"
 
-struct Shader
-{
+struct Shader {
 	uint32_t id;
 	uint32_t type;
 
@@ -36,8 +35,7 @@ struct Shader
 	void destroy();
 };
 
-struct Program
-{
+struct Program {
 	uint32_t id;
 	uint32_t mvp_location;
 

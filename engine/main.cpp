@@ -54,8 +54,7 @@ int main(int, char *[])
 			if (event.type == SDL_QUIT)
 				quit = true;
 
-			if (event.type == SDL_KEYUP)
-			{
+			if (event.type == SDL_KEYUP) {
 				switch (event.key.keysym.sym) {
 				case SDLK_ESCAPE:
 					quit = true;

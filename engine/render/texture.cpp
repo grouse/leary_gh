@@ -55,8 +55,9 @@ TextureManager* TextureManager::get()
 Texture TextureManager::load(std::string file) 
 {
 	auto texture = textures.find(file);
-	if (texture != textures.end())
+	if (texture != textures.end()) {
 		return texture->second;
+	}
 
 	GLuint tex_id = SOIL_load_OGL_texture (
 		file.c_str(),

@@ -25,13 +25,10 @@
 #ifndef LEARY_SETTINGS_H
 #define LEARY_SETTINGS_H
 
-class Settings 
-{
+class Settings {
 public:
-	struct 
-	{
-		struct
-		{
+	struct {
+		struct {
 			int32_t width  = 1280;
 			int32_t height = 720;
 		} resolution;

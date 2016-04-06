@@ -29,15 +29,13 @@
 
 #include <string>
 
-enum eEnvironmentFolder : uint8_t
-{
+enum eEnvironmentFolder : uint8_t {
 	GameData,        // Game data,        r,   e.g. shaders, textures, models
 	UserPreferences, // Game preferences, r/w
 	UserData,        // User data,        r/w, e.g. save games.
 };
 
-class Environment
-{
+class Environment {
 public:
 	static std::string resolvePath(eEnvironmentFolder type, 
 	                               const char* filename);
