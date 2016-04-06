@@ -35,6 +35,11 @@ enum class eLogType {
     Any      = (1 << 4) - 1
 };
 
+inline int32_t operator &  (eLogType x, eLogType y)
+{ 
+    return static_cast<int32_t>(x) & static_cast<int32_t>(y); 
+}
+
 namespace debug
 {
     void printf(const char*      func,
