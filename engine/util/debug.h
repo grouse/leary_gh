@@ -27,7 +27,7 @@
 
 #include <stdint.h>
 
-enum eLogType : uint8_t {
+enum class eLogType {
     Error    = (1 << 0),
     Warning  = (1 << 1),
     Info     = (1 << 2),

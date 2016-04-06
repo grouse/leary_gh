@@ -29,7 +29,7 @@
 
 #include <string>
 
-enum eEnvironmentFolder : uint8_t {
+enum class eEnvironmentFolder {
 	GameData,        // Game data,        r,   e.g. shaders, textures, models
 	UserPreferences, // Game preferences, r/w
 	UserData,        // User data,        r/w, e.g. save games.
