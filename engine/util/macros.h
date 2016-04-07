@@ -80,16 +80,9 @@
 		} while(0)
 
 #else
-
-    #define LEARY_ASSERT(condition) \
-        do { (void)sizeof(condition); } while(0)
-
-    #define LEARY_ASSERT_PRINT(condition, msg) \
-        do { (void)sizeof(condition); } while(0)
-
-    #define LEARY_ASSERT_PRINTF(condition, format, ...) \
-        do { (void)sizeof(condition); } while(0)
-	
+    #define LEARY_ASSERT(condition)                     do { } while(0)
+    #define LEARY_ASSERT_PRINT(condition, msg)          do { } while(0)
+    #define LEARY_ASSERT_PRINTF(condition, format, ...) do { } while(0)
 	#define LEARY_UNIMPLEMENTED_FUNCTION
 #endif // LEARY_DEBUG
 
