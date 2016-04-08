@@ -47,8 +47,25 @@ int main(int, char *[])
 	TextureManager::create();
 	TextureManager::get()->init();
 
+	uint32_t lastTime = SDL_GetTicks();
+	uint32_t nbFrames = 0;
+
+	bool logFrameTime = true;
+
 	bool quit = false;
 	while (!quit) {
+		nbFrames++;
+		const uint32_t currentTime = SDL_GetTicks();
+		const uint32_t frameTime = lastTime - currentTime;
+
+		if (frameTime >= 1000) {
+			if (logFrameTime)
+				LEARY_LOGF(eLogType::Info, "%f ms/frame", 1000.0 / nbFrames);
+
+			nbFrames = 0;
+			lastTime += 1000;
+		}
+
 		SDL_Event event;
 		while (SDL_PollEvent(&event)) {
 			if (event.type == SDL_QUIT)
@@ -58,6 +75,13 @@ int main(int, char *[])
 				switch (event.key.keysym.sym) {
 				case SDLK_ESCAPE:
 					quit = true;
+					break;
+				case SDLK_F1:
+					logFrameTime = !logFrameTime;
+					if (logFrameTime)
+						LEARY_LOG(eLogType::Info, "Turned frametime logging: on");
+					else
+						LEARY_LOG(eLogType::Info, "Turned frametime logging: off");
 					break;
 				}
 			}

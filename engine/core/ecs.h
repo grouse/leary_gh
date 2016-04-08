@@ -29,8 +29,7 @@ struct Mesh {
 	uint32_t vbo;
 
 	size_t   num_vertices;
-	void    *data;
+	void*    data;
 };
-
 
 #endif // LEARY_ECS_H
