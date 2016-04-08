@@ -62,6 +62,7 @@ endif()
 # ==================================================================================================
 list(APPEND leary_ENGINE_CORE_SOURCE
 	${CMAKE_CURRENT_SOURCE_DIR}/engine/core/settings.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/engine/core/ecs.cpp
 )
 
 list(APPEND leary_ENGINE_RENDER_SOURCE
@@ -92,6 +93,7 @@ list(APPEND leary_GAME_SOURCE
 # ==================================================================================================
 list(APPEND leary_ENGINE_CORE_HEADER
 	${CMAKE_CURRENT_SOURCE_DIR}/engine/core/settings.h
+	${CMAKE_CURRENT_SOURCE_DIR}/engine/core/ecs.h
 )
 
 list(APPEND leary_ENGINE_RENDER_HEADER

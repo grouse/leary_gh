@@ -1,5 +1,5 @@
 /**
- * @file:   rendering.h
+ * @file:   ecs.cpp
  * @author: Jesper Stefansson (grouse)
  * @email:  jesper.stefansson@gmail.com
  *
@@ -21,50 +21,4 @@
  *    misrepresented as being the original software.
  * 3. This notice may not be removed or altered from any source distribution.
  */
-
-#ifndef LEARY_RENDERING_H
-#define LEARY_RENDERING_H
-
-#include <GL/glew.h>
-
-#include <SDL.h>
-#include <SDL_opengl.h>
-
-#include "glm/glm.hpp"
-
-#include "shader.h"
-#include "core/ecs.h"
-
-class Rendering {
-public:
-	static Rendering* get() { return m_instance; }
-	static void create();
-	static void destroy();
-
-	void update();
-
-private:
-	static Rendering* m_instance;
-
-	Rendering();
-	~Rendering();
-
-	SDL_Window* m_window;
-	SDL_GLContext m_context;
-
-	GLuint vao;
-	Mesh test_mesh;
-
-	Program m_program;
-
-	struct Camera {
-		glm::mat4 projection;
-		glm::mat4 view;
-
-		glm::vec3 position;
-		glm::vec3 forward;
-		glm::vec3 up;
-	} camera;
-};
-
-#endif // LEARY_RENDERING_H
+ 
