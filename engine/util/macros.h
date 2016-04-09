@@ -50,28 +50,28 @@
 
 #if LEARY_DEBUG
 
-    #define LEARY_ASSERT(condition)               \
-        do {                                      \
-            if (!(condition))                     \
-                LEARY_LOGF(eLogType::Assert,      \
-                          "Assertion failed: %s", \
-                          #condition);            \
+    #define LEARY_ASSERT(condition)                                \
+        do {                                                       \
+            if (!(condition))                                      \
+                LEARY_LOGF(eLogType::Assert,                       \
+                          "Assertion failed: %s",                  \
+                          #condition);                             \
         } while(0)
 
-    #define LEARY_ASSERT_PRINT(condition, msg)        \
-        do {                                          \
-            if (!(condition))                         \
-                LEARY_LOGF(eLogType::Assert,          \
-                          "Assertion failed %s - %s", \
-                          #condition, msg);           \
+    #define LEARY_ASSERT_PRINT(condition, msg)                     \
+        do {                                                       \
+            if (!(condition))                                      \
+                LEARY_LOGF(eLogType::Assert,                       \
+                          "Assertion failed %s - %s",              \
+                          #condition, msg);                        \
         } while(0)
 
-    #define LEARY_ASSERT_PRINTF(condition, format, ...)    \
-        do {                                               \
-            if (!(condition))                              \
-                LEARY_LOGF(eLogType::Assert,               \
-                          "Assertion failed %s - " format, \
-                          #condition, __VA_ARGS__);        \
+    #define LEARY_ASSERT_PRINTF(condition, format, ...)            \
+        do {                                                       \
+            if (!(condition))                                      \
+                LEARY_LOGF(eLogType::Assert,                       \
+                          "Assertion failed %s - " format,         \
+                          #condition, __VA_ARGS__);                \
         } while(0)
 
 	#define LEARY_UNIMPLEMENTED_FUNCTION                           \
