@@ -1,5 +1,5 @@
 /**
- * @file:   rendering.h
+ * @file:   window.h
  * @author: Jesper Stefansson (grouse)
  * @email:  jesper.stefansson@gmail.com
  *
@@ -22,47 +22,49 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#ifndef LEARY_RENDERING_H
-#define LEARY_RENDERING_H
+#include "window.h"
 
 #include <GL/glew.h>
-#include <SDL_opengl.h>
 
-#include "glm/glm.hpp"
+#include "prefix.h"
+#include "core/settings.h"
 
-#include "window.h"
-#include "shader.h"
-#include "core/ecs.h"
+Window::Window(const char* title, uint32_t width, uint32_t height)
+{
+	// initialise SDL and OpenGL
+	m_window = SDL_CreateWindow (
+			title,
+			SDL_WINDOWPOS_UNDEFINED,
+			SDL_WINDOWPOS_UNDEFINED,
+			width, height,
+			SDL_WINDOW_OPENGL
+	);
 
-class Rendering {
-public:
-	static Rendering* get() { return m_instance; }
-	static void create();
-	static void destroy();
+	LEARY_ASSERT_PRINTF(m_window != nullptr,
+	                    "Failed to create OpenGL window: %s", SDL_GetError());
 
-	void update();
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
 
-private:
-	static Rendering* m_instance;
+	m_context = SDL_GL_CreateContext(m_window);
+	LEARY_ASSERT_PRINTF(m_context != nullptr,
+	                    "Failed to create OpenGL context: %s", SDL_GetError());
 
-	Rendering();
-	~Rendering();
+	glewExperimental = GL_TRUE;
+	glewInit();
 
-	Window* m_window;
+	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+}
 
-	GLuint vao;
-	Mesh test_mesh;
+Window::~Window()
+{
+	SDL_GL_DeleteContext(m_context);
+	SDL_DestroyWindow(m_window);
+}
 
-	Program m_program;
+void Window::swap()
+{
+	SDL_GL_SwapWindow(m_window);
+}
 
-	struct Camera {
-		glm::mat4 projection;
-		glm::mat4 view;
 
-		glm::vec3 position;
-		glm::vec3 forward;
-		glm::vec3 up;
-	} camera;
-};
-
-#endif // LEARY_RENDERING_H

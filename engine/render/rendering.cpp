@@ -26,13 +26,12 @@
 #include "rendering.h"
 
 #include <fstream>
+#include <core/settings.h>
 
 #include "glm/gtc/matrix_transform.hpp"
 
 #include "texture.h"
-
 #include "core/settings.h"
-
 #include "util/environment.h"
 
 uint32_t load_shader(uint32_t , const char*);
@@ -43,31 +42,9 @@ Rendering *Rendering::m_instance = nullptr;
 Rendering::Rendering() 
 {
 	Settings *settings = Settings::get();
-
-	// initialise SDL and OpenGL
-	m_window = SDL_CreateWindow (
-		"leary",
-		SDL_WINDOWPOS_UNDEFINED,
-		SDL_WINDOWPOS_UNDEFINED,
-		settings->video.resolution.width,
-		settings->video.resolution.height,
-		SDL_WINDOW_OPENGL
-	);
-
-	LEARY_ASSERT_PRINTF(m_window != nullptr,
-						"Failed to create OpenGL window: %s", SDL_GetError());
-
-	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
-	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
-
-	m_context = SDL_GL_CreateContext(m_window);
-	LEARY_ASSERT_PRINTF(m_context != nullptr,
-						"Failed to create OpenGL context: %s", SDL_GetError());
-
-	glewExperimental = GL_TRUE;
-	glewInit();
-
-	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+	m_window = new Window("leary",
+	                      settings->video.resolution.width,
+	                      settings->video.resolution.height);
 
 	// initialise camera
 	const float vertical_fov = glm::radians(45.0f);
@@ -124,10 +101,6 @@ Rendering::Rendering()
 Rendering::~Rendering()
 {
 	m_program.destroy();
-
-	SDL_GL_DeleteContext(m_context);
-	SDL_DestroyWindow(m_window);
-
 	free(test_mesh.data);
 }
 
@@ -163,5 +136,5 @@ void Rendering::update()
 
 	glDisableVertexAttribArray(0);
 
-	SDL_GL_SwapWindow(m_window);
+	m_window->swap();
 }
