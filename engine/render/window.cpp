@@ -22,12 +22,8 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include "window.h"
-
-#include <GL/glew.h>
-
 #include "prefix.h"
-#include "core/settings.h"
+#include "window.h"
 
 Window::Window(const char* title, uint32_t width, uint32_t height)
 {

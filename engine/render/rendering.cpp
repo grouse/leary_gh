@@ -25,17 +25,9 @@
 #include "prefix.h"
 #include "rendering.h"
 
-#include <fstream>
-#include <core/settings.h>
-
 #include "glm/gtc/matrix_transform.hpp"
 
-#include "texture.h"
 #include "core/settings.h"
-#include "util/environment.h"
-
-uint32_t load_shader(uint32_t , const char*);
-uint32_t create_program(uint32_t, uint32_t);
 
 Rendering *Rendering::m_instance = nullptr;
 
@@ -43,8 +35,8 @@ Rendering::Rendering()
 {
 	Settings *settings = Settings::get();
 	m_window = new Window("leary",
-	                      settings->video.resolution.width,
-	                      settings->video.resolution.height);
+	                      static_cast<uint32_t>(settings->video.resolution.width),
+	                      static_cast<uint32_t>(settings->video.resolution.height));
 
 	// initialise camera
 	const float vertical_fov = glm::radians(45.0f);

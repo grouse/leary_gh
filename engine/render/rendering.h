@@ -55,7 +55,7 @@ private:
 
 	Program m_program;
 
-	struct Camera {
+	struct {
 		glm::mat4 projection;
 		glm::mat4 view;
 
