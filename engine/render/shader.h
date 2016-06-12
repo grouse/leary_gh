@@ -37,7 +37,7 @@ struct Shader {
 
 struct Program {
 	uint32_t id;
-	uint32_t mvp_location;
+	int32_t  mvp_location;
 
 	bool create(Shader* shaders, size_t num_shaders);
 	void destroy();

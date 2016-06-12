@@ -263,6 +263,7 @@ else()
 	    -Wno-old-style-cast
 	    -Wno-padded
 		-Wno-switch-enum
+		-Wno-documentation
 	)
 endif()
 

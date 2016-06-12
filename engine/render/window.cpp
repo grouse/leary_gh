@@ -22,17 +22,22 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
+#include <limits>
 #include "prefix.h"
 #include "window.h"
 
 Window::Window(const char* title, uint32_t width, uint32_t height)
 {
+	LEARY_ASSERT(width  <= std::numeric_limits<int32_t>::max());
+	LEARY_ASSERT(height <= std::numeric_limits<int32_t>::max());
+
 	// initialise SDL and OpenGL
 	m_window = SDL_CreateWindow (
 			title,
 			SDL_WINDOWPOS_UNDEFINED,
 			SDL_WINDOWPOS_UNDEFINED,
-			width, height,
+			static_cast<int32_t>(width),
+			static_cast<int32_t>(height),
 			SDL_WINDOW_OPENGL
 	);
 

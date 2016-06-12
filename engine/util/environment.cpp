@@ -220,8 +220,10 @@ const char* get_data_base_path()
 	struct stat sb;
 	stat("/proc/self/exe", &sb);
 
+	LEARY_ASSERT(sb.st_size >= 0);
+
 	char* path  = new char[sb.st_size + 1];
-	ssize_t len = readlink("/proc/self/exe", path, sb.st_size + 1);
+	ssize_t len = readlink("/proc/self/exe", path, static_cast<size_t>(sb.st_size) + 1);
 	path[len]   = '\0';
 
 	// the path includes the exe name, so find last '/' and replace it with a terminating '\0'

@@ -32,7 +32,7 @@
 
 namespace debug
 {
-    void print_internal(eLogType         type,
+    static void print_internal(eLogType         type,
                          const char*     func,
                          const uint32_t& line,
                          const char*     file,
