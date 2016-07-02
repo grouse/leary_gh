@@ -1,5 +1,5 @@
-####################################################################################################
-# 
+#===================================================================================================
+#
 #  ooooo       ooooooooooo      o      oooooooooo ooooo  oooo 
 #   888         888    88      888      888    888  888  88   
 #   888         888ooo8       8  88     888oooo88     888     
@@ -29,6 +29,7 @@
 #    misrepresented as being the original software.
 # 3. This notice may not be removed or altered from any source distribution.
 ####################################################################################################
+#---------------------------------------------------------------------------------------------------
 
 cmake_minimum_required(VERSION 3.0)
 
@@ -39,9 +40,9 @@ endif()
 
 
 
-# ==================================================================================================
+#===================================================================================================
 # - Project setup
-# ==================================================================================================
+#---------------------------------------------------------------------------------------------------
 project(leary)
 
 LIST(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
@@ -50,16 +51,22 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
+option(LEARY_VULKAN "Vulkan renderer" OFF)
+option(LEARY_OPENGL "OpenGL renderer" ON)
+
 if (WIN32)
-	set(ENV{SDL2DIR}       "${CMAKE_CURRENT_SOURCE_DIR}/ext/SDL2-2.0.4/")
-	set(ENV{GLEW_LOCATION} "${CMAKE_CURRENT_SOURCE_DIR}/ext/GLEW-1.13.0/")
+	set(ENV{SDL2DIR} "${CMAKE_CURRENT_SOURCE_DIR}/ext/SDL2-2.0.4/")
+
+	if (LEARY_OPENGL)
+		set(ENV{GLEW_LOCATION} "${CMAKE_CURRENT_SOURCE_DIR}/ext/GLEW-1.13.0/")
+	endif()
 endif()
 
 
 
-# ==================================================================================================
+#===================================================================================================
 # - Project source files
-# ==================================================================================================
+#---------------------------------------------------------------------------------------------------
 list(APPEND leary_ENGINE_CORE_SOURCE
 	${CMAKE_CURRENT_SOURCE_DIR}/engine/core/settings.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/engine/core/ecs.cpp
@@ -89,9 +96,9 @@ list(APPEND leary_GAME_SOURCE
 
 
 
-# ==================================================================================================
+#===================================================================================================
 # - Project header files
-# ==================================================================================================
+#---------------------------------------------------------------------------------------------------
 list(APPEND leary_ENGINE_CORE_HEADER
 	${CMAKE_CURRENT_SOURCE_DIR}/engine/core/settings.h
 	${CMAKE_CURRENT_SOURCE_DIR}/engine/core/ecs.h
@@ -122,10 +129,10 @@ list(APPEND leary_GAME_HEADER
 
 
 
-# ==================================================================================================
+#==================================================================================================
 # - Project source groups
-# ==================================================================================================
-source_group(Engine\\Core FILES 
+#---------------------------------------------------------------------------------------------------
+source_group(Engine\\Core FILES
 	${leary_ENGINE_CORE_SOURCE}
 	${leary_ENGINE_CORE_HEADER}
 )
@@ -147,10 +154,10 @@ source_group(Game FILES
 
 
 
-# ==================================================================================================
+#==================================================================================================
 # - Build executable
-# ==================================================================================================
-add_executable(leary 
+#---------------------------------------------------------------------------------------------------
+add_executable(leary
 	${leary_ENGINE_SOURCE} 
 	${leary_GAME_SOURCE}
 	
@@ -160,11 +167,16 @@ add_executable(leary
 
 
 
-# ==================================================================================================
+#==================================================================================================
 # - Project definitions
-# ==================================================================================================
-list(APPEND leary_DEFINITIONS_COMMON 
+#---------------------------------------------------------------------------------------------------
+list(APPEND leary_DEFINITIONS_COMMON
+	ON=1  # define ON/OFF as integers so we can pass cmake options directly to project defines and
+	OFF=0 # use them in #if preprocessor statements
+
 	GLEW_STATIC=1
+	LEARY_OPENGL=${LEARY_OPENGL}
+	LEARY_VULKAN=${LEARY_VULKAN}
 )
 
 list(APPEND leary_DEFINITIONS_DEBUG
@@ -239,9 +251,9 @@ target_compile_definitions(leary
 
 
 
-# ==================================================================================================
+#==================================================================================================
 # - Project compile options
-# ==================================================================================================
+#---------------------------------------------------------------------------------------------------
 if (MSVC)
 	list(APPEND PROJECT_COMPILE_OPTIONS
 		-Wall
@@ -274,25 +286,27 @@ target_compile_options(leary
 
 
 
-# ==================================================================================================
+#==================================================================================================
 # - External dependencies
-# ==================================================================================================
+#---------------------------------------------------------------------------------------------------
 find_package(SDL2 REQUIRED)
 if (SDL2_FOUND)
 	list(APPEND leary_LIBRARIES ${SDL2_LIBRARY})
 	list(APPEND leary_INCLUDE_DIRS ${SDL2_INCLUDE_DIR})
 endif()
 
-find_package(OpenGL REQUIRED)
-if (OPENGL_FOUND)
-	list(APPEND leary_LIBRARIES ${OPENGL_LIBRARIES})
-	list(APPEND leary_INCLUDE_DIRS ${OPENGL_INCLUDE_DIRS})
-endif()
+if (LEARY_OPENGL)
+	find_package(OpenGL REQUIRED)
+	if (OPENGL_FOUND)
+		list(APPEND leary_LIBRARIES ${OPENGL_LIBRARIES})
+		list(APPEND leary_INCLUDE_DIRS ${OPENGL_INCLUDE_DIRS})
+	endif()
 
-find_package(GLEW REQUIRED)
-if (GLEW_FOUND)
-	list(APPEND leary_LIBRARIES ${GLEW_LIBRARY})
-	list(APPEND leary_INCLUDE_DIRS ${GLEW_INCLUDE_DIR})
+	find_package(GLEW REQUIRED)
+	if (GLEW_FOUND)
+		list(APPEND leary_LIBRARIES ${GLEW_LIBRARY})
+		list(APPEND leary_INCLUDE_DIRS ${GLEW_INCLUDE_DIR})
+	endif()
 endif()
 
 if (WIN32)
@@ -302,40 +316,39 @@ endif()
 
 
 
-# ==================================================================================================
+#==================================================================================================
 # - Include directories
-# ==================================================================================================
-include_directories(
-	engine
-	ext/glm
-	ext/SOIL/include
-
-	SYSTEM
+#---------------------------------------------------------------------------------------------------
+include_directories(leary
+	PRIVATE
+	    engine
+		ext/glm
+		ext/SOIL/include
 		${leary_INCLUDE_DIRS}
 )
 
 
 
-# ==================================================================================================
+#==================================================================================================
 # - Subprojects
-# ==================================================================================================
+#---------------------------------------------------------------------------------------------------
 add_subdirectory(ext/SOIL)
 list(APPEND leary_LIBRARIES SOIL)
 
 
 
-# ==================================================================================================
+#==================================================================================================
 # - Link libraries
-# ==================================================================================================
+#---------------------------------------------------------------------------------------------------
 string(REPLACE ";" "\n---- " leary_LIBRARIES_STR "\n---- ${leary_LIBRARIES}")
 message("-- Libraries added to link step: ${leary_LIBRARIES_STR}")
 target_link_libraries(leary ${leary_LIBRARIES})
 
 
 
-# ==================================================================================================
+#==================================================================================================
 # - Post-build step
-# ==================================================================================================
+#---------------------------------------------------------------------------------------------------
 if (MSVC)
 	list(APPEND DLLs
 		${CMAKE_CURRENT_SOURCE_DIR}/ext/SDL2-2.0.4/lib/x86_64/win/SDL2.dll
