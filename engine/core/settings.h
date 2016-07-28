@@ -25,6 +25,8 @@
 #ifndef LEARY_SETTINGS_H
 #define LEARY_SETTINGS_H
 
+#include <cstdint>
+
 class Settings {
 public:
 	struct {
@@ -33,18 +35,24 @@ public:
 			int32_t height = 720;
 		} resolution;
 
-		bool fullscreen = false;
+        bool fullscreen = false;
+        bool vsync      = true;
 	} video;
 
-	static void      create(); 
-	static void      destroy();
-	static Settings* get();
+    static inline void create() { m_instance = new Settings(); }
+    static inline void destroy()
+    {
+        delete m_instance;
+        m_instance = nullptr;
+    }
+
+    static inline Settings* get() { return m_instance; }
 
 	void load(const char* filename);
-	void save(const char* filename) const;
+    void save(const char* filename) const;
 
 private:
-	static Settings *m_instance;
+    static Settings *m_instance;
 };
 
 #endif // LEARY_SETTINGS_H

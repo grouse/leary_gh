@@ -1,5 +1,5 @@
 /**
- * @file:   rendering.h
+ * @file:   window.h
  * @author: Jesper Stefansson (grouse)
  * @email:  jesper.stefansson@gmail.com
  *
@@ -22,47 +22,46 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#ifndef LEARY_RENDERING_H
-#define LEARY_RENDERING_H
+#ifndef LEARY_GAME_WINDOW_H
+#define LEARY_GAME_WINDOW_H
 
 #include <GL/glew.h>
-#include <SDL_opengl.h>
 
-#include "glm/glm.hpp"
+#include <SDL.h>
+#include <SDL_syswm.h>
 
-#include "window.h"
-#include "shader.h"
-#include "core/ecs.h"
+#include <string>
 
-class Rendering {
+class GameWindow {
 public:
-	static Rendering* get() { return m_instance; }
-	static void create();
-	static void destroy();
+    void create(const char* title, uint32_t width, uint32_t height, bool fullscreen);
+    void destroy();
 
-	void update();
+#if LEARY_OPENGL
+    void swap();
+#endif // LEARY_OPENGL
+
+    inline const SDL_Window*  getWindow() const { return m_window; }
+    inline       SDL_Window*  getWindow()       { return m_window; }
+
+    inline uint32_t           getWidth()  const { return m_width; }
+    inline uint32_t           getHeight() const { return m_height; }
+    inline const std::string& getTitle()  const { return m_title; }
+
+    inline void               getSysWMInfo(SDL_SysWMinfo *syswm) const
+    {
+        SDL_VERSION(&syswm->version);
+        SDL_GetWindowWMInfo(m_window, syswm);
+    }
+
 
 private:
-	static Rendering* m_instance;
+    SDL_Window*   m_window;
 
-	Rendering();
-	~Rendering();
-
-	Window* m_window;
-
-	GLuint vao;
-	Mesh test_mesh;
-
-	Program m_program;
-
-	struct {
-		glm::mat4 projection;
-		glm::mat4 view;
-
-		glm::vec3 position;
-		glm::vec3 forward;
-		glm::vec3 up;
-	} camera;
+    uint32_t      m_width;
+    uint32_t      m_height;
+    std::string   m_title;
 };
 
-#endif // LEARY_RENDERING_H
+
+#endif // LEARY_GAME_WINDOW_H

@@ -25,8 +25,6 @@
 #ifndef LEARY_ENVIRONMENT_H
 #define LEARY_ENVIRONMENT_H
 
-#include "prefix.h"
-
 #include <string>
 
 enum class eEnvironmentFolder {

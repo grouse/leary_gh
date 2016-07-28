@@ -1,5 +1,5 @@
 /**
- * @file:   window.h
+ * @file:   rendering.cpp
  * @author: Jesper Stefansson (grouse)
  * @email:  jesper.stefansson@gmail.com
  *
@@ -22,26 +22,26 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#ifndef LEARY_WINDOW_H
-#define LEARY_WINDOW_H
+#ifndef LEARY_SHADER_H
+#define LEARY_SHADER_H
 
-#include <GL/glew.h>
+#include <cstdint>
+#include <cstring>
 
-#include <SDL.h>
-#include <SDL_opengl.h>
+struct OpenGLShader {
+	uint32_t id;
+	uint32_t type;
 
-class Window {
-public:
-	Window(const char* title, uint32_t width, uint32_t height);
-	~Window();
-
-
-	void swap();
-
-private:
-	SDL_Window* m_window;
-	SDL_GLContext m_context;
+	bool create(uint32_t type, const char* const filename);
+	void destroy();
 };
 
+struct OpenGLProgram {
+	uint32_t id;
+	int32_t  mvp_location;
 
-#endif //LEARY_WINDOW_H
+    bool create(OpenGLShader* shaders, size_t num_shaders);
+	void destroy();
+};
+
+#endif // LEARY_SHADER_H

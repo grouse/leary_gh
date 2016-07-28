@@ -37,7 +37,7 @@
 #if LEARY_WIN
 #include <io.h>
 
-#include <Windows.h>
+#include <GameWindows.h>
 #include <Shlwapi.h>
 #include <Shlobj.h>
 
@@ -45,6 +45,8 @@
 #endif
 
 #include <memory>
+
+#include "debug.h"
 
 const char* get_data_base_path(void);
 const char* get_preferences_base_path(void);

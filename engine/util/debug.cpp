@@ -22,11 +22,10 @@
  * 3. This notice may not be removed or altered from any source distribution.
 **/
 
-#include "prefix.h"
 #include "debug.h"
 
 #include <stdarg.h>
-#include <stdio.h>
+#include <cstdio>
 
 #define DEBUG_BUFFER_SIZE (256)
 
@@ -38,20 +37,20 @@ namespace debug
                          const char*     file,
                          const char*     msg)
     {
-#if LEARY_LOG_ENABLE
+#if LEARY_LOG_ENABLE || 1
         char c;
         switch (type) {
 		case eLogType::Info:
-            c = (LEARY_LOG_FILTER & eLogType::Info)    ? 'I' : '?';
+            c = 'I';
             break;
         case eLogType::Error:
-            c = (LEARY_LOG_FILTER & eLogType::Error)   ? 'E' : '?';
+            c = 'E';
             break;
         case eLogType::Warning:
-            c = (LEARY_LOG_FILTER & eLogType::Warning) ? 'W' : '?';
+            c = 'W';
             break;
         case eLogType::Assert:
-            c = (LEARY_LOG_FILTER & eLogType::Assert)  ? 'A' : '?';
+            c = 'A';
             break;
         default:
             c = '?';
@@ -60,7 +59,8 @@ namespace debug
 
         // Don't log if unknown, happens when filtering is enabled
         if (c == '?') return;
-        ::printf("[%c] %s in %s:%d - %s\n", c, func, file, line, msg);
+        std::printf("[%c] %s in %s:%d - %s\n", c, func, file, line, msg);
+        std::fflush(stdout);
 #endif
     }
 
@@ -70,7 +70,7 @@ namespace debug
                 const char*     file,
                 const char*     fmt, ...)
     {
-#if LEARY_LOG_ENABLE
+#if LEARY_LOG_ENABLE || 1
         va_list args;
         va_start(args, fmt);
 
@@ -89,7 +89,7 @@ namespace debug
                 const char*      file,
                 const char*      fmt, ...)
     {
-#if LEARY_LOG_ENABLE
+#if LEARY_LOG_ENABLE || 1
         va_list args;
         va_start(args, fmt);
 

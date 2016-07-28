@@ -22,7 +22,7 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include "shader.h"
+#include "opengl_shader.h"
 
 #include <string>
 #include <fstream>
@@ -31,8 +31,9 @@
 #include "SDL_opengl.h"
 
 #include "util/environment.h"
+#include "util/debug.h"
 
-bool Program::create(Shader* shaders, size_t num_shaders)
+bool OpenGLProgram::create(OpenGLShader* shaders, size_t num_shaders)
 {
 	id = glCreateProgram();
 	
@@ -66,12 +67,12 @@ bool Program::create(Shader* shaders, size_t num_shaders)
 	return false;
 }
 
-void Program::destroy()
+void OpenGLProgram::destroy()
 {
 	glDeleteProgram(id);
 }
 
-bool Shader::create(uint32_t type, const char* const filename)
+bool OpenGLShader::create(uint32_t type, const char* const filename)
 {
 	std::string file_path = Environment::resolvePath(eEnvironmentFolder::GameData, "shaders/") +
 		                    filename;
@@ -125,7 +126,7 @@ bool Shader::create(uint32_t type, const char* const filename)
 	return false;
 }
 
-void Shader::destroy()
+void OpenGLShader::destroy()
 {
 	glDeleteShader(id);
 }

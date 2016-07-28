@@ -22,14 +22,14 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include "prefix.h"
 #include "settings.h"
-
-#include "util/environment.h"
 
 #include <cstdio>
 #include <fstream>
 #include <unordered_map>
+
+#include "util/debug.h"
+#include "util/environment.h"
 
 Settings *Settings::m_instance = nullptr;
 
@@ -46,7 +46,7 @@ inline void ini_save_value(FILE* const       file,
                            const char* const key, 
                            const bool&       value)
 {
-	ini_save_value(file, key, static_cast<const int32_t&>(value));
+    ini_save_value(file, key, value ? 1 : 0);
 }
 
 inline void ini_load_value(const ini_map_t&  values, 
@@ -69,24 +69,8 @@ inline void ini_load_value(const ini_map_t&  values,
 		return;
 
 	uint8_t tmp;
-	sscanf(iter->second.c_str(), "%c", &tmp);
+    sscanf(iter->second.c_str(), "%d", &tmp);
 	*value = tmp ? true : false;
-}
-void Settings::create()
-{
-	if (m_instance == nullptr)
-		m_instance = new Settings();
-}
-
-void Settings::destroy()
-{
-	if (m_instance != nullptr)
-		delete m_instance;
-}
-
-Settings* Settings::get() 
-{
-	return m_instance;
 }
 
 void Settings::load(const char* filename) 
@@ -116,6 +100,7 @@ void Settings::load(const char* filename)
 	ini_load_value(values, "video.resolution.width",  &video.resolution.width);
 	ini_load_value(values, "video.resolution.height", &video.resolution.height);
 	ini_load_value(values, "video.fullscreen",        &video.fullscreen);
+    ini_load_value(values, "video.vsync",             &video.vsync);
 
 	stream.close();
 }
@@ -130,6 +115,7 @@ void Settings::save(const char* filename) const
 	ini_save_value(file, "video.resolution.width",  video.resolution.width);
 	ini_save_value(file, "video.resolution.height", video.resolution.height);
 	ini_save_value(file, "video.fullscreen",        video.fullscreen);
+    ini_save_value(file, "video.vsync",             video.vsync);
 
 	fclose(file);
 }

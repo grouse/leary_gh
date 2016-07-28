@@ -51,8 +51,9 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
-option(LEARY_VULKAN "Vulkan renderer" OFF)
-option(LEARY_OPENGL "OpenGL renderer" ON)
+option(LEARY_VULKAN     "Vulkan renderer"           OFF)
+option(LEARY_OPENGL     "OpenGL renderer"           ON)
+option(LEARY_LOG_ENABLE "Enable game debug logging" ON)
 
 if (WIN32)
 	set(ENV{SDL2DIR} "${CMAKE_CURRENT_SOURCE_DIR}/ext/SDL2-2.0.4/")
@@ -73,11 +74,22 @@ list(APPEND leary_ENGINE_CORE_SOURCE
 )
 
 list(APPEND leary_ENGINE_RENDER_SOURCE
-	${CMAKE_CURRENT_SOURCE_DIR}/engine/render/rendering.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/engine/render/texture.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/engine/render/shader.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/engine/render/window.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/engine/render/game_window.cpp
 )
+
+if (LEARY_OPENGL)
+	list(APPEND leary_ENGINE_RENDER_SOURCE
+		${CMAKE_CURRENT_SOURCE_DIR}/engine/render/opengl/opengl_device.cpp
+		${CMAKE_CURRENT_SOURCE_DIR}/engine/render/opengl/opengl_shader.cpp
+		${CMAKE_CURRENT_SOURCE_DIR}/engine/render/texture.cpp
+	)
+endif()
+
+if (LEARY_VULKAN)
+	list(APPEND leary_ENGINE_RENDER_SOURCE
+		${CMAKE_CURRENT_SOURCE_DIR}/engine/render/vulkan/vulkan_device.cpp
+	)
+endif()
 
 list(APPEND leary_ENGINE_UTIL_SOURCE
 	${CMAKE_CURRENT_SOURCE_DIR}/engine/util/debug.cpp
@@ -105,15 +117,25 @@ list(APPEND leary_ENGINE_CORE_HEADER
 )
 
 list(APPEND leary_ENGINE_RENDER_HEADER
-	${CMAKE_CURRENT_SOURCE_DIR}/engine/render/rendering.h
-	${CMAKE_CURRENT_SOURCE_DIR}/engine/render/texture.h
-	${CMAKE_CURRENT_SOURCE_DIR}/engine/render/shader.h
-	${CMAKE_CURRENT_SOURCE_DIR}/engine/render/window.h
+	${CMAKE_CURRENT_SOURCE_DIR}/engine/render/game_window.h
 )
+
+if (LEARY_OPENGL)
+	list(APPEND leary_ENGINE_RENDER_HEADER
+		${CMAKE_CURRENT_SOURCE_DIR}/engine/render/opengl/opengl_device.h
+		${CMAKE_CURRENT_SOURCE_DIR}/engine/render/opengl/opengl_shader.h
+		${CMAKE_CURRENT_SOURCE_DIR}/engine/render/texture.h
+	)
+endif()
+
+if (LEARY_VULKAN)
+	list(APPEND leary_ENGINE_RENDER_HEADER
+		${CMAKE_CURRENT_SOURCE_DIR}/engine/render/vulkan/vulkan_device.h
+	)
+endif()
 
 list(APPEND leary_ENGINE_UTIL_HEADER
 	${CMAKE_CURRENT_SOURCE_DIR}/engine/util/debug.h
-	${CMAKE_CURRENT_SOURCE_DIR}/engine/util/macros.h
 	${CMAKE_CURRENT_SOURCE_DIR}/engine/util/environment.h
 )
 
@@ -124,7 +146,6 @@ list(APPEND leary_ENGINE_HEADER
 )
 
 list(APPEND leary_GAME_HEADER
-	${CMAKE_CURRENT_SOURCE_DIR}/engine/prefix.h
 )
 
 
@@ -267,7 +288,8 @@ if (MSVC)
 else()
 	list(APPEND PROJECT_COMPILE_OPTIONS
 		-std=c++11
-		-Weverything
+		-Wall
+		-Wextra
 
 	    -Wno-c++98-compat
 	    -Wno-c++98-compat-pedantic
@@ -307,6 +329,14 @@ if (LEARY_OPENGL)
 		list(APPEND leary_LIBRARIES ${GLEW_LIBRARY})
 		list(APPEND leary_INCLUDE_DIRS ${GLEW_INCLUDE_DIR})
 	endif()
+endif()
+
+if (LEARY_VULKAN)
+	list(APPEND leary_LIBRARIES
+		/usr/lib/libvulkan.so
+		X11-xcb
+	)
+	list(APPEND leary_INCLUDE_DIRS /usr/include/vulkan)
 endif()
 
 if (WIN32)
