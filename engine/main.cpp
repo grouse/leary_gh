@@ -28,7 +28,6 @@
 
 #include "render/game_window.h"
 
-#include "util/macros.h"
 #include "util/debug.h"
 
 #if LEARY_OPENGL
