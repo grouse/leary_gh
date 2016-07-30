@@ -37,7 +37,7 @@ namespace debug
                          const char*     file,
                          const char*     msg)
     {
-#if LEARY_LOG_ENABLE || 1
+#if LEARY_LOG_ENABLE
         char c;
         switch (type) {
 		case eLogType::Info:
@@ -70,7 +70,7 @@ namespace debug
                 const char*     file,
                 const char*     fmt, ...)
     {
-#if LEARY_LOG_ENABLE || 1
+#if LEARY_LOG_ENABLE
         va_list args;
         va_start(args, fmt);
 
