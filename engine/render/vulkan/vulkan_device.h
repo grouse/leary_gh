@@ -14,7 +14,10 @@ public:
     void present();
 
 private:
-    VkInstance       m_instance;
+	uint32_t         m_width;
+	uint32_t         m_height;
+
+	VkInstance       m_instance;
 
     // Device and its queue(s)
     VkDevice         m_device;
@@ -22,7 +25,7 @@ private:
     uint32_t         m_queueFamilyIndex;
 
     // Physical device
-    VkPhysicalDevice  m_physicalDevice;
+	VkPhysicalDevice  m_physicalDevice;
 
     // Swapchain
     VkSurfaceKHR     m_surface;
@@ -38,7 +41,33 @@ private:
 
     VkCommandBuffer  m_commandBuffers[2];
     VkCommandBuffer  m_commandBufferInit;
-    VkCommandBuffer  m_commandBufferPresent;
+	VkCommandBuffer  m_commandBufferPresent;
+
+	// Depth Buffer
+	VkFormat         m_depthFormat;
+	VkImage          m_depthImage;
+	VkImageView      m_depthImageView;
+	VkDeviceMemory   m_depthMemory;
+
+	// Render pass
+	VkRenderPass     m_renderPass;
+
+	// Framebuffer
+	VkFramebuffer   *m_framebuffers;
+	uint32_t         m_framebuffersCount;
+
+	// Vertex buffer
+	VkBuffer         m_vertexBuffer;
+	VkDeviceMemory   m_vertexMemory;
+
+	// Pipeline
+	VkPipeline       m_pipeline;
+	VkPipelineLayout m_pipelineLayout;
+
+	VkShaderModule   m_vertexShader;
+	VkShaderModule   m_fragmentShader;
+
+
 };
 
 #endif // LEARY_VULKAN_DEVICE_H
