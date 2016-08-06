@@ -34,33 +34,33 @@
 
 class GameWindow {
 public:
-    void create(const char* title, uint32_t width, uint32_t height, bool fullscreen);
-    void destroy();
+	void create(const char* title, uint32_t width, uint32_t height, bool fullscreen);
+	void destroy();
 
 #if LEARY_OPENGL
-    void swap();
+	void swap();
 #endif // LEARY_OPENGL
 
-    inline const SDL_Window*  getWindow() const { return m_window; }
-    inline       SDL_Window*  getWindow()       { return m_window; }
+	inline const SDL_Window*  getWindow() const { return m_window; }
+	inline       SDL_Window*  getWindow()       { return m_window; }
 
-    inline uint32_t           getWidth()  const { return m_width; }
-    inline uint32_t           getHeight() const { return m_height; }
-    inline const std::string& getTitle()  const { return m_title; }
+	inline uint32_t           getWidth()  const { return m_width; }
+	inline uint32_t           getHeight() const { return m_height; }
+	inline const std::string& getTitle()  const { return m_title; }
 
-    inline void               getSysWMInfo(SDL_SysWMinfo *syswm) const
-    {
-        SDL_VERSION(&syswm->version);
-        SDL_GetWindowWMInfo(m_window, syswm);
-    }
+	inline void               getSysWMInfo(SDL_SysWMinfo *syswm) const
+	{
+		SDL_VERSION(&syswm->version);
+		SDL_GetWindowWMInfo(m_window, syswm);
+	}
 
 
 private:
-    SDL_Window*   m_window;
+	SDL_Window*   m_window;
 
-    uint32_t      m_width;
-    uint32_t      m_height;
-    std::string   m_title;
+	uint32_t      m_width;
+	uint32_t      m_height;
+	std::string   m_title;
 };
 
 

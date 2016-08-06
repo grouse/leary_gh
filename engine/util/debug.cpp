@@ -2,17 +2,17 @@
  * @file:   debug.cpp
  * @author: Jesper Stefansson (grouse)
  * @email:  jesper.stefansson@gmail.com
- * 
+ *
  * Copyright (c) 2015-2016 Jesper Stefansson
- * 
+ *
  * This software is provided 'as-is', without any express or implied
  * warranty. In no event will the authors be held liable for any damages
  * arising from the use of this software.
- * 
+ *
  * Permission is granted to anyone to use this software for any purpose,
  * including commercial applications, and to alter it and redistribute it
  * freely, subject to the following restrictions:
- * 
+ *
  * 1. The origin of this software must not be misrepresented; you must not
  *    claim that you wrote the original software. If you use this software
  *    in a product, an acknowledgement in the product documentation would be
@@ -31,74 +31,74 @@
 
 namespace debug
 {
-    static void print_internal(eLogType         type,
-                         const char*     func,
-                         const uint32_t& line,
-                         const char*     file,
-                         const char*     msg)
-    {
+	static void print_internal(eLogType        type,
+	                           const char*     func,
+	                           const uint32_t& line,
+	                           const char*     file,
+	                           const char*     msg)
+	{
 #if LEARY_LOG_ENABLE
-        char c;
-        switch (type) {
+		char c;
+		switch (type) {
 		case eLogType::Info:
-            c = 'I';
-            break;
-        case eLogType::Error:
-            c = 'E';
-            break;
-        case eLogType::Warning:
-            c = 'W';
-            break;
-        case eLogType::Assert:
-            c = 'A';
-            break;
-        default:
-            c = '?';
-            break;
-        }
+			c = 'I';
+			break;
+		case eLogType::Error:
+			c = 'E';
+			break;
+		case eLogType::Warning:
+			c = 'W';
+			break;
+		case eLogType::Assert:
+			c = 'A';
+			break;
+		default:
+			c = '?';
+			break;
+		}
 
-        // Don't log if unknown, happens when filtering is enabled
-        if (c == '?') return;
-        std::printf("[%c] %s in %s:%d - %s\n", c, func, file, line, msg);
-        std::fflush(stdout);
+		// Don't log if unknown, happens when filtering is enabled
+		if (c == '?') return;
+		std::printf("[%c] %s in %s:%d - %s\n", c, func, file, line, msg);
+		std::fflush(stdout);
 #endif
-    }
+	}
 
 
-    void printf(const char*     func,
-                const uint32_t& line,
-                const char*     file,
-                const char*     fmt, ...)
-    {
+	void printf(const char*     func,
+	            const uint32_t& line,
+	            const char*     file,
+	            const char*     fmt, ...)
+	{
 #if LEARY_LOG_ENABLE
-        va_list args;
-        va_start(args, fmt);
+		va_list args;
+		va_start(args, fmt);
 
-        char buffer[DEBUG_BUFFER_SIZE];
-        vsprintf(buffer, fmt, args);
+		char buffer[DEBUG_BUFFER_SIZE];
+		vsprintf(buffer, fmt, args);
 
-        va_end(args);
+		va_end(args);
 
-        print_internal(eLogType::Info, func, line, file, buffer);
+		print_internal(eLogType::Info, func, line, file, buffer);
 #endif
-    }
+	}
 
-    void printf(eLogType         type,
-                const char*      func,
-                const uint32_t&  line,
-                const char*      file,
-                const char*      fmt, ...)
-    {
+	void printf(eLogType         type,
+	            const char*      func,
+	            const uint32_t&  line,
+	            const char*      file,
+	            const char*      fmt, ...)
+	{
 #if LEARY_LOG_ENABLE || 1
-        va_list args;
-        va_start(args, fmt);
+		va_list args;
+		va_start(args, fmt);
 
-        char buffer[DEBUG_BUFFER_SIZE];
-        vsprintf(buffer, fmt, args);
+		char buffer[DEBUG_BUFFER_SIZE];
+		vsprintf(buffer, fmt, args);
 
-        va_end(args);
+		va_end(args);
 
-        print_internal(type, func, line, file, buffer);
+		print_internal(type, func, line, file, buffer);
 #endif
-    }
+	}
 }

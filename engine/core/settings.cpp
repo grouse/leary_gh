@@ -36,21 +36,21 @@ Settings *Settings::m_instance = nullptr;
 typedef std::unordered_map<std::string, std::string> ini_map_t;
 
 inline void ini_save_value(FILE* const       file, 
-                           const char* const key, 
+                           const char* const key,
                            const int32_t&    value)
 {
 	fprintf(file, "%s = %d\n", key, value);
 }
 
 inline void ini_save_value(FILE* const       file, 
-                           const char* const key, 
+                           const char* const key,
                            const bool&       value)
 {
-    ini_save_value(file, key, value ? 1 : 0);
+	ini_save_value(file, key, value ? 1 : 0);
 }
 
 inline void ini_load_value(const ini_map_t&  values, 
-                           const char* const key, 
+                           const char* const key,
                            int32_t* const    value)
 {
 	const auto iter = values.find(key);
@@ -61,7 +61,7 @@ inline void ini_load_value(const ini_map_t&  values,
 }
 
 inline void ini_load_value(const ini_map_t&  values, 
-                           const char* const key, 
+                           const char* const key,
                            bool* const       value)
 {
 	const auto iter = values.find(key);
@@ -69,7 +69,7 @@ inline void ini_load_value(const ini_map_t&  values,
 		return;
 
 	uint8_t tmp;
-    sscanf(iter->second.c_str(), "%d", &tmp);
+	sscanf(iter->second.c_str(), "%d", &tmp);
 	*value = tmp ? true : false;
 }
 
@@ -100,7 +100,7 @@ void Settings::load(const char* filename)
 	ini_load_value(values, "video.resolution.width",  &video.resolution.width);
 	ini_load_value(values, "video.resolution.height", &video.resolution.height);
 	ini_load_value(values, "video.fullscreen",        &video.fullscreen);
-    ini_load_value(values, "video.vsync",             &video.vsync);
+	ini_load_value(values, "video.vsync",             &video.vsync);
 
 	stream.close();
 }
@@ -115,7 +115,7 @@ void Settings::save(const char* filename) const
 	ini_save_value(file, "video.resolution.width",  video.resolution.width);
 	ini_save_value(file, "video.resolution.height", video.resolution.height);
 	ini_save_value(file, "video.fullscreen",        video.fullscreen);
-    ini_save_value(file, "video.vsync",             video.vsync);
+	ini_save_value(file, "video.vsync",             video.vsync);
 
 	fclose(file);
 }

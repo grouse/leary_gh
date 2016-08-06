@@ -32,47 +32,47 @@
 
 void GameWindow::create(const char* title, uint32_t width, uint32_t height, bool fullscreen)
 {
-    m_width  = width;
-    m_height = height;
-    m_title  = title;
+	m_width  = width;
+	m_height = height;
+	m_title  = title;
 
 	LEARY_ASSERT(width  <= std::numeric_limits<int32_t>::max());
-    LEARY_ASSERT(height <= std::numeric_limits<int32_t>::max());
+	LEARY_ASSERT(height <= std::numeric_limits<int32_t>::max());
 
-    uint32_t flags = 0;
+	uint32_t flags = 0;
 
 #if LEARY_OPENGL
-    flags |= SDL_WINDOW_OPENGL;
+	flags |= SDL_WINDOW_OPENGL;
 #endif // LEARY_OPENGL
 
 #if 0
-    if (fullscreen)
-        flags |= SDL_WINDOW_FULLSCREEN;
+	if (fullscreen)
+		flags |= SDL_WINDOW_FULLSCREEN;
 #endif
 
-    // initialise SDL
-    m_window = SDL_CreateWindow(title,
-                                SDL_WINDOWPOS_UNDEFINED,
-                                SDL_WINDOWPOS_UNDEFINED,
-                                static_cast<int32_t>(width),
-                                static_cast<int32_t>(height),
-                                flags);
+	// initialise SDL
+	m_window = SDL_CreateWindow(title,
+	                            SDL_WINDOWPOS_UNDEFINED,
+	                            SDL_WINDOWPOS_UNDEFINED,
+	                            static_cast<int32_t>(width),
+	                            static_cast<int32_t>(height),
+	                            flags);
 
 	LEARY_ASSERT_PRINTF(m_window != nullptr,
-                        "Failed to create window: %s", SDL_GetError());
+	                    "Failed to create window: %s", SDL_GetError());
 }
 
 void GameWindow::destroy()
 {
-    SDL_DestroyWindow(m_window);
+	SDL_DestroyWindow(m_window);
 }
 
 #if LEARY_OPENGL
 void GameWindow::swap()
 {
-    // @TODO: move to opengl_swapchain (? possibly device, depends how vulkan ends up being
-    // structured
-    SDL_GL_SwapWindow(m_window);
+	// @TODO: move to opengl_swapchain (? possibly device, depends how vulkan ends up being
+	// structured
+	SDL_GL_SwapWindow(m_window);
 }
 #endif // LEARY_OPENGL
 

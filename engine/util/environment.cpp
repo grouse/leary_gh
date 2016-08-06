@@ -73,7 +73,7 @@ std::string Environment::resolvePath(eEnvironmentFolder type, const char* filena
 	}
 	default:
 		LEARY_LOGF(eLogType::Warning,
-		          "Unhandled Environment Folder type: %d", type);
+		           "Unhandled Environment Folder type: %d", type);
 		break;
 	}
 
@@ -130,7 +130,7 @@ void Environment::createDirectory(const char* path)
 	case ERROR_CANCELLED:
 		error = "ERROR_CANCELLED";
 		break;
-	default: 
+	default:
 		error = "Unknown error";
 		break;
 	}
@@ -150,7 +150,7 @@ void Environment::createDirectory(const char* path)
 			*p = '\0';
 			mkdir(tmp, 0755);
 			*p = '/';
-		}	
+		}
 	}
 
 	int result = mkdir(tmp, 0775);
@@ -195,7 +195,7 @@ void Environment::createDirectory(const char* path)
 	default:
 		error = "Unknown error";
 		break;
-	} 
+	}
 
 	LEARY_ASSERT_PRINT(result == 0, error);
 #endif
@@ -244,10 +244,10 @@ const char* get_preferences_base_path()
 {
 #if LEARY_WIN
 	LPWSTR path    = NULL;
-	HRESULT result = SHGetKnownFolderPath(FOLDERID_LocalAppData, 
-		                                  KF_FLAG_CREATE, 
-		                                  NULL, 
-		                                  &path);
+	HRESULT result = SHGetKnownFolderPath(FOLDERID_LocalAppData,
+	                                      KF_FLAG_CREATE,
+	                                      NULL,
+	                                      &path);
 
 	LEARY_ASSERT(result == S_OK);
 	LEARY_UNUSED(result);

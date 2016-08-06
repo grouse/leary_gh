@@ -35,7 +35,7 @@ enum class eEnvironmentFolder {
 
 class Environment {
 public:
-	static std::string resolvePath(eEnvironmentFolder type, 
+	static std::string resolvePath(eEnvironmentFolder type,
 	                               const char* filename);
 
 	static bool directoryExists(const char* path);

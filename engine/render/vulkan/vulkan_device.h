@@ -8,10 +8,10 @@ class GameWindow;
 
 class VulkanDevice {
 public:
-    void create(const GameWindow& window);
-    void destroy();
+	void create(const GameWindow& window);
+	void destroy();
 
-    void present();
+	void present();
 
 private:
 	uint32_t         m_width;
@@ -19,28 +19,28 @@ private:
 
 	VkInstance       m_instance;
 
-    // Device and its queue(s)
-    VkDevice         m_device;
-    VkQueue          m_queue;
-    uint32_t         m_queueFamilyIndex;
+	// Device and its queue(s)
+	VkDevice         m_device;
+	VkQueue          m_queue;
+	uint32_t         m_queueFamilyIndex;
 
-    // Physical device
+	// Physical device
 	VkPhysicalDevice  m_physicalDevice;
 
-    // Swapchain
-    VkSurfaceKHR     m_surface;
-    VkFormat         m_surfaceFormat;
-    VkSwapchainKHR   m_swapchain;
+	// Swapchain
+	VkSurfaceKHR     m_surface;
+	VkFormat         m_surfaceFormat;
+	VkSwapchainKHR   m_swapchain;
 
-    uint32_t         m_swapchainImagesCount;
-    VkImage         *m_swapchainImages;
-    VkImageView     *m_swapchainImageViews;
+	uint32_t         m_swapchainImagesCount;
+	VkImage         *m_swapchainImages;
+	VkImageView     *m_swapchainImageViews;
 
-    // Command pool and buffers
-    VkCommandPool    m_commandPool;
+	// Command pool and buffers
+	VkCommandPool    m_commandPool;
 
-    VkCommandBuffer  m_commandBuffers[2];
-    VkCommandBuffer  m_commandBufferInit;
+	VkCommandBuffer  m_commandBuffers[2];
+	VkCommandBuffer  m_commandBufferInit;
 	VkCommandBuffer  m_commandBufferPresent;
 
 	// Depth Buffer

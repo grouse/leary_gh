@@ -31,12 +31,12 @@
 #include "util/debug.h"
 
 #if LEARY_OPENGL
-    #include "render/opengl/opengl_device.h"
-    #include "render/texture.h"
+#include "render/opengl/opengl_device.h"
+#include "render/texture.h"
 #endif // LEARY_OPENGL
 
 #if LEARY_VULKAN
-    #include "render/vulkan/vulkan_device.h"
+#include "render/vulkan/vulkan_device.h"
 #endif // LEARY_VULKAN
 
 int main(int, char *[]) 
@@ -45,28 +45,28 @@ int main(int, char *[])
 	LEARY_UNUSED(result);
 	LEARY_ASSERT_PRINTF(result == 0, "Failed to initialise SDL2 %s", SDL_GetError());
 
-    Settings::create();
+	Settings::create();
 
-    Settings *settings = Settings::get();
-    settings->load("settings.ini");
+	Settings *settings = Settings::get();
+	settings->load("settings.ini");
 
-    GameWindow game_window;
-    game_window.create("leary",
-                       settings->video.resolution.width,
-                       settings->video.resolution.height,
-                       settings->video.fullscreen);
+	GameWindow game_window;
+	game_window.create("leary",
+	                   settings->video.resolution.width,
+	                   settings->video.resolution.height,
+	                   settings->video.fullscreen);
 
 #if LEARY_OPENGL
-    OpenGLDevice opengl_device;
-    opengl_device.create(game_window);
+	OpenGLDevice opengl_device;
+	opengl_device.create(game_window);
 
-    TextureManager::create();
-    TextureManager::get()->init();
+	TextureManager::create();
+	TextureManager::get()->init();
 #endif // LEARY_OPENGL
 
 #if LEARY_VULKAN
-    VulkanDevice vulkan_device;
-    vulkan_device.create(game_window);
+	VulkanDevice vulkan_device;
+	vulkan_device.create(game_window);
 #endif // LEARY_VULKAN
 
 	uint32_t lastTime = SDL_GetTicks();
@@ -77,17 +77,17 @@ int main(int, char *[])
 	bool quit = false;
 	while (!quit) {
 		nbFrames++;
-        const uint32_t currentTime = SDL_GetTicks();
-        const uint32_t frameTime   = lastTime - currentTime;
+		const uint32_t currentTime = SDL_GetTicks();
+		const uint32_t frameTime   = lastTime - currentTime;
 
-        if (frameTime >= 1000) {
-            if (logFrameTime) {
-                LEARY_LOGF(eLogType::Info, "%d fps, %f ms/frame", nbFrames, 1000.0 / nbFrames);
-            }
+		if (frameTime >= 1000) {
+			if (logFrameTime) {
+				LEARY_LOGF(eLogType::Info, "%d fps, %f ms/frame", nbFrames, 1000.0 / nbFrames);
+			}
 
-            nbFrames = 0;
-            lastTime += 1000;
-        }
+			nbFrames = 0;
+			lastTime += 1000;
+		}
 
 		SDL_Event event;
 		while (SDL_PollEvent(&event)) {
@@ -107,29 +107,29 @@ int main(int, char *[])
 						LEARY_LOG(eLogType::Info, "Turned frametime logging: off");
 					break;
 				}
-            }
-        }
+			}
+		}
 
 #if LEARY_VULKAN
-        vulkan_device.present();
+		vulkan_device.present();
 #endif
 
 #if LEARY_OPENGL
-        opengl_device.present();
+		opengl_device.present();
 #endif
 
 	}
 
 #if LEARY_OPENGL
-    TextureManager::destroy();
-    opengl_device.destroy();
+	TextureManager::destroy();
+	opengl_device.destroy();
 #endif // LEARY_OPENGL
 
 #if LEARY_VULKAN
-    vulkan_device.destroy();
+	vulkan_device.destroy();
 #endif
 
-    game_window.destroy();
+	game_window.destroy();
 
 	Settings::get()->save("settings.ini");
 	Settings::destroy();
