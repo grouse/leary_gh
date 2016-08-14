@@ -5,6 +5,19 @@
 #include <vulkan.h>
 
 class GameWindow;
+class VulkanDevice;
+
+struct VulkanBuffer {
+	size_t               size;
+
+	VkBuffer             vk_buffer;
+	VkDeviceMemory       vk_memory;
+
+	VulkanDevice*        device;
+
+	void create(VulkanDevice* device, VkBufferUsageFlags usage, size_t size, uint8_t* data);
+	void destroy();
+};
 
 class VulkanDevice {
 public:
@@ -13,7 +26,6 @@ public:
 
 	void present();
 
-private:
 	uint32_t         m_width;
 	uint32_t         m_height;
 
@@ -25,7 +37,9 @@ private:
 	uint32_t         m_queueFamilyIndex;
 
 	// Physical device
-	VkPhysicalDevice  m_physicalDevice;
+	VkPhysicalDevice                 m_physicalDevice;
+	VkPhysicalDeviceMemoryProperties memory_properties;
+
 
 	// Swapchain
 	VkSurfaceKHR     m_surface;
@@ -44,7 +58,6 @@ private:
 	VkCommandBuffer  m_commandBufferPresent;
 
 	// Depth Buffer
-	VkFormat         m_depthFormat;
 	VkImage          m_depthImage;
 	VkImageView      m_depthImageView;
 	VkDeviceMemory   m_depthMemory;
@@ -57,8 +70,7 @@ private:
 	uint32_t         m_framebuffersCount;
 
 	// Vertex buffer
-	VkBuffer         m_vertexBuffer;
-	VkDeviceMemory   m_vertexMemory;
+	VulkanBuffer     vertex_buffer;
 
 	// Pipeline
 	VkPipeline       m_pipeline;

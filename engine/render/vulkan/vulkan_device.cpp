@@ -17,12 +17,9 @@
 
 namespace
 {
-	int32_t find_memory_type_index(const VkPhysicalDeviceMemoryProperties properties,
+	uint32_t find_memory_type_index(const VkPhysicalDeviceMemoryProperties properties,
 	                               const uint32_t                         type_bits,
 	                               const VkMemoryPropertyFlags            req_properties);
-
-	const char* VERTEX_SHADER_FILENAME   = "vertex.spirv";
-	const char* FRAGMENT_SHADER_FILENAME = "fragment.spirv";
 
 	constexpr int VERTEX_INPUT_BINDING = 0;	// The Vertex Input Binding for our vertex buffer.
 
@@ -36,6 +33,60 @@ namespace
 	    -0.5f,  0.5f,  0.0f,  0.8f, 0.1f, 0.1f,
 	    0.0f, -0.5f,  0.0f,  0.1f, 0.1f, 0.8f,
 	};
+}
+
+
+void VulkanBuffer::create(VulkanDevice* device, VkBufferUsageFlags usage, size_t size, uint8_t* data)
+{
+	this->size   = size;
+	this->device = device;
+	
+	VkBufferCreateInfo create_info;
+	create_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	create_info.pNext = nullptr;
+	create_info.flags = 0;
+	create_info.size  = size;
+	create_info.usage = usage;
+	create_info.sharingMode           = VK_SHARING_MODE_EXCLUSIVE;
+	create_info.queueFamilyIndexCount = 0;
+	create_info.pQueueFamilyIndices   = nullptr;
+
+	VkResult result = vkCreateBuffer(device->m_device, &create_info, nullptr, &vk_buffer);
+	LEARY_ASSERT(result == VK_SUCCESS);
+
+	VkMemoryRequirements memory_requirements;
+	vkGetBufferMemoryRequirements(device->m_device, vk_buffer, &memory_requirements);
+
+	uint32_t index = find_memory_type_index(device->memory_properties,
+	                                        memory_requirements.memoryTypeBits,
+	                                        0);
+	LEARY_ASSERT(index < std::numeric_limits<uint32_t>::max());
+
+	VkMemoryAllocateInfo allocate_info;
+	allocate_info.sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+	allocate_info.pNext           = nullptr;
+	allocate_info.allocationSize  = size;
+	allocate_info.memoryTypeIndex = index;
+
+	result = vkAllocateMemory(device->m_device, &allocate_info, nullptr, &vk_memory);
+	LEARY_ASSERT(result == VK_SUCCESS);
+
+	result = vkBindBufferMemory(device->m_device, vk_buffer, vk_memory, 0);
+	LEARY_ASSERT(result == VK_SUCCESS);
+
+	void* memptr;
+	result = vkMapMemory(device->m_device, vk_memory, 0, VK_WHOLE_SIZE, 0, &memptr);
+	LEARY_ASSERT(result == VK_SUCCESS);
+
+	memcpy(memptr, data, size);
+
+	vkUnmapMemory(device->m_device, vk_memory);
+}
+
+void VulkanBuffer::destroy()
+{
+	vkFreeMemory(this->device->m_device,    vk_memory, nullptr);
+	vkDestroyBuffer(this->device->m_device, vk_buffer, nullptr);
 }
 
 void VulkanDevice::create(const GameWindow& window)
@@ -438,8 +489,7 @@ void VulkanDevice::create(const GameWindow& window)
 	/***********************************************************************************************
 	 * Create Depth buffer
 	 **********************************************************************************************/
-	VkPhysicalDeviceMemoryProperties memoryProperties;
-	vkGetPhysicalDeviceMemoryProperties(m_physicalDevice, &memoryProperties);
+	vkGetPhysicalDeviceMemoryProperties(m_physicalDevice, &memory_properties);
 
 	// create depth buffer with same extent as the swapchain
 	const VkExtent3D depthImageExtent = { m_width, m_height, 1 };
@@ -470,7 +520,7 @@ void VulkanDevice::create(const GameWindow& window)
 	vkGetImageMemoryRequirements(m_device, m_depthImage, &depthMemRequirements);
 
 	const VkMemoryPropertyFlags depthMemPropertyFlags = 0;
-	const uint32_t memoryTypeIndex = find_memory_type_index(memoryProperties,
+	const uint32_t memoryTypeIndex = find_memory_type_index(memory_properties,
 	                                                        depthMemRequirements.memoryTypeBits,
 	                                                        depthMemPropertyFlags);
 
@@ -653,50 +703,8 @@ void VulkanDevice::create(const GameWindow& window)
 	/***********************************************************************************************
 	 * Create Vertex buffer
 	 **********************************************************************************************/
-	const size_t vertexBufferSize = sizeof(float) * 6 * NUM_DEMO_VERTICES;
-
-	const VkBufferCreateInfo vertexBufferCreateInfo = {
-	    VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-	    nullptr,
-	    0,
-	    vertexBufferSize,
-	    VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-	    VK_SHARING_MODE_EXCLUSIVE,
-	    0, nullptr
-	};
-
-	result = vkCreateBuffer(m_device, &vertexBufferCreateInfo, nullptr, &m_vertexBuffer);
-	LEARY_ASSERT(result == VK_SUCCESS);
-
-	VkMemoryRequirements vertexMemoryRequirements;
-	vkGetBufferMemoryRequirements(m_device, m_vertexBuffer, &vertexMemoryRequirements);
-
-	const VkMemoryPropertyFlags vertexMemoryFlags = 0;
-	int32_t vertexMemoryTypeIndex = find_memory_type_index(memoryProperties,
-	                                                       vertexMemoryRequirements.memoryTypeBits,
-	                                                       vertexMemoryFlags);
-	LEARY_ASSERT(vertexMemoryTypeIndex >= 0);
-
-	const VkMemoryAllocateInfo vertexAllocateInfo = {
-	    VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-	    nullptr,
-	    vertexMemoryRequirements.size,
-	    static_cast<uint32_t>(vertexMemoryTypeIndex)
-	};
-
-	result = vkAllocateMemory(m_device, &vertexAllocateInfo, nullptr, &m_vertexMemory);
-	LEARY_ASSERT(result == VK_SUCCESS);
-
-	result = vkBindBufferMemory(m_device, m_vertexBuffer, m_vertexMemory, 0);
-	LEARY_ASSERT(result == VK_SUCCESS);
-
-	void *memptr;
-	result = vkMapMemory(m_device, m_vertexMemory, 0, VK_WHOLE_SIZE, 0, &memptr);
-	LEARY_ASSERT(result == VK_SUCCESS);
-
-	memcpy(memptr, vertices, vertexBufferSize);
-
-	vkUnmapMemory(m_device, m_vertexMemory);
+	vertex_buffer.create(this, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+	                     sizeof(float) * 6 * NUM_DEMO_VERTICES, (uint8_t*) vertices);
 
 	/***********************************************************************************************
 	 * Create Shader modules
@@ -950,8 +958,7 @@ void VulkanDevice::destroy()
 	vkDestroyPipeline(m_device, m_pipeline, nullptr);
 	vkDestroyPipelineLayout(m_device, m_pipelineLayout, nullptr);
 
-	vkFreeMemory(m_device, m_vertexMemory, nullptr);
-	vkDestroyBuffer(m_device, m_vertexBuffer, nullptr);
+	vertex_buffer.destroy();
 
 	for (uint32_t i = 0; i < m_framebuffersCount; ++i) {
 		vkDestroyFramebuffer(m_device, m_framebuffers[i], nullptr);
@@ -980,10 +987,6 @@ void VulkanDevice::destroy()
 
 void VulkanDevice::present()
 {
-	float red   = 1.0f;
-	float green = 0.0f;
-	float blue  = 1.0f;
-
 	VkResult result;
 
 	VkSemaphore imageAcquired, renderComplete;
@@ -1094,7 +1097,7 @@ void VulkanDevice::present()
 
 	VkDeviceSize buffersOffsets = 0;
 	vkCmdBindVertexBuffers(m_commandBufferPresent, VERTEX_INPUT_BINDING,
-	                       1, &m_vertexBuffer, &buffersOffsets);
+	                       1, &vertex_buffer.vk_buffer, &buffersOffsets);
 
 	vkCmdDraw(m_commandBufferPresent, 3, 1, 0, 0);
 
@@ -1144,11 +1147,11 @@ void VulkanDevice::present()
 
 namespace
 {
-	int32_t find_memory_type_index(const VkPhysicalDeviceMemoryProperties properties,
+	uint32_t find_memory_type_index(const VkPhysicalDeviceMemoryProperties properties,
 	                               const uint32_t                         type_bits,
 	                               const VkMemoryPropertyFlags            req_properties)
 	{
-		for (int32_t i = 0; i < properties.memoryTypeCount; ++i) {
+		for (uint32_t i = 0; i < properties.memoryTypeCount; ++i) {
 			if ((type_bits & (1 << i)) &&
 			    ((properties.memoryTypes[i].propertyFlags & req_properties) == req_properties))
 				return i;
