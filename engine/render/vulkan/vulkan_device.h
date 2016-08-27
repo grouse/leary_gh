@@ -7,16 +7,11 @@
 class GameWindow;
 class VulkanDevice;
 
-struct VulkanBuffer {
+struct VulkanVertexBuffer {
 	size_t               size;
 
 	VkBuffer             vk_buffer;
 	VkDeviceMemory       vk_memory;
-
-	VulkanDevice*        device;
-
-	void create(VulkanDevice* device, VkBufferUsageFlags usage, size_t size, uint8_t* data);
-	void destroy();
 };
 
 class VulkanDevice {
@@ -25,6 +20,9 @@ public:
 	void destroy();
 
 	void present();
+
+	VulkanVertexBuffer create_vertex_buffer(size_t size, uint8_t* data);
+	void               destroy_vertex_buffer(VulkanVertexBuffer *buffer);
 
 	uint32_t         m_width;
 	uint32_t         m_height;
@@ -70,7 +68,7 @@ public:
 	uint32_t         m_framebuffersCount;
 
 	// Vertex buffer
-	VulkanBuffer     vertex_buffer;
+	VulkanVertexBuffer     vertex_buffer;
 
 	// Pipeline
 	VkPipeline       m_pipeline;

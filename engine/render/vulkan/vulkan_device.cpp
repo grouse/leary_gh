@@ -17,7 +17,7 @@
 
 namespace
 {
-	uint32_t find_memory_type_index(const VkPhysicalDeviceMemoryProperties properties,
+	int32_t find_memory_type_index(const VkPhysicalDeviceMemoryProperties properties,
 	                               const uint32_t                         type_bits,
 	                               const VkMemoryPropertyFlags            req_properties);
 
@@ -35,58 +35,38 @@ namespace
 	};
 }
 
-
-void VulkanBuffer::create(VulkanDevice* device, VkBufferUsageFlags usage, size_t size, uint8_t* data)
+static VKAPI_ATTR VkBool32 VKAPI_CALL
+debug_callback_func(VkFlags flags, 
+               VkDebugReportObjectTypeEXT type, 
+               uint64_t src, 
+               size_t location,
+               int32_t code, 
+               const char* prefix, 
+               const char* msg, 
+               void* data)
 {
-	this->size   = size;
-	this->device = device;
-	
-	VkBufferCreateInfo create_info;
-	create_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-	create_info.pNext = nullptr;
-	create_info.flags = 0;
-	create_info.size  = size;
-	create_info.usage = usage;
-	create_info.sharingMode           = VK_SHARING_MODE_EXCLUSIVE;
-	create_info.queueFamilyIndexCount = 0;
-	create_info.pQueueFamilyIndices   = nullptr;
+	// NOTE: these might be useful?
+	LEARY_UNUSED(type); 
+	LEARY_UNUSED(src);
+	LEARY_UNUSED(location);
 
-	VkResult result = vkCreateBuffer(device->m_device, &create_info, nullptr, &vk_buffer);
-	LEARY_ASSERT(result == VK_SUCCESS);
+	// NOTE: we never set any data when creating the callback, so useless for now
+	LEARY_UNUSED(data);
 
-	VkMemoryRequirements memory_requirements;
-	vkGetBufferMemoryRequirements(device->m_device, vk_buffer, &memory_requirements);
-
-	uint32_t index = find_memory_type_index(device->memory_properties,
-	                                        memory_requirements.memoryTypeBits,
-	                                        0);
-	LEARY_ASSERT(index < std::numeric_limits<uint32_t>::max());
-
-	VkMemoryAllocateInfo allocate_info;
-	allocate_info.sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-	allocate_info.pNext           = nullptr;
-	allocate_info.allocationSize  = size;
-	allocate_info.memoryTypeIndex = index;
-
-	result = vkAllocateMemory(device->m_device, &allocate_info, nullptr, &vk_memory);
-	LEARY_ASSERT(result == VK_SUCCESS);
-
-	result = vkBindBufferMemory(device->m_device, vk_buffer, vk_memory, 0);
-	LEARY_ASSERT(result == VK_SUCCESS);
-
-	void* memptr;
-	result = vkMapMemory(device->m_device, vk_memory, 0, VK_WHOLE_SIZE, 0, &memptr);
-	LEARY_ASSERT(result == VK_SUCCESS);
-
-	memcpy(memptr, data, size);
-
-	vkUnmapMemory(device->m_device, vk_memory);
-}
-
-void VulkanBuffer::destroy()
-{
-	vkFreeMemory(this->device->m_device,    vk_memory, nullptr);
-	vkDestroyBuffer(this->device->m_device, vk_buffer, nullptr);
+	eLogType log_type;
+	if (flags & VK_DEBUG_REPORT_ERROR_BIT_EXT)
+		log_type = eLogType::Error;
+	else if (flags & VK_DEBUG_REPORT_WARNING_BIT_EXT)
+		log_type = eLogType::Warning;
+	else if (flags & VK_DEBUG_REPORT_DEBUG_BIT_EXT ||
+	         flags & VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT)
+		log_type = eLogType::Info;
+	else
+		// NOTE: this would only happen if they extend the report callback flags
+		log_type = eLogType::Info;
+		
+	LEARY_LOGF(log_type, "[VULKAN]: %s (%d) - %s", prefix, code, msg); 
+	return false;
 }
 
 void VulkanDevice::create(const GameWindow& window)
@@ -100,11 +80,11 @@ void VulkanDevice::create(const GameWindow& window)
 	 * Enumerate and validate supported extensions and layers
 	 **********************************************************************************************/
 	std::vector<const char*> layerNamesToEnable;
-	//layerNamesToEnable.push_back("VK_LAYER_LUNARG_standard_validation");
+	layerNamesToEnable.push_back("VK_LAYER_LUNARG_standard_validation");
 
 	std::vector<const char*> extensionNamesToEnable;
 	extensionNamesToEnable.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
-	//extensionNamesToEnable.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
+	extensionNamesToEnable.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
 	extensionNamesToEnable.push_back(VK_KHR_XCB_SURFACE_EXTENSION_NAME);
 
 	VkResult result;
@@ -186,6 +166,32 @@ void VulkanDevice::create(const GameWindow& window)
 
 	result = vkCreateInstance(&instanceCreateInfo, nullptr, &m_instance);
 	LEARY_ASSERT(result == VK_SUCCESS);
+
+
+	/***********************************************************************************************
+	 * Create debug callbacks
+	 **********************************************************************************************/
+	VkDebugReportCallbackEXT debug_callback;
+
+	auto pfn_vkCreateDebugReportCallbackEXT = 
+		(PFN_vkCreateDebugReportCallbackEXT)(vkGetInstanceProcAddr(m_instance, 
+																   "vkCreateDebugReportCallbackEXT"));
+	VkDebugReportCallbackCreateInfoEXT debug_create_info;
+	debug_create_info.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CREATE_INFO_EXT;
+	debug_create_info.pNext = 0;
+	debug_create_info.flags = VK_DEBUG_REPORT_ERROR_BIT_EXT |
+	                          VK_DEBUG_REPORT_WARNING_BIT_EXT |
+	                          VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT | 
+	                          VK_DEBUG_REPORT_DEBUG_BIT_EXT;
+	debug_create_info.pfnCallback = &debug_callback_func;
+	debug_create_info.pUserData   = nullptr;
+
+	result = pfn_vkCreateDebugReportCallbackEXT(m_instance, 
+	                                            &debug_create_info, 
+	                                            nullptr, 
+	                                            &debug_callback);
+	LEARY_ASSERT(result == VK_SUCCESS);
+
 
 
 	/***********************************************************************************************
@@ -520,15 +526,16 @@ void VulkanDevice::create(const GameWindow& window)
 	vkGetImageMemoryRequirements(m_device, m_depthImage, &depthMemRequirements);
 
 	const VkMemoryPropertyFlags depthMemPropertyFlags = 0;
-	const uint32_t memoryTypeIndex = find_memory_type_index(memory_properties,
+	const int32_t memoryTypeIndex = find_memory_type_index(memory_properties,
 	                                                        depthMemRequirements.memoryTypeBits,
 	                                                        depthMemPropertyFlags);
+	LEARY_ASSERT(memoryTypeIndex >= 0);
 
 	const VkMemoryAllocateInfo depthMemoryAllocateInfo = {
 	    VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
 	    nullptr,
 	    depthMemRequirements.size,
-	    memoryTypeIndex
+	    (uint32_t) memoryTypeIndex
 	};
 
 	result = vkAllocateMemory(m_device, &depthMemoryAllocateInfo, nullptr, &m_depthMemory);
@@ -703,8 +710,8 @@ void VulkanDevice::create(const GameWindow& window)
 	/***********************************************************************************************
 	 * Create Vertex buffer
 	 **********************************************************************************************/
-	vertex_buffer.create(this, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-	                     sizeof(float) * 6 * NUM_DEMO_VERTICES, (uint8_t*) vertices);
+	vertex_buffer = create_vertex_buffer(sizeof(float) * 6 * NUM_DEMO_VERTICES, 
+	                                     (uint8_t*) vertices);
 
 	/***********************************************************************************************
 	 * Create Shader modules
@@ -958,7 +965,8 @@ void VulkanDevice::destroy()
 	vkDestroyPipeline(m_device, m_pipeline, nullptr);
 	vkDestroyPipelineLayout(m_device, m_pipelineLayout, nullptr);
 
-	vertex_buffer.destroy();
+	// TODO: move these calls out of VulkanDevice, they are meant to be used outside as an api
+	destroy_vertex_buffer(&vertex_buffer);
 
 	for (uint32_t i = 0; i < m_framebuffersCount; ++i) {
 		vkDestroyFramebuffer(m_device, m_framebuffers[i], nullptr);
@@ -983,6 +991,66 @@ void VulkanDevice::destroy()
 	vkDestroyDevice(m_device,     nullptr);
 	vkDestroySurfaceKHR(m_instance, m_surface, nullptr);
 	vkDestroyInstance(m_instance, nullptr);
+}
+
+VulkanVertexBuffer VulkanDevice::create_vertex_buffer(size_t size, uint8_t* data) 
+{
+	VulkanVertexBuffer buffer;
+	buffer.size = size;
+
+	VkBufferCreateInfo create_info;
+	create_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	create_info.pNext = nullptr;
+	create_info.flags = 0;
+	create_info.size  = size;
+	create_info.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+	create_info.sharingMode           = VK_SHARING_MODE_EXCLUSIVE;
+	create_info.queueFamilyIndexCount = 0;
+	create_info.pQueueFamilyIndices   = nullptr;
+
+	VkResult result = vkCreateBuffer(this->m_device, &create_info, nullptr, &buffer.vk_buffer);
+	LEARY_ASSERT(result == VK_SUCCESS);
+
+	// TODO: allocate buffers from large memory pool in VulkanDevice
+	VkMemoryRequirements memory_requirements;
+	vkGetBufferMemoryRequirements(this->m_device, buffer.vk_buffer, &memory_requirements);
+
+	int32_t index = find_memory_type_index(this->memory_properties, 
+	                                       memory_requirements.memoryTypeBits, 
+	                                       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+	LEARY_ASSERT(index >= 0); 
+
+	VkMemoryAllocateInfo allocate_info;
+	allocate_info.sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+	allocate_info.pNext           = nullptr;
+	allocate_info.allocationSize  = memory_requirements.size;
+	allocate_info.memoryTypeIndex = (uint32_t) index;
+
+	result = vkAllocateMemory(this->m_device, &allocate_info, nullptr, &buffer.vk_memory);
+	LEARY_ASSERT(result == VK_SUCCESS);
+
+	result = vkBindBufferMemory(this->m_device, buffer.vk_buffer, buffer.vk_memory, 0);
+	LEARY_ASSERT(result == VK_SUCCESS);
+
+	if (data != nullptr)
+	{
+		void* memptr;
+		result = vkMapMemory(this->m_device, buffer.vk_memory, 0, VK_WHOLE_SIZE, 0, &memptr);
+		LEARY_ASSERT(result == VK_SUCCESS);
+
+		memcpy(memptr, data, size);
+
+		vkUnmapMemory(this->m_device, buffer.vk_memory);
+	}
+
+	return buffer;
+}
+
+void VulkanDevice::destroy_vertex_buffer(VulkanVertexBuffer* buffer) 
+{
+	// TODO: free memory from large memory pool in VulkanDevice 
+	vkFreeMemory(this->m_device,    buffer->vk_memory, nullptr);
+	vkDestroyBuffer(this->m_device, buffer->vk_buffer, nullptr);
 }
 
 void VulkanDevice::present()
@@ -1147,7 +1215,7 @@ void VulkanDevice::present()
 
 namespace
 {
-	uint32_t find_memory_type_index(const VkPhysicalDeviceMemoryProperties properties,
+	int32_t find_memory_type_index(const VkPhysicalDeviceMemoryProperties properties,
 	                               const uint32_t                         type_bits,
 	                               const VkMemoryPropertyFlags            req_properties)
 	{
