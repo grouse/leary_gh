@@ -36,14 +36,14 @@ namespace
 }
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL
-debug_callback_func(VkFlags flags, 
-               VkDebugReportObjectTypeEXT type, 
-               uint64_t src, 
-               size_t location,
-               int32_t code, 
-               const char* prefix, 
-               const char* msg, 
-               void* data)
+debug_callback_func(VkFlags                    flags, 
+                    VkDebugReportObjectTypeEXT type, 
+                    uint64_t                   src, 
+                    size_t                     location, 
+                    int32_t                    code, 
+                    const char*                prefix, 
+                    const char*                msg, 
+                    void*                      data)
 {
 	// NOTE: these might be useful?
 	LEARY_UNUSED(type); 
@@ -147,21 +147,25 @@ void VulkanDevice::create(const GameWindow& window)
 	 * Create VkInstance
 	 * we've checked the available extensions and layers and can now create our instance
 	 **********************************************************************************************/
-	const VkApplicationInfo applicationInfo = {
-	    VK_STRUCTURE_TYPE_APPLICATION_INFO,
-	    nullptr,
-	    window.getTitle().c_str(), 1,
-	    window.getTitle().c_str(), 1,
-	    VK_MAKE_VERSION(1, 0, 22)
+	const VkApplicationInfo applicationInfo = { 
+		VK_STRUCTURE_TYPE_APPLICATION_INFO, 
+		nullptr, 
+		window.getTitle().c_str(), 
+		1, 
+		window.getTitle().c_str(), 
+		1, 
+		VK_MAKE_VERSION(1, 0, 22) 
 	};
 
-	const VkInstanceCreateInfo instanceCreateInfo = {
-	    VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
-	    nullptr,
-	    0,
-	    &applicationInfo,
-	    static_cast<uint32_t>(layerNamesToEnable.size()),     layerNamesToEnable.data(),
-	    static_cast<uint32_t>(extensionNamesToEnable.size()), extensionNamesToEnable.data()
+	const VkInstanceCreateInfo instanceCreateInfo = { 
+		VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO, 
+		nullptr, 
+		0, 
+		&applicationInfo, 
+		static_cast<uint32_t>(layerNamesToEnable.size()),     
+		layerNamesToEnable.data(), 
+		static_cast<uint32_t>(extensionNamesToEnable.size()), 
+		extensionNamesToEnable.data() 
 	};
 
 	result = vkCreateInstance(&instanceCreateInfo, nullptr, &m_instance);
@@ -174,12 +178,13 @@ void VulkanDevice::create(const GameWindow& window)
 	VkDebugReportCallbackEXT debug_callback;
 
 	auto pfn_vkCreateDebugReportCallbackEXT = 
-		(PFN_vkCreateDebugReportCallbackEXT)(vkGetInstanceProcAddr(m_instance, 
-																   "vkCreateDebugReportCallbackEXT"));
+		(PFN_vkCreateDebugReportCallbackEXT) 
+		vkGetInstanceProcAddr(m_instance, "vkCreateDebugReportCallbackEXT");
+
 	VkDebugReportCallbackCreateInfoEXT debug_create_info;
 	debug_create_info.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CREATE_INFO_EXT;
 	debug_create_info.pNext = 0;
-	debug_create_info.flags = VK_DEBUG_REPORT_ERROR_BIT_EXT |
+	debug_create_info.flags = VK_DEBUG_REPORT_ERROR_BIT_EXT | 
 	                          VK_DEBUG_REPORT_WARNING_BIT_EXT |
 	                          VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT | 
 	                          VK_DEBUG_REPORT_DEBUG_BIT_EXT;
@@ -205,7 +210,7 @@ void VulkanDevice::create(const GameWindow& window)
 	result = vkEnumeratePhysicalDevices(m_instance, &physicalDevicesCount, physicalDevices);
 	LEARY_ASSERT(result == VK_SUCCESS);
 
-	// @TODO: choose device based on device type (discrete > integrated > etc)
+	// TODO: choose device based on device type (discrete > integrated > etc)
 	m_physicalDevice = physicalDevices[0];
 
 	delete[] physicalDevices;
@@ -216,16 +221,16 @@ void VulkanDevice::create(const GameWindow& window)
 	SDL_SysWMinfo syswm;
 	window.getSysWMInfo(&syswm);
 
-	// @TODO: support other windowing systems, e.g. Windows, Wayland, Mir
+	// TODO: support other windowing systems, e.g. Windows, Wayland, Mir
 	xcb_connection_t       *xcbConnection = XGetXCBConnection(syswm.info.x11.display);
 	const xcb_window_t      xcbWindow     = syswm.info.x11.window;
 
-	VkXcbSurfaceCreateInfoKHR surfaceCreateInfo = {
-	    VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR,
-	    nullptr,
-	    0,
-	    xcbConnection,
-	    xcbWindow
+	VkXcbSurfaceCreateInfoKHR surfaceCreateInfo = { 
+		VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR, 
+		nullptr, 
+		0, 
+		xcbConnection, 
+		xcbWindow 
 	};
 
 	result = vkCreateXcbSurfaceKHR(m_instance, &surfaceCreateInfo, nullptr, &m_surface);
@@ -279,34 +284,38 @@ void VulkanDevice::create(const GameWindow& window)
 	// @TODO: when we have more than one queue we'll need to figure out how to handle this, for now
 	// just set highest queue priroity for the 1 queue we create
 	float queuePriority = 1.0f;
-	const VkDeviceQueueCreateInfo deviceQueueCreateInfo = {
-	    VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO,
-	    nullptr,
-	    0,
-	    m_queueFamilyIndex,
-	    1, &queuePriority
+	const VkDeviceQueueCreateInfo deviceQueueCreateInfo = { 
+		VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO, 
+		nullptr, 
+		0, 
+		m_queueFamilyIndex, 
+		1, 
+		&queuePriority 
 	};
 
-	// @TODO: look into VkPhysicalDeviceFeatures and how it relates to VkDeviceCreateInfo
+	// TODO: look into VkPhysicalDeviceFeatures and how it relates to VkDeviceCreateInfo
 	VkPhysicalDeviceFeatures physicalDeviceFeatures;
 	vkGetPhysicalDeviceFeatures(m_physicalDevice, &physicalDeviceFeatures);
 
 	const char* deviceExtensionNamesToEnable[1] = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
 
-	const VkDeviceCreateInfo deviceCreateInfo = {
-	    VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-	    nullptr,
-	    0,
-	    1, &deviceQueueCreateInfo,
-	    static_cast<uint32_t>(layerNamesToEnable.size()),     layerNamesToEnable.data(),
-	    1, deviceExtensionNamesToEnable,
-	    &physicalDeviceFeatures
+	const VkDeviceCreateInfo deviceCreateInfo = { 
+		VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO, 
+		nullptr, 
+		0, 
+		1, 
+		&deviceQueueCreateInfo, 
+		static_cast<uint32_t>(layerNamesToEnable.size()),     
+		layerNamesToEnable.data(), 
+		1, 
+		deviceExtensionNamesToEnable, 
+		&physicalDeviceFeatures 
 	};
 
 	result = vkCreateDevice(m_physicalDevice, &deviceCreateInfo, nullptr, &m_device);
 	LEARY_ASSERT(result == VK_SUCCESS);
 
-	uint32_t queueIndex = 0; // @TODO: does it matter which queue we choose?
+	uint32_t queueIndex = 0; // NOTE: does it matter which queue we choose?
 	vkGetDeviceQueue(m_device, m_queueFamilyIndex, queueIndex, &m_queue);
 
 	delete[] queueFamilies;
@@ -324,8 +333,8 @@ void VulkanDevice::create(const GameWindow& window)
 	                                              &surfaceFormatsCount, surfaceFormats);
 	LEARY_ASSERT(result == VK_SUCCESS);
 
-	// if impl. reports only 1 surface format and that is undefined it has no preferred format, so
-	// we choose BGRA8_UNORM
+	// NOTE: if impl. reports only 1 surface format and that is undefined it has no preferred 
+	// format, so we choose BGRA8_UNORM
 	if (surfaceFormatsCount == 1 && surfaceFormats[0].format == VK_FORMAT_UNDEFINED)
 		m_surfaceFormat = VK_FORMAT_B8G8R8A8_UNORM;
 	else
@@ -384,35 +393,32 @@ void VulkanDevice::create(const GameWindow& window)
 	if (surfaceCapabilities.supportedTransforms & VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR)
 		preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
 
-
-	// determine the number of VkImages to use in the swapchain
+	// TODO: determine the number of VkImages to use in the swapchain
 	uint32_t desiredSwapchainImages = surfaceCapabilities.minImageCount + 1;
 	if (surfaceCapabilities.maxImageCount > 0)
 		desiredSwapchainImages = std::min(desiredSwapchainImages, surfaceCapabilities.maxImageCount);
 
+	const VkBool32 clipped = VK_TRUE;
 
-	const VkBool32                       clipped            = VK_TRUE;
-
-
-	const VkSwapchainCreateInfoKHR swapchainCreateInfo = {
-	    VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
-	    nullptr,
-	    0,
-	    m_surface,
-	    desiredSwapchainImages,
-	    m_surfaceFormat,
-	    surfaceColorSpace,
-	    imageExtent,
-	    imageArraylayers,
-	    imageUsage,
-	    imageSharingMode,
-	    queueFamilyIndexCount,
-	    queueFamilyIndices,
-	    preTransform,
-	    compositeAlpha,
-	    presentMode,
-	    clipped,
-	    VK_NULL_HANDLE
+	const VkSwapchainCreateInfoKHR swapchainCreateInfo = { 
+		VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR, 
+		nullptr, 
+		0, 
+		m_surface, 
+		desiredSwapchainImages, 
+		m_surfaceFormat, 
+		surfaceColorSpace, 
+		imageExtent, 
+		imageArraylayers, 
+		imageUsage, 
+		imageSharingMode, 
+		queueFamilyIndexCount, 
+		queueFamilyIndices, 
+		preTransform, 
+		compositeAlpha, 
+		presentMode, 
+		clipped, 
+		VK_NULL_HANDLE
 	};
 
 	result = vkCreateSwapchainKHR(m_device, &swapchainCreateInfo, nullptr, &m_swapchain);
@@ -433,28 +439,30 @@ void VulkanDevice::create(const GameWindow& window)
 
 	m_swapchainImageViews = new VkImageView[m_swapchainImagesCount];
 	for (uint32_t i = 0; i < m_swapchainImagesCount; ++i) {
-		const VkComponentMapping components = {
-		    VK_COMPONENT_SWIZZLE_R,
-		    VK_COMPONENT_SWIZZLE_G,
-		    VK_COMPONENT_SWIZZLE_B,
-		    VK_COMPONENT_SWIZZLE_A,
+		const VkComponentMapping components = { 
+			VK_COMPONENT_SWIZZLE_R, 
+			VK_COMPONENT_SWIZZLE_G, 
+			VK_COMPONENT_SWIZZLE_B, 
+			VK_COMPONENT_SWIZZLE_A
 		};
 
-		const VkImageSubresourceRange subresourceRange = {
-		    VK_IMAGE_ASPECT_COLOR_BIT,
-		    0, 1,
-		    0, 1
+		const VkImageSubresourceRange subresourceRange = { 
+			VK_IMAGE_ASPECT_COLOR_BIT, 
+			0, 
+			1, 
+			0, 
+			1 
 		};
 
-		const VkImageViewCreateInfo createInfo = {
-		    VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-		    nullptr,
-		    0,
-		    m_swapchainImages[i],
-		    VK_IMAGE_VIEW_TYPE_2D,
-		    m_surfaceFormat,
-		    components,
-		    subresourceRange
+		const VkImageViewCreateInfo createInfo = { 
+			VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO, 
+			nullptr, 
+			0, 
+			m_swapchainImages[i], 
+			VK_IMAGE_VIEW_TYPE_2D, 
+			m_surfaceFormat, 
+			components, 
+			subresourceRange 
 		};
 
 		result = vkCreateImageView(m_device, &createInfo, nullptr, &m_swapchainImageViews[i]);
@@ -464,11 +472,11 @@ void VulkanDevice::create(const GameWindow& window)
 	/***********************************************************************************************
 	 * Create VkCommandPool
 	 **********************************************************************************************/
-	const VkCommandPoolCreateInfo cmdPoolCreateInfo = {
-	    VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
-	    nullptr,
-	    0,
-	    m_queueFamilyIndex
+	const VkCommandPoolCreateInfo cmdPoolCreateInfo = { 
+		VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO, 
+		nullptr, 
+		0, 
+		m_queueFamilyIndex 
 	};
 
 	result = vkCreateCommandPool(m_device, &cmdPoolCreateInfo, nullptr, &m_commandPool);
@@ -477,12 +485,12 @@ void VulkanDevice::create(const GameWindow& window)
 	/***********************************************************************************************
 	 * Create VkCommandBuffer for initialisation and present
 	 **********************************************************************************************/
-	const VkCommandBufferAllocateInfo commandBufferAllocateInfo = {
-	    VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-	    nullptr,
-	    m_commandPool,
-	    VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-	    2
+	const VkCommandBufferAllocateInfo commandBufferAllocateInfo = { 
+		VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO, 
+		nullptr, 
+		m_commandPool, 
+		VK_COMMAND_BUFFER_LEVEL_PRIMARY, 
+		2 
 	};
 
 	result = vkAllocateCommandBuffers(m_device, &commandBufferAllocateInfo, m_commandBuffers);
@@ -500,22 +508,22 @@ void VulkanDevice::create(const GameWindow& window)
 	// create depth buffer with same extent as the swapchain
 	const VkExtent3D depthImageExtent = { m_width, m_height, 1 };
 
-	const VkImageCreateInfo depthImageCreateInfo = {
-	    VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
-	    nullptr,
-	    0,
-	    VK_IMAGE_TYPE_2D,
-	    VK_FORMAT_D16_UNORM,
-	    depthImageExtent,
-	    1,
-	    1,
-	    VK_SAMPLE_COUNT_1_BIT,
-	    VK_IMAGE_TILING_OPTIMAL,
-	    VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-	    VK_SHARING_MODE_EXCLUSIVE,
-	    0,
-	    nullptr,
-	    VK_IMAGE_LAYOUT_UNDEFINED
+	const VkImageCreateInfo depthImageCreateInfo = { 
+		VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO, 
+		nullptr, 
+		0, 
+		VK_IMAGE_TYPE_2D,
+		VK_FORMAT_D16_UNORM,
+		depthImageExtent, 
+		1, 
+		1, 
+		VK_SAMPLE_COUNT_1_BIT, 
+		VK_IMAGE_TILING_OPTIMAL, 
+		VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, 
+		VK_SHARING_MODE_EXCLUSIVE, 
+		0, 
+		nullptr, 
+		VK_IMAGE_LAYOUT_UNDEFINED 
 	};
 
 	result = vkCreateImage(m_device, &depthImageCreateInfo, nullptr, &m_depthImage);
@@ -531,11 +539,11 @@ void VulkanDevice::create(const GameWindow& window)
 	                                                        depthMemPropertyFlags);
 	LEARY_ASSERT(memoryTypeIndex >= 0);
 
-	const VkMemoryAllocateInfo depthMemoryAllocateInfo = {
-	    VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-	    nullptr,
-	    depthMemRequirements.size,
-	    (uint32_t) memoryTypeIndex
+	const VkMemoryAllocateInfo depthMemoryAllocateInfo = { 
+		VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO, 
+		nullptr, 
+		depthMemRequirements.size, 
+		(uint32_t) memoryTypeIndex 
 	};
 
 	result = vkAllocateMemory(m_device, &depthMemoryAllocateInfo, nullptr, &m_depthMemory);
@@ -544,52 +552,56 @@ void VulkanDevice::create(const GameWindow& window)
 	result = vkBindImageMemory(m_device, m_depthImage, m_depthMemory, 0);
 	LEARY_ASSERT(result == VK_SUCCESS);
 
-
 	// create image view
-	const VkComponentMapping depthComponents = {
-	    VK_COMPONENT_SWIZZLE_IDENTITY,
-	    VK_COMPONENT_SWIZZLE_IDENTITY,
-	    VK_COMPONENT_SWIZZLE_IDENTITY,
-	    VK_COMPONENT_SWIZZLE_IDENTITY,
+	const VkComponentMapping depthComponents = { 
+		VK_COMPONENT_SWIZZLE_IDENTITY, 
+		VK_COMPONENT_SWIZZLE_IDENTITY, 
+		VK_COMPONENT_SWIZZLE_IDENTITY, 
+		VK_COMPONENT_SWIZZLE_IDENTITY, 
 	};
 
-	const VkImageSubresourceRange depthSubresourceRange = {
-	    VK_IMAGE_ASPECT_DEPTH_BIT,
-	    0, 1,
-	    0, 1
+	const VkImageSubresourceRange depthSubresourceRange = { 
+		VK_IMAGE_ASPECT_DEPTH_BIT, 
+		0, 
+		1, 
+		0, 
+		1 
 	};
 
-	const VkImageViewCreateInfo depthImageViewCreateInfo = {
-	    VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-	    nullptr,
-	    0,
-	    m_depthImage,
-	    VK_IMAGE_VIEW_TYPE_2D,
-	    VK_FORMAT_D16_UNORM,
-	    depthComponents,
-	    depthSubresourceRange
+	const VkImageViewCreateInfo depthImageViewCreateInfo = { 
+		VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO, 
+		nullptr, 
+		0, 
+		m_depthImage, 
+		VK_IMAGE_VIEW_TYPE_2D, 
+		VK_FORMAT_D16_UNORM, 
+		depthComponents, 
+		depthSubresourceRange
 	};
 
 	result = vkCreateImageView(m_device, &depthImageViewCreateInfo, nullptr, &m_depthImageView);
 	LEARY_ASSERT(result == VK_SUCCESS);
 
 	// transfer the depth buffer image layout to the correct type
-	const VkImageMemoryBarrier imageMemoryBarrier = {
-	    VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-	    nullptr,
-	    0, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
-	    VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-	    VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED,
-	    m_depthImage,
-	    depthSubresourceRange
-
+	
+	const VkImageMemoryBarrier imageMemoryBarrier = { 
+		VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER, 
+		nullptr, 
+		0, 
+		VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, 
+		VK_IMAGE_LAYOUT_UNDEFINED, 
+		VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, 
+		VK_QUEUE_FAMILY_IGNORED, 
+		VK_QUEUE_FAMILY_IGNORED, 
+		m_depthImage, 
+		depthSubresourceRange 
 	};
 
-	const VkCommandBufferBeginInfo commandBufferBeginInfo = {
-	    VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-	    nullptr,
-	    0,
-	    nullptr
+	const VkCommandBufferBeginInfo commandBufferBeginInfo = { 
+		VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO, 
+		nullptr, 
+		0, 
+		nullptr 
 	};
 
 	result = vkBeginCommandBuffer(m_commandBufferInit, &commandBufferBeginInfo);
@@ -603,21 +615,22 @@ void VulkanDevice::create(const GameWindow& window)
 	                     nullptr,
 	                     0,
 	                     nullptr,
-	                     1, &imageMemoryBarrier);
+	                     1, 
+	                     &imageMemoryBarrier);
 
 	result = vkEndCommandBuffer(m_commandBufferInit);
 	LEARY_ASSERT(result == VK_SUCCESS);
 
-	const VkSubmitInfo submitInfo = {
-	    VK_STRUCTURE_TYPE_SUBMIT_INFO,
-	    nullptr,
-	    0,
-	    nullptr,
-	    nullptr,
-	    1,
-	    &m_commandBufferInit,
-	    0,
-	    nullptr
+	const VkSubmitInfo submitInfo = { 
+		VK_STRUCTURE_TYPE_SUBMIT_INFO, 
+		nullptr, 
+		0, 
+		nullptr, 
+		nullptr, 
+		1, 
+		&m_commandBufferInit, 
+		0, 
+		nullptr 
 	};
 
 	result = vkQueueSubmit(m_queue, 1, &submitInfo, VK_NULL_HANDLE);
@@ -630,55 +643,64 @@ void VulkanDevice::create(const GameWindow& window)
 	/***********************************************************************************************
 	 * Create vkRenderPass
 	 **********************************************************************************************/
-	const VkAttachmentDescription attachmentDescriptions[2] = {
-	    {  // color attachment description
-	       0,
-	       m_surfaceFormat,
-	       VK_SAMPLE_COUNT_1_BIT,
-	       VK_ATTACHMENT_LOAD_OP_CLEAR,
-	       VK_ATTACHMENT_STORE_OP_STORE,
-	       VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-	       VK_ATTACHMENT_STORE_OP_DONT_CARE,
-	       VK_IMAGE_LAYOUT_UNDEFINED,
-	       VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
-	    },
-	    { // depth stencil attachment description
-	      0,
-	      VK_FORMAT_D16_UNORM,
-	      VK_SAMPLE_COUNT_1_BIT,
-	      VK_ATTACHMENT_LOAD_OP_CLEAR,
-	      VK_ATTACHMENT_STORE_OP_DONT_CARE,
-	      VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-	      VK_ATTACHMENT_STORE_OP_DONT_CARE,
-	      VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-	      VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
-	    }
+	const VkAttachmentDescription attachmentDescriptions[2] = { 
+		{  // color attachment description 0, 
+			m_surfaceFormat,
+			VK_SAMPLE_COUNT_1_BIT, 
+			VK_ATTACHMENT_LOAD_OP_CLEAR, 
+			VK_ATTACHMENT_STORE_OP_STORE, 
+			VK_ATTACHMENT_LOAD_OP_DONT_CARE, 
+			VK_ATTACHMENT_STORE_OP_DONT_CARE, 
+			VK_IMAGE_LAYOUT_UNDEFINED, 
+			VK_IMAGE_LAYOUT_PRESENT_SRC_KHR 
+		}, 
+		{ // depth stencil attachment description
+			0, 
+			VK_FORMAT_D16_UNORM, 
+			VK_SAMPLE_COUNT_1_BIT, 
+			VK_ATTACHMENT_LOAD_OP_CLEAR, 
+			VK_ATTACHMENT_STORE_OP_DONT_CARE, 
+			VK_ATTACHMENT_LOAD_OP_DONT_CARE, 
+			VK_ATTACHMENT_STORE_OP_DONT_CARE, 
+			VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, 
+			VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL 
+		} 
+	}; 
+
+	const VkAttachmentReference colorAttachmentReference = { 
+		0, 
+		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL 
 	};
 
-	const VkAttachmentReference colorAttachmentReference = {
-	    0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+	const VkAttachmentReference depthAttachmentReference = { 
+		1, 
+		VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL 
 	};
 
-	const VkAttachmentReference depthAttachmentReference = {
-	    1, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
+	const VkSubpassDescription subpassDescription = { 
+		0, 
+		VK_PIPELINE_BIND_POINT_GRAPHICS, 
+		0, 
+		nullptr, 
+		1, 
+		&colorAttachmentReference, 
+		nullptr, 
+		&depthAttachmentReference, 
+		0, 
+		nullptr 
 	};
 
-	const VkSubpassDescription subpassDescription = {
-	    0,
-	    VK_PIPELINE_BIND_POINT_GRAPHICS,
-	    0, nullptr,
-	    1, &colorAttachmentReference, nullptr, &depthAttachmentReference,
-	    0, nullptr
-
-	};
-
-	const VkRenderPassCreateInfo renderPassCreateInfo = {
-	    VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
-	    nullptr,
-	    0,
-	    2, attachmentDescriptions,
-	    1, &subpassDescription,
-	    0, nullptr
+	
+	const VkRenderPassCreateInfo renderPassCreateInfo = { 
+		VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO, 
+		nullptr, 
+		0, 
+		2, 
+		attachmentDescriptions, 
+		1, 
+		&subpassDescription, 
+		0, 
+		nullptr
 	};
 
 	result = vkCreateRenderPass(m_device, &renderPassCreateInfo, nullptr, &m_renderPass);
@@ -693,14 +715,16 @@ void VulkanDevice::create(const GameWindow& window)
 	for (uint32_t i = 0; i < m_framebuffersCount; ++i) {
 		const VkImageView views[2] = { m_swapchainImageViews[i], m_depthImageView };
 
-		const VkFramebufferCreateInfo createInfo = {
-		    VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
-		    nullptr,
-		    0,
-		    m_renderPass,
-		    2, views,
-		    imageExtent.width, imageExtent.height,
-		    1
+		const VkFramebufferCreateInfo createInfo = { 
+			VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO, 
+			nullptr, 
+			0, 
+			m_renderPass, 
+			2, 
+			views, 
+			imageExtent.width, 
+			imageExtent.height, 
+			1 
 		};
 
 		result = vkCreateFramebuffer(m_device, &createInfo, nullptr, &m_framebuffers[i]);
@@ -733,29 +757,31 @@ void VulkanDevice::create(const GameWindow& window)
 
 	shaderFile.open(shaderFolder + "frag.spv", std::ios_base::binary | std::ios_base::ate);
 
-	size_t   fragmentShaderSize = shaderFile.tellg();
-	char *fragmentShaderSource  = new char[fragmentShaderSize];
+	size_t fragmentShaderSize  = shaderFile.tellg();
+	char* fragmentShaderSource = new char[fragmentShaderSize];
 
 	shaderFile.seekg(0, std::ios::beg);
 	shaderFile.read(fragmentShaderSource, fragmentShaderSize);
 
 	shaderFile.close();
 
-	const VkShaderModuleCreateInfo vertexShaderCreateInfo = {
-	    VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-	    nullptr,
-	    0,
-	    vertexShaderSize, reinterpret_cast<uint32_t*>(vertexShaderSource)
+	const VkShaderModuleCreateInfo vertexShaderCreateInfo = { 
+		VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO, 
+		nullptr, 
+		0, 
+		vertexShaderSize, 
+		reinterpret_cast<uint32_t*>(vertexShaderSource) 
 	};
 
 	result = vkCreateShaderModule(m_device, &vertexShaderCreateInfo, nullptr, &m_vertexShader);
 	LEARY_ASSERT(result == VK_SUCCESS);
 
-	const VkShaderModuleCreateInfo fragmentShaderCreateInfo = {
-	    VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-	    nullptr,
-	    0,
-	    fragmentShaderSize, reinterpret_cast<uint32_t*>(fragmentShaderSource)
+	const VkShaderModuleCreateInfo fragmentShaderCreateInfo = { 
+		VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO, 
+		nullptr, 
+		0, 
+		fragmentShaderSize, 
+		reinterpret_cast<uint32_t*>(fragmentShaderSource) 
 	};
 
 	result = vkCreateShaderModule(m_device, &fragmentShaderCreateInfo, nullptr, &m_fragmentShader);
@@ -767,185 +793,193 @@ void VulkanDevice::create(const GameWindow& window)
 	/***********************************************************************************************
 	 * Create pipeline
 	 **********************************************************************************************/
-	const VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = {
-	    VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-	    nullptr,
-	    0,
-	    0, nullptr,
-	    0, nullptr
+	const VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = { 
+		VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO, 
+		nullptr, 
+		0, 
+		0, 
+		nullptr, 
+		0, 
+		nullptr 
 	};
 
 	result = vkCreatePipelineLayout(m_device,  &pipelineLayoutCreateInfo,  nullptr,
 	                                &m_pipelineLayout);
 	LEARY_ASSERT(result == VK_SUCCESS);
 
-	const VkPipelineShaderStageCreateInfo shaderStageCreateInfo[2] = {
-	    { // vertex shader
-	      VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-	      nullptr,
-	      0,
-	      VK_SHADER_STAGE_VERTEX_BIT,
-	      m_vertexShader,
-	      "main",
-	      nullptr
-	    },
-	    { // fragment shader
-	      VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-	      nullptr,
-	      0,
-	      VK_SHADER_STAGE_FRAGMENT_BIT,
-	      m_fragmentShader,
-	      "main",
-	      nullptr
-	    }
+	const VkPipelineShaderStageCreateInfo shaderStageCreateInfo[2] = { 
+		{ // vertex shader 
+			VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, 
+			nullptr, 
+			0, 
+			VK_SHADER_STAGE_VERTEX_BIT, 
+			m_vertexShader, 
+			"main", 
+			nullptr 
+		},
+		{ // fragment shader 
+			VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, 
+			nullptr, 
+			0, 
+			VK_SHADER_STAGE_FRAGMENT_BIT, 
+			m_fragmentShader, 
+			"main", 
+			nullptr 
+		}
 	};
 
-	const VkVertexInputBindingDescription vertexInputBindingDescription = {
-	    VERTEX_INPUT_BINDING,
-	    sizeof(float)*6,
-	    VK_VERTEX_INPUT_RATE_VERTEX
+	const VkVertexInputBindingDescription vertexInputBindingDescription = { 
+		VERTEX_INPUT_BINDING, 
+		sizeof(float)*6, 
+		VK_VERTEX_INPUT_RATE_VERTEX 
 	};
 
-	const VkVertexInputAttributeDescription vertexInputAttributeDescriptions[2] = {
-	    {
-	        0, VERTEX_INPUT_BINDING,
-	        VK_FORMAT_R32G32B32_SFLOAT,
-	        0
-	    },
-	    {
-	        1, VERTEX_INPUT_BINDING,
-	        VK_FORMAT_R32G32B32_SFLOAT,
-	        sizeof(float)*3
-	    }
+	const VkVertexInputAttributeDescription vertexInputAttributeDescriptions[2] = { 
+		{ 0, VERTEX_INPUT_BINDING, VK_FORMAT_R32G32B32_SFLOAT, 0 }, 
+		{ 1, VERTEX_INPUT_BINDING, VK_FORMAT_R32G32B32_SFLOAT, sizeof(float)*3 } 
 	};
 
 
-	const VkPipelineVertexInputStateCreateInfo vertexInputCreateInfo = {
-	    VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
-	    nullptr,
-	    0,
-	    1, &vertexInputBindingDescription,
-	    2, vertexInputAttributeDescriptions
+	const VkPipelineVertexInputStateCreateInfo vertexInputCreateInfo = { 
+		VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO, 
+		nullptr, 
+		0, 
+		1, 
+		&vertexInputBindingDescription, 
+		2, 
+		vertexInputAttributeDescriptions
 	};
 
-	const VkPipelineInputAssemblyStateCreateInfo inputAssemblyCreateInfo = {
-	    VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
-	    nullptr,
-	    0,
-	    VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
-	    VK_FALSE
+	const VkPipelineInputAssemblyStateCreateInfo inputAssemblyCreateInfo = { 
+		VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO, 
+		nullptr, 
+		0, 
+		VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, 
+		VK_FALSE 
 	};
 
 	const VkDynamicState dynamicStates[2] = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
 
-	const VkPipelineDynamicStateCreateInfo dynamicStateCreateInfo = {
-	    VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
-	    nullptr,
-	    0,
-	    2, dynamicStates
+	const VkPipelineDynamicStateCreateInfo dynamicStateCreateInfo = { 
+		VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO, 
+		nullptr, 0, 2, 
+		dynamicStates 
 	};
 
-	const VkPipelineViewportStateCreateInfo viewportCreateInfo = {
-	    VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
-	    nullptr,
-	    0,
-	    1, nullptr,
-	    1, nullptr
+	const VkPipelineViewportStateCreateInfo viewportCreateInfo = { 
+		VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO, 
+		nullptr, 
+		0, 
+		1, 
+		nullptr, 
+		1, 
+		nullptr
 	};
 
-	const VkPipelineRasterizationStateCreateInfo rasterizationCreateInfo = {
-	    VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
-	    nullptr,
-	    0,
-	    VK_FALSE,
-	    VK_FALSE,
-	    VK_POLYGON_MODE_FILL,
-	    VK_CULL_MODE_BACK_BIT,
-	    VK_FRONT_FACE_CLOCKWISE,
-	    VK_FALSE,
-	    0.0f, 0.0f, 0.0f,
-	    1.0f
+	const VkPipelineRasterizationStateCreateInfo rasterizationCreateInfo = { 
+		VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO, 
+		nullptr, 
+		0, 
+		VK_FALSE, 
+		VK_FALSE, 
+		VK_POLYGON_MODE_FILL, 
+		VK_CULL_MODE_BACK_BIT, 
+		VK_FRONT_FACE_CLOCKWISE, 
+		VK_FALSE, 
+		0.0f, 
+		0.0f, 
+		0.0f, 
+		1.0f 
 	};
 
-	const VkPipelineColorBlendAttachmentState colorBlendAttachment = {
-	    VK_FALSE,
-	    VK_BLEND_FACTOR_ZERO, VK_BLEND_FACTOR_ZERO,
-	    VK_BLEND_OP_ADD,
-	    VK_BLEND_FACTOR_ZERO, VK_BLEND_FACTOR_ZERO,
-	    VK_BLEND_OP_ADD,
-	    VK_COLOR_COMPONENT_R_BIT |
-	    VK_COLOR_COMPONENT_G_BIT |
-	    VK_COLOR_COMPONENT_B_BIT |
-	    VK_COLOR_COMPONENT_A_BIT
+	const VkPipelineColorBlendAttachmentState colorBlendAttachment = { 
+		VK_FALSE, 
+		VK_BLEND_FACTOR_ZERO, 
+		VK_BLEND_FACTOR_ZERO, 
+		VK_BLEND_OP_ADD, 
+		VK_BLEND_FACTOR_ZERO, 
+		VK_BLEND_FACTOR_ZERO, 
+		VK_BLEND_OP_ADD, 
+		VK_COLOR_COMPONENT_R_BIT | 
+		VK_COLOR_COMPONENT_G_BIT | 
+		VK_COLOR_COMPONENT_B_BIT | 
+		VK_COLOR_COMPONENT_A_BIT 
+	}; 
+
+	const VkPipelineColorBlendStateCreateInfo colorBlendCreateInfo = { 
+		VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO, 
+		nullptr, 
+		0, 
+		VK_FALSE, 
+		VK_LOGIC_OP_CLEAR, 
+		1, 
+		&colorBlendAttachment, 
+		{ 0.0f, 0.0f, 0.0f, 0.0f } 
+	}; 
+
+	const VkPipelineDepthStencilStateCreateInfo depthStencilCreateInfo = { 
+		VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO, 
+		nullptr, 
+		0, 
+		VK_TRUE, 
+		VK_TRUE, 
+		VK_COMPARE_OP_LESS_OR_EQUAL, 
+		VK_FALSE, 
+		VK_FALSE, 
+		{ 
+			VK_STENCIL_OP_KEEP, 
+			VK_STENCIL_OP_KEEP, 
+			VK_STENCIL_OP_KEEP, 
+			VK_COMPARE_OP_ALWAYS, 
+			0, 
+			0, 
+			0 
+		}, 
+		{ 
+			VK_STENCIL_OP_KEEP, 
+			VK_STENCIL_OP_KEEP, 
+			VK_STENCIL_OP_KEEP, 
+			VK_COMPARE_OP_ALWAYS, 
+			0, 
+			0, 
+			0 
+		}, 
+		0.0f, 
+		0.0f 
 	};
 
-	const VkPipelineColorBlendStateCreateInfo colorBlendCreateInfo = {
-	    VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
-	    nullptr,
-	    0,
-	    VK_FALSE, VK_LOGIC_OP_CLEAR,
-	    1, &colorBlendAttachment,
-	    { 0.0f, 0.0f, 0.0f, 0.0f }
+	const VkPipelineMultisampleStateCreateInfo multisampleCreateInfo = { 
+		VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO, 
+		nullptr, 
+		0, 
+		VK_SAMPLE_COUNT_1_BIT, 
+		VK_FALSE, 
+		0, 
+		nullptr, 
+		VK_FALSE, 
+		VK_FALSE 
 	};
 
-	const VkPipelineDepthStencilStateCreateInfo depthStencilCreateInfo = {
-	    VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
-	    nullptr,
-	    0,
-	    VK_TRUE,
-	    VK_TRUE,
-	    VK_COMPARE_OP_LESS_OR_EQUAL,
-	    VK_FALSE,
-	    VK_FALSE,
-	    {
-	        VK_STENCIL_OP_KEEP,
-	        VK_STENCIL_OP_KEEP,
-	        VK_STENCIL_OP_KEEP,
-	        VK_COMPARE_OP_ALWAYS,
-	        0, 0, 0
-	    },
-	    {
-	        VK_STENCIL_OP_KEEP,
-	        VK_STENCIL_OP_KEEP,
-	        VK_STENCIL_OP_KEEP,
-	        VK_COMPARE_OP_ALWAYS,
-	        0, 0, 0
-	    },
-	    0.0f, 0.0f
-	};
-
-	const VkPipelineMultisampleStateCreateInfo multisampleCreateInfo = {
-	    VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
-	    nullptr,
-	    0,
-	    VK_SAMPLE_COUNT_1_BIT,
-	    VK_FALSE,
-	    0,
-	    nullptr,
-	    VK_FALSE,
-	    VK_FALSE
-	};
-
-	const VkGraphicsPipelineCreateInfo pipelineCreateInfo = {
-	    VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
-	    nullptr,
-	    0,
-	    2,
-	    shaderStageCreateInfo,
-	    &vertexInputCreateInfo,
-	    &inputAssemblyCreateInfo,
-	    nullptr,
-	    &viewportCreateInfo,
-	    &rasterizationCreateInfo,
-	    &multisampleCreateInfo,
-	    &depthStencilCreateInfo,
-	    &colorBlendCreateInfo,
-	    &dynamicStateCreateInfo,
-	    m_pipelineLayout,
-	    m_renderPass,
-	    0,
-	    VK_NULL_HANDLE,
-	    -1
+	const VkGraphicsPipelineCreateInfo pipelineCreateInfo = { 
+		VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO, 
+		nullptr, 
+		0, 
+		2, 
+		shaderStageCreateInfo, 
+		&vertexInputCreateInfo, 
+		&inputAssemblyCreateInfo, 
+		nullptr, 
+		&viewportCreateInfo, 
+		&rasterizationCreateInfo, 
+		&multisampleCreateInfo, 
+		&depthStencilCreateInfo, 
+		&colorBlendCreateInfo, 
+		&dynamicStateCreateInfo, 
+		m_pipelineLayout, 
+		m_renderPass, 
+		0, 
+		VK_NULL_HANDLE, 
+		-1 
 	};
 
 	result = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr,
@@ -1059,10 +1093,10 @@ void VulkanDevice::present()
 
 	VkSemaphore imageAcquired, renderComplete;
 
-	const VkSemaphoreCreateInfo semaphoreCreateInfo = {
-	    VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
-	    nullptr,
-	    0
+	const VkSemaphoreCreateInfo semaphoreCreateInfo = { 
+		VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO, 
+		nullptr, 
+		0 
 	};
 
 	result = vkCreateSemaphore(m_device, &semaphoreCreateInfo, nullptr, &imageAcquired);
@@ -1088,31 +1122,35 @@ void VulkanDevice::present()
 	/***********************************************************************************************
 	 * Fill present command buffer
 	 **********************************************************************************************/
-	const VkCommandBufferBeginInfo presentBeginInfo = {
-	    VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-	    nullptr,
-	    VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT,
-	    nullptr
+	const VkCommandBufferBeginInfo presentBeginInfo = { 
+		VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO, 
+		nullptr, 
+		VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT, 
+		nullptr 
 	};
 
 	result = vkBeginCommandBuffer(m_commandBufferPresent, &presentBeginInfo);
 	LEARY_ASSERT(result == VK_SUCCESS);
 
-	const VkImageSubresourceRange subresourceRange = {
-	    VK_IMAGE_ASPECT_COLOR_BIT,
-	    0, 1,
-	    0, 1
+	const VkImageSubresourceRange subresourceRange = { 
+		VK_IMAGE_ASPECT_COLOR_BIT, 
+		0, 
+		1, 
+		0, 
+		1 
 	};
 
-	VkImageMemoryBarrier imageMemoryBarrier = {
-	    VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-	    nullptr,
-	    0, 0,
-	    VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_UNDEFINED,
-	    VK_QUEUE_FAMILY_IGNORED,
-	    VK_QUEUE_FAMILY_IGNORED,
-	    m_swapchainImages[imageIndex],
-	    subresourceRange
+	VkImageMemoryBarrier imageMemoryBarrier = { 
+		VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER, 
+		nullptr, 
+		0, 
+		0, 
+		VK_IMAGE_LAYOUT_UNDEFINED, 
+		VK_IMAGE_LAYOUT_UNDEFINED, 
+		VK_QUEUE_FAMILY_IGNORED, 
+		VK_QUEUE_FAMILY_IGNORED, 
+		m_swapchainImages[imageIndex], 
+		subresourceRange 
 	};
 
 	// transition swapchain image to VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
@@ -1135,28 +1173,32 @@ void VulkanDevice::present()
 
 	clearValues[1].depthStencil  = { 1, 0 };
 
-	const VkRect2D renderArea = {
-	    { 0,       0        },
-	    { m_width, m_height }
+	const VkRect2D renderArea = { 
+		{ 0,       0        }, 
+		{ m_width, m_height } 
 	};
 
-	const VkRenderPassBeginInfo renderPassBeginInfo = {
-	    VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
-	    nullptr,
-	    m_renderPass,
-	    m_framebuffers[imageIndex],
-	    renderArea,
-	    2, clearValues
+	const VkRenderPassBeginInfo renderPassBeginInfo = { 
+		VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO, 
+		nullptr, 
+		m_renderPass, 
+		m_framebuffers[imageIndex], 
+		renderArea, 
+		2, 
+		clearValues 
 	};
 
 	vkCmdBeginRenderPass(m_commandBufferPresent, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
 	vkCmdBindPipeline(m_commandBufferPresent, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
 
-	VkViewport viewport = {
-	    0.0f,    0.0f,
-	    static_cast<float>(m_width), static_cast<float>(m_height),
-	    0.0f,    1.0f
+	VkViewport viewport = { 
+		0.0f,    
+		0.0f, 
+		static_cast<float>(m_width), 
+		static_cast<float>(m_height), 
+		0.0f,    
+		1.0f 
 	};
 
 	vkCmdSetViewport(m_commandBufferPresent, 0, 1, &viewport);
@@ -1178,13 +1220,17 @@ void VulkanDevice::present()
 	 * Submit Present command buffer to queue
 	 **********************************************************************************************/
 	const VkPipelineStageFlags piplineStageFlags = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	const VkSubmitInfo submitInfo = {
-	    VK_STRUCTURE_TYPE_SUBMIT_INFO,
-	    nullptr,
-	    1, &imageAcquired,
-	    &piplineStageFlags,
-	    1, &m_commandBufferPresent,
-	    1, &renderComplete
+
+	const VkSubmitInfo submitInfo = { 
+		VK_STRUCTURE_TYPE_SUBMIT_INFO, 
+		nullptr, 
+		1, 
+		&imageAcquired, 
+		&piplineStageFlags, 
+		1, 
+		&m_commandBufferPresent, 
+		1, 
+		&renderComplete 
 	};
 
 	result = vkQueueSubmit(m_queue, 1, &submitInfo, VK_NULL_HANDLE);
@@ -1193,13 +1239,15 @@ void VulkanDevice::present()
 	/***********************************************************************************************
 	 * Present the rendered image
 	 **********************************************************************************************/
-	const VkPresentInfoKHR presentInfo = {
-	    VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
-	    nullptr,
-	    1, &renderComplete,
-	    1, &m_swapchain,
-	    &imageIndex,
-	    nullptr
+	const VkPresentInfoKHR presentInfo = { 
+		VK_STRUCTURE_TYPE_PRESENT_INFO_KHR, 
+		nullptr, 
+		1, 
+		&renderComplete, 
+		1, 
+		&m_swapchain, 
+		&imageIndex, 
+		nullptr 
 	};
 
 	result = vkQueuePresentKHR(m_queue, &presentInfo);
