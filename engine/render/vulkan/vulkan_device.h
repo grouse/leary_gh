@@ -21,63 +21,61 @@ public:
 
 	void present();
 
-	VulkanVertexBuffer create_vertex_buffer(size_t size, uint8_t* data);
+	VulkanVertexBuffer create_vertex_buffer(size_t size, uint8_t *data);
 	void               destroy_vertex_buffer(VulkanVertexBuffer *buffer);
 
 	uint32_t         m_width;
 	uint32_t         m_height;
 
-	VkInstance       m_instance;
+	VkInstance       vk_instance;
 
 	// Device and its queue(s)
-	VkDevice         m_device;
-	VkQueue          m_queue;
-	uint32_t         m_queueFamilyIndex;
+	VkDevice         vk_device;
+	VkQueue          vk_queue;
+	uint32_t         queue_family_index;
 
 	// Physical device
-	VkPhysicalDevice                 m_physicalDevice;
-	VkPhysicalDeviceMemoryProperties memory_properties;
+	VkPhysicalDevice                 vk_physical_device;
+	VkPhysicalDeviceMemoryProperties vk_physical_memory_properties; 
 
 
 	// Swapchain
-	VkSurfaceKHR     m_surface;
-	VkFormat         m_surfaceFormat;
-	VkSwapchainKHR   m_swapchain;
+	VkSurfaceKHR     vk_surface;
+	VkFormat         vk_surface_format;
+	VkSwapchainKHR   vk_swapchain;
 
-	uint32_t         m_swapchainImagesCount;
-	VkImage         *m_swapchainImages;
-	VkImageView     *m_swapchainImageViews;
+	uint32_t         swapchain_images_count;
+	VkImage          *vk_swapchain_images;
+	VkImageView      *vk_swapchain_imageviews;
 
 	// Command pool and buffers
-	VkCommandPool    m_commandPool;
+	VkCommandPool    vk_command_pool;
 
-	VkCommandBuffer  m_commandBuffers[2];
-	VkCommandBuffer  m_commandBufferInit;
-	VkCommandBuffer  m_commandBufferPresent;
+	VkCommandBuffer  vk_cmd_buffers[2];
+	VkCommandBuffer  vk_cmd_init;
+	VkCommandBuffer  vk_cmd_present;
 
 	// Depth Buffer
-	VkImage          m_depthImage;
-	VkImageView      m_depthImageView;
-	VkDeviceMemory   m_depthMemory;
+	VkImage          vk_depth_image;
+	VkImageView      vk_depth_imageview;
+	VkDeviceMemory   vk_depth_memory;
 
 	// Render pass
-	VkRenderPass     m_renderPass;
+	VkRenderPass     vk_renderpass;
 
 	// Framebuffer
-	VkFramebuffer   *m_framebuffers;
-	uint32_t         m_framebuffersCount;
+	uint32_t         framebuffers_count;
+	VkFramebuffer    *vk_framebuffers;
 
 	// Vertex buffer
-	VulkanVertexBuffer     vertex_buffer;
+	VulkanVertexBuffer vertex_buffer;
 
 	// Pipeline
-	VkPipeline       m_pipeline;
-	VkPipelineLayout m_pipelineLayout;
+	VkPipeline       vk_pipeline;
+	VkPipelineLayout vk_pipeline_layout;
 
-	VkShaderModule   m_vertexShader;
-	VkShaderModule   m_fragmentShader;
-
-
+	VkShaderModule   vk_vertex_shader;
+	VkShaderModule   vk_fragment_shader;
 };
 
 #endif // LEARY_VULKAN_DEVICE_H

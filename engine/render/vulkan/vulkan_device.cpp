@@ -168,7 +168,7 @@ void VulkanDevice::create(const GameWindow& window)
 		extensionNamesToEnable.data() 
 	};
 
-	result = vkCreateInstance(&instanceCreateInfo, nullptr, &m_instance);
+	result = vkCreateInstance(&instanceCreateInfo, nullptr, &vk_instance);
 	LEARY_ASSERT(result == VK_SUCCESS);
 
 
@@ -179,7 +179,7 @@ void VulkanDevice::create(const GameWindow& window)
 
 	auto pfn_vkCreateDebugReportCallbackEXT = 
 		(PFN_vkCreateDebugReportCallbackEXT) 
-		vkGetInstanceProcAddr(m_instance, "vkCreateDebugReportCallbackEXT");
+		vkGetInstanceProcAddr(vk_instance, "vkCreateDebugReportCallbackEXT");
 
 	VkDebugReportCallbackCreateInfoEXT debug_create_info;
 	debug_create_info.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CREATE_INFO_EXT;
@@ -191,7 +191,7 @@ void VulkanDevice::create(const GameWindow& window)
 	debug_create_info.pfnCallback = &debug_callback_func;
 	debug_create_info.pUserData   = nullptr;
 
-	result = pfn_vkCreateDebugReportCallbackEXT(m_instance, 
+	result = pfn_vkCreateDebugReportCallbackEXT(vk_instance, 
 	                                            &debug_create_info, 
 	                                            nullptr, 
 	                                            &debug_callback);
@@ -203,15 +203,15 @@ void VulkanDevice::create(const GameWindow& window)
 	 * Create and choose VkPhysicalDevice
 	 **********************************************************************************************/
 	uint32_t physicalDevicesCount = 0;
-	result = vkEnumeratePhysicalDevices(m_instance, &physicalDevicesCount, nullptr);
+	result = vkEnumeratePhysicalDevices(vk_instance, &physicalDevicesCount, nullptr);
 	LEARY_ASSERT(result == VK_SUCCESS);
 
 	VkPhysicalDevice *physicalDevices = new VkPhysicalDevice[physicalDevicesCount];
-	result = vkEnumeratePhysicalDevices(m_instance, &physicalDevicesCount, physicalDevices);
+	result = vkEnumeratePhysicalDevices(vk_instance, &physicalDevicesCount, physicalDevices);
 	LEARY_ASSERT(result == VK_SUCCESS);
 
 	// TODO: choose device based on device type (discrete > integrated > etc)
-	m_physicalDevice = physicalDevices[0];
+	vk_physical_device = physicalDevices[0];
 
 	delete[] physicalDevices;
 
@@ -233,28 +233,28 @@ void VulkanDevice::create(const GameWindow& window)
 		xcbWindow 
 	};
 
-	result = vkCreateXcbSurfaceKHR(m_instance, &surfaceCreateInfo, nullptr, &m_surface);
+	result = vkCreateXcbSurfaceKHR(vk_instance, &surfaceCreateInfo, nullptr, &vk_surface);
 	LEARY_ASSERT(result == VK_SUCCESS);
 
 	/***********************************************************************************************
 	 * Create VkDevice
 	 **********************************************************************************************/
 	uint32_t queueFamilyCount;
-	vkGetPhysicalDeviceQueueFamilyProperties(m_physicalDevice,
+	vkGetPhysicalDeviceQueueFamilyProperties(vk_physical_device,
 	                                         &queueFamilyCount, nullptr);
 
 	VkQueueFamilyProperties *queueFamilies = new VkQueueFamilyProperties[queueFamilyCount];
-	vkGetPhysicalDeviceQueueFamilyProperties(m_physicalDevice,
+	vkGetPhysicalDeviceQueueFamilyProperties(vk_physical_device,
 	                                         &queueFamilyCount, queueFamilies);
 
-	m_queueFamilyIndex = 0;
+	queue_family_index = 0;
 	for (uint32_t i = 0; i < queueFamilyCount; ++i) {
 		const VkQueueFamilyProperties &property = queueFamilies[i];
 
 		// figure out if the queue family supports present
 		VkBool32 supportsPresent = VK_FALSE;
-		result = vkGetPhysicalDeviceSurfaceSupportKHR(m_physicalDevice, m_queueFamilyIndex,
-		                                              m_surface, &supportsPresent);
+		result = vkGetPhysicalDeviceSurfaceSupportKHR(vk_physical_device, queue_family_index,
+		                                              vk_surface, &supportsPresent);
 		LEARY_ASSERT(result == VK_SUCCESS);
 
 		// if it doesn't we keep on searching
@@ -276,7 +276,7 @@ void VulkanDevice::create(const GameWindow& window)
 		// @TODO: get a separate queue for transfer if one exist to do buffer copy commands on while
 		// graphics/compute queue is doing its own thing
 		if (property.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
-			m_queueFamilyIndex = i;
+			queue_family_index = i;
 			break;
 		}
 	}
@@ -288,14 +288,14 @@ void VulkanDevice::create(const GameWindow& window)
 		VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO, 
 		nullptr, 
 		0, 
-		m_queueFamilyIndex, 
+		queue_family_index, 
 		1, 
 		&queuePriority 
 	};
 
 	// TODO: look into VkPhysicalDeviceFeatures and how it relates to VkDeviceCreateInfo
 	VkPhysicalDeviceFeatures physicalDeviceFeatures;
-	vkGetPhysicalDeviceFeatures(m_physicalDevice, &physicalDeviceFeatures);
+	vkGetPhysicalDeviceFeatures(vk_physical_device, &physicalDeviceFeatures);
 
 	const char* deviceExtensionNamesToEnable[1] = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
 
@@ -312,11 +312,11 @@ void VulkanDevice::create(const GameWindow& window)
 		&physicalDeviceFeatures 
 	};
 
-	result = vkCreateDevice(m_physicalDevice, &deviceCreateInfo, nullptr, &m_device);
+	result = vkCreateDevice(vk_physical_device, &deviceCreateInfo, nullptr, &vk_device);
 	LEARY_ASSERT(result == VK_SUCCESS);
 
 	uint32_t queueIndex = 0; // NOTE: does it matter which queue we choose?
-	vkGetDeviceQueue(m_device, m_queueFamilyIndex, queueIndex, &m_queue);
+	vkGetDeviceQueue(vk_device, queue_family_index, queueIndex, &vk_queue);
 
 	delete[] queueFamilies;
 
@@ -324,26 +324,26 @@ void VulkanDevice::create(const GameWindow& window)
 	 * Create VkSwapchainKHR
 	 **********************************************************************************************/
 	uint32_t surfaceFormatsCount;
-	result = vkGetPhysicalDeviceSurfaceFormatsKHR(m_physicalDevice, m_surface,
+	result = vkGetPhysicalDeviceSurfaceFormatsKHR(vk_physical_device, vk_surface,
 	                                              &surfaceFormatsCount, nullptr);
 	LEARY_ASSERT(result == VK_SUCCESS);
 
 	VkSurfaceFormatKHR *surfaceFormats = new VkSurfaceFormatKHR[surfaceFormatsCount];
-	result = vkGetPhysicalDeviceSurfaceFormatsKHR(m_physicalDevice, m_surface,
+	result = vkGetPhysicalDeviceSurfaceFormatsKHR(vk_physical_device, vk_surface,
 	                                              &surfaceFormatsCount, surfaceFormats);
 	LEARY_ASSERT(result == VK_SUCCESS);
 
 	// NOTE: if impl. reports only 1 surface format and that is undefined it has no preferred 
 	// format, so we choose BGRA8_UNORM
 	if (surfaceFormatsCount == 1 && surfaceFormats[0].format == VK_FORMAT_UNDEFINED)
-		m_surfaceFormat = VK_FORMAT_B8G8R8A8_UNORM;
+		vk_surface_format = VK_FORMAT_B8G8R8A8_UNORM;
 	else
-		m_surfaceFormat = surfaceFormats[0].format;
+		vk_surface_format = surfaceFormats[0].format;
 
 	const VkColorSpaceKHR                surfaceColorSpace  = surfaceFormats[0].colorSpace;
 
 	VkSurfaceCapabilitiesKHR surfaceCapabilities;
-	result = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(m_physicalDevice, m_surface,
+	result = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(vk_physical_device, vk_surface,
 	                                                   &surfaceCapabilities);
 	LEARY_ASSERT(result == VK_SUCCESS);
 
@@ -352,16 +352,16 @@ void VulkanDevice::create(const GameWindow& window)
 	const VkImageUsageFlags              imageUsage         = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 	const VkSharingMode                  imageSharingMode   = VK_SHARING_MODE_EXCLUSIVE;
 	const uint32_t                       queueFamilyIndexCount = 1;
-	const uint32_t                      *queueFamilyIndices = &m_queueFamilyIndex;
+	const uint32_t                      *queueFamilyIndices = &queue_family_index;
 	const VkCompositeAlphaFlagBitsKHR    compositeAlpha     = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
 
 	uint32_t presentModesCount;
-	result = vkGetPhysicalDeviceSurfacePresentModesKHR(m_physicalDevice, m_surface,
+	result = vkGetPhysicalDeviceSurfacePresentModesKHR(vk_physical_device, vk_surface,
 	                                                   &presentModesCount, nullptr);
 	LEARY_ASSERT(result == VK_SUCCESS);
 
 	VkPresentModeKHR *presentModes = new VkPresentModeKHR[presentModesCount];
-	result = vkGetPhysicalDeviceSurfacePresentModesKHR(m_physicalDevice, m_surface,
+	result = vkGetPhysicalDeviceSurfacePresentModesKHR(vk_physical_device, vk_surface,
 	                                                   &presentModesCount, presentModes);
 	LEARY_ASSERT(result == VK_SUCCESS);
 
@@ -404,9 +404,9 @@ void VulkanDevice::create(const GameWindow& window)
 		VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR, 
 		nullptr, 
 		0, 
-		m_surface, 
+		vk_surface, 
 		desiredSwapchainImages, 
-		m_surfaceFormat, 
+		vk_surface_format, 
 		surfaceColorSpace, 
 		imageExtent, 
 		imageArraylayers, 
@@ -421,7 +421,7 @@ void VulkanDevice::create(const GameWindow& window)
 		VK_NULL_HANDLE
 	};
 
-	result = vkCreateSwapchainKHR(m_device, &swapchainCreateInfo, nullptr, &m_swapchain);
+	result = vkCreateSwapchainKHR(vk_device, &swapchainCreateInfo, nullptr, &vk_swapchain);
 	LEARY_ASSERT(result == VK_SUCCESS);
 
 	delete[] presentModes;
@@ -429,16 +429,16 @@ void VulkanDevice::create(const GameWindow& window)
 	/***********************************************************************************************
 	 * Create Swapchain images and views
 	 **********************************************************************************************/
-	result = vkGetSwapchainImagesKHR(m_device, m_swapchain, &m_swapchainImagesCount, nullptr);
+	result = vkGetSwapchainImagesKHR(vk_device, vk_swapchain, &swapchain_images_count, nullptr);
 	LEARY_ASSERT(result == VK_SUCCESS);
 
-	m_swapchainImages = new VkImage[m_swapchainImagesCount];
-	result = vkGetSwapchainImagesKHR(m_device, m_swapchain,
-	                                 &m_swapchainImagesCount, m_swapchainImages);
+	vk_swapchain_images = new VkImage[swapchain_images_count];
+	result = vkGetSwapchainImagesKHR(vk_device, vk_swapchain,
+	                                 &swapchain_images_count, vk_swapchain_images);
 	LEARY_ASSERT(result == VK_SUCCESS);
 
-	m_swapchainImageViews = new VkImageView[m_swapchainImagesCount];
-	for (uint32_t i = 0; i < m_swapchainImagesCount; ++i) {
+	vk_swapchain_imageviews = new VkImageView[swapchain_images_count];
+	for (uint32_t i = 0; i < swapchain_images_count; ++i) {
 		const VkComponentMapping components = { 
 			VK_COMPONENT_SWIZZLE_R, 
 			VK_COMPONENT_SWIZZLE_G, 
@@ -458,14 +458,14 @@ void VulkanDevice::create(const GameWindow& window)
 			VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO, 
 			nullptr, 
 			0, 
-			m_swapchainImages[i], 
+			vk_swapchain_images[i], 
 			VK_IMAGE_VIEW_TYPE_2D, 
-			m_surfaceFormat, 
+			vk_surface_format, 
 			components, 
 			subresourceRange 
 		};
 
-		result = vkCreateImageView(m_device, &createInfo, nullptr, &m_swapchainImageViews[i]);
+		result = vkCreateImageView(vk_device, &createInfo, nullptr, &vk_swapchain_imageviews[i]);
 		LEARY_ASSERT(result == VK_SUCCESS);
 	}
 
@@ -476,10 +476,10 @@ void VulkanDevice::create(const GameWindow& window)
 		VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO, 
 		nullptr, 
 		0, 
-		m_queueFamilyIndex 
+		queue_family_index 
 	};
 
-	result = vkCreateCommandPool(m_device, &cmdPoolCreateInfo, nullptr, &m_commandPool);
+	result = vkCreateCommandPool(vk_device, &cmdPoolCreateInfo, nullptr, &vk_command_pool);
 	LEARY_ASSERT(result == VK_SUCCESS);
 
 	/***********************************************************************************************
@@ -488,22 +488,22 @@ void VulkanDevice::create(const GameWindow& window)
 	const VkCommandBufferAllocateInfo commandBufferAllocateInfo = { 
 		VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO, 
 		nullptr, 
-		m_commandPool, 
+		vk_command_pool, 
 		VK_COMMAND_BUFFER_LEVEL_PRIMARY, 
 		2 
 	};
 
-	result = vkAllocateCommandBuffers(m_device, &commandBufferAllocateInfo, m_commandBuffers);
+	result = vkAllocateCommandBuffers(vk_device, &commandBufferAllocateInfo, vk_cmd_buffers);
 	LEARY_ASSERT(result == VK_SUCCESS);
 
-	m_commandBufferInit    = m_commandBuffers[0];
-	m_commandBufferPresent = m_commandBuffers[1];
+	vk_cmd_init    = vk_cmd_buffers[0];
+	vk_cmd_present = vk_cmd_buffers[1];
 
 
 	/***********************************************************************************************
 	 * Create Depth buffer
 	 **********************************************************************************************/
-	vkGetPhysicalDeviceMemoryProperties(m_physicalDevice, &memory_properties);
+	vkGetPhysicalDeviceMemoryProperties(vk_physical_device, &vk_physical_memory_properties);
 
 	// create depth buffer with same extent as the swapchain
 	const VkExtent3D depthImageExtent = { m_width, m_height, 1 };
@@ -526,15 +526,15 @@ void VulkanDevice::create(const GameWindow& window)
 		VK_IMAGE_LAYOUT_UNDEFINED 
 	};
 
-	result = vkCreateImage(m_device, &depthImageCreateInfo, nullptr, &m_depthImage);
+	result = vkCreateImage(vk_device, &depthImageCreateInfo, nullptr, &vk_depth_image);
 	LEARY_ASSERT(result == VK_SUCCESS);
 
 	// create memory
 	VkMemoryRequirements depthMemRequirements;
-	vkGetImageMemoryRequirements(m_device, m_depthImage, &depthMemRequirements);
+	vkGetImageMemoryRequirements(vk_device, vk_depth_image, &depthMemRequirements);
 
 	const VkMemoryPropertyFlags depthMemPropertyFlags = 0;
-	const int32_t memoryTypeIndex = find_memory_type_index(memory_properties,
+	const int32_t memoryTypeIndex = find_memory_type_index(vk_physical_memory_properties,
 	                                                        depthMemRequirements.memoryTypeBits,
 	                                                        depthMemPropertyFlags);
 	LEARY_ASSERT(memoryTypeIndex >= 0);
@@ -546,10 +546,10 @@ void VulkanDevice::create(const GameWindow& window)
 		(uint32_t) memoryTypeIndex 
 	};
 
-	result = vkAllocateMemory(m_device, &depthMemoryAllocateInfo, nullptr, &m_depthMemory);
+	result = vkAllocateMemory(vk_device, &depthMemoryAllocateInfo, nullptr, &vk_depth_memory);
 	LEARY_ASSERT(result == VK_SUCCESS);
 
-	result = vkBindImageMemory(m_device, m_depthImage, m_depthMemory, 0);
+	result = vkBindImageMemory(vk_device, vk_depth_image, vk_depth_memory, 0);
 	LEARY_ASSERT(result == VK_SUCCESS);
 
 	// create image view
@@ -572,14 +572,14 @@ void VulkanDevice::create(const GameWindow& window)
 		VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO, 
 		nullptr, 
 		0, 
-		m_depthImage, 
+		vk_depth_image, 
 		VK_IMAGE_VIEW_TYPE_2D, 
 		VK_FORMAT_D16_UNORM, 
 		depthComponents, 
 		depthSubresourceRange
 	};
 
-	result = vkCreateImageView(m_device, &depthImageViewCreateInfo, nullptr, &m_depthImageView);
+	result = vkCreateImageView(vk_device, &depthImageViewCreateInfo, nullptr, &vk_depth_imageview);
 	LEARY_ASSERT(result == VK_SUCCESS);
 
 	// transfer the depth buffer image layout to the correct type
@@ -593,7 +593,7 @@ void VulkanDevice::create(const GameWindow& window)
 		VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, 
 		VK_QUEUE_FAMILY_IGNORED, 
 		VK_QUEUE_FAMILY_IGNORED, 
-		m_depthImage, 
+		vk_depth_image, 
 		depthSubresourceRange 
 	};
 
@@ -604,10 +604,10 @@ void VulkanDevice::create(const GameWindow& window)
 		nullptr 
 	};
 
-	result = vkBeginCommandBuffer(m_commandBufferInit, &commandBufferBeginInfo);
+	result = vkBeginCommandBuffer(vk_cmd_init, &commandBufferBeginInfo);
 	LEARY_ASSERT(result == VK_SUCCESS);
 
-	vkCmdPipelineBarrier(m_commandBufferInit,
+	vkCmdPipelineBarrier(vk_cmd_init,
 	                     VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
 	                     VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
 	                     0,
@@ -618,7 +618,7 @@ void VulkanDevice::create(const GameWindow& window)
 	                     1, 
 	                     &imageMemoryBarrier);
 
-	result = vkEndCommandBuffer(m_commandBufferInit);
+	result = vkEndCommandBuffer(vk_cmd_init);
 	LEARY_ASSERT(result == VK_SUCCESS);
 
 	const VkSubmitInfo submitInfo = { 
@@ -628,15 +628,15 @@ void VulkanDevice::create(const GameWindow& window)
 		nullptr, 
 		nullptr, 
 		1, 
-		&m_commandBufferInit, 
+		&vk_cmd_init, 
 		0, 
 		nullptr 
 	};
 
-	result = vkQueueSubmit(m_queue, 1, &submitInfo, VK_NULL_HANDLE);
+	result = vkQueueSubmit(vk_queue, 1, &submitInfo, VK_NULL_HANDLE);
 	LEARY_ASSERT(result == VK_SUCCESS);
 
-	result = vkQueueWaitIdle(m_queue);
+	result = vkQueueWaitIdle(vk_queue);
 	LEARY_ASSERT(result == VK_SUCCESS);
 
 
@@ -646,7 +646,7 @@ void VulkanDevice::create(const GameWindow& window)
 	const VkAttachmentDescription attachmentDescriptions[2] = { 
 		{  // color attachment description 
 			0, 
-			m_surfaceFormat,
+			vk_surface_format,
 			VK_SAMPLE_COUNT_1_BIT, 
 			VK_ATTACHMENT_LOAD_OP_CLEAR, 
 			VK_ATTACHMENT_STORE_OP_STORE, 
@@ -704,23 +704,23 @@ void VulkanDevice::create(const GameWindow& window)
 		nullptr
 	};
 
-	result = vkCreateRenderPass(m_device, &renderPassCreateInfo, nullptr, &m_renderPass);
+	result = vkCreateRenderPass(vk_device, &renderPassCreateInfo, nullptr, &vk_renderpass);
 	LEARY_ASSERT(result == VK_SUCCESS);
 
 	/***********************************************************************************************
 	 * Create Framebuffers
 	 **********************************************************************************************/
-	m_framebuffersCount = m_swapchainImagesCount;
-	m_framebuffers      = new VkFramebuffer[m_framebuffersCount];
+	framebuffers_count = swapchain_images_count;
+	vk_framebuffers      = new VkFramebuffer[framebuffers_count];
 
-	for (uint32_t i = 0; i < m_framebuffersCount; ++i) {
-		const VkImageView views[2] = { m_swapchainImageViews[i], m_depthImageView };
+	for (uint32_t i = 0; i < framebuffers_count; ++i) {
+		const VkImageView views[2] = { vk_swapchain_imageviews[i], vk_depth_imageview };
 
 		const VkFramebufferCreateInfo createInfo = { 
 			VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO, 
 			nullptr, 
 			0, 
-			m_renderPass, 
+			vk_renderpass, 
 			2, 
 			views, 
 			imageExtent.width, 
@@ -728,7 +728,7 @@ void VulkanDevice::create(const GameWindow& window)
 			1 
 		};
 
-		result = vkCreateFramebuffer(m_device, &createInfo, nullptr, &m_framebuffers[i]);
+		result = vkCreateFramebuffer(vk_device, &createInfo, nullptr, &vk_framebuffers[i]);
 		LEARY_ASSERT(result == VK_SUCCESS);
 	}
 
@@ -774,7 +774,7 @@ void VulkanDevice::create(const GameWindow& window)
 		reinterpret_cast<uint32_t*>(vertexShaderSource) 
 	};
 
-	result = vkCreateShaderModule(m_device, &vertexShaderCreateInfo, nullptr, &m_vertexShader);
+	result = vkCreateShaderModule(vk_device, &vertexShaderCreateInfo, nullptr, &vk_vertex_shader);
 	LEARY_ASSERT(result == VK_SUCCESS);
 
 	const VkShaderModuleCreateInfo fragmentShaderCreateInfo = { 
@@ -785,7 +785,7 @@ void VulkanDevice::create(const GameWindow& window)
 		reinterpret_cast<uint32_t*>(fragmentShaderSource) 
 	};
 
-	result = vkCreateShaderModule(m_device, &fragmentShaderCreateInfo, nullptr, &m_fragmentShader);
+	result = vkCreateShaderModule(vk_device, &fragmentShaderCreateInfo, nullptr, &vk_fragment_shader);
 	LEARY_ASSERT(result == VK_SUCCESS);
 
 	delete[] fragmentShaderSource;
@@ -804,8 +804,8 @@ void VulkanDevice::create(const GameWindow& window)
 		nullptr 
 	};
 
-	result = vkCreatePipelineLayout(m_device,  &pipelineLayoutCreateInfo,  nullptr,
-	                                &m_pipelineLayout);
+	result = vkCreatePipelineLayout(vk_device,  &pipelineLayoutCreateInfo,  nullptr,
+	                                &vk_pipeline_layout);
 	LEARY_ASSERT(result == VK_SUCCESS);
 
 	const VkPipelineShaderStageCreateInfo shaderStageCreateInfo[2] = { 
@@ -814,7 +814,7 @@ void VulkanDevice::create(const GameWindow& window)
 			nullptr, 
 			0, 
 			VK_SHADER_STAGE_VERTEX_BIT, 
-			m_vertexShader, 
+			vk_vertex_shader, 
 			"main", 
 			nullptr 
 		},
@@ -823,7 +823,7 @@ void VulkanDevice::create(const GameWindow& window)
 			nullptr, 
 			0, 
 			VK_SHADER_STAGE_FRAGMENT_BIT, 
-			m_fragmentShader, 
+			vk_fragment_shader, 
 			"main", 
 			nullptr 
 		}
@@ -976,56 +976,56 @@ void VulkanDevice::create(const GameWindow& window)
 		&depthStencilCreateInfo, 
 		&colorBlendCreateInfo, 
 		&dynamicStateCreateInfo, 
-		m_pipelineLayout, 
-		m_renderPass, 
+		vk_pipeline_layout, 
+		vk_renderpass, 
 		0, 
 		VK_NULL_HANDLE, 
 		-1 
 	};
 
-	result = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr,
-	                                   &m_pipeline);
+	result = vkCreateGraphicsPipelines(vk_device, VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr,
+	                                   &vk_pipeline);
 	LEARY_ASSERT(result == VK_SUCCESS);
 
-	vkDestroyShaderModule(m_device, m_vertexShader,   nullptr);
-	vkDestroyShaderModule(m_device, m_fragmentShader, nullptr);
+	vkDestroyShaderModule(vk_device, vk_vertex_shader,   nullptr);
+	vkDestroyShaderModule(vk_device, vk_fragment_shader, nullptr);
 }
 
 void VulkanDevice::destroy()
 {
 	// wait for pending operations
-	VkResult result = vkQueueWaitIdle(m_queue);
+	VkResult result = vkQueueWaitIdle(vk_queue);
 	LEARY_ASSERT(result == VK_SUCCESS);
 
-	vkDestroyPipeline(m_device, m_pipeline, nullptr);
-	vkDestroyPipelineLayout(m_device, m_pipelineLayout, nullptr);
+	vkDestroyPipeline(vk_device, vk_pipeline, nullptr);
+	vkDestroyPipelineLayout(vk_device, vk_pipeline_layout, nullptr);
 
 	// TODO: move these calls out of VulkanDevice, they are meant to be used outside as an api
 	destroy_vertex_buffer(&vertex_buffer);
 
-	for (uint32_t i = 0; i < m_framebuffersCount; ++i) {
-		vkDestroyFramebuffer(m_device, m_framebuffers[i], nullptr);
+	for (uint32_t i = 0; i < framebuffers_count; ++i) {
+		vkDestroyFramebuffer(vk_device, vk_framebuffers[i], nullptr);
 	}
 
-	delete[] m_framebuffers;
+	delete[] vk_framebuffers;
 
-	vkDestroyRenderPass(m_device, m_renderPass, nullptr);
+	vkDestroyRenderPass(vk_device, vk_renderpass, nullptr);
 
-	vkDestroyImageView(m_device, m_depthImageView, nullptr);
-	vkFreeMemory(m_device, m_depthMemory, nullptr);
-	vkDestroyImage(m_device, m_depthImage, nullptr);
+	vkDestroyImageView(vk_device, vk_depth_imageview, nullptr);
+	vkFreeMemory(vk_device, vk_depth_memory, nullptr);
+	vkDestroyImage(vk_device, vk_depth_image, nullptr);
 
-	vkFreeCommandBuffers(m_device, m_commandPool, 2, m_commandBuffers);
-	vkDestroyCommandPool(m_device, m_commandPool, nullptr);
+	vkFreeCommandBuffers(vk_device, vk_command_pool, 2, vk_cmd_buffers);
+	vkDestroyCommandPool(vk_device, vk_command_pool, nullptr);
 
-	vkDestroySwapchainKHR(m_device, m_swapchain, nullptr);
+	vkDestroySwapchainKHR(vk_device, vk_swapchain, nullptr);
 
-	delete[] m_swapchainImageViews;
-	delete[] m_swapchainImages;
+	delete[] vk_swapchain_imageviews;
+	delete[] vk_swapchain_images;
 
-	vkDestroyDevice(m_device,     nullptr);
-	vkDestroySurfaceKHR(m_instance, m_surface, nullptr);
-	vkDestroyInstance(m_instance, nullptr);
+	vkDestroyDevice(vk_device,     nullptr);
+	vkDestroySurfaceKHR(vk_instance, vk_surface, nullptr);
+	vkDestroyInstance(vk_instance, nullptr);
 }
 
 VulkanVertexBuffer VulkanDevice::create_vertex_buffer(size_t size, uint8_t* data) 
@@ -1043,14 +1043,14 @@ VulkanVertexBuffer VulkanDevice::create_vertex_buffer(size_t size, uint8_t* data
 	create_info.queueFamilyIndexCount = 0;
 	create_info.pQueueFamilyIndices   = nullptr;
 
-	VkResult result = vkCreateBuffer(this->m_device, &create_info, nullptr, &buffer.vk_buffer);
+	VkResult result = vkCreateBuffer(this->vk_device, &create_info, nullptr, &buffer.vk_buffer);
 	LEARY_ASSERT(result == VK_SUCCESS);
 
 	// TODO: allocate buffers from large memory pool in VulkanDevice
 	VkMemoryRequirements memory_requirements;
-	vkGetBufferMemoryRequirements(this->m_device, buffer.vk_buffer, &memory_requirements);
+	vkGetBufferMemoryRequirements(this->vk_device, buffer.vk_buffer, &memory_requirements);
 
-	int32_t index = find_memory_type_index(this->memory_properties, 
+	int32_t index = find_memory_type_index(this->vk_physical_memory_properties, 
 	                                       memory_requirements.memoryTypeBits, 
 	                                       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
 	LEARY_ASSERT(index >= 0); 
@@ -1061,21 +1061,21 @@ VulkanVertexBuffer VulkanDevice::create_vertex_buffer(size_t size, uint8_t* data
 	allocate_info.allocationSize  = memory_requirements.size;
 	allocate_info.memoryTypeIndex = (uint32_t) index;
 
-	result = vkAllocateMemory(this->m_device, &allocate_info, nullptr, &buffer.vk_memory);
+	result = vkAllocateMemory(this->vk_device, &allocate_info, nullptr, &buffer.vk_memory);
 	LEARY_ASSERT(result == VK_SUCCESS);
 
-	result = vkBindBufferMemory(this->m_device, buffer.vk_buffer, buffer.vk_memory, 0);
+	result = vkBindBufferMemory(this->vk_device, buffer.vk_buffer, buffer.vk_memory, 0);
 	LEARY_ASSERT(result == VK_SUCCESS);
 
 	if (data != nullptr)
 	{
 		void* memptr;
-		result = vkMapMemory(this->m_device, buffer.vk_memory, 0, VK_WHOLE_SIZE, 0, &memptr);
+		result = vkMapMemory(this->vk_device, buffer.vk_memory, 0, VK_WHOLE_SIZE, 0, &memptr);
 		LEARY_ASSERT(result == VK_SUCCESS);
 
 		memcpy(memptr, data, size);
 
-		vkUnmapMemory(this->m_device, buffer.vk_memory);
+		vkUnmapMemory(this->vk_device, buffer.vk_memory);
 	}
 
 	return buffer;
@@ -1084,8 +1084,8 @@ VulkanVertexBuffer VulkanDevice::create_vertex_buffer(size_t size, uint8_t* data
 void VulkanDevice::destroy_vertex_buffer(VulkanVertexBuffer* buffer) 
 {
 	// TODO: free memory from large memory pool in VulkanDevice 
-	vkFreeMemory(this->m_device,    buffer->vk_memory, nullptr);
-	vkDestroyBuffer(this->m_device, buffer->vk_buffer, nullptr);
+	vkFreeMemory(this->vk_device,    buffer->vk_memory, nullptr);
+	vkDestroyBuffer(this->vk_device, buffer->vk_buffer, nullptr);
 }
 
 void VulkanDevice::present()
@@ -1100,10 +1100,10 @@ void VulkanDevice::present()
 		0 
 	};
 
-	result = vkCreateSemaphore(m_device, &semaphoreCreateInfo, nullptr, &imageAcquired);
+	result = vkCreateSemaphore(vk_device, &semaphoreCreateInfo, nullptr, &imageAcquired);
 	LEARY_ASSERT(result == VK_SUCCESS);
 
-	result = vkCreateSemaphore(m_device, &semaphoreCreateInfo, nullptr, &renderComplete);
+	result = vkCreateSemaphore(vk_device, &semaphoreCreateInfo, nullptr, &renderComplete);
 	LEARY_ASSERT(result == VK_SUCCESS);
 
 	/***********************************************************************************************
@@ -1112,8 +1112,8 @@ void VulkanDevice::present()
 	uint32_t imageIndex    = std::numeric_limits<uint32_t>::max();
 	const uint64_t timeout = std::numeric_limits<uint64_t>::max();
 
-	result = vkAcquireNextImageKHR(m_device,
-	                               m_swapchain,
+	result = vkAcquireNextImageKHR(vk_device,
+	                               vk_swapchain,
 	                               timeout,
 	                               imageAcquired,
 	                               VK_NULL_HANDLE,
@@ -1130,7 +1130,7 @@ void VulkanDevice::present()
 		nullptr 
 	};
 
-	result = vkBeginCommandBuffer(m_commandBufferPresent, &presentBeginInfo);
+	result = vkBeginCommandBuffer(vk_cmd_present, &presentBeginInfo);
 	LEARY_ASSERT(result == VK_SUCCESS);
 
 	const VkImageSubresourceRange subresourceRange = { 
@@ -1150,7 +1150,7 @@ void VulkanDevice::present()
 		VK_IMAGE_LAYOUT_UNDEFINED, 
 		VK_QUEUE_FAMILY_IGNORED, 
 		VK_QUEUE_FAMILY_IGNORED, 
-		m_swapchainImages[imageIndex], 
+		vk_swapchain_images[imageIndex], 
 		subresourceRange 
 	};
 
@@ -1158,7 +1158,7 @@ void VulkanDevice::present()
 	imageMemoryBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
 	imageMemoryBarrier.newLayout     = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
 
-	vkCmdPipelineBarrier(m_commandBufferPresent,
+	vkCmdPipelineBarrier(vk_cmd_present,
 	                     VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
 	                     VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
 	                     0,
@@ -1182,16 +1182,16 @@ void VulkanDevice::present()
 	const VkRenderPassBeginInfo renderPassBeginInfo = { 
 		VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO, 
 		nullptr, 
-		m_renderPass, 
-		m_framebuffers[imageIndex], 
+		vk_renderpass, 
+		vk_framebuffers[imageIndex], 
 		renderArea, 
 		2, 
 		clearValues 
 	};
 
-	vkCmdBeginRenderPass(m_commandBufferPresent, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+	vkCmdBeginRenderPass(vk_cmd_present, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-	vkCmdBindPipeline(m_commandBufferPresent, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
+	vkCmdBindPipeline(vk_cmd_present, VK_PIPELINE_BIND_POINT_GRAPHICS, vk_pipeline);
 
 	VkViewport viewport = { 
 		0.0f,    
@@ -1202,19 +1202,19 @@ void VulkanDevice::present()
 		1.0f 
 	};
 
-	vkCmdSetViewport(m_commandBufferPresent, 0, 1, &viewport);
+	vkCmdSetViewport(vk_cmd_present, 0, 1, &viewport);
 
-	vkCmdSetScissor(m_commandBufferPresent, 0, 1, &renderArea);
+	vkCmdSetScissor(vk_cmd_present, 0, 1, &renderArea);
 
 	VkDeviceSize buffersOffsets = 0;
-	vkCmdBindVertexBuffers(m_commandBufferPresent, VERTEX_INPUT_BINDING,
+	vkCmdBindVertexBuffers(vk_cmd_present, VERTEX_INPUT_BINDING,
 	                       1, &vertex_buffer.vk_buffer, &buffersOffsets);
 
-	vkCmdDraw(m_commandBufferPresent, 3, 1, 0, 0);
+	vkCmdDraw(vk_cmd_present, 3, 1, 0, 0);
 
-	vkCmdEndRenderPass(m_commandBufferPresent);
+	vkCmdEndRenderPass(vk_cmd_present);
 
-	result = vkEndCommandBuffer(m_commandBufferPresent);
+	result = vkEndCommandBuffer(vk_cmd_present);
 	LEARY_ASSERT(result == VK_SUCCESS);
 
 	/***********************************************************************************************
@@ -1229,12 +1229,12 @@ void VulkanDevice::present()
 		&imageAcquired, 
 		&piplineStageFlags, 
 		1, 
-		&m_commandBufferPresent, 
+		&vk_cmd_present, 
 		1, 
 		&renderComplete 
 	};
 
-	result = vkQueueSubmit(m_queue, 1, &submitInfo, VK_NULL_HANDLE);
+	result = vkQueueSubmit(vk_queue, 1, &submitInfo, VK_NULL_HANDLE);
 	LEARY_ASSERT(result == VK_SUCCESS);
 
 	/***********************************************************************************************
@@ -1246,20 +1246,20 @@ void VulkanDevice::present()
 		1, 
 		&renderComplete, 
 		1, 
-		&m_swapchain, 
+		&vk_swapchain, 
 		&imageIndex, 
 		nullptr 
 	};
 
-	result = vkQueuePresentKHR(m_queue, &presentInfo);
+	result = vkQueuePresentKHR(vk_queue, &presentInfo);
 	LEARY_ASSERT(result == VK_SUCCESS);
 
 	// wait for idle operations
-	result = vkQueueWaitIdle(m_queue);
+	result = vkQueueWaitIdle(vk_queue);
 	LEARY_ASSERT(result == VK_SUCCESS);
 
-	vkDestroySemaphore(m_device, renderComplete, nullptr);
-	vkDestroySemaphore(m_device, imageAcquired,  nullptr);
+	vkDestroySemaphore(vk_device, renderComplete, nullptr);
+	vkDestroySemaphore(vk_device, imageAcquired,  nullptr);
 }
 
 namespace
