@@ -644,7 +644,8 @@ void VulkanDevice::create(const GameWindow& window)
 	 * Create vkRenderPass
 	 **********************************************************************************************/
 	const VkAttachmentDescription attachmentDescriptions[2] = { 
-		{  // color attachment description 0, 
+		{  // color attachment description 
+			0, 
 			m_surfaceFormat,
 			VK_SAMPLE_COUNT_1_BIT, 
 			VK_ATTACHMENT_LOAD_OP_CLEAR, 
