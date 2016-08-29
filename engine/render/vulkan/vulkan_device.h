@@ -43,6 +43,7 @@ public:
 	VkSurfaceKHR     vk_surface;
 	VkFormat         vk_surface_format;
 	VkSwapchainKHR   vk_swapchain;
+	VkExtent2D       vk_swapchain_extent;
 
 	uint32_t         swapchain_images_count;
 	VkImage          *vk_swapchain_images;
@@ -64,7 +65,7 @@ public:
 	VkRenderPass     vk_renderpass;
 
 	// Framebuffer
-	uint32_t         framebuffers_count;
+	int32_t          framebuffers_count;
 	VkFramebuffer    *vk_framebuffers;
 
 	// Vertex buffer
