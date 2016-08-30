@@ -45,6 +45,7 @@ void GameWindow::create(const char* title, uint32_t width, uint32_t height, bool
 	flags |= SDL_WINDOW_OPENGL;
 #endif // LEARY_OPENGL
 
+	LEARY_UNUSED(fullscreen);
 #if 0
 	if (fullscreen)
 		flags |= SDL_WINDOW_FULLSCREEN;

@@ -29,7 +29,7 @@
 #include <unordered_map>
 
 #include "util/debug.h"
-#include "util/environment.h"
+#include "platform/file.h"
 
 Settings *Settings::m_instance = nullptr;
 
@@ -69,13 +69,13 @@ inline void ini_load_value(const ini_map_t&  values,
 		return;
 
 	uint8_t tmp;
-	sscanf(iter->second.c_str(), "%d", &tmp);
+	sscanf(iter->second.c_str(), "%c", &tmp);
 	*value = tmp ? true : false;
 }
 
 void Settings::load(const char* filename) 
 {
-	std::string file_path = Environment::resolvePath(eEnvironmentFolder::UserPreferences, filename);
+	std::string file_path = resolve_path(EnvironmentFolder::UserPreferences, filename);
 
 	std::fstream stream(file_path, std::ios::in);
 	LEARY_ASSERT(stream.is_open());
@@ -107,7 +107,7 @@ void Settings::load(const char* filename)
 
 void Settings::save(const char* filename) const
 {
-	std::string file_path = Environment::resolvePath(eEnvironmentFolder::UserPreferences, filename);
+	std::string file_path = resolve_path(EnvironmentFolder::UserPreferences, filename);
 
 	FILE *file = fopen(file_path.c_str(), "w");
 	LEARY_ASSERT(file != NULL);

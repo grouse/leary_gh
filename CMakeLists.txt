@@ -93,13 +93,23 @@ endif()
 
 list(APPEND leary_ENGINE_UTIL_SOURCE
 	${CMAKE_CURRENT_SOURCE_DIR}/engine/util/debug.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/engine/util/environment.cpp
 )
+
+if (WIN32)
+	list(APPEND leary_ENGINE_PLATFORM_SOURCE
+		${CMAKE_CURRENT_SOURCE_DIR}/engine/platform/win32_file.cpp
+	)
+elseif (${CMAKE_SYSTEM} MATCHES Linux)
+	list(APPEND leary_ENGINE_PLATFORM_SOURCE
+		${CMAKE_CURRENT_SOURCE_DIR}/engine/platform/linux_file.cpp
+	)
+endif()
 
 list(APPEND leary_ENGINE_SOURCE
 	${leary_ENGINE_CORE_SOURCE}
 	${leary_ENGINE_RENDER_SOURCE}
 	${leary_ENGINE_UTIL_SOURCE}
+	${leary_ENGINE_PLATFORM_SOURCE}
 )
 
 list(APPEND leary_GAME_SOURCE
@@ -136,13 +146,19 @@ endif()
 
 list(APPEND leary_ENGINE_UTIL_HEADER
 	${CMAKE_CURRENT_SOURCE_DIR}/engine/util/debug.h
-	${CMAKE_CURRENT_SOURCE_DIR}/engine/util/environment.h
+	${CMAKE_CURRENT_SOURCE_DIR}/engine/platform/file.h
+)
+
+list(APPEND leary_ENGINE_PLATFORM_HEADER
+	${CMAKE_CURRENT_SOURCE_DIR}/engine/util/debug.h
+	${CMAKE_CURRENT_SOURCE_DIR}/engine/platform/file.h
 )
 
 list(APPEND leary_ENGINE_HEADER
 	${leary_ENGINE_CORE_HEADER}
 	${leary_ENGINE_RENDER_HEADER}
 	${leary_ENGINE_UTIL_HEADER}
+	${leary_ENGINE_PLATFORM_HEADER}
 )
 
 list(APPEND leary_GAME_HEADER

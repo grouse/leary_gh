@@ -31,7 +31,7 @@
 
 namespace debug
 {
-	static void print_internal(eLogType        type,
+	static void print_internal(LogType         type,
 	                           const char*     func,
 	                           const uint32_t& line,
 	                           const char*     file,
@@ -40,16 +40,16 @@ namespace debug
 #if LEARY_LOG_ENABLE
 		char c;
 		switch (type) {
-		case eLogType::Info:
+		case LogType::info:
 			c = 'I';
 			break;
-		case eLogType::Error:
+		case LogType::error:
 			c = 'E';
 			break;
-		case eLogType::Warning:
+		case LogType::warning:
 			c = 'W';
 			break;
-		case eLogType::Assert:
+		case LogType::assert:
 			c = 'A';
 			break;
 		default:
@@ -57,7 +57,6 @@ namespace debug
 			break;
 		}
 
-		// Don't log if unknown, happens when filtering is enabled
 		if (c == '?') return;
 		std::printf("[%c] %s in %s:%d - %s\n", c, func, file, line, msg);
 		std::fflush(stdout);
@@ -79,17 +78,17 @@ namespace debug
 
 		va_end(args);
 
-		print_internal(eLogType::Info, func, line, file, buffer);
+		print_internal(LogType::info, func, line, file, buffer);
 #endif
 	}
 
-	void printf(eLogType         type,
+	void printf(LogType          type,
 	            const char*      func,
 	            const uint32_t&  line,
 	            const char*      file,
 	            const char*      fmt, ...)
 	{
-#if LEARY_LOG_ENABLE || 1
+#if LEARY_LOG_ENABLE
 		va_list args;
 		va_start(args, fmt);
 

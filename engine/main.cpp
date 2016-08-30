@@ -52,9 +52,9 @@ int main(int, char *[])
 
 	GameWindow game_window;
 	game_window.create("leary",
-	                   settings->video.resolution.width,
-	                   settings->video.resolution.height,
-	                   settings->video.fullscreen);
+					   settings->video.resolution.width,
+					   settings->video.resolution.height,
+					   settings->video.fullscreen);
 
 #if LEARY_OPENGL
 	OpenGLDevice opengl_device;
@@ -82,7 +82,7 @@ int main(int, char *[])
 
 		if (frameTime >= 1000) {
 			if (logFrameTime) {
-				LEARY_LOGF(eLogType::Info, "%d fps, %f ms/frame", nbFrames, 1000.0 / nbFrames);
+				LEARY_LOGF(LogType::info, "%d fps, %f ms/frame", nbFrames, 1000.0 / nbFrames);
 			}
 
 			nbFrames = 0;
@@ -102,9 +102,9 @@ int main(int, char *[])
 				case SDLK_F1:
 					logFrameTime = !logFrameTime;
 					if (logFrameTime)
-						LEARY_LOG(eLogType::Info, "Turned frametime logging: on");
+						LEARY_LOG(LogType::info, "Turned frametime logging: on");
 					else
-						LEARY_LOG(eLogType::Info, "Turned frametime logging: off");
+						LEARY_LOG(LogType::info, "Turned frametime logging: off");
 					break;
 				}
 			}

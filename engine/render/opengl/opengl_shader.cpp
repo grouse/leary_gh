@@ -30,7 +30,7 @@
 #include "GL/glew.h"
 #include "SDL_opengl.h"
 
-#include "util/environment.h"
+#include "platform/file.h"
 #include "util/debug.h"
 
 bool OpenGLProgram::create(OpenGLShader* shaders, size_t num_shaders)
@@ -74,7 +74,7 @@ void OpenGLProgram::destroy()
 
 bool OpenGLShader::create(uint32_t type, const char* const filename)
 {
-	std::string file_path = Environment::resolvePath(eEnvironmentFolder::GameData, "shaders/") +
+	std::string file_path = resolve_path(EnvironmentFolder::GameData, "shaders/") +
 		                    filename;
 
 	std::string   shader_source;

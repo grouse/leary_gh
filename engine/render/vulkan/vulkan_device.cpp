@@ -9,7 +9,7 @@
 
 
 #include "util/debug.h"
-#include "util/environment.h"
+#include "platform/file.h"
 
 #include "core/settings.h"
 
@@ -53,17 +53,17 @@ debug_callback_func(VkFlags                    flags,
 	// NOTE: we never set any data when creating the callback, so useless for now
 	LEARY_UNUSED(data);
 
-	eLogType log_type;
+	LogType log_type;
 	if (flags & VK_DEBUG_REPORT_ERROR_BIT_EXT)
-		log_type = eLogType::Error;
+		log_type = LogType::error;
 	else if (flags & VK_DEBUG_REPORT_WARNING_BIT_EXT)
-		log_type = eLogType::Warning;
-	else if (flags & VK_DEBUG_REPORT_DEBUG_BIT_EXT ||
-	         flags & VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT)
-		log_type = eLogType::Info;
+		log_type = LogType::warning;
+	else if (flags & (VK_DEBUG_REPORT_DEBUG_BIT_EXT | 
+	                  VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT))
+		log_type = LogType::info;
 	else
 		// NOTE: this would only happen if they extend the report callback flags
-		log_type = eLogType::Info;
+		log_type = LogType::info;
 		
 	LEARY_LOGF(log_type, "[VULKAN]: %s (%d) - %s", prefix, code, msg); 
 	return false;
@@ -277,13 +277,13 @@ VulkanDevice::create(const GameWindow& window)
 			if (supports_present == VK_FALSE)
 				continue;
 
-			LEARY_LOGF(eLogType::Info, "queueCount                 : %u", property.queueCount);
-			LEARY_LOGF(eLogType::Info, "timestampValidBits         : %u", property.timestampValidBits);
-			LEARY_LOGF(eLogType::Info, "minImageTransferGranualrity: (%u, %u, %u)", 
+			LEARY_LOGF(LogType::info, "queueCount                 : %u", property.queueCount);
+			LEARY_LOGF(LogType::info, "timestampValidBits         : %u", property.timestampValidBits);
+			LEARY_LOGF(LogType::info, "minImageTransferGranualrity: (%u, %u, %u)", 
 			           property.minImageTransferGranularity.depth, 
 			           property.minImageTransferGranularity.height, 
 			           property.minImageTransferGranularity.depth);
-			LEARY_LOGF(eLogType::Info, "supportsPresent            : %d",
+			LEARY_LOGF(LogType::info, "supportsPresent            : %d",
 			           static_cast<int32_t>(supports_present));
 
 			// we're just interested in getting a graphics queue going for now, so choose the first
@@ -786,7 +786,7 @@ VulkanDevice::create(const GameWindow& window)
 	 **********************************************************************************************/
 	{
 		// TODO: nuke std::string, and look into nuking std::ifstream
-		std::string folder = Environment::resolvePath(eEnvironmentFolder::GameData, "shaders/");
+		std::string folder = resolve_path(EnvironmentFolder::GameData, "shaders/");
 
 		std::ifstream file;
 		file.open(folder + "vert.spv", std::ios_base::binary | std::ios_base::ate);
