@@ -15,6 +15,21 @@ struct Vector3f {
 	inline Vector3f &operator *= (float rhs);
 };
 
+inline float    length(Vector3f vec);
+inline float    dot(Vector3f lhs, Vector3f rhs);
+inline Vector3f cross(Vector3f lhs, Vector3f rhs);
+
+inline Vector3f operator + (Vector3f lhs, Vector3f rhs);
+inline Vector3f operator + (Vector3f lhs, float rhs);
+inline Vector3f operator + (float lhs, Vector3f rhs);
+
+inline Vector3f operator - (Vector3f lhs, Vector3f rhs);
+inline Vector3f operator - (Vector3f lhs, float rhs);
+inline Vector3f operator - (float lhs, Vector3f rhs);
+
+inline Vector3f operator * (Vector3f lhs, float rhs);
+inline Vector3f operator * (float lhs, Vector3f rhs);
+
 inline float 
 length(Vector3f vec)
 {
