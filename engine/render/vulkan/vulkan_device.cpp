@@ -12,6 +12,7 @@
 #include "platform/file.h"
 
 #include "core/settings.h"
+#include "core/math.h"
 
 #include "render/game_window.h"
 
@@ -26,12 +27,17 @@ namespace
 	// Vertex data to draw.
 	constexpr int NUM_DEMO_VERTICES = 3;
 
-	const float vertices[NUM_DEMO_VERTICES * 6] =
+	struct ColoredVertex {
+		Vector3f pos;
+		Vector3f color;
+	};
+
+	const ColoredVertex vertices[NUM_DEMO_VERTICES * 3] =
 	{
 	    //      position             color
-	    0.5f,  0.5f,  0.0f,  0.1f, 0.8f, 0.1f,
-	    -0.5f,  0.5f,  0.0f,  0.8f, 0.1f, 0.1f,
-	    0.0f, -0.5f,  0.0f,  0.1f, 0.1f, 0.8f,
+		{ { 0.5f,  0.5f,  0.0f},  {0.1f, 0.8f, 0.1f} },
+		{ {-0.5f,  0.5f,  0.0f},  {0.8f, 0.1f, 0.1f} },
+		{ { 0.0f, -0.5f,  0.0f},  {0.1f, 0.1f, 0.8f} }
 	};
 }
 

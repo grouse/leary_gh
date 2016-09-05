@@ -39,6 +39,7 @@
 #include "render/vulkan/vulkan_device.h"
 #endif // LEARY_VULKAN
 
+
 int main(int, char *[]) 
 {
 	int32_t result = SDL_Init(SDL_INIT_VIDEO);
