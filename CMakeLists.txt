@@ -369,18 +369,8 @@ endif()
 include_directories(leary
 	PRIVATE
 	    engine
-		ext/glm
-		ext/SOIL/include
 		${leary_INCLUDE_DIRS}
 )
-
-
-
-#==================================================================================================
-# - Subprojects
-#---------------------------------------------------------------------------------------------------
-add_subdirectory(ext/SOIL)
-list(APPEND leary_LIBRARIES SOIL)
 
 
 
