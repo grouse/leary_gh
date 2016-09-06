@@ -1,5 +1,3 @@
-#
-
 # Try to find GLEW library and include path.
 # Once done this will define
 #
@@ -7,7 +5,6 @@
 # GLEW_INCLUDE_DIR
 # GLEW_LIBRARY
 # GLEW_SOURCE
-#
 
 include(FindPackageHandleStandardArgs)
 
@@ -109,6 +106,7 @@ if (${CMAKE_HOST_UNIX})
             /usr/local/lib
             /sw/lib
             /opt/local/lib
+            /usr/lib/x86_64-linux-gnu
             NO_DEFAULT_PATH
             DOC "The GLEW library")
 endif ()
