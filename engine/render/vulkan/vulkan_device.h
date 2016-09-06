@@ -26,7 +26,7 @@
 #define LEARY_VULKAN_DEVICE_H
 
 #define VK_USE_PLATFORM_XCB_KHR
-#include <vulkan.h>
+#include <vulkan/vulkan.h>
 
 class GameWindow;
 class VulkanDevice;

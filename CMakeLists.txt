@@ -349,11 +349,17 @@ if (LEARY_OPENGL)
 endif()
 
 if (LEARY_VULKAN)
-	list(APPEND leary_LIBRARIES
-		/usr/lib/libvulkan.so
-		X11-xcb
-	)
-	list(APPEND leary_INCLUDE_DIRS /usr/include/vulkan)
+	find_package(Vulkan REQUIRED)
+	if (VULKAN_FOUND)
+
+		list(APPEND leary_LIBRARIES 
+			${VULKAN_LIBRARY}
+			X11-xcb
+		)
+
+		list(APPEND leary_INCLUDE_DIRS ${VULKAN_INCLUDE_DIR})
+
+	endif()
 endif()
 
 if (WIN32)
