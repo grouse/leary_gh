@@ -60,7 +60,7 @@ option(LEARY_LOG_ENABLE "Enable game debug logging" ON)
 # - Project source files
 #---------------------------------------------------------------------------------------------------
 list(APPEND leary_ENGINE_CORE_SOURCE
-	${CMAKE_CURRENT_SOURCE_DIR}/engine/core/settings.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/src/core/settings.cpp
 )
 
 list(APPEND leary_ENGINE_RENDER_SOURCE
@@ -68,30 +68,30 @@ list(APPEND leary_ENGINE_RENDER_SOURCE
 
 if (LEARY_OPENGL)
 	list(APPEND leary_ENGINE_RENDER_SOURCE
-		${CMAKE_CURRENT_SOURCE_DIR}/engine/render/opengl/opengl_device.cpp
-		${CMAKE_CURRENT_SOURCE_DIR}/engine/render/opengl/opengl_shader.cpp
-		${CMAKE_CURRENT_SOURCE_DIR}/engine/render/texture.cpp
+		${CMAKE_CURRENT_SOURCE_DIR}/src/render/opengl/opengl_device.cpp
+		${CMAKE_CURRENT_SOURCE_DIR}/src/render/opengl/opengl_shader.cpp
+		${CMAKE_CURRENT_SOURCE_DIR}/src/render/texture.cpp
 	)
 endif()
 
 if (LEARY_VULKAN)
 	list(APPEND leary_ENGINE_RENDER_SOURCE
-		${CMAKE_CURRENT_SOURCE_DIR}/engine/render/vulkan/vulkan_device.cpp
+		${CMAKE_CURRENT_SOURCE_DIR}/src/render/vulkan/vulkan_device.cpp
 	)
 endif()
 
 list(APPEND leary_ENGINE_UTIL_SOURCE
-	${CMAKE_CURRENT_SOURCE_DIR}/engine/util/debug.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/src/util/debug.cpp
 )
 
 if (WIN32)
 	list(APPEND leary_ENGINE_PLATFORM_SOURCE
-		${CMAKE_CURRENT_SOURCE_DIR}/engine/platform/win32_file.cpp
+		${CMAKE_CURRENT_SOURCE_DIR}/src/platform/win32_file.cpp
 	)
 elseif (${CMAKE_SYSTEM} MATCHES Linux)
 	list(APPEND leary_ENGINE_PLATFORM_SOURCE
-		${CMAKE_CURRENT_SOURCE_DIR}/engine/platform/linux_main.cpp
-		${CMAKE_CURRENT_SOURCE_DIR}/engine/platform/linux_file.cpp
+		${CMAKE_CURRENT_SOURCE_DIR}/src/platform/linux_main.cpp
+		${CMAKE_CURRENT_SOURCE_DIR}/src/platform/linux_file.cpp
 	)
 endif()
 
@@ -111,8 +111,8 @@ list(APPEND leary_GAME_SOURCE
 # - Project header files
 #---------------------------------------------------------------------------------------------------
 list(APPEND leary_ENGINE_CORE_HEADER
-	${CMAKE_CURRENT_SOURCE_DIR}/engine/core/settings.h
-	${CMAKE_CURRENT_SOURCE_DIR}/engine/core/ecs.h
+	${CMAKE_CURRENT_SOURCE_DIR}/src/core/settings.h
+	${CMAKE_CURRENT_SOURCE_DIR}/src/core/ecs.h
 )
 
 list(APPEND leary_ENGINE_RENDER_HEADER
@@ -120,26 +120,26 @@ list(APPEND leary_ENGINE_RENDER_HEADER
 
 if (LEARY_OPENGL)
 	list(APPEND leary_ENGINE_RENDER_HEADER
-		${CMAKE_CURRENT_SOURCE_DIR}/engine/render/opengl/opengl_device.h
-		${CMAKE_CURRENT_SOURCE_DIR}/engine/render/opengl/opengl_shader.h
-		${CMAKE_CURRENT_SOURCE_DIR}/engine/render/texture.h
+		${CMAKE_CURRENT_SOURCE_DIR}/src/render/opengl/opengl_device.h
+		${CMAKE_CURRENT_SOURCE_DIR}/src/render/opengl/opengl_shader.h
+		${CMAKE_CURRENT_SOURCE_DIR}/src/render/texture.h
 	)
 endif()
 
 if (LEARY_VULKAN)
 	list(APPEND leary_ENGINE_RENDER_HEADER
-		${CMAKE_CURRENT_SOURCE_DIR}/engine/render/vulkan/vulkan_device.h
+		${CMAKE_CURRENT_SOURCE_DIR}/src/render/vulkan/vulkan_device.h
 	)
 endif()
 
 list(APPEND leary_ENGINE_UTIL_HEADER
-	${CMAKE_CURRENT_SOURCE_DIR}/engine/util/debug.h
-	${CMAKE_CURRENT_SOURCE_DIR}/engine/platform/file.h
+	${CMAKE_CURRENT_SOURCE_DIR}/src/util/debug.h
+	${CMAKE_CURRENT_SOURCE_DIR}/src/platform/file.h
 )
 
 list(APPEND leary_ENGINE_PLATFORM_HEADER
-	${CMAKE_CURRENT_SOURCE_DIR}/engine/util/debug.h
-	${CMAKE_CURRENT_SOURCE_DIR}/engine/platform/file.h
+	${CMAKE_CURRENT_SOURCE_DIR}/src/util/debug.h
+	${CMAKE_CURRENT_SOURCE_DIR}/src/platform/file.h
 )
 
 list(APPEND leary_ENGINE_HEADER
@@ -157,17 +157,17 @@ list(APPEND leary_GAME_HEADER
 #==================================================================================================
 # - Project source groups
 #---------------------------------------------------------------------------------------------------
-source_group(engine\\core FILES
+source_group(src\\core FILES
 	${leary_ENGINE_CORE_SOURCE}
 	${leary_ENGINE_CORE_HEADER}
 )
 
-source_group(engine\\render FILES 
+source_group(src\\render FILES 
 	${leary_ENGINE_RENDER_SOURCE}
 	${leary_ENGINE_RENDER_HEADER}
 )
 
-source_group(engine\\util FILES 
+source_group(src\\util FILES 
 	${leary_ENGINE_UTIL_SOURCE}
 	${leary_ENGINE_UTIL_HEADER}
 )
@@ -301,7 +301,7 @@ endif()
 #---------------------------------------------------------------------------------------------------
 include_directories(leary
 	PRIVATE
-	    engine
+	    src
 		${leary_INCLUDE_DIRS}
 )
 
