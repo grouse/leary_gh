@@ -25,11 +25,8 @@
 #ifndef LEARY_VULKAN_DEVICE_H
 #define LEARY_VULKAN_DEVICE_H
 
-#define VK_USE_PLATFORM_XCB_KHR
-#include <vulkan/vulkan.h>
 
-class GameWindow;
-class VulkanDevice;
+#include "platform/platform_vulkan.h"
 
 struct VulkanVertexBuffer {
 	size_t               size;
@@ -40,7 +37,7 @@ struct VulkanVertexBuffer {
 
 class VulkanDevice {
 public:
-	void create(const GameWindow& window);
+	void create(PlatformState platform_state);
 	void destroy();
 
 	void present();

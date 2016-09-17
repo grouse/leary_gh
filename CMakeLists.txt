@@ -51,18 +51,9 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
-option(LEARY_VULKAN     "Vulkan renderer"           OFF)
-option(LEARY_OPENGL     "OpenGL renderer"           ON)
+option(LEARY_VULKAN     "Vulkan renderer"           ON)
+option(LEARY_OPENGL     "OpenGL renderer"           OFF)
 option(LEARY_LOG_ENABLE "Enable game debug logging" ON)
-
-if (WIN32)
-	set(ENV{SDL2DIR} "${CMAKE_CURRENT_SOURCE_DIR}/ext/SDL2-2.0.4/")
-
-	if (LEARY_OPENGL)
-		set(ENV{GLEW_LOCATION} "${CMAKE_CURRENT_SOURCE_DIR}/ext/GLEW-1.13.0/")
-	endif()
-endif()
-
 
 
 #===================================================================================================
@@ -70,11 +61,9 @@ endif()
 #---------------------------------------------------------------------------------------------------
 list(APPEND leary_ENGINE_CORE_SOURCE
 	${CMAKE_CURRENT_SOURCE_DIR}/engine/core/settings.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/engine/core/ecs.cpp
 )
 
 list(APPEND leary_ENGINE_RENDER_SOURCE
-	${CMAKE_CURRENT_SOURCE_DIR}/engine/render/game_window.cpp
 )
 
 if (LEARY_OPENGL)
@@ -101,6 +90,7 @@ if (WIN32)
 	)
 elseif (${CMAKE_SYSTEM} MATCHES Linux)
 	list(APPEND leary_ENGINE_PLATFORM_SOURCE
+		${CMAKE_CURRENT_SOURCE_DIR}/engine/platform/linux_main.cpp
 		${CMAKE_CURRENT_SOURCE_DIR}/engine/platform/linux_file.cpp
 	)
 endif()
@@ -113,7 +103,6 @@ list(APPEND leary_ENGINE_SOURCE
 )
 
 list(APPEND leary_GAME_SOURCE
-	${CMAKE_CURRENT_SOURCE_DIR}/engine/main.cpp
 )
 
 
@@ -127,7 +116,6 @@ list(APPEND leary_ENGINE_CORE_HEADER
 )
 
 list(APPEND leary_ENGINE_RENDER_HEADER
-	${CMAKE_CURRENT_SOURCE_DIR}/engine/render/game_window.h
 )
 
 if (LEARY_OPENGL)
@@ -169,22 +157,22 @@ list(APPEND leary_GAME_HEADER
 #==================================================================================================
 # - Project source groups
 #---------------------------------------------------------------------------------------------------
-source_group(Engine\\Core FILES
+source_group(engine\\core FILES
 	${leary_ENGINE_CORE_SOURCE}
 	${leary_ENGINE_CORE_HEADER}
 )
 
-source_group(Engine\\Render FILES 
+source_group(engine\\render FILES 
 	${leary_ENGINE_RENDER_SOURCE}
 	${leary_ENGINE_RENDER_HEADER}
 )
 
-source_group(Engine\\Util FILES 
+source_group(engine\\util FILES 
 	${leary_ENGINE_UTIL_SOURCE}
 	${leary_ENGINE_UTIL_HEADER}
 )
 
-source_group(Game FILES 
+source_group(game FILES 
 	${leary_GAME_SOURCE}
 	${leary_GAME_HEADER}
 )
@@ -211,7 +199,6 @@ list(APPEND leary_DEFINITIONS_COMMON
 	ON=1  # define ON/OFF as integers so we can pass cmake options directly to project defines and
 	OFF=0 # use them in #if preprocessor statements
 
-	GLEW_STATIC=1
 	LEARY_OPENGL=${LEARY_OPENGL}
 	LEARY_VULKAN=${LEARY_VULKAN}
 	LEARY_LOG_ENABLE=${LEARY_LOG_ENABLE}
@@ -227,65 +214,11 @@ list(APPEND leary_DEFINITIONS_RELEASE
 	LEARY_RELEASE=1
 )
 
-# Platform definitions
-if (WIN32)
-	message(STATUS "Added definitions for platform: Windows")
-	list(APPEND leary_DEFINITIONS_COMMON 
-		LEARY_WIN=1
-		LEARY_LINUX=0
-	)
-elseif (${CMAKE_SYSTEM} MATCHES Linux)
-	message(STATUS "Added definitions for platform: Linux")
-	list(APPEND leary_DEFINITIONS_COMMON
-		LEARY_WIN=0
-		LEARY_LINUX=1
-	)
-else ()
-	message(WARNING "Unsupported platform detected")
-	list(APPEND leary_DEFINITIONS_COMMON
-		LEARY_WIN=0
-		LEARY_LINUX=1
-	)
-endif ()
-
-
-# Compiler definitions
-if (${CMAKE_CXX_COMPILER_ID} STREQUAL Clang)
-	message(STATUS "Added definitions for compiler: Clang") 
-	list(APPEND leary_DEFINITIONS_COMMON
-		DLEARY_COMPILER_MSVC=0
-		LEARY_COMPILER_CLANG=1
-		LEARY_COMPILER_GCC=0
-	)
-elseif (${CMAKE_CXX_COMPILER_ID} STREQUAL GNU)
-	message(STATUS "Added definitions for compiler: GCC")
-	list(APPEND leary_DEFINITIONS_COMMON
-		LEARY_COMPILER_MSVC=0
-		LEARY_COMPILER_CLANG=0
-		LEARY_COMPILER_GCC=1
-	)
-elseif (${CMAKE_CXX_COMPILER_ID} STREQUAL MSVC)
-	message(STATUS "Added definitions for compiler: MSVC")
-	list(APPEND leary_DEFINITIONS_COMMON
-		LEARY_COMPILER_MSVC=1
-		LEARY_COMPILER_CLANG=0
-		LEARY_COMPILER_GCC=0
-	)
-else ()
-	message(WARNING "Unsupported compiler detected")
-	list(APPEND leary_DEFINITIONS_COMMON
-		LEARY_COMPILER_MSVC=0
-		LEARY_COMPILER_CLANG=0
-		LEARY_COMPILER_GCC=0
-	)
-endif ()
-	
 target_compile_definitions(leary
 	PUBLIC ${leary_DEFINITIONS_COMMON}
 	PUBLIC "$<$<CONFIG:Debug>:${leary_DEFINITIONS_DEBUG}>"
 	PUBLIC "$<$<CONFIG:Release>:${leary_DEFINITIONS_RELEASE}>"
 )
-
 
 
 
@@ -328,23 +261,11 @@ target_compile_options(leary
 #==================================================================================================
 # - External dependencies
 #---------------------------------------------------------------------------------------------------
-find_package(SDL2 REQUIRED)
-if (SDL2_FOUND)
-	list(APPEND leary_LIBRARIES ${SDL2_LIBRARY})
-	list(APPEND leary_INCLUDE_DIRS ${SDL2_INCLUDE_DIR})
-endif()
-
 if (LEARY_OPENGL)
 	find_package(OpenGL REQUIRED)
 	if (OPENGL_FOUND)
 		list(APPEND leary_LIBRARIES ${OPENGL_LIBRARIES})
 		list(APPEND leary_INCLUDE_DIRS ${OPENGL_INCLUDE_DIRS})
-	endif()
-
-	find_package(GLEW REQUIRED)
-	if (GLEW_FOUND)
-		list(APPEND leary_LIBRARIES ${GLEW_LIBRARY})
-		list(APPEND leary_INCLUDE_DIRS ${GLEW_INCLUDE_DIR})
 	endif()
 endif()
 
@@ -354,7 +275,6 @@ if (LEARY_VULKAN)
 
 		list(APPEND leary_LIBRARIES 
 			${VULKAN_LIBRARY}
-			X11-xcb
 		)
 
 		list(APPEND leary_INCLUDE_DIRS ${VULKAN_INCLUDE_DIR})
@@ -367,6 +287,13 @@ if (WIN32)
 	list(APPEND leary_LIBRARIES SHLWAPI)
 endif()
 
+if (${CMAKE_SYSTEM} MATCHES Linux)
+	find_package(XCB REQUIRED)
+	if (XCB_FOUND)
+		list(APPEND leary_LIBRARIES ${XCB_LIBRARY})
+		list(APPEND leary_INCLUDE_DIRS ${XCB_INCLUDE_DIR})
+	endif()
+endif()
 
 
 #==================================================================================================
@@ -392,18 +319,6 @@ target_link_libraries(leary ${leary_LIBRARIES})
 #==================================================================================================
 # - Post-build step
 #---------------------------------------------------------------------------------------------------
-if (MSVC)
-	list(APPEND DLLs
-		${CMAKE_CURRENT_SOURCE_DIR}/ext/SDL2-2.0.4/lib/x86_64/win/SDL2.dll
-	)
-
-	foreach(file ${DLLs})
-		add_custom_command(TARGET leary POST_BUILD
-			COMMAND ${CMAKE_COMMAND} -E copy ${file} $<TARGET_FILE_DIR:leary>
-		)
-	endforeach()
-endif()
-
 add_custom_command(TARGET leary POST_BUILD
 	COMMAND ${CMAKE_COMMAND} -E copy_directory 
 		${CMAKE_CURRENT_SOURCE_DIR}/data $<TARGET_FILE_DIR:leary>/data

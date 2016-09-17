@@ -28,17 +28,11 @@
 #include <limits>
 #include <fstream>
 
-#include <SDL_syswm.h>
-#include <X11/Xlib-xcb.h>
-
-
 #include "util/debug.h"
 #include "platform/file.h"
 
 #include "core/settings.h"
 #include "core/math.h"
-
-#include "render/game_window.h"
 
 namespace
 {
@@ -100,7 +94,7 @@ debug_callback_func(VkFlags                    flags,
 }
 
 void 
-VulkanDevice::create(const GameWindow& window)
+VulkanDevice::create(PlatformState platform_state)
 {
 	const Settings *settings = Settings::get();
 
@@ -182,9 +176,9 @@ VulkanDevice::create(const GameWindow& window)
 		VkApplicationInfo app_info = {
 			.sType              = VK_STRUCTURE_TYPE_APPLICATION_INFO,
 			.pNext              = nullptr,
-			.pApplicationName   = window.getTitle().c_str(),
+			.pApplicationName   = "leary",
 			.applicationVersion = 1,
-			.pEngineName        = window.getTitle().c_str(),
+			.pEngineName        = "leary",
 			.apiVersion         = VK_MAKE_VERSION(1, 0, 22),
 		};
 
@@ -262,20 +256,7 @@ VulkanDevice::create(const GameWindow& window)
 	 * Create VkSurfaceKHR
 	 **********************************************************************************************/
 	{
-		SDL_SysWMinfo syswm;
-		window.getSysWMInfo(&syswm);
-
-		VkXcbSurfaceCreateInfoKHR create_info = {
-			.sType      = VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR,
-			.pNext      = nullptr,
-			.flags      = 0,
-
-		// TODO: support wayland, mir and win32
-			.connection = XGetXCBConnection(syswm.info.x11.display),
-			.window     = (xcb_window_t) syswm.info.x11.window
-		};
-
-		result = vkCreateXcbSurfaceKHR(vk_instance, &create_info, nullptr, &vk_surface);
+		result = vulkan_create_surface(vk_instance, &vk_surface, platform_state);
 		LEARY_ASSERT(result == VK_SUCCESS);
 	}
 
@@ -429,11 +410,12 @@ VulkanDevice::create(const GameWindow& window)
 
 		vk_swapchain_extent = surface_capabilities.currentExtent;
 		if (vk_swapchain_extent.width == (uint32_t) (-1)) {
-			vk_swapchain_extent.width  = window.getWidth();
-			vk_swapchain_extent.height = window.getHeight();
+			// TODO(grouse): clean up usage of window dimensions
+			vk_swapchain_extent.width  = m_width;
+			vk_swapchain_extent.height = m_height;
 		} else {
-			LEARY_ASSERT(vk_swapchain_extent.width  == window.getWidth());
-			LEARY_ASSERT(vk_swapchain_extent.height == window.getHeight());
+			LEARY_ASSERT(vk_swapchain_extent.width  == m_width);
+			LEARY_ASSERT(vk_swapchain_extent.height == m_height);
 		}
 
 		VkSurfaceTransformFlagBitsKHR pre_transform = surface_capabilities.currentTransform;
