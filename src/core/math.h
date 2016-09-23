@@ -27,6 +27,9 @@
 
 #include <cmath>
 
+#define MIN(a, b) (a) < (b) ? (a) : (b)
+#define MAX(a, b) (a) > (b) ? (a) : (b)
+
 struct Vector3f {
 	float x, y, z;
 };

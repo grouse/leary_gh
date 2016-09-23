@@ -39,7 +39,7 @@
 
 #include <memory>
 
-#include "util/debug.h"
+#include "platform/debug.h"
 
 namespace {
 	const char* get_data_base_path(void);
@@ -68,7 +68,7 @@ resolve_path(EnvironmentFolder type, const char *filename)
 		break;
 	}
 	default:
-		LEARY_LOGF(eLogType::Warning,
+		DEBUG_LOGF(LogType::warning,
 		           "Unhandled Environment Folder type: %d", type);
 		break;
 	}
@@ -100,7 +100,7 @@ void
 create_directory(const char* path)
 {
 	int result = SHCreateDirectoryEx(NULL, path, NULL);
-	LEARY_UNUSED(result);
+	VAR_UNUSED(result);
 
 #if LEARY_DEBUG
 	const char* error;
@@ -128,7 +128,7 @@ create_directory(const char* path)
 		break;
 	}
 
-	LEARY_ASSERT_PRINT(result == ERROR_SUCCESS, error);
+	DEBUG_ASSERT(result == ERROR_SUCCESS && error);
 #endif
 }
 
@@ -157,8 +157,8 @@ namespace {
 		                                      NULL, 
 		                                      &path);
 
-		LEARY_ASSERT(result == S_OK);
-		LEARY_UNUSED(result);
+		DEBUG_ASSERT(result == S_OK);
+		VAR_UNUSED(result);
 
 		std::wstring path_wstr = path;
 		CoTaskMemFree(path);
@@ -166,6 +166,6 @@ namespace {
 		typedef std::codecvt_utf8<wchar_t> convert_type;
 		std::wstring_convert<convert_type, wchar_t> converter;
 
-		return converter.to_bytes(path_wstr);
+		return converter.to_bytes(path_wstr).c_str();
 	}
 }

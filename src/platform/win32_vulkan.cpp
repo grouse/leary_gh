@@ -1,9 +1,9 @@
 /**
- * @file:   platform_main.h
+ * @file:   win32_vulkan.cpp
  * @author: Jesper Stefansson (grouse)
  * @email:  jesper.stefansson@gmail.com
  *
- * Copyright (c) 2015-2016 Jesper Stefansson
+ * Copyright (c) 2016 Jesper Stefansson
  *
  * This software is provided 'as-is', without any express or implied
  * warranty. In no event will the authors be held liable for any damages
@@ -22,36 +22,23 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#ifndef LEARY_PLATFORM_MAIN_H
-#define LEARY_PLATFORM_MAIN_H
+#include "platform_vulkan.h"
 
-#if defined(__linux__)
-	#include <xcb/xcb.h>
-#elif defined(_WIN32)
-	#include <Windows.h>
-#else
-	#error "unsupported platform"
-#endif
+#include <Windows.h>
 
-// NOTE: this is a union so that we can support multiple different windowing systems on the same
-// platform, e.g. Wayland and X11 on Linux.
-union PlatformState {
-#if defined(__linux__)
-	struct 
-	{
-		xcb_window_t     window;
-		xcb_connection_t *connection;
-	} xcb;
-#elif defined(_WIN32)
-	struct 
-	{
-		HWND      hwnd;
-		HINSTANCE hinstance;
-	} win32;
-#else
-	#error "unsupported platform"
-#endif
-};
+VkResult
+vulkan_create_surface(VkInstance instance, 
+                      VkSurfaceKHR *surface, 
+                      PlatformState platform_state)
+{
+	VkWin32SurfaceCreateInfoKHR create_info = {
+		VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
+		nullptr,
+		0,
+		platform_state.win32.hinstance,
+		platform_state.win32.hwnd
+	};
 
+	return vkCreateWin32SurfaceKHR(instance, &create_info, nullptr, surface);
+}
 
-#endif // LEARY_PLATFORM_MAIN_H

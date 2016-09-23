@@ -80,12 +80,9 @@ if (LEARY_VULKAN)
 	)
 endif()
 
-list(APPEND leary_ENGINE_UTIL_SOURCE
-	${CMAKE_CURRENT_SOURCE_DIR}/src/util/debug.cpp
-)
-
 if (WIN32)
 	list(APPEND leary_ENGINE_PLATFORM_SOURCE
+		${CMAKE_CURRENT_SOURCE_DIR}/src/platform/win32_main.cpp
 		${CMAKE_CURRENT_SOURCE_DIR}/src/platform/win32_file.cpp
 	)
 elseif (${CMAKE_SYSTEM} MATCHES Linux)
@@ -98,7 +95,6 @@ endif()
 list(APPEND leary_ENGINE_SOURCE
 	${leary_ENGINE_CORE_SOURCE}
 	${leary_ENGINE_RENDER_SOURCE}
-	${leary_ENGINE_UTIL_SOURCE}
 	${leary_ENGINE_PLATFORM_SOURCE}
 )
 
@@ -132,20 +128,13 @@ if (LEARY_VULKAN)
 	)
 endif()
 
-list(APPEND leary_ENGINE_UTIL_HEADER
-	${CMAKE_CURRENT_SOURCE_DIR}/src/util/debug.h
-	${CMAKE_CURRENT_SOURCE_DIR}/src/platform/file.h
-)
-
 list(APPEND leary_ENGINE_PLATFORM_HEADER
-	${CMAKE_CURRENT_SOURCE_DIR}/src/util/debug.h
 	${CMAKE_CURRENT_SOURCE_DIR}/src/platform/file.h
 )
 
 list(APPEND leary_ENGINE_HEADER
 	${leary_ENGINE_CORE_HEADER}
 	${leary_ENGINE_RENDER_HEADER}
-	${leary_ENGINE_UTIL_HEADER}
 	${leary_ENGINE_PLATFORM_HEADER}
 )
 
@@ -165,11 +154,6 @@ source_group(src\\core FILES
 source_group(src\\render FILES 
 	${leary_ENGINE_RENDER_SOURCE}
 	${leary_ENGINE_RENDER_HEADER}
-)
-
-source_group(src\\util FILES 
-	${leary_ENGINE_UTIL_SOURCE}
-	${leary_ENGINE_UTIL_HEADER}
 )
 
 source_group(game FILES 
@@ -214,6 +198,13 @@ list(APPEND leary_DEFINITIONS_RELEASE
 	LEARY_RELEASE=1
 )
 
+if (MSVC)
+	list(APPEND leary_DEFINITIONS_COMMON
+		NOMINMAX
+	)
+endif()
+	
+
 target_compile_definitions(leary
 	PUBLIC ${leary_DEFINITIONS_COMMON}
 	PUBLIC "$<$<CONFIG:Debug>:${leary_DEFINITIONS_DEBUG}>"
@@ -235,6 +226,8 @@ if (MSVC)
 		/wd4061 # Enum value not explicitly handled by case label
 		/wd4996 # Unsafe function/variable (vsprintf vs vsprintf_s etc)
 	)
+
+	set_target_properties(leary PROPERTIES LINK_FLAGS "/SUBSYSTEM:WINDOWS")
 else()
 	list(APPEND PROJECT_COMPILE_OPTIONS
 		-std=c++11

@@ -34,6 +34,7 @@
 
 #include "render/vulkan/vulkan_device.h"
 
+#include "linux_debug.cpp"
 #include "linux_vulkan.cpp"
 
 namespace  {

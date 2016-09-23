@@ -7,7 +7,21 @@
 
 include(FindPackageHandleStandardArgs)
 
-if (${CMAKE_HOST_UNIX})
+if (WIN32)
+	find_path( VULKAN_INCLUDE_DIR
+		NAMES
+			vulkan/vulkan.h
+		PATHS
+			$ENV{VULKAN_LOCATION}/Include
+	)
+
+	find_library( VULKAN_LIBRARY
+		NAMES
+			vulkan-1
+		PATHS
+			$ENV{VULKAN_LOCATION}/Bin
+	)
+elseif (${CMAKE_HOST_UNIX})
 	find_path( VULKAN_INCLUDE_DIR
 		NAMES
 			vulkan/vulkan.h

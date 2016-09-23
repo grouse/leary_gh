@@ -1,5 +1,5 @@
 /**
- * @file:   debug.cpp
+ * @file:   linux_debug.cpp
  * @author: Jesper Stefansson (grouse)
  * @email:  jesper.stefansson@gmail.com
  *
@@ -29,75 +29,56 @@
 
 #define DEBUG_BUFFER_SIZE (256)
 
+namespace 
+{
+	char get_log_type_char(LogType)
+	{
+		// TODO(jesper): implement log filtering that we can turn on/off at runtime
+		switch (type) {
+		case LogType::info:    return 'I';
+		case LogType::error:   return 'E':
+		case LogType::warning: return 'W';
+		case LogType::assert:  return 'A';
+		default:               return '?';
+		}
+	}
+}
+
 namespace debug
 {
-	static void print_internal(LogType         type,
-	                           const char*     func,
-	                           const uint32_t& line,
-	                           const char*     file,
-	                           const char*     msg)
+	void printf(LogType    type,
+	            const char *func,
+	            uint32_t   line,
+	            const char *file,
+	            const char *msg)
 	{
-#if LEARY_LOG_ENABLE
-		char c;
-		switch (type) {
-		case LogType::info:
-			c = 'I';
-			break;
-		case LogType::error:
-			c = 'E';
-			break;
-		case LogType::warning:
-			c = 'W';
-			break;
-		case LogType::assert:
-			c = 'A';
-			break;
-		default:
-			c = '?';
-			break;
-		}
-
+		char c = get_log_type_char(type);
 		if (c == '?') return;
+
+		// TODO(jesper): add log to file if enabled
 		std::printf("[%c] %s in %s:%d - %s\n", c, func, file, line, msg);
-		std::fflush(stdout);
-#endif
 	}
 
 
-	void printf(const char*     func,
-	            const uint32_t& line,
-	            const char*     file,
-	            const char*     fmt, ...)
+
+
+	void printf(LogType    type,
+	            const char *func,
+	            uint32_t   line,
+	            const char *file,
+	            const char *fmt, ...)
 	{
-#if LEARY_LOG_ENABLE
+		char c = get_log_type_char(type);
+
 		va_list args;
 		va_start(args, fmt);
 
-		char buffer[DEBUG_BUFFER_SIZE];
-		vsprintf(buffer, fmt, args);
+		char message[DEBUG_BUFFER_SIZE];
+		std::vsprintf(msg, fmt, args);
 
 		va_end(args);
 
-		print_internal(LogType::info, func, line, file, buffer);
-#endif
-	}
-
-	void printf(LogType          type,
-	            const char*      func,
-	            const uint32_t&  line,
-	            const char*      file,
-	            const char*      fmt, ...)
-	{
-#if LEARY_LOG_ENABLE
-		va_list args;
-		va_start(args, fmt);
-
-		char buffer[DEBUG_BUFFER_SIZE];
-		vsprintf(buffer, fmt, args);
-
-		va_end(args);
-
-		print_internal(type, func, line, file, buffer);
-#endif
+		// TODO(jesper): add log to file if enabled
+		std::printf("[%c] %s in %s:%d - %s\n", c, func, file, line, msg);
 	}
 }

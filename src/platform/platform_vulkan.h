@@ -28,6 +28,8 @@
 #if defined(__linux__)
 	// TODO: support wayland and mir
 	#define VK_USE_PLATFORM_XCB_KHR
+#elif defined(_WIN32)
+	#define VK_USE_PLATFORM_WIN32_KHR
 #else
 	#error "unsupported platform"
 #endif

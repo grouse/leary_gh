@@ -28,7 +28,7 @@
 #include <fstream>
 #include <unordered_map>
 
-#include "util/debug.h"
+#include "platform/debug.h"
 #include "platform/file.h"
 
 Settings *Settings::m_instance = nullptr;
@@ -78,7 +78,7 @@ void Settings::load(const char* filename)
 	std::string file_path = resolve_path(EnvironmentFolder::UserPreferences, filename);
 
 	std::fstream stream(file_path, std::ios::in);
-	LEARY_ASSERT(stream.is_open());
+	DEBUG_ASSERT(stream.is_open());
 
 	if (!stream.is_open())
 		return;
@@ -110,7 +110,7 @@ void Settings::save(const char* filename) const
 	std::string file_path = resolve_path(EnvironmentFolder::UserPreferences, filename);
 
 	FILE *file = fopen(file_path.c_str(), "w");
-	LEARY_ASSERT(file != NULL);
+	DEBUG_ASSERT(file != NULL);
 
 	ini_save_value(file, "video.resolution.width",  video.resolution.width);
 	ini_save_value(file, "video.resolution.height", video.resolution.height);
