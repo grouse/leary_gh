@@ -33,6 +33,7 @@
 
 #include "win32_debug.cpp"
 #include "win32_vulkan.cpp"
+#include "win32_file.cpp"
 
 namespace {
 	void quit() 

@@ -83,12 +83,10 @@ endif()
 if (WIN32)
 	list(APPEND leary_ENGINE_PLATFORM_SOURCE
 		${CMAKE_CURRENT_SOURCE_DIR}/src/platform/win32_main.cpp
-		${CMAKE_CURRENT_SOURCE_DIR}/src/platform/win32_file.cpp
 	)
 elseif (${CMAKE_SYSTEM} MATCHES Linux)
 	list(APPEND leary_ENGINE_PLATFORM_SOURCE
 		${CMAKE_CURRENT_SOURCE_DIR}/src/platform/linux_main.cpp
-		${CMAKE_CURRENT_SOURCE_DIR}/src/platform/linux_file.cpp
 	)
 endif()
 
