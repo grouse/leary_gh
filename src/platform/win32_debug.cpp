@@ -27,7 +27,7 @@
 #include <stdarg.h>
 #include <cstdio>
 
-#define DEBUG_BUFFER_SIZE (256)
+#define DEBUG_BUFFER_SIZE (512)
 
 namespace 
 {

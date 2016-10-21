@@ -26,6 +26,7 @@
 #define LEARY_DEBUG_H
 
 #include <cstring>
+#include <cstdint>
 
 #if defined(_WIN32)
     #define DEBUG_FILENAME (strrchr(__FILE__, '\\') ? strrchr(__FILE__, '\\') + 1 : __FILE__)
@@ -48,7 +49,7 @@
 		#define DEBUG_BREAK()       asm("int $3") 
 	#endif
 
-    #define DEBUG_ASSERT(condition) if ((!condition)) DEBUG_BREAK()
+    #define DEBUG_ASSERT(condition) if (!(condition)) DEBUG_BREAK()
 	#define DEBUG_UNIMPLEMENTED()   DEBUG_LOG(LogType::unimplemented, "fixme! stub");
 #else
 	#define DEBUG_BREAK             do { } while(0)
@@ -63,11 +64,6 @@ enum class LogType {
 	assert,
 	unimplemented
 };
-
-inline uint32_t operator & (LogType lhs, LogType rhs)
-{ 
-	return static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs);
-}
 
 namespace debug
 {
