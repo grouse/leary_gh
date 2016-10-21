@@ -429,26 +429,23 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 			desired_swapchain_images = MIN(desired_swapchain_images, 
 			                                    surface_capabilities.maxImageCount);
 
-		VkSwapchainCreateInfoKHR create_info = {
-			/*.sType*/                 VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
-			/*.pNext*/                 nullptr,
-			/*.flags*/                 0,
-			/*.surface*/               vk_surface,
-			/*.minImageCount*/         desired_swapchain_images,
-			/*.imageFormat*/           vk_surface_format,
-			/*.imageColorSpace*/       surface_colorspace,
-			/*.imageExtent*/           vk_swapchain_extent,
-			/*.imageArrayLayers*/      1,
-			/*.imageUsage*/            VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-			/*.imageSharingMode*/      VK_SHARING_MODE_EXCLUSIVE,
-			/*.queueFamilyIndexCount*/ 1,
-			/*.pQueueFamilyIndices*/   &queue_family_index,
-			/*.preTransform*/          pre_transform,
-			/*.compositeAlpha*/        VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
-			/*.presentMode*/           surface_present_mode,
-			/*.clipped*/               VK_TRUE,
-			/*.oldSwapchain*/          VK_NULL_HANDLE
-		};
+		VkSwapchainCreateInfoKHR create_info = {};
+		create_info.sType                 = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+		create_info.surface               = vk_surface;
+		create_info.minImageCount         = desired_swapchain_images;
+		create_info.imageFormat           = vk_surface_format;
+		create_info.imageColorSpace       = surface_colorspace;
+		create_info.imageExtent           = vk_swapchain_extent;
+		create_info.imageArrayLayers      = 1;
+		create_info.imageUsage            = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+		create_info.imageSharingMode      = VK_SHARING_MODE_EXCLUSIVE;
+		create_info.queueFamilyIndexCount = 1;
+		create_info.pQueueFamilyIndices   = &queue_family_index;
+		create_info.preTransform          = pre_transform;
+		create_info.compositeAlpha        = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+		create_info.presentMode           = surface_present_mode;
+		create_info.clipped               = VK_TRUE;
+		create_info.oldSwapchain          = VK_NULL_HANDLE;
 
 		result = vkCreateSwapchainKHR(vk_device, &create_info, nullptr, &vk_swapchain);
 		DEBUG_ASSERT(result == VK_SUCCESS);
@@ -508,12 +505,10 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 	 * Create VkCommandPool
 	 **********************************************************************************************/
 	{
-		VkCommandPoolCreateInfo create_info = {
-			/*.sType*/            VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
-			/*.pNext*/            nullptr,
-			/*.flags*/            0,
-			/*.queueFamilyIndex*/ queue_family_index
-		};
+		VkCommandPoolCreateInfo create_info = {};
+		create_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+		create_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+		create_info.queueFamilyIndex = queue_family_index;
 
 		result = vkCreateCommandPool(vk_device, &create_info, nullptr, &vk_command_pool);
 		DEBUG_ASSERT(result == VK_SUCCESS);
@@ -1024,28 +1019,22 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 			/*.alphaToOneEnable*/      VK_FALSE
 		};
 
-		VkGraphicsPipelineCreateInfo pipeline_create_info = {
-			/*.sType*/ VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
-			/*.pNext*/ nullptr,
-			/*.flags*/ 0,
-			/*.stageCount*/ 2,
-			/*.pStages*/ shader_stage_create_info,
-			/*.pVertexInputState*/ &vertex_input_create_info,
-			/*.pInputAssemblyState*/ &input_assembly_create_info,
-			/*.pTessellationState*/ nullptr,
-			/*.pViewportState*/ &viewport_create_info,
-			/*.pRasterizationState*/ &raster_create_info,
-			/*.pMultisampleState*/ &multisample_create_info,
-			/*.pDepthStencilState*/ &depth_stencil_create_info,
-			/*.pColorBlendState*/ &color_blend_create_info,
-			/*.pDynamicState*/ &dynamic_state_create_info,
-			/*.layout*/ vk_pipeline_layout,
-			/*.renderPass*/ vk_renderpass,
-			/*.subpass*/ 0,
-			/*.basePipelineHandle*/ VK_NULL_HANDLE,
-			/*.basePipelineIndex*/ -1
-		};
-			
+		VkGraphicsPipelineCreateInfo pipeline_create_info = {};
+		pipeline_create_info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+		pipeline_create_info.stageCount = 2;
+		pipeline_create_info.pStages    = shader_stage_create_info;
+		pipeline_create_info.pVertexInputState   = &vertex_input_create_info;
+		pipeline_create_info.pInputAssemblyState = &input_assembly_create_info;
+		pipeline_create_info.pViewportState      = &viewport_create_info;
+		pipeline_create_info.pRasterizationState = &raster_create_info;
+		pipeline_create_info.pMultisampleState   = &multisample_create_info;
+		pipeline_create_info.pDepthStencilState  = &depth_stencil_create_info;
+		pipeline_create_info.pColorBlendState    = &color_blend_create_info;
+		pipeline_create_info.pDynamicState       = &dynamic_state_create_info;
+		pipeline_create_info.layout              = vk_pipeline_layout;
+		pipeline_create_info.renderPass          = vk_renderpass;
+		pipeline_create_info.basePipelineHandle  = VK_NULL_HANDLE;
+		pipeline_create_info.basePipelineIndex   = -1;
 
 		result = vkCreateGraphicsPipelines(vk_device, 
 		                                   VK_NULL_HANDLE, 
