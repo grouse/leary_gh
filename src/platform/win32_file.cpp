@@ -24,148 +24,179 @@
 
 #include "file.h"
 
-#include <sys/types.h>
-#include <sys/stat.h>
-
-#include <algorithm>
-
-#include <io.h>
-
-#include <Windows.h>
-#include <Shlwapi.h>
 #include <Shlobj.h>
+#include <Shlwapi.h>
 
-#include <codecvt>
+#include "debug.h"
+#include "platform_main.h"
 
-#include <memory>
+void init_platform_paths(PlatformState *state)
+{
+	TCHAR buffer[MAX_PATH];
 
-#include "platform/debug.h"
+	HRESULT result = SHGetFolderPath(NULL, 
+	                                 CSIDL_LOCAL_APPDATA, 
+	                                 NULL, 
+	                                 SHGFP_TYPE_CURRENT,
+	                                 buffer);
+	if (result == S_OK)
+	{
+		const char *suffix = "\\leary";
 
-namespace {
-	const char* get_data_base_path(void);
-	const char* get_preferences_base_path(void);
+		size_t suffix_length = strlen(suffix);
+		size_t base_length   = strlen(buffer);
+
+		state->folders.preferences = (char*) malloc(base_length + suffix_length + 1);
+		strcpy(state->folders.preferences, buffer);
+		strcat(state->folders.preferences + base_length, suffix);
+
+		state->folders.preferences_length = strlen(state->folders.preferences);
+	}
+
+	DWORD env_length = GetEnvironmentVariable("LEARY_GAME_DATA",
+	                                          buffer,
+	                                          MAX_PATH);
+
+	if (env_length != 0)
+	{
+		state->folders.game_data = (char*) malloc(env_length + 1);
+		strcpy(state->folders.game_data, buffer);
+
+		state->folders.game_data_length = strlen(state->folders.game_data);
+	}
+	else
+	{
+		DWORD module_length = GetModuleFileName(NULL, buffer, MAX_PATH);
+
+		if (module_length != 0)
+		{
+			if (PathRemoveFileSpec(buffer) == TRUE)
+				module_length = (DWORD) strlen(buffer);
+
+			const char *suffix = "\\data";
+
+			state->folders.game_data = (char*) malloc(module_length + strlen(suffix) + 1);
+			strcpy(state->folders.game_data, buffer);
+			strcat(state->folders.game_data + module_length, suffix);
+
+			state->folders.game_data_length = strlen(state->folders.game_data);
+		}
+	}
 }
 
-std::string 
-resolve_path(EnvironmentFolder type, const char *filename)
+
+bool file_exists(const char *path)
 {
-	std::string resolved = "";
+	return PathFileExists(path) == TRUE;
+}
 
-	static const std::unique_ptr<const char> data_base_path       (get_data_base_path());
-	static const std::unique_ptr<const char> preferences_base_path(get_preferences_base_path());
+bool file_create(const char *path)
+{
+	HANDLE file_handle = CreateFile(path, 
+	                                0, 
+	                                0, 
+	                                NULL, 
+	                                CREATE_NEW, 
+	                                FILE_ATTRIBUTE_NORMAL, 
+	                                NULL);
 
-	switch (type) {
-	case EnvironmentFolder::GameData:
-	{
-		resolved += data_base_path.get();
-		resolved += "/data/";
+	if (file_handle == INVALID_HANDLE_VALUE)
+		return false;
+
+	CloseHandle(file_handle);
+	return true;
+}
+
+void* file_open(const char *path, FileMode mode)
+{
+	DWORD access;
+	DWORD share_mode;
+
+	switch (mode) {
+	case FileMode::read: 
+		access     = GENERIC_READ;
+		share_mode = FILE_SHARE_READ;
 		break;
-	}
-	case EnvironmentFolder::UserPreferences:
-	{
-		resolved += preferences_base_path.get();
-		resolved += "/grouse_games/preferences/";
+	case FileMode::write: 
+		access     = GENERIC_WRITE;
+		share_mode = 0;
 		break;
-	}
+	case FileMode::read_write: 
+		access     = GENERIC_READ | GENERIC_WRITE;
+		share_mode = 0;
+		break;
 	default:
-		DEBUG_LOGF(LogType::warning,
-		           "Unhandled Environment Folder type: %d", type);
-		break;
+		DEBUG_ASSERT(false);
+		return nullptr;
 	}
 
-	// fix mixed path separators
-	std::replace(resolved.begin(), resolved.end(), '/', '\\');
+	HANDLE file_handle = CreateFile(path, 
+	                                access,
+	                                share_mode, 
+	                                NULL, 
+	                                OPEN_EXISTING, 
+	                                FILE_ATTRIBUTE_NORMAL, 
+	                                NULL);
 
-	// create folder if it doesn't exist
-	if (!directory_exists(resolved.c_str()))
-		create_directory(resolved.c_str());
-	
-	resolved += filename;
-	return resolved;
+	if (file_handle == INVALID_HANDLE_VALUE)
+		return nullptr;
+
+	return (void*) file_handle;
 }
 
-bool 
-directory_exists(const char *path)
+void file_close(void *file_handle)
 {
-	if (access(path, 0) == 0) {
-		struct stat status;
-		stat(path, &status);
-
-		return (status.st_mode & S_IFDIR) != 0;
-	}
-	return false;
+	CloseHandle((HANDLE)file_handle);
 }
 
-void 
-create_directory(const char* path)
+void* file_read(const char *filename, size_t *size)
 {
-	int result = SHCreateDirectoryEx(NULL, path, NULL);
-	VAR_UNUSED(result);
+	void *buffer = nullptr;
 
-#if LEARY_DEBUG
-	const char* error;
-	switch (result) {
-	case ERROR_BAD_PATHNAME:
-		error = "ERROR_BAD_PATHNAME";
-		break;
-	case ERROR_FILENAME_EXCED_RANGE:
-		error = "ERROR_FILENAME_EXCED_RANGE";
-		break;
-	case ERROR_PATH_NOT_FOUND:
-		error = "ERROR_PATH_NOT_FOUND";
-		break;
-	case ERROR_FILE_EXISTS:
-		error = "ERROR_FILE_EXISTS";
-		break;
-	case ERROR_ALREADY_EXISTS:
-		error = "ERROR_ALREADY_EXISTS";
-		break;
-	case ERROR_CANCELLED:
-		error = "ERROR_CANCELLED";
-		break;
-	default:
-		error = "Unknown error";
-		break;
+	HANDLE file = CreateFile(filename,
+	                         GENERIC_READ,
+	                         FILE_SHARE_READ,
+	                         NULL,
+	                         OPEN_EXISTING, 
+	                         FILE_ATTRIBUTE_NORMAL, 
+	                         NULL);
+
+	LARGE_INTEGER file_size;
+	if (GetFileSizeEx(file, &file_size))
+	{
+		// NOTE(jesper): ReadFile only works on 32 bit sizes
+		DEBUG_ASSERT(file_size.QuadPart <= 0xFFFFFFFF);
+		*size = (size_t) file_size.QuadPart;
+
+
+		buffer = malloc((size_t)file_size.QuadPart);
+
+		DWORD bytes_read;
+		if (!ReadFile(file, buffer, (uint32_t)file_size.QuadPart, &bytes_read, 0))
+		{
+			free(buffer);
+			buffer = nullptr;
+		}
+
+		CloseHandle(file);
 	}
 
-	DEBUG_ASSERT(result == ERROR_SUCCESS && error);
-#endif
+	return buffer;
 }
 
-namespace {
-	const char* 
-	get_data_base_path()
-	{
-		TCHAR   path[MAX_PATH];
-		HMODULE hModule = GetModuleHandle(NULL);
+void file_write(void *file_handle, void *buffer, size_t bytes)
+{
+	// NOTE(jesper): WriteFile takes 32 bit number of bytes to write
+	DEBUG_ASSERT(bytes <= 0xFFFFFFFF);
 
-		GetModuleFileName(hModule, path, MAX_PATH);
-		PathRemoveFileSpec(path);
+	DWORD bytes_written;
+	BOOL result = WriteFile((HANDLE) file_handle,
+	                        buffer,
+	                        (DWORD) bytes,
+	                        &bytes_written,
+	                        NULL);
 
-		char* retPath = new char[strlen(path)];
-		strcpy(retPath, path);
-
-		return retPath;
-	}
-
-	const char* 
-	get_preferences_base_path()
-	{
-		LPWSTR path    = NULL;
-		HRESULT result = SHGetKnownFolderPath(FOLDERID_LocalAppData, 
-		                                      KF_FLAG_CREATE, 
-		                                      NULL, 
-		                                      &path);
-
-		DEBUG_ASSERT(result == S_OK);
-		VAR_UNUSED(result);
-
-		std::wstring path_wstr = path;
-		CoTaskMemFree(path);
-
-		typedef std::codecvt_utf8<wchar_t> convert_type;
-		std::wstring_convert<convert_type, wchar_t> converter;
-
-		return converter.to_bytes(path_wstr).c_str();
-	}
+	DEBUG_ASSERT(bytes  == bytes_written);
+	DEBUG_ASSERT(result == TRUE);
 }
+

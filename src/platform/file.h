@@ -22,21 +22,41 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#ifndef LEARY_PLATFORM_H
-#define LEARY_PLATFORM_H
+#ifndef LEARY_FILE_H 
+#define LEARY_FILE_H 
 
-#include <string>
+#if defined(_WIN32)
+	#define FILE_SEP "\\"
+	#define FILE_EOL "\r\n"
+#elif defined(__linux__)
+	#define FILE_SEP "/"
+	#define FILE_EOL "\n"
+#else
+	#error "unsupported platform"
+#endif
+
+struct PlatformState;
 
 enum class EnvironmentFolder {
-	GameData,        // Game data,        r,   e.g. shaders, textures, models
-	UserPreferences, // Game preferences, r/w
-	UserData,        // User data,        r/w, e.g. save games.
+	preferences,
+	game_data
 };
 
-std::string resolve_path(EnvironmentFolder type, const char* filename);
+enum class FileMode {
+	read,
+	write,
+	read_write
+};
 
-bool directory_exists(const char* path);
-void create_directory(const char* path);
+void  init_platform_paths(PlatformState *state);
 
+bool  file_exists(const char *path);
+bool  file_create(const char *path);
 
-#endif // LEARY_PLATFORM_H
+void* file_open(const char *path, FileMode mode);
+void  file_close(void *file_handle);
+
+void* file_read(const char *filename, size_t *file_size);
+void  file_write(void *file_handle, void *buffer, size_t bytes);
+
+#endif // LEARY_FILE_H 

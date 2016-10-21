@@ -25,97 +25,121 @@
 #include "settings.h"
 
 #include <cstdio>
-#include <fstream>
-#include <unordered_map>
+#include <cinttypes>
 
+#include "platform/platform_main.h"
 #include "platform/debug.h"
 #include "platform/file.h"
 
-Settings *Settings::m_instance = nullptr;
-
-typedef std::unordered_map<std::string, std::string> ini_map_t;
-
-inline void ini_save_value(FILE* const       file, 
-                           const char* const key,
-                           const int32_t&    value)
+Settings load_settings(const char* filename, PlatformState &platform_state)
 {
-	fprintf(file, "%s = %d\n", key, value);
-}
+	Settings settings;
 
-inline void ini_save_value(FILE* const       file, 
-                           const char* const key,
-                           const bool&       value)
-{
-	ini_save_value(file, key, value ? 1 : 0);
-}
+	// TODO(jesper): choose some more reasonable buffer sizes
+	char path[255];
+	strcpy(path, platform_state.folders.preferences);
+	strcat(path, FILE_SEP);
+	strcat(path, filename);
 
-inline void ini_load_value(const ini_map_t&  values, 
-                           const char* const key,
-                           int32_t* const    value)
-{
-	const auto iter = values.find(key);
-	if (iter == values.end())
-		return;
+	if (!file_exists(path)) return settings;
 
-	sscanf(iter->second.c_str(), "%d", value);
-}
+	size_t size;
+	void *buffer = file_read(path, &size);
 
-inline void ini_load_value(const ini_map_t&  values, 
-                           const char* const key,
-                           bool* const       value)
-{
-	const auto iter = values.find(key);
-	if (iter == values.end())
-		return;
+	if (buffer == nullptr) return settings;
 
-	uint8_t tmp;
-	sscanf(iter->second.c_str(), "%c", &tmp);
-	*value = tmp ? true : false;
-}
+	char *p   = (char*) buffer;
+	char *end = ((char*) buffer) + size;
 
-void Settings::load(const char* filename) 
-{
-	std::string file_path = resolve_path(EnvironmentFolder::UserPreferences, filename);
+	// TODO(jesper): choose some more reasonable buffer sizes
+	// NOTE(jesper): we could probably use one buffer here for both path, key and value to waste
+	// less space, or just malloc/free inside the loop - it's hardly a critical path in performance
+	// and it'd make sure we don't overflow in some weird edge case/bad user input
+	char key[255];
+	char value[255];
 
-	std::fstream stream(file_path, std::ios::in);
-	DEBUG_ASSERT(stream.is_open());
+	while (p < end)
+	{
+		char *key_start = p;
+		while (*p != '=' && *p != ' ') ++p;
+		char *key_end = p;
 
-	if (!stream.is_open())
-		return;
+		DEBUG_ASSERT((key_end - key_start) > 0);
+		size_t key_length = (size_t) (key_end - key_start);
 
-	ini_map_t values;
-	while (!stream.eof()) {
-		char delim;
-		std::string key, value;
+		memcpy(key, key_start, key_length);
+		key[key_length] = '\0';
 
-		stream >> key >> delim >> value;
+		while (p < end && (*p == '=' || *p == ' ')) ++p;
 
-		// skip comments
-		if (key[0] == '/' && key[1] == '/')
-			continue;
+		char *value_start = p;
+		while (p < end && *p != '\r' && *p != '\n' && *p != ' ') ++p;
+		char *value_end = p;
 
-		values[key] = value;
+		DEBUG_ASSERT((value_end - value_start) > 0);
+		size_t value_length = (size_t) (value_end - value_start);
+
+		memcpy(value, value_start, value_length);
+		value[value_length] = '\0';
+
+		// TODO(jesper): just a strcmp chain works for now, probably consider turning this into
+		// something a bit smarter that can be folded into just one lookup
+		// TODO(jesper): validate user input, making sure values are within expected range and that
+		// they are the correct data type
+		if (strcmp(key, "video.resolution.width") == 0)
+			sscanf(value, "%d", &settings.video.resolution.width);
+		else if (strcmp(key, "video.resolution.height") == 0)
+			sscanf(value, "%d", &settings.video.resolution.height);
+		else if (strcmp(key, "video.fullscreen") == 0)
+			sscanf(value, "%" PRId16, &settings.video.fullscreen);
+		else if (strcmp(key, "video.vsync") == 0)
+			sscanf(value, "%" PRId16, &settings.video.vsync);
+		else
+			DEBUG_ASSERT(false);
+
+		while (p < end && (*p == '\r' || *p == '\n')) ++p;
 	}
 
-	ini_load_value(values, "video.resolution.width",  &video.resolution.width);
-	ini_load_value(values, "video.resolution.height", &video.resolution.height);
-	ini_load_value(values, "video.fullscreen",        &video.fullscreen);
-	ini_load_value(values, "video.vsync",             &video.vsync);
-
-	stream.close();
+	return settings;
 }
 
-void Settings::save(const char* filename) const
+
+void save_settings(Settings &settings, const char* filename, PlatformState &platform_state)
 {
-	std::string file_path = resolve_path(EnvironmentFolder::UserPreferences, filename);
+	// TODO(jesper): choose some more reasonable buffer sizes
+	char path[255];
+	strcpy(path, platform_state.folders.preferences);
+	strcat(path, FILE_SEP);
+	strcat(path, filename);
 
-	FILE *file = fopen(file_path.c_str(), "w");
-	DEBUG_ASSERT(file != NULL);
+	if (!file_exists(path) && !file_create(path))
+	{
+		DEBUG_ASSERT(false);
+		return;
+	}
 
-	ini_save_value(file, "video.resolution.width",  video.resolution.width);
-	ini_save_value(file, "video.resolution.height", video.resolution.height);
-	ini_save_value(file, "video.fullscreen",        video.fullscreen);
-	ini_save_value(file, "video.vsync",             video.vsync);
+	void *file_handle = file_open(path, FileMode::write); 
 
-	fclose(file);
+	// TODO(jesper): rewrite this so that we do fewer file_write, potentially so that we only open
+	// file and write into it after we've got an entire buffer to write into it
+	char *buffer = (char*)malloc(2048);
+
+	int32_t bytes = sprintf(buffer, "%s = %d" FILE_EOL, 
+	                        "video.resolution.width", settings.video.resolution.width);
+	file_write(file_handle, buffer, (size_t) bytes);
+
+	bytes = sprintf(buffer, "%s = %d" FILE_EOL, 
+	                "video.resolution.height", settings.video.resolution.height);
+	file_write(file_handle, buffer, (size_t) bytes);
+
+	bytes = sprintf(buffer, "%s = %" PRId16 FILE_EOL, 
+	                "video.fullscreen", settings.video.fullscreen);
+	file_write(file_handle, buffer, (size_t) bytes);
+
+	bytes = sprintf(buffer, "%s = %" PRId16 FILE_EOL, 
+	                "video.vsync", settings.video.vsync);
+	file_write(file_handle, buffer, (size_t) bytes);
+
+	free(buffer);
+	file_close(file_handle);
 }

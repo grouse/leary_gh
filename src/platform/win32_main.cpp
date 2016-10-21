@@ -24,9 +24,8 @@
 
 #include <cstdio>
 #include <cstdint>
+#include <cinttypes>
 #include <cstdlib>
-
-#include <Windows.h>
 
 #include "core/settings.h"
 #include "render/vulkan/vulkan_device.h"
@@ -36,15 +35,18 @@
 #include "win32_file.cpp"
 
 namespace {
+	Settings      settings;
+	PlatformState platform_state;
+
 	void quit() 
 	{
-		Settings::get()->save("settings.ini");
+		save_settings(settings, "settings.ini", platform_state);
 		_exit(EXIT_SUCCESS);
 	}
 
 	LRESULT CALLBACK
-	window_proc(HWND hwnd, 
-	            UINT message, 
+	window_proc(HWND   hwnd,
+	            UINT   message, 
 	            WPARAM wparam, 
 	            LPARAM lparam)
 	{
@@ -68,7 +70,7 @@ namespace {
 		{
 			switch (wparam) {
 			default:
-				std::printf("unhandled key release event: %d\n", wparam);
+				std::printf("unhandled key release event: %" PRIuPTR "\n", wparam);
 				break;
 			}
 			break;
@@ -82,7 +84,7 @@ namespace {
 				break;
 
 			default:
-				std::printf("unhandled key press event: %d\n", wparam);
+				std::printf("unhandled key press event: %" PRIuPTR "\n", wparam);
 				break;
 			}
 			break;
@@ -105,17 +107,14 @@ int main()
 
 int 
 WinMain(HINSTANCE instance,
-        HINSTANCE prev_instance,
-    	LPSTR cmd_line,
-    	int cmd_show) 
+        HINSTANCE /*prev_instance*/,
+    	LPSTR     /*cmd_line*/,
+    	int       /*cmd_show*/) 
 {
-	Settings::create();
-	Settings *settings = Settings::get();
+	init_platform_paths(&platform_state);
+	platform_state.window.win32.hinstance = instance;
 
-	settings->load("settings.ini");
-
-	PlatformState state;
-	state.win32.hinstance = instance;
+	settings = load_settings("settings.ini", platform_state);
 
 	WNDCLASS wc = {};
 	wc.lpfnWndProc   = window_proc;
@@ -124,23 +123,23 @@ WinMain(HINSTANCE instance,
 
 	RegisterClass(&wc);
 
-	state.win32.hwnd = CreateWindow("leary", 
-	                                "leary", 
-	                                WS_TILED | WS_VISIBLE, 
-	                                0, 
-	                                0, 
-	                                settings->video.resolution.width, 
-	                                settings->video.resolution.height, 
-	                                nullptr, 
-	                                nullptr, 
-	                                instance, 
-	                                nullptr);
+	platform_state.window.win32.hwnd = CreateWindow("leary", 
+	                                                "leary", 
+	                                                WS_TILED | WS_VISIBLE, 
+	                                                0, 
+	                                                0, 
+	                                                settings.video.resolution.width, 
+	                                                settings.video.resolution.height, 
+	                                                nullptr, 
+	                                                nullptr, 
+	                                                instance, 
+	                                                nullptr);
 
-	if (state.win32.hwnd == nullptr)
+	if (platform_state.window.win32.hwnd == nullptr)
 		quit();
 
 	VulkanDevice vulkan_device;
-	vulkan_device.create(state);
+	vulkan_device.create(settings, platform_state);
 
 	MSG msg;
 	while(true)

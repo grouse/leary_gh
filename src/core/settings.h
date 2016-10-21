@@ -27,32 +27,23 @@
 
 #include <cstdint>
 
-class Settings {
-public:
+struct PlatformState;
+
+struct Settings {
 	struct {
 		struct {
 			int32_t width  = 1280;
 			int32_t height = 720;
 		} resolution;
 
-		bool fullscreen = false;
-		bool vsync      = true;
+		// NOTE: these are integers to later support different fullscreen and vsync techniques
+		int16_t fullscreen = 0;
+		int16_t vsync      = 1;
 	} video;
-
-	static inline void create() { m_instance = new Settings(); }
-	static inline void destroy()
-	{
-		delete m_instance;
-		m_instance = nullptr;
-	}
-
-	static inline Settings* get() { return m_instance; }
-
-	void load(const char* filename);
-	void save(const char* filename) const;
-
-private:
-	static Settings *m_instance;
 };
+
+Settings load_settings(const char* filename, PlatformState &platform_state);
+void save_settings(Settings &settings, const char* filename, PlatformState &platform_state);
+
 
 #endif // LEARY_SETTINGS_H

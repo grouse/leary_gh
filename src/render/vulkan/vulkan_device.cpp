@@ -31,7 +31,6 @@
 #include "platform/debug.h"
 #include "platform/file.h"
 
-#include "core/settings.h"
 #include "core/math.h"
 
 namespace
@@ -94,13 +93,8 @@ debug_callback_func(VkFlags                    flags,
 }
 
 void 
-VulkanDevice::create(PlatformState platform_state)
+VulkanDevice::create(Settings settings, PlatformState platform_state)
 {
-	const Settings *settings = Settings::get();
-
-	m_width  = settings->video.resolution.width;
-	m_height = settings->video.resolution.height;
-
 	/***********************************************************************************************
 	 * Enumerate and validate supported extensions and layers
 	 **********************************************************************************************/
@@ -404,12 +398,12 @@ VulkanDevice::create(PlatformState platform_state)
 		for (uint32_t i = 0; i < present_modes_count; ++i) {
 			const VkPresentModeKHR &mode = present_modes[i];
 
-			if (settings->video.vsync && mode == VK_PRESENT_MODE_MAILBOX_KHR) {
+			if (settings.video.vsync && mode == VK_PRESENT_MODE_MAILBOX_KHR) {
 				surface_present_mode = VK_PRESENT_MODE_MAILBOX_KHR;
 				break;
 			}
 
-			if (!settings->video.vsync && mode == VK_PRESENT_MODE_IMMEDIATE_KHR) {
+			if (!settings.video.vsync && mode == VK_PRESENT_MODE_IMMEDIATE_KHR) {
 				surface_present_mode = VK_PRESENT_MODE_IMMEDIATE_KHR;
 				break;
 			}
@@ -418,12 +412,12 @@ VulkanDevice::create(PlatformState platform_state)
 		vk_swapchain_extent = surface_capabilities.currentExtent;
 		if (vk_swapchain_extent.width == (uint32_t) (-1)) {
 			// TODO(grouse): clean up usage of window dimensions
-			vk_swapchain_extent.width  = m_width;
-			vk_swapchain_extent.height = m_height;
-		} else {
-			DEBUG_ASSERT(vk_swapchain_extent.width  == m_width);
-			DEBUG_ASSERT(vk_swapchain_extent.height == m_height);
-		}
+			DEBUG_ASSERT(settings.video.resolution.width  >= 0);
+			DEBUG_ASSERT(settings.video.resolution.height >= 0);
+
+			vk_swapchain_extent.width  = (uint32_t)settings.video.resolution.width;
+			vk_swapchain_extent.height = (uint32_t)settings.video.resolution.height;
+		} 
 
 		VkSurfaceTransformFlagBitsKHR pre_transform = surface_capabilities.currentTransform;
 		if (surface_capabilities.supportedTransforms & VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR)
@@ -551,7 +545,7 @@ VulkanDevice::create(PlatformState platform_state)
 	 * Create Depth buffer
 	 **********************************************************************************************/
 	{
-		VkExtent3D extent = { m_width, m_height, 1 };
+		VkExtent3D extent = { vk_swapchain_extent.width, vk_swapchain_extent.height, 1 };
 
 		VkImageCreateInfo create_info = {
 			/*.sType*/ VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
@@ -765,7 +759,7 @@ VulkanDevice::create(PlatformState platform_state)
 	 * Create Framebuffers
 	 **********************************************************************************************/
 	{
-		framebuffers_count = swapchain_images_count;
+		framebuffers_count = (int32_t)swapchain_images_count;
 		vk_framebuffers    = new VkFramebuffer[framebuffers_count];
 
 		VkFramebufferCreateInfo create_info;
@@ -795,45 +789,41 @@ VulkanDevice::create(PlatformState platform_state)
 	/***********************************************************************************************
 	 * Create Vertex buffer
 	 **********************************************************************************************/
-	vertex_buffer = create_vertex_buffer(sizeof(float) * 6 * NUM_DEMO_VERTICES, 
+	vertex_buffer = create_vertex_buffer(sizeof(float) * 6 * NUM_DEMO_VERTICES,
 	                                     (uint8_t*) vertices);
 
 	/***********************************************************************************************
 	 * Create Shader modules
 	 **********************************************************************************************/
 	{
-		// TODO: nuke std::string, and look into nuking std::ifstream
-		std::string folder = resolve_path(EnvironmentFolder::GameData, "shaders/");
+		const char *vertex_file = FILE_SEP "shaders" FILE_SEP "vert.spv";
+		size_t vertex_path_length = platform_state.folders.game_data_length +
+		                            strlen(vertex_file) + 1;
+		char *vertex_path = (char*) malloc(vertex_path_length);
+		strcpy(vertex_path, platform_state.folders.game_data);
+		strcat(vertex_path, vertex_file);
 
-		std::ifstream file;
-		file.open(folder + "vert.spv", std::ios_base::binary | std::ios_base::ate);
+		size_t vertex_size;
+		void *vertex_source = file_read(vertex_path, &vertex_size);
+		DEBUG_ASSERT(vertex_source != nullptr);
+		free(vertex_path);
 
-		size_t vertex_size    = file.tellg();
-		char   *vertex_source = new char[vertex_size];
+		const char *fragment_file = FILE_SEP "shaders" FILE_SEP "frag.spv";
+		size_t fragment_path_length = platform_state.folders.game_data_length +
+		                              strlen(fragment_file) + 1;
+		char *fragment_path = (char*) malloc(fragment_path_length);
+		strcpy(fragment_path, platform_state.folders.game_data);
+		strcat(fragment_path, fragment_file);
 
-		file.seekg(0, std::ios::beg);
-		file.read(vertex_source, vertex_size);
+		size_t fragment_size;
+		void *fragment_source = file_read(fragment_path, &fragment_size);
+		DEBUG_ASSERT(fragment_source != nullptr);
+		free(fragment_path);
 
-		file.close();
-
-
-		file.open(folder + "frag.spv", std::ios_base::binary | std::ios_base::ate);
-
-		size_t fragment_size    = file.tellg();
-		char   *fragment_source = new char[fragment_size];
-
-		file.seekg(0, std::ios::beg);
-		file.read(fragment_source, fragment_size);
-
-		file.close();
-
-		VkShaderModuleCreateInfo create_info = {
-			/*.sType*/    VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-			/*.pNext*/    nullptr,
-			/*.flags*/    0,
-			/*.codeSize*/ vertex_size,
-			/*.pCode*/    (uint32_t*) vertex_source
-		};
+		VkShaderModuleCreateInfo create_info = {};
+		create_info.sType    = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+		create_info.codeSize = vertex_size;
+		create_info.pCode    = (uint32_t*)vertex_source;
 
 		result = vkCreateShaderModule(vk_device, &create_info, nullptr, &vk_vertex_shader);
 		DEBUG_ASSERT(result == VK_SUCCESS);
@@ -844,8 +834,8 @@ VulkanDevice::create(PlatformState platform_state)
 		result = vkCreateShaderModule(vk_device, &create_info, nullptr, &vk_fragment_shader);
 		DEBUG_ASSERT(result == VK_SUCCESS);
 
-		delete[] fragment_source;
-		delete[] vertex_source;
+		free(fragment_source);
+		free(vertex_source);
 	}
 
 	/***********************************************************************************************
@@ -1261,7 +1251,7 @@ VulkanDevice::present()
 
 	VkRect2D render_area = { 
 		{ 0,       0        }, 
-		{ m_width, m_height } 
+		{ vk_swapchain_extent.width, vk_swapchain_extent.height } 
 	};
 
 	VkRenderPassBeginInfo render_pass_begin_info = { 
@@ -1281,8 +1271,8 @@ VulkanDevice::present()
 	VkViewport viewport = { 
 		/*.x*/ 0.0f,    
 		/*.y*/ 0.0f, 
-		/*.width*/  static_cast<float>(m_width), 
-		/*.height*/ static_cast<float>(m_height), 
+		/*.width*/  (float)vk_swapchain_extent.width,
+		/*.height*/ (float)vk_swapchain_extent.height,
 		/*.minDepth*/ 0.0f,    
 		/*.maxDepth*/ 1.0f 
 	};

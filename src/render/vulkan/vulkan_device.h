@@ -25,7 +25,7 @@
 #ifndef LEARY_VULKAN_DEVICE_H
 #define LEARY_VULKAN_DEVICE_H
 
-
+#include "core/settings.h"
 #include "platform/platform_vulkan.h"
 
 struct VulkanVertexBuffer {
@@ -37,16 +37,13 @@ struct VulkanVertexBuffer {
 
 class VulkanDevice {
 public:
-	void create(PlatformState platform_state);
+	void create(Settings settings, PlatformState platform_state);
 	void destroy();
 
 	void present();
 
 	VulkanVertexBuffer create_vertex_buffer(size_t size, uint8_t *data);
 	void               destroy_vertex_buffer(VulkanVertexBuffer *buffer);
-
-	uint32_t         m_width;
-	uint32_t         m_height;
 
 	VkInstance       vk_instance;
 

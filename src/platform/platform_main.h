@@ -35,23 +35,32 @@
 
 // NOTE: this is a union so that we can support multiple different windowing systems on the same
 // platform, e.g. Wayland and X11 on Linux.
-union PlatformState {
+struct PlatformState {
+	union {
 #if defined(__linux__)
-	struct 
-	{
-		xcb_window_t     window;
-		xcb_connection_t *connection;
-	} xcb;
+		struct 
+		{
+			xcb_window_t     window;
+			xcb_connection_t *connection;
+		} xcb;
 #elif defined(_WIN32)
-	struct 
-	{
-		HWND      hwnd;
-		HINSTANCE hinstance;
-	} win32;
+		struct 
+		{
+			HWND      hwnd;
+			HINSTANCE hinstance;
+		} win32;
 #else
 	#error "unsupported platform"
 #endif
-};
+	} window;
 
+	struct {
+		char   *preferences;
+		size_t preferences_length;
+
+		char   *game_data;
+		size_t game_data_length;
+	} folders;
+};
 
 #endif // LEARY_PLATFORM_MAIN_H
