@@ -29,40 +29,42 @@
 
 #define DEBUG_BUFFER_SIZE (512)
 
-namespace 
-{
-	char get_log_type_char(LogType type)
-	{
-		// TODO(jesper): implement log filtering that we can turn on/off at runtime
-		switch (type) {
-		case LogType::info:    return 'I';
-		case LogType::error:   return 'E';
-		case LogType::warning: return 'W';
-		case LogType::assert:  return 'A';
-		default:               return '?';
-		}
-	}
-}
-
 namespace debug
 {
-	void printf(LogType    type,
-	            const char *func,
-	            uint32_t   line,
-	            const char *file,
-	            const char *msg)
+	void print(LogType    type,
+	           const char *func,
+	           uint32_t   line,
+	           const char *file,
+	           const char *msg)
 	{
-		char c = get_log_type_char(type);
-		if (c == '?') return;
+		const char *type_str;
+
+		switch (type) {
+		case LogType::info:
+			type_str = "info";
+			break;
+		case LogType::error:
+			type_str = "error";
+			break;
+		case LogType::warning: 
+			type_str = "warning";
+			break;
+		case LogType::assert:  
+			type_str = "assert";
+			break;
+		case LogType::unimplemented:  
+			type_str = "unimplemented";
+			break;
+		default:
+			type_str = "";
+			break;
+		}
 
 		// TODO(jesper): add log to file if enabled
 		char buffer[DEBUG_BUFFER_SIZE];
-		std::sprintf(buffer, "[%c] %s in %s:%d - %s\n", c, func, file, line, msg);
+		std::sprintf(buffer, "%s:%d: %s in %s: %s\n", file, line, type_str, func, msg);
 		OutputDebugString(buffer);
 	}
-
-
-
 
 	void printf(LogType    type,
 	            const char *func,
@@ -70,8 +72,6 @@ namespace debug
 	            const char *file,
 	            const char *fmt, ...)
 	{
-		char c = get_log_type_char(type);
-
 		va_list args;
 		va_start(args, fmt);
 
@@ -80,10 +80,7 @@ namespace debug
 
 		va_end(args);
 
-		// TODO(jesper): add log to file if enabled
-		char buffer[DEBUG_BUFFER_SIZE];
-		std::sprintf(buffer, "[%c] %s in %s:%d - %s\n", c, func, file, line, msg);
-		OutputDebugString(buffer);
+		debug::print(type, func, line, file, msg);
 	}
 }
 
