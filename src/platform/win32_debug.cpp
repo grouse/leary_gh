@@ -22,65 +22,13 @@
  * 3. This notice may not be removed or altered from any source distribution.
 **/
 
+#define DEBUG_PRINT_IMPL
 #include "debug.h"
 
-#include <stdarg.h>
-#include <cstdio>
+#include <Windows.h>
 
-#define DEBUG_BUFFER_SIZE (512)
-
-namespace debug
+void platform_debug_output(const char *msg)
 {
-	void print(LogType    type,
-	           const char *func,
-	           uint32_t   line,
-	           const char *file,
-	           const char *msg)
-	{
-		const char *type_str;
-
-		switch (type) {
-		case LogType::info:
-			type_str = "info";
-			break;
-		case LogType::error:
-			type_str = "error";
-			break;
-		case LogType::warning: 
-			type_str = "warning";
-			break;
-		case LogType::assert:  
-			type_str = "assert";
-			break;
-		case LogType::unimplemented:  
-			type_str = "unimplemented";
-			break;
-		default:
-			type_str = "";
-			break;
-		}
-
-		// TODO(jesper): add log to file if enabled
-		char buffer[DEBUG_BUFFER_SIZE];
-		std::sprintf(buffer, "%s:%d: %s in %s: %s\n", file, line, type_str, func, msg);
-		OutputDebugString(buffer);
-	}
-
-	void printf(LogType    type,
-	            const char *func,
-	            uint32_t   line,
-	            const char *file,
-	            const char *fmt, ...)
-	{
-		va_list args;
-		va_start(args, fmt);
-
-		char msg[DEBUG_BUFFER_SIZE];
-		std::vsprintf(msg, fmt, args);
-
-		va_end(args);
-
-		debug::print(type, func, line, file, msg);
-	}
+	OutputDebugString(msg);
 }
 

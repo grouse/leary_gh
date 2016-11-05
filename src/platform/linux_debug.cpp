@@ -22,63 +22,13 @@
  * 3. This notice may not be removed or altered from any source distribution.
 **/
 
+#define DEBUG_PRINT_IMPL
 #include "debug.h"
 
-#include <stdarg.h>
 #include <cstdio>
 
-#define DEBUG_BUFFER_SIZE (256)
-
-namespace 
+void platform_debug_output(const char *msg)
 {
-	char get_log_type_char(LogType)
-	{
-		// TODO(jesper): implement log filtering that we can turn on/off at runtime
-		switch (type) {
-		case LogType::info:    return 'I';
-		case LogType::error:   return 'E':
-		case LogType::warning: return 'W';
-		case LogType::assert:  return 'A';
-		default:               return '?';
-		}
-	}
+	std::printf(msg);
 }
 
-namespace debug
-{
-	void printf(LogType    type,
-	            const char *func,
-	            uint32_t   line,
-	            const char *file,
-	            const char *msg)
-	{
-		char c = get_log_type_char(type);
-		if (c == '?') return;
-
-		// TODO(jesper): add log to file if enabled
-		std::printf("[%c] %s in %s:%d - %s\n", c, func, file, line, msg);
-	}
-
-
-
-
-	void printf(LogType    type,
-	            const char *func,
-	            uint32_t   line,
-	            const char *file,
-	            const char *fmt, ...)
-	{
-		char c = get_log_type_char(type);
-
-		va_list args;
-		va_start(args, fmt);
-
-		char message[DEBUG_BUFFER_SIZE];
-		std::vsprintf(msg, fmt, args);
-
-		va_end(args);
-
-		// TODO(jesper): add log to file if enabled
-		std::printf("[%c] %s in %s:%d - %s\n", c, func, file, line, msg);
-	}
-}

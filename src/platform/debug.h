@@ -27,6 +27,7 @@
 
 #include <cstring>
 #include <cstdint>
+#include <cstdarg>
 
 #if defined(_WIN32)
     #define DEBUG_FILENAME (strrchr(__FILE__, '\\') ? strrchr(__FILE__, '\\') + 1 : __FILE__)
@@ -35,10 +36,10 @@
 #endif
 
 #define DEBUG_LOGF(type, format, ...)                                                              \
-	debug::printf(type, __FUNCTION__, __LINE__, DEBUG_FILENAME, format, __VA_ARGS__)
+	debug_printf(type, __FUNCTION__, __LINE__, DEBUG_FILENAME, format, __VA_ARGS__)
 
 #define DEBUG_LOG(type, msg)                                                                       \
-	debug::printf(type, __FUNCTION__, __LINE__, DEBUG_FILENAME, "%s", msg)
+	debug_print(type, __FUNCTION__, __LINE__, DEBUG_FILENAME, msg)
 
 #define VAR_UNUSED(var) (void)(var)
 
@@ -65,22 +66,77 @@ enum class LogType {
 	unimplemented
 };
 
-namespace debug
-{
-	void printf(LogType type, 
-	            const char *func, 
-	            uint32_t line, 
-	            const char *file, 
-	            const char *fmt, ...); 
+#define DEBUG_BUFFER_SIZE (512)
 
-	void print(LogType type, 
-	           const char *func, 
-	           uint32_t line, 
-	           const char *file, 
-	           const char *msg);
-}
+void platform_debug_output(const char *msg);
 
+void debug_print(LogType    type,
+                 const char *func,
+                 uint32_t   line,
+                 const char *file,
+                 const char *msg);
 
-
+void debug_printf(LogType    type,
+                  const char *func,
+                  uint32_t   line,
+                  const char *file,
+                  const char *fmt, ...);
 
 #endif // LEARY_DEBUG_H
+
+#ifdef DEBUG_PRINT_IMPL
+void debug_print(LogType    type,
+                 const char *func,
+                 uint32_t   line,
+                 const char *file,
+                 const char *msg)
+{
+	const char *type_str;
+
+	switch (type) {
+	case LogType::info:
+		type_str = "info";
+		break;
+	case LogType::error:
+		type_str = "error";
+		break;
+	case LogType::warning: 
+		type_str = "warning";
+		break;
+	case LogType::assert:  
+		type_str = "assert";
+		break;
+	case LogType::unimplemented:  
+		type_str = "unimplemented";
+		break;
+	default:
+		type_str = "";
+		break;
+	}
+
+	// TODO(jesper): add log to file if enabled
+	char buffer[DEBUG_BUFFER_SIZE];
+	std::sprintf(buffer, "%s:%d: %s in %s: %s\n", file, line, type_str, func, msg);
+	platform_debug_output(buffer);
+}
+
+void debug_printf(LogType    type,
+                  const char *func,
+                  uint32_t   line,
+                  const char *file,
+                  const char *fmt, ...)
+{
+	va_list args;
+	va_start(args, fmt);
+
+	char msg[DEBUG_BUFFER_SIZE];
+	std::vsprintf(msg, fmt, args);
+
+	va_end(args);
+
+	debug_print(type, func, line, file, msg);
+}
+
+#undef DEBUG_PRINT_IMPL
+#endif // DEBUG_PRINT_IMPL
+
