@@ -294,7 +294,7 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 		float priority = 1.0f;
 
 		VkDeviceQueueCreateInfo queue_create_info = {};
-		queue_create_info.sType            = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
+		queue_create_info.sType            = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
 		queue_create_info.queueFamilyIndex = queue_family_index;
 		queue_create_info.queueCount       = 1;
 		queue_create_info.pQueuePriorities = &priority;
