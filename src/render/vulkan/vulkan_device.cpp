@@ -24,7 +24,6 @@
 
 #include "vulkan_device.h"
 
-#include <vector>
 #include <limits>
 #include <fstream>
 
@@ -95,85 +94,67 @@ debug_callback_func(VkFlags                    flags,
 void
 VulkanDevice::create(Settings settings, PlatformState platform_state)
 {
-	/***********************************************************************************************
-	 * Enumerate and validate supported extensions and layers
-	 **********************************************************************************************/
-	std::vector<const char*> layerNamesToEnable;
-	layerNamesToEnable.push_back("VK_LAYER_LUNARG_standard_validation");
-
-	std::vector<const char*> extensionNamesToEnable;
-	extensionNamesToEnable.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
-	extensionNamesToEnable.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
-#if defined(__linux__)
-	extensionNamesToEnable.push_back(VK_KHR_XCB_SURFACE_EXTENSION_NAME);
-#elif defined(_WIN32)
-	extensionNamesToEnable.push_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
-
-#else
-	#error "unsupported platform"
-#endif
-
 	VkResult result;
-
-	uint32_t supportedLayersCount = 0;
-	result = vkEnumerateInstanceLayerProperties(&supportedLayersCount, nullptr);
-	DEBUG_ASSERT(result == VK_SUCCESS);
-
-	VkLayerProperties *supportedLayers = new VkLayerProperties[supportedLayersCount];
-	result = vkEnumerateInstanceLayerProperties(&supportedLayersCount, supportedLayers);
-	DEBUG_ASSERT(result == VK_SUCCESS);
-
-	uint32_t propertyCount = 0;
-
-	// by passing a nullptr to the name parameter (first) we get the available supported extensions
-	result = vkEnumerateInstanceExtensionProperties(nullptr, &propertyCount, nullptr);
-	DEBUG_ASSERT(result == VK_SUCCESS);
-
-	VkExtensionProperties *supportedExtensions = new VkExtensionProperties[propertyCount];
-	result = vkEnumerateInstanceExtensionProperties(nullptr, &propertyCount, supportedExtensions);
-	DEBUG_ASSERT(result == VK_SUCCESS);
-
-	// Enumerate the layers we wanted to enable and the layers we've found supported and validate
-	// that they are available
-	for (const auto &layerName : layerNamesToEnable) {
-		bool found = false;
-
-		for (uint32_t i = 0; i < supportedLayersCount; ++i) {
-			const auto &property = supportedLayers[i];
-
-			if (strcmp(property.layerName, layerName) == 0) {
-				found = true;
-				break;
-			}
-		}
-
-		DEBUG_ASSERT(found);
-	}
-
-	// validate that they are available
-	for (const auto &extensionName : extensionNamesToEnable) {
-		bool found = false;
-
-		for (uint32_t i = 0; i < propertyCount; ++i) {
-			const auto &property = supportedExtensions[i];
-
-			if (strcmp(property.extensionName, extensionName) == 0) {
-				found = true;
-				break;
-			}
-		}
-
-		DEBUG_ASSERT(found);
-	}
-
-	delete[] supportedLayers;
-	delete[] supportedExtensions;
-
 	/***********************************************************************************************
 	 * Create VkInstance
-	 * we've checked the available extensions and layers and can now create our instance
 	 **********************************************************************************************/
 	{
+		// Enumerate the supported extensions and layers and find out which to enable
+		// NOTE(jesper): currently we don't assert about missing required extensions or layers, and
+		// we don't store any internal state about which ones we've enabled.
+		uint32_t supported_layers_count = 0;
+		result = vkEnumerateInstanceLayerProperties(&supported_layers_count, nullptr);
+		DEBUG_ASSERT(result == VK_SUCCESS);
+
+		VkLayerProperties *supported_layers = (VkLayerProperties*) malloc(sizeof(VkLayerProperties) *
+	                                                                  	  supported_layers_count);
+		result = vkEnumerateInstanceLayerProperties(&supported_layers_count, supported_layers);
+		DEBUG_ASSERT(result == VK_SUCCESS);
+
+		uint32_t supported_extensions_count = 0;
+		result = vkEnumerateInstanceExtensionProperties(nullptr, &supported_extensions_count, nullptr);
+		DEBUG_ASSERT(result == VK_SUCCESS);
+
+		VkExtensionProperties *supported_extensions =
+			(VkExtensionProperties*) malloc(sizeof(VkExtensionProperties) * supported_extensions_count);
+		result = vkEnumerateInstanceExtensionProperties(nullptr,
+	                                                	&supported_extensions_count,
+	                                                	supported_extensions);
+		DEBUG_ASSERT(result == VK_SUCCESS);
+
+		// NOTE(jesper): we might want to store these in the device for future usage/debug information
+		int32_t enabled_layers_count = 0;
+		char    **enabled_layers     = (char**) malloc(sizeof(char*) * supported_layers_count);
+
+		int32_t enabled_extensions_count = 0;
+		char    **enabled_extensions     = (char**) malloc(sizeof(char*) * supported_extensions_count);
+
+		for (int32_t i = 0; i < (int32_t)supported_layers_count; ++i)
+		{
+			VkLayerProperties &layer = supported_layers[i];
+
+			bool enable = platform_vulkan_enable_instance_layer(layer);
+
+			enable |= strcmp(layer.layerName, "VK_LAYER_LUNARG_standard_validation") == 0;
+
+			if (enable)
+				enabled_layers[enabled_layers_count++] = layer.layerName;
+		}
+
+		for (int32_t i = 0; i < (int32_t)supported_extensions_count; ++i)
+		{
+			VkExtensionProperties &extension = supported_extensions[i];
+
+			bool enable = platform_vulkan_enable_instance_extension(extension);
+
+			enable |= strcmp(extension.extensionName, VK_KHR_SURFACE_EXTENSION_NAME) == 0;
+			enable |= strcmp(extension.extensionName, VK_EXT_DEBUG_REPORT_EXTENSION_NAME) == 0;
+
+			if (enable)
+				enabled_extensions[enabled_extensions_count++] = extension.extensionName;
+		}
+
+		// Create the VkInstance
 		VkApplicationInfo app_info = {};
 		app_info.sType              = VK_STRUCTURE_TYPE_APPLICATION_INFO;
 		app_info.pApplicationName   = "leary";
@@ -184,13 +165,19 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 		VkInstanceCreateInfo create_info = {};
 		create_info.sType                   = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
 		create_info.pApplicationInfo        = &app_info;
-		create_info.enabledLayerCount       = (uint32_t) layerNamesToEnable.size();
-		create_info.ppEnabledLayerNames     = layerNamesToEnable.data();
-		create_info.enabledExtensionCount   = (uint32_t) extensionNamesToEnable.size();
-		create_info.ppEnabledExtensionNames = extensionNamesToEnable.data();
+		create_info.enabledLayerCount       = (uint32_t) enabled_layers_count;
+		create_info.ppEnabledLayerNames     = enabled_layers;
+		create_info.enabledExtensionCount   = (uint32_t) enabled_extensions_count;
+		create_info.ppEnabledExtensionNames = enabled_extensions;
 
 		result = vkCreateInstance(&create_info, nullptr, &vk_instance);
 		DEBUG_ASSERT(result == VK_SUCCESS);
+
+		free(enabled_layers);
+		free(enabled_extensions);
+
+		free(supported_layers);
+		free(supported_extensions);
 	}
 
 
@@ -323,8 +310,6 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 		device_create_info.sType                   = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
 		device_create_info.queueCreateInfoCount    = 1;
 		device_create_info.pQueueCreateInfos       = &queue_create_info;
-		device_create_info.enabledLayerCount       = (uint32_t) layerNamesToEnable.size();
-		device_create_info.ppEnabledLayerNames     = layerNamesToEnable.data();
 		device_create_info.enabledExtensionCount   = 1;
 		device_create_info.ppEnabledExtensionNames = device_extensions;
 		device_create_info.pEnabledFeatures        = &physical_device_features;

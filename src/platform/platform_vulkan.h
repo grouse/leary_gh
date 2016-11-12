@@ -43,4 +43,11 @@ vulkan_create_surface(VkInstance instance,
                       VkSurfaceKHR *surface, 
                       PlatformState platform_state);
 
+bool
+platform_vulkan_enable_instance_extension(VkExtensionProperties &property);
+
+bool
+platform_vulkan_enable_instance_layer(VkLayerProperties layer);
+
+
 #endif // LEARY_PLATFORM_VULKAN_H

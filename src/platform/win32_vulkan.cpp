@@ -40,3 +40,22 @@ vulkan_create_surface(VkInstance instance,
 	return vkCreateWin32SurfaceKHR(instance, &create_info, nullptr, surface);
 }
 
+bool
+platform_vulkan_enable_instance_extension(VkExtensionProperties &extension)
+{
+	bool enable = false;
+
+	enable |= strcmp(extension.extensionName, VK_KHR_WIN32_SURFACE_EXTENSION_NAME) == 0;
+
+	return enable;
+}
+
+bool
+platform_vulkan_enable_instance_layer(VkLayerProperties layer)
+{
+	bool enable = false;
+	return enable;
+}
+
+
+
