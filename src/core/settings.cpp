@@ -118,25 +118,25 @@ void save_settings(Settings &settings, const char* filename, PlatformState &plat
 		return;
 	}
 
-	void *file_handle = file_open(path, FileMode::write); 
+	void *file_handle = file_open(path, FileMode::write);
 
 	// TODO(jesper): rewrite this so that we do fewer file_write, potentially so that we only open
 	// file and write into it after we've got an entire buffer to write into it
 	char *buffer = (char*)malloc(2048);
 
-	int32_t bytes = sprintf(buffer, "%s = %d" FILE_EOL, 
+	int32_t bytes = sprintf(buffer, "%s = %d" FILE_EOL,
 	                        "video.resolution.width", settings.video.resolution.width);
 	file_write(file_handle, buffer, (size_t) bytes);
 
-	bytes = sprintf(buffer, "%s = %d" FILE_EOL, 
+	bytes = sprintf(buffer, "%s = %d" FILE_EOL,
 	                "video.resolution.height", settings.video.resolution.height);
 	file_write(file_handle, buffer, (size_t) bytes);
 
-	bytes = sprintf(buffer, "%s = %" PRId16 FILE_EOL, 
+	bytes = sprintf(buffer, "%s = %" PRId16 FILE_EOL,
 	                "video.fullscreen", settings.video.fullscreen);
 	file_write(file_handle, buffer, (size_t) bytes);
 
-	bytes = sprintf(buffer, "%s = %" PRId16 FILE_EOL, 
+	bytes = sprintf(buffer, "%s = %" PRId16 FILE_EOL,
 	                "video.vsync", settings.video.vsync);
 	file_write(file_handle, buffer, (size_t) bytes);
 

@@ -38,7 +38,7 @@ namespace {
 	Settings      settings;
 	PlatformState platform_state;
 
-	void quit() 
+	void quit()
 	{
 		save_settings(settings, "settings.ini", platform_state);
 		_exit(EXIT_SUCCESS);
@@ -46,8 +46,8 @@ namespace {
 
 	LRESULT CALLBACK
 	window_proc(HWND   hwnd,
-	            UINT   message, 
-	            WPARAM wparam, 
+	            UINT   message,
+	            WPARAM wparam,
 	            LPARAM lparam)
 	{
 		switch (message) {
@@ -102,14 +102,14 @@ namespace {
 
 int main()
 {
-	
+
 }
 
-int 
+int
 WinMain(HINSTANCE instance,
         HINSTANCE /*prev_instance*/,
     	LPSTR     /*cmd_line*/,
-    	int       /*cmd_show*/) 
+    	int       /*cmd_show*/)
 {
 	init_platform_paths(&platform_state);
 	platform_state.window.win32.hinstance = instance;
@@ -123,16 +123,16 @@ WinMain(HINSTANCE instance,
 
 	RegisterClass(&wc);
 
-	platform_state.window.win32.hwnd = CreateWindow("leary", 
-	                                                "leary", 
-	                                                WS_TILED | WS_VISIBLE, 
-	                                                0, 
-	                                                0, 
-	                                                settings.video.resolution.width, 
-	                                                settings.video.resolution.height, 
-	                                                nullptr, 
-	                                                nullptr, 
-	                                                instance, 
+	platform_state.window.win32.hwnd = CreateWindow("leary",
+	                                                "leary",
+	                                                WS_TILED | WS_VISIBLE,
+	                                                0,
+	                                                0,
+	                                                settings.video.resolution.width,
+	                                                settings.video.resolution.height,
+	                                                nullptr,
+	                                                nullptr,
+	                                                instance,
 	                                                nullptr);
 
 	if (platform_state.window.win32.hwnd == nullptr)
@@ -151,8 +151,8 @@ WinMain(HINSTANCE instance,
 		}
 
 		if (msg.message == WM_QUIT)
-			quit();	
-			
+			quit();
+
 
 		vulkan_device.present();
 	}

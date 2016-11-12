@@ -54,7 +54,7 @@ public:
 
 	// Physical device
 	VkPhysicalDevice                 vk_physical_device;
-	VkPhysicalDeviceMemoryProperties vk_physical_memory_properties; 
+	VkPhysicalDeviceMemoryProperties vk_physical_memory_properties;
 
 
 	// Swapchain

@@ -47,7 +47,7 @@
 	#if defined(_MSC_VER)
 		#define DEBUG_BREAK()       __debugbreak()
 	#else
-		#define DEBUG_BREAK()       asm("int $3") 
+		#define DEBUG_BREAK()       asm("int $3")
 	#endif
 
     #define DEBUG_ASSERT(condition) if (!(condition)) DEBUG_BREAK()
@@ -100,13 +100,13 @@ void debug_print(LogType    type,
 	case LogType::error:
 		type_str = "error";
 		break;
-	case LogType::warning: 
+	case LogType::warning:
 		type_str = "warning";
 		break;
-	case LogType::assert:  
+	case LogType::assert:
 		type_str = "assert";
 		break;
-	case LogType::unimplemented:  
+	case LogType::unimplemented:
 		type_str = "unimplemented";
 		break;
 	default:

@@ -40,15 +40,15 @@ inline Vector3f cross(Vector3f lhs, Vector3f rhs);
 
 inline float length(Vector3f vec)
 {
-	return std::sqrt(vec.x * vec.x + 
-	                 vec.y * vec.y + 
+	return std::sqrt(vec.x * vec.x +
+	                 vec.y * vec.y +
 	                 vec.z * vec.z);
 }
 
 inline float dot(Vector3f lhs, Vector3f rhs)
 {
-	return lhs.x * rhs.x + 
-	       lhs.y * rhs.y + 
+	return lhs.x * rhs.x +
+	       lhs.y * rhs.y +
 	       lhs.z * lhs.z;
 }
 
@@ -113,7 +113,7 @@ inline Vector3f & operator += (Vector3f &lhs, Vector3f rhs)
 {
 	lhs = lhs + rhs;
 	return lhs;
-	
+
 }
 
 inline Vector3f & operator += (Vector3f &lhs, float rhs)
@@ -147,13 +147,13 @@ inline Vector3f operator - (float lhs, Vector3f rhs)
 	return rhs - lhs;
 }
 
-inline Vector3f & operator -= (Vector3f &lhs, Vector3f rhs) 
+inline Vector3f & operator -= (Vector3f &lhs, Vector3f rhs)
 {
 	lhs = lhs - rhs;
 	return lhs;
 }
 
-inline Vector3f & operator -= (Vector3f &lhs, float rhs) 
+inline Vector3f & operator -= (Vector3f &lhs, float rhs)
 {
 	lhs = lhs - rhs;
 	return lhs;
@@ -174,7 +174,7 @@ inline Vector3f operator * (float lhs, Vector3f rhs)
 	return rhs * lhs;
 }
 
-inline Vector3f & operator *= (Vector3f &lhs, float rhs) 
+inline Vector3f & operator *= (Vector3f &lhs, float rhs)
 {
 	lhs = lhs * rhs;
 	return lhs;

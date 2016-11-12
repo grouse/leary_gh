@@ -25,8 +25,8 @@
 #include "platform_vulkan.h"
 
 VkResult
-vulkan_create_surface(VkInstance instance, 
-                      VkSurfaceKHR *surface, 
+vulkan_create_surface(VkInstance instance,
+                      VkSurfaceKHR *surface,
                       PlatformState platform_state)
 {
 	VkWin32SurfaceCreateInfoKHR create_info = {

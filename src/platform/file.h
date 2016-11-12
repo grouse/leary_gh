@@ -22,8 +22,8 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#ifndef LEARY_FILE_H 
-#define LEARY_FILE_H 
+#ifndef LEARY_FILE_H
+#define LEARY_FILE_H
 
 #if defined(_WIN32)
 	#define FILE_SEP "\\"
@@ -59,4 +59,4 @@ void  file_close(void *file_handle);
 void* file_read(const char *filename, size_t *file_size);
 void  file_write(void *file_handle, void *buffer, size_t bytes);
 
-#endif // LEARY_FILE_H 
+#endif // LEARY_FILE_H

@@ -1,6 +1,5 @@
 /**
- * @file:   linux_main.cpp
- * @author: Jesper Stefansson (grouse)
+ * @file:   linux_main.cpp @author: Jesper Stefansson (grouse)
  * @email:  jesper.stefansson@gmail.com
  *
  * Copyright (c) 2015-2016 Jesper Stefansson
@@ -46,9 +45,9 @@ namespace  {
 	}
 }
 
-int 
+int
 main()
-{ 
+{
 	Settings::create();
 	Settings *settings = Settings::get();
 
@@ -66,7 +65,7 @@ main()
 	uint32_t mask     = XCB_CW_EVENT_MASK;
 	uint32_t values[] = {
 		XCB_EVENT_MASK_POINTER_MOTION |
-		XCB_EVENT_MASK_KEY_PRESS      | 
+		XCB_EVENT_MASK_KEY_PRESS      |
 		XCB_EVENT_MASK_KEY_RELEASE
 	};
 
@@ -90,22 +89,22 @@ main()
 	auto wm_protocols_reply      = xcb_intern_atom_reply(state.xcb.connection, wm_protocols_cookie, 0);
 	auto wm_delete_window_reply  = xcb_intern_atom_reply(state.xcb.connection, wm_delete_window_cookie, 0);
 
-	xcb_change_property(state.xcb.connection, 
-	                    XCB_PROP_MODE_REPLACE, 
-	                    state.xcb.window, 
-	                    wm_protocols_reply->atom, 
-	                    4, 
-	                    32, 
-	                    1, 
+	xcb_change_property(state.xcb.connection,
+	                    XCB_PROP_MODE_REPLACE,
+	                    state.xcb.window,
+	                    wm_protocols_reply->atom,
+	                    4,
+	                    32,
+	                    1,
 	                    &wm_delete_window_reply->atom);
-	
+
 	xcb_map_window(state.xcb.connection, state.xcb.window);
 	xcb_flush(state.xcb.connection);
 
 	VulkanDevice vulkan_device;
 	vulkan_device.create(state);
 
-	while (true) 
+	while (true)
 	{
 		xcb_generic_event_t *event;
 		while ((event = xcb_poll_for_event(state.xcb.connection)))
@@ -124,9 +123,9 @@ main()
 			{
 				auto key = (xcb_key_release_event_t*)event;
 
-				// check if the release event is a repeat event by checking its pressed state. 
+				// check if the release event is a repeat event by checking its pressed state.
 				// NOTE(grouse): doing this with a keymap because the usual Xlib method of peeking
-				// the timestamp of the next event seems to be unreliable. 
+				// the timestamp of the next event seems to be unreliable.
 				// NOTE(grouse): getting the keymap for every key press event is likely a horrible
 				// performance penalty, look into either fixing the timestamp method or caching the
 				// keymap.

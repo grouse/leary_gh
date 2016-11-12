@@ -35,10 +35,10 @@
 
 namespace
 {
-	int32_t 
-	find_memory_type_index(const VkPhysicalDeviceMemoryProperties &properties, 
-	                       uint32_t type_bits, 
-	                       const VkMemoryPropertyFlags &req_properties); 
+	int32_t
+	find_memory_type_index(const VkPhysicalDeviceMemoryProperties &properties,
+	                       uint32_t type_bits,
+	                       const VkMemoryPropertyFlags &req_properties);
 	constexpr int VERTEX_INPUT_BINDING = 0;	// The Vertex Input Binding for our vertex buffer.
 
 	// Vertex data to draw.
@@ -59,17 +59,17 @@ namespace
 }
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL
-debug_callback_func(VkFlags                    flags, 
-                    VkDebugReportObjectTypeEXT type, 
-                    uint64_t                   src, 
-                    size_t                     location, 
-                    int32_t                    code, 
-                    const char*                prefix, 
-                    const char*                msg, 
+debug_callback_func(VkFlags                    flags,
+                    VkDebugReportObjectTypeEXT type,
+                    uint64_t                   src,
+                    size_t                     location,
+                    int32_t                    code,
+                    const char*                prefix,
+                    const char*                msg,
                     void*                      data)
 {
 	// NOTE: these might be useful?
-	VAR_UNUSED(type); 
+	VAR_UNUSED(type);
 	VAR_UNUSED(src);
 	VAR_UNUSED(location);
 
@@ -81,18 +81,18 @@ debug_callback_func(VkFlags                    flags,
 		log_type = LogType::error;
 	else if (flags & VK_DEBUG_REPORT_WARNING_BIT_EXT)
 		log_type = LogType::warning;
-	else if (flags & (VK_DEBUG_REPORT_DEBUG_BIT_EXT | 
+	else if (flags & (VK_DEBUG_REPORT_DEBUG_BIT_EXT |
 	                  VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT))
 		log_type = LogType::info;
 	else
 		// NOTE: this would only happen if they extend the report callback flags
 		log_type = LogType::info;
-		
-	DEBUG_LOGF(log_type, "[VULKAN]: %s (%d) - %s", prefix, code, msg); 
+
+	DEBUG_LOGF(log_type, "[VULKAN]: %s (%d) - %s", prefix, code, msg);
 	return false;
 }
 
-void 
+void
 VulkanDevice::create(Settings settings, PlatformState platform_state)
 {
 	/***********************************************************************************************
@@ -200,23 +200,23 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 	{
 		VkDebugReportCallbackEXT debug_callback;
 
-		auto pfn_vkCreateDebugReportCallbackEXT = 
-			(PFN_vkCreateDebugReportCallbackEXT) 
+		auto pfn_vkCreateDebugReportCallbackEXT =
+			(PFN_vkCreateDebugReportCallbackEXT)
 			vkGetInstanceProcAddr(vk_instance, "vkCreateDebugReportCallbackEXT");
 
 		VkDebugReportCallbackCreateInfoEXT create_info = {};
 		create_info.sType       = VK_STRUCTURE_TYPE_DEBUG_REPORT_CREATE_INFO_EXT;
 
-		create_info.flags       = VK_DEBUG_REPORT_ERROR_BIT_EXT | 
-		                          VK_DEBUG_REPORT_WARNING_BIT_EXT | 
-		                          VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT | 
+		create_info.flags       = VK_DEBUG_REPORT_ERROR_BIT_EXT |
+		                          VK_DEBUG_REPORT_WARNING_BIT_EXT |
+		                          VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT |
 		                          VK_DEBUG_REPORT_DEBUG_BIT_EXT;
 
 		create_info.pfnCallback = &debug_callback_func;
 
-		result = pfn_vkCreateDebugReportCallbackEXT(vk_instance, 
-		                                            &create_info, 
-		                                            nullptr, 
+		result = pfn_vkCreateDebugReportCallbackEXT(vk_instance,
+		                                            &create_info,
+		                                            nullptr,
 		                                            &debug_callback);
 		DEBUG_ASSERT(result == VK_SUCCESS);
 	}
@@ -258,11 +258,11 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 	 **********************************************************************************************/
 	{
 		uint32_t queue_family_count;
-		vkGetPhysicalDeviceQueueFamilyProperties(vk_physical_device, &queue_family_count, nullptr); 
+		vkGetPhysicalDeviceQueueFamilyProperties(vk_physical_device, &queue_family_count, nullptr);
 
 		VkQueueFamilyProperties *queue_families = new VkQueueFamilyProperties[queue_family_count];
-		vkGetPhysicalDeviceQueueFamilyProperties(vk_physical_device, 
-		                                         &queue_family_count, 
+		vkGetPhysicalDeviceQueueFamilyProperties(vk_physical_device,
+		                                         &queue_family_count,
 		                                         queue_families);
 
 		queue_family_index = 0;
@@ -271,9 +271,9 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 
 			// figure out if the queue family supports present
 			VkBool32 supports_present = VK_FALSE;
-			result = vkGetPhysicalDeviceSurfaceSupportKHR(vk_physical_device, 
-			                                              queue_family_index, 
-			                                              vk_surface, 
+			result = vkGetPhysicalDeviceSurfaceSupportKHR(vk_physical_device,
+			                                              queue_family_index,
+			                                              vk_surface,
 			                                              &supports_present);
 			DEBUG_ASSERT(result == VK_SUCCESS);
 
@@ -283,18 +283,18 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 
 			DEBUG_LOGF(LogType::info, "queueCount                 : %u", property.queueCount);
 			DEBUG_LOGF(LogType::info, "timestampValidBits         : %u", property.timestampValidBits);
-			DEBUG_LOGF(LogType::info, "minImageTransferGranualrity: (%u, %u, %u)", 
-			           property.minImageTransferGranularity.depth, 
-			           property.minImageTransferGranularity.height, 
+			DEBUG_LOGF(LogType::info, "minImageTransferGranualrity: (%u, %u, %u)",
+			           property.minImageTransferGranularity.depth,
+			           property.minImageTransferGranularity.height,
 			           property.minImageTransferGranularity.depth);
 			DEBUG_LOGF(LogType::info, "supportsPresent            : %d",
 			           static_cast<int32_t>(supports_present));
 
 			// we're just interested in getting a graphics queue going for now, so choose the first
 			// one
-			// TODO: COMPUTE: find a compute queue, potentially asynchronous (separate from 
+			// TODO: COMPUTE: find a compute queue, potentially asynchronous (separate from
 			// graphics queue)
-			// TODO: get a separate queue for transfer if one exist to do buffer copy commands on 
+			// TODO: get a separate queue for transfer if one exist to do buffer copy commands on
 			// while graphics/compute queue is doing its own thing
 			if (property.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
 				queue_family_index = i;
@@ -302,7 +302,7 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 			}
 		}
 
-		// TODO: when we have more than one queue we'll need to figure out how to handle this, for 
+		// TODO: when we have more than one queue we'll need to figure out how to handle this, for
 		// now just set highest queue priroity for the 1 queue we create
 		float priority = 1.0f;
 
@@ -344,17 +344,17 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 	 **********************************************************************************************/
 	{
 		// figure out the color space for the swapchain
-		uint32_t formats_count; 
-		result = vkGetPhysicalDeviceSurfaceFormatsKHR(vk_physical_device, vk_surface, 
+		uint32_t formats_count;
+		result = vkGetPhysicalDeviceSurfaceFormatsKHR(vk_physical_device, vk_surface,
 		                                              &formats_count, nullptr);
 		DEBUG_ASSERT(result == VK_SUCCESS);
 
 		VkSurfaceFormatKHR *formats = new VkSurfaceFormatKHR[formats_count];
-		result = vkGetPhysicalDeviceSurfaceFormatsKHR(vk_physical_device, vk_surface, 
+		result = vkGetPhysicalDeviceSurfaceFormatsKHR(vk_physical_device, vk_surface,
 		                                              &formats_count, formats);
 		DEBUG_ASSERT(result == VK_SUCCESS);
 
-		// NOTE: if impl. reports only 1 surface format and that is undefined it has no preferred 
+		// NOTE: if impl. reports only 1 surface format and that is undefined it has no preferred
 		// format, so we choose BGRA8_UNORM
 		if (formats_count == 1 && formats[0].format == VK_FORMAT_UNDEFINED)
 			vk_surface_format = VK_FORMAT_B8G8R8A8_UNORM;
@@ -365,18 +365,18 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 		VkColorSpaceKHR surface_colorspace = formats[0].colorSpace;
 
 		VkSurfaceCapabilitiesKHR surface_capabilities;
-		result = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(vk_physical_device, vk_surface, 
+		result = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(vk_physical_device, vk_surface,
 		                                                   &surface_capabilities);
 		DEBUG_ASSERT(result == VK_SUCCESS);
 
 		// figure out the present mode for the swapchain
 		uint32_t present_modes_count;
-		result = vkGetPhysicalDeviceSurfacePresentModesKHR(vk_physical_device, vk_surface, 
+		result = vkGetPhysicalDeviceSurfacePresentModesKHR(vk_physical_device, vk_surface,
 		                                                   &present_modes_count, nullptr);
 		DEBUG_ASSERT(result == VK_SUCCESS);
 
 		VkPresentModeKHR *present_modes = new VkPresentModeKHR[present_modes_count];
-		result = vkGetPhysicalDeviceSurfacePresentModesKHR(vk_physical_device, vk_surface, 
+		result = vkGetPhysicalDeviceSurfacePresentModesKHR(vk_physical_device, vk_surface,
 		                                                   &present_modes_count, present_modes);
 		DEBUG_ASSERT(result == VK_SUCCESS);
 
@@ -403,7 +403,7 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 
 			vk_swapchain_extent.width  = (uint32_t)settings.video.resolution.width;
 			vk_swapchain_extent.height = (uint32_t)settings.video.resolution.height;
-		} 
+		}
 
 		VkSurfaceTransformFlagBitsKHR pre_transform = surface_capabilities.currentTransform;
 		if (surface_capabilities.supportedTransforms & VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR)
@@ -412,7 +412,7 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 		// TODO: determine the number of VkImages to use in the swapchain
 		uint32_t desired_swapchain_images = surface_capabilities.minImageCount + 1;
 		if (surface_capabilities.maxImageCount > 0)
-			desired_swapchain_images = MIN(desired_swapchain_images, 
+			desired_swapchain_images = MIN(desired_swapchain_images,
 			                                    surface_capabilities.maxImageCount);
 
 		VkSwapchainCreateInfoKHR create_info = {};
@@ -448,7 +448,7 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 		DEBUG_ASSERT(result == VK_SUCCESS);
 
 		vk_swapchain_images = new VkImage[swapchain_images_count];
-		result = vkGetSwapchainImagesKHR(vk_device, vk_swapchain, 
+		result = vkGetSwapchainImagesKHR(vk_device, vk_swapchain,
 		                                 &swapchain_images_count, vk_swapchain_images);
 		DEBUG_ASSERT(result == VK_SUCCESS);
 
@@ -477,7 +477,7 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 		for (int32_t i = 0; i < (int32_t) swapchain_images_count; ++i) {
 			create_info.image = vk_swapchain_images[i];
 
-			result = vkCreateImageView(vk_device, &create_info, nullptr, 
+			result = vkCreateImageView(vk_device, &create_info, nullptr,
 			                           &vk_swapchain_imageviews[i]);
 			DEBUG_ASSERT(result == VK_SUCCESS);
 		}
@@ -546,8 +546,8 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 
 		// NOTE: look into memory property flags for depth buffer if/when we want to sample or
 		// map it
-		int32_t memory_type_index = find_memory_type_index(vk_physical_memory_properties, 
-		                                                   memory_requirements.memoryTypeBits, 
+		int32_t memory_type_index = find_memory_type_index(vk_physical_memory_properties,
+		                                                   memory_requirements.memoryTypeBits,
 		                                                   0);
 		DEBUG_ASSERT(memory_type_index >= 0);
 
@@ -607,12 +607,12 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 		result = vkBeginCommandBuffer(vk_cmd_init, &cmd_begin_info);
 		DEBUG_ASSERT(result == VK_SUCCESS);
 
-		vkCmdPipelineBarrier(vk_cmd_init, 
-		                     VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 
-		                     VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 
-		                     0, 
-		                     0, nullptr, 
-		                     0, nullptr, 
+		vkCmdPipelineBarrier(vk_cmd_init,
+		                     VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+		                     VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+		                     0,
+		                     0, nullptr,
+		                     0, nullptr,
 		                     1, &memory_barrier);
 
 		result = vkEndCommandBuffer(vk_cmd_init);
@@ -719,7 +719,7 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 
 		for (int32_t i = 0; i < framebuffers_count; ++i) {
 
-			VkImageView views[2] = { 
+			VkImageView views[2] = {
 				vk_swapchain_imageviews[i],
 				vk_depth_imageview
 			};
@@ -772,7 +772,7 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 
 		result = vkCreateShaderModule(vk_device, &create_info, nullptr, &vk_vertex_shader);
 		DEBUG_ASSERT(result == VK_SUCCESS);
-		
+
 		create_info.codeSize = fragment_size;
 		create_info.pCode    = (uint32_t*) fragment_source;
 
@@ -843,7 +843,7 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 		};
 
 		VkPipelineVertexInputStateCreateInfo vertex_input_create_info = {};
-		vertex_input_create_info.sType                           = 
+		vertex_input_create_info.sType                           =
 			VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 		vertex_input_create_info.vertexBindingDescriptionCount   = 1;
 		vertex_input_create_info.pVertexBindingDescriptions      = &vertex_input_binding_desc;
@@ -851,13 +851,13 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 		vertex_input_create_info.pVertexAttributeDescriptions    = vertex_input_attributes;
 
 		VkPipelineInputAssemblyStateCreateInfo input_assembly_create_info = {};
-		input_assembly_create_info.sType                  = 
+		input_assembly_create_info.sType                  =
 			VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
 		input_assembly_create_info.topology               = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 		input_assembly_create_info.primitiveRestartEnable = VK_FALSE;
 
-		VkDynamicState dynamic_states[2] = { 
-			VK_DYNAMIC_STATE_VIEWPORT, 
+		VkDynamicState dynamic_states[2] = {
+			VK_DYNAMIC_STATE_VIEWPORT,
 			VK_DYNAMIC_STATE_SCISSOR
 		};
 
@@ -894,9 +894,9 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 		color_blend_attachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
 		color_blend_attachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
 		color_blend_attachment.alphaBlendOp        = VK_BLEND_OP_ADD;
-		color_blend_attachment.colorWriteMask      = VK_COLOR_COMPONENT_R_BIT | 
-		                                             VK_COLOR_COMPONENT_G_BIT | 
-		                                             VK_COLOR_COMPONENT_B_BIT | 
+		color_blend_attachment.colorWriteMask      = VK_COLOR_COMPONENT_R_BIT |
+		                                             VK_COLOR_COMPONENT_G_BIT |
+		                                             VK_COLOR_COMPONENT_B_BIT |
 		                                             VK_COLOR_COMPONENT_A_BIT;
 
 		float blend_constants[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
@@ -930,7 +930,7 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 		depth_stencil_create_info.back                  = stencil_state;
 		depth_stencil_create_info.minDepthBounds        = 0.0f;
 		depth_stencil_create_info.maxDepthBounds        = 0.0f;
-		
+
 		VkPipelineMultisampleStateCreateInfo multisample_create_info = {};
 		multisample_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
 		multisample_create_info.rasterizationSamples  = VK_SAMPLE_COUNT_1_BIT;
@@ -957,11 +957,11 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 		pipeline_create_info.basePipelineHandle  = VK_NULL_HANDLE;
 		pipeline_create_info.basePipelineIndex   = -1;
 
-		result = vkCreateGraphicsPipelines(vk_device, 
-		                                   VK_NULL_HANDLE, 
-		                                   1, 
-		                                   &pipeline_create_info, 
-		                                   nullptr, 
+		result = vkCreateGraphicsPipelines(vk_device,
+		                                   VK_NULL_HANDLE,
+		                                   1,
+		                                   &pipeline_create_info,
+		                                   nullptr,
 		                                   &vk_pipeline);
 		DEBUG_ASSERT(result == VK_SUCCESS);
 
@@ -970,7 +970,7 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 	}
 }
 
-void 
+void
 VulkanDevice::destroy()
 {
 	// wait for pending operations
@@ -1009,8 +1009,8 @@ VulkanDevice::destroy()
 	vkDestroyInstance(vk_instance, nullptr);
 }
 
-VulkanVertexBuffer 
-VulkanDevice::create_vertex_buffer(size_t size, uint8_t* data) 
+VulkanVertexBuffer
+VulkanDevice::create_vertex_buffer(size_t size, uint8_t* data)
 {
 	VulkanVertexBuffer buffer;
 	buffer.size = size;
@@ -1030,10 +1030,10 @@ VulkanDevice::create_vertex_buffer(size_t size, uint8_t* data)
 	VkMemoryRequirements memory_requirements;
 	vkGetBufferMemoryRequirements(this->vk_device, buffer.vk_buffer, &memory_requirements);
 
-	int32_t index = find_memory_type_index(this->vk_physical_memory_properties, 
-	                                       memory_requirements.memoryTypeBits, 
+	int32_t index = find_memory_type_index(this->vk_physical_memory_properties,
+	                                       memory_requirements.memoryTypeBits,
 	                                       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-	DEBUG_ASSERT(index >= 0); 
+	DEBUG_ASSERT(index >= 0);
 
 	VkMemoryAllocateInfo allocate_info = {};
 	allocate_info.sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
@@ -1060,15 +1060,15 @@ VulkanDevice::create_vertex_buffer(size_t size, uint8_t* data)
 	return buffer;
 }
 
-void 
-VulkanDevice::destroy_vertex_buffer(VulkanVertexBuffer* buffer) 
+void
+VulkanDevice::destroy_vertex_buffer(VulkanVertexBuffer* buffer)
 {
-	// TODO: free memory from large memory pool in VulkanDevice 
+	// TODO: free memory from large memory pool in VulkanDevice
 	vkFreeMemory(this->vk_device,    buffer->vk_memory, nullptr);
 	vkDestroyBuffer(this->vk_device, buffer->vk_buffer, nullptr);
 }
 
-void 
+void
 VulkanDevice::present()
 {
 	VkResult result;
@@ -1147,9 +1147,9 @@ VulkanDevice::present()
 
 	clear_values[1].depthStencil  = { 1, 0 };
 
-	VkRect2D render_area = { 
-		{ 0,       0        }, 
-		{ vk_swapchain_extent.width, vk_swapchain_extent.height } 
+	VkRect2D render_area = {
+		{ 0,       0        },
+		{ vk_swapchain_extent.width, vk_swapchain_extent.height }
 	};
 
 	VkRenderPassBeginInfo render_pass_begin_info = {};
@@ -1230,9 +1230,9 @@ VulkanDevice::present()
 
 namespace
 {
-	int32_t 
-	find_memory_type_index(const VkPhysicalDeviceMemoryProperties &properties, 
-	                       uint32_t type_bits, 
+	int32_t
+	find_memory_type_index(const VkPhysicalDeviceMemoryProperties &properties,
+	                       uint32_t type_bits,
 	                       const VkMemoryPropertyFlags &req_properties)
 	{
 		for (uint32_t i = 0; i < properties.memoryTypeCount; ++i) {

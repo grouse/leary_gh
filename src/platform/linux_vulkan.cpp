@@ -27,8 +27,8 @@
 #include <xcb/xcb.h>
 
 VkResult
-vulkan_create_surface(VkInstance instance, 
-                      VkSurfaceKHR *surface, 
+vulkan_create_surface(VkInstance instance,
+                      VkSurfaceKHR *surface,
                       PlatformState platform_state)
 {
 	VkXcbSurfaceCreateInfoKHR create_info = {

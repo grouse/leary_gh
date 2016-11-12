@@ -40,7 +40,7 @@ namespace {
 	const char* get_preferences_base_path(void);
 }
 
-std::string 
+std::string
 resolve_path(EnvironmentFolder type, const char *filename)
 {
 	std::string resolved = "";
@@ -73,12 +73,12 @@ resolve_path(EnvironmentFolder type, const char *filename)
 	// create folder if it doesn't exist
 	if (!directory_exists(resolved.c_str()))
 		create_directory(resolved.c_str());
-	
+
 	resolved += filename;
 	return resolved;
 }
 
-bool 
+bool
 directory_exists(const char *path)
 {
 	if (access(path, 0) == 0) {
@@ -90,7 +90,7 @@ directory_exists(const char *path)
 	return false;
 }
 
-void 
+void
 create_directory(const char *path)
 {
 	size_t len = strlen(path);
@@ -194,7 +194,7 @@ namespace {
 			char* path = new char[append_path_len + base_path_len + 1];
 			strcpy(path, pw->pw_dir);
 			strcat(path, append_path);
-			
+
 			return path;
 		}
 	}

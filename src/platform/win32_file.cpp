@@ -34,9 +34,9 @@ void init_platform_paths(PlatformState *state)
 {
 	TCHAR buffer[MAX_PATH];
 
-	HRESULT result = SHGetFolderPath(NULL, 
-	                                 CSIDL_LOCAL_APPDATA, 
-	                                 NULL, 
+	HRESULT result = SHGetFolderPath(NULL,
+	                                 CSIDL_LOCAL_APPDATA,
+	                                 NULL,
 	                                 SHGFP_TYPE_CURRENT,
 	                                 buffer);
 	if (result == S_OK)
@@ -92,12 +92,12 @@ bool file_exists(const char *path)
 
 bool file_create(const char *path)
 {
-	HANDLE file_handle = CreateFile(path, 
-	                                0, 
-	                                0, 
-	                                NULL, 
-	                                CREATE_NEW, 
-	                                FILE_ATTRIBUTE_NORMAL, 
+	HANDLE file_handle = CreateFile(path,
+	                                0,
+	                                0,
+	                                NULL,
+	                                CREATE_NEW,
+	                                FILE_ATTRIBUTE_NORMAL,
 	                                NULL);
 
 	if (file_handle == INVALID_HANDLE_VALUE)
@@ -113,15 +113,15 @@ void* file_open(const char *path, FileMode mode)
 	DWORD share_mode;
 
 	switch (mode) {
-	case FileMode::read: 
+	case FileMode::read:
 		access     = GENERIC_READ;
 		share_mode = FILE_SHARE_READ;
 		break;
-	case FileMode::write: 
+	case FileMode::write:
 		access     = GENERIC_WRITE;
 		share_mode = 0;
 		break;
-	case FileMode::read_write: 
+	case FileMode::read_write:
 		access     = GENERIC_READ | GENERIC_WRITE;
 		share_mode = 0;
 		break;
@@ -130,12 +130,12 @@ void* file_open(const char *path, FileMode mode)
 		return nullptr;
 	}
 
-	HANDLE file_handle = CreateFile(path, 
+	HANDLE file_handle = CreateFile(path,
 	                                access,
-	                                share_mode, 
-	                                NULL, 
-	                                OPEN_EXISTING, 
-	                                FILE_ATTRIBUTE_NORMAL, 
+	                                share_mode,
+	                                NULL,
+	                                OPEN_EXISTING,
+	                                FILE_ATTRIBUTE_NORMAL,
 	                                NULL);
 
 	if (file_handle == INVALID_HANDLE_VALUE)
@@ -157,8 +157,8 @@ void* file_read(const char *filename, size_t *size)
 	                         GENERIC_READ,
 	                         FILE_SHARE_READ,
 	                         NULL,
-	                         OPEN_EXISTING, 
-	                         FILE_ATTRIBUTE_NORMAL, 
+	                         OPEN_EXISTING,
+	                         FILE_ATTRIBUTE_NORMAL,
 	                         NULL);
 
 	LARGE_INTEGER file_size;
