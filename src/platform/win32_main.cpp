@@ -34,6 +34,11 @@
 #include "win32_vulkan.cpp"
 #include "win32_file.cpp"
 
+// TODO(jesper): move this into its own translation unit. Eventually i want to be able to compile
+// the game into a .dll and load it dynamically in the platform layer, if feature is turned off,
+// for live code editing.
+#include "leary.cpp"
+
 namespace {
 	Settings      settings;
 	PlatformState platform_state;
