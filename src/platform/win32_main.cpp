@@ -110,7 +110,7 @@ int main()
 
 }
 
-int
+int WINAPI
 WinMain(HINSTANCE instance,
         HINSTANCE /*prev_instance*/,
     	LPSTR     /*cmd_line*/,
