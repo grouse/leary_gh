@@ -4,20 +4,31 @@ SET ROOT=%~dp0
 SET BUILD_DIR=%ROOT%\build
 
 SET WARNINGS=/W4 /wd4996 /wd4577
-SET FLAGS=/Zi
+SET FLAGS=/Zi /EHsc
+SET DEFINITIONS=-DWIN32_LEAN_AND_MEAN
+
+SET OPTIMIZED_FLAGS=/O3
+SET DEBUG_FLAGS=/Od
+
+SET ENGINE_INCLUDE_DIR=-I%ROOT%\src
+SET ENGINE_INCLUDE_DIR=%ENGINE_INCLUDE_DIR% -I%VULKAN_LOCATION%\Include
 
 IF NOT [%1]==[] (
-	IF %1=="debug" (SET FLAGS=%FLAGS% /Od)
-	IF %1=="release" (SET FLAGS=%FLAGS% /O3)
+	IF %1=="debug" (SET FLAGS=%FLAGS% %DEBUG_FLAGS)
+	IF %1=="release" (SET FLAGS=%FLAGS% %OPTIMIZED_FLAGS)
 )
 
-SET TOOLS_PREPROCESSOR_CPP=%ROOT%\tools\preprocessor.cpp
+if not exist %BUILD_DIR% mkdir %BUILD_DIR%
+if not exist %BUILD_DIR%\tools mkdir %BUILD_DIR%\tools
+if not exist %BUILD_DIR%\debug mkdir %BUILD_DIR%\debug
+if not exist %BUILD_DIR%\release mkdir %BUILD_DIR%\release
 
-pushd %BUILD_DIR%\tools
-cl %WARNINGS% %FLAGS% %TOOLS_PREPROCESSOR_CPP% 
-POPD
 
-PUSHD %BUILD_DIR%
-msbuild /property:GenerateFullPaths=true leary.vcxproj
-POPD
+REM PUSHD %BUILD_DIR%\tools
+REM cl %WARNINGS% %DEBUG_FLAGS% %ROOT%\tools\preprocessor.cpp
+REM cl %WARNINGS% %OPTIMIZED_FLAGS% %ROOT%\tools\preprocessor.cpp
+REM POPD
 
+PUSHD %BUILD_DIR%\%1
+cl %WARNINGS% %FLAGS% %ENGINE_INCLUDE_DIR% %DEFINITIONS% %ROOT%\src\leary.cpp
+POPD 
