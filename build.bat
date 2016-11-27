@@ -3,21 +3,28 @@
 SET ROOT=%~dp0
 SET BUILD_DIR=%ROOT%\build
 
-SET WARNINGS=/W4 /wd4996 /wd4577
-SET FLAGS=/Zi
+SET INCLUDE_DIR=-I%ROOT%\src
+SET WARNINGS=/W4 /wd4996 /wd4577 /wd4065
+SET DEFINITIONS=-DWIN32_LEAN_AND_MEAN -DNOMINMAX
 
-IF NOT [%1]==[] (
-	IF %1=="debug" (SET FLAGS=%FLAGS% /Od)
-	IF %1=="release" (SET FLAGS=%FLAGS% /O3)
-)
+SET FLAGS=%WARNINGS% %DEFINITIONS%
+SET FLAGS=%FLAGS% /Zi /EHsc
 
-SET TOOLS_PREPROCESSOR_CPP=%ROOT%\tools\preprocessor.cpp
+SET OPTIMIZED=/O2
+SET UNOPTIMIZED=/Od
 
-pushd %BUILD_DIR%\tools
-cl %WARNINGS% %FLAGS% %TOOLS_PREPROCESSOR_CPP% 
-POPD
+if not exist %BUILD_DIR% mkdir %BUILD_DIR%
+
+SET INCLUDE_DIR=%INCLUDE_DIR% -I%VULKAN_LOCATION%\Include
+
+SET LIBS=User32.lib Shlwapi.lib Shell32.lib
+SET LIBS=%LIBS% %VULKAN_LOCATION%\Bin\vulkan-1.lib
 
 PUSHD %BUILD_DIR%
-msbuild /property:GenerateFullPaths=true leary.vcxproj
+cl %FLAGS% %OPTIMIZED% %ROOT%\tools\preprocessor.cpp /link /SUBSYSTEM:CONSOLE
+cl %FLAGS% %UNOPTIMIZED% %INCLUDE_DIR% /Feleary.exe %ROOT%\src\platform/win32_main.cpp /link %LIBS% /SUBSYSTEM:WINDOWS
 POPD
 
+REM TODO(jesper): remove this step and make the engine read environment
+REM variables for the data directory
+xcopy %ROOT%\data %BUILD_DIR%\data /e /i /h

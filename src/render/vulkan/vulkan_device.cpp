@@ -958,8 +958,11 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 void
 VulkanDevice::destroy()
 {
+	VkResult result;
+	VAR_UNUSED(result);
+
 	// wait for pending operations
-	VkResult result = vkQueueWaitIdle(vk_queue);
+	result = vkQueueWaitIdle(vk_queue);
 	DEBUG_ASSERT(result == VK_SUCCESS);
 
 	vkDestroyPipeline(vk_device, vk_pipeline, nullptr);

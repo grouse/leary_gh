@@ -186,15 +186,19 @@ void* file_read(const char *filename, size_t *size)
 
 void file_write(void *file_handle, void *buffer, size_t bytes)
 {
+	BOOL result;
+	VAR_UNUSED(result);
+
 	// NOTE(jesper): WriteFile takes 32 bit number of bytes to write
 	DEBUG_ASSERT(bytes <= 0xFFFFFFFF);
 
 	DWORD bytes_written;
-	BOOL result = WriteFile((HANDLE) file_handle,
+	result = WriteFile((HANDLE) file_handle,
 	                        buffer,
 	                        (DWORD) bytes,
 	                        &bytes_written,
 	                        NULL);
+
 
 	DEBUG_ASSERT(bytes  == bytes_written);
 	DEBUG_ASSERT(result == TRUE);

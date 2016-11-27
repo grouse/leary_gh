@@ -37,6 +37,10 @@
 
 #include "core/serialize.cpp"
 
+// TODO(jesper): move this into its own translation unit. Eventually i want to be able to compile
+// the game into a .dll and load it dynamically in the platform layer, if feature is turned off,
+// for live code editing.
+#include "leary.cpp"
 
 namespace {
 	Settings      settings;
@@ -104,7 +108,7 @@ namespace {
 	}
 }
 
-int
+int WINAPI
 WinMain(HINSTANCE instance,
         HINSTANCE /*prev_instance*/,
     	LPSTR     /*cmd_line*/,
