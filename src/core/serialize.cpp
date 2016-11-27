@@ -16,7 +16,13 @@
 	                    sizeof(StructMemberMetaData),     \
 	                    ptr)
 
+#define SERIALIZE_LOAD_CONF(file, name, ptr)              \
+	serialize_load_conf(file, name ## _MemberMetaData,    \
+	                    sizeof(name ## _MemberMetaData) / \
+	                    sizeof(StructMemberMetaData),     \
+	                    ptr)
 int32_t
+
 member_to_string(StructMemberMetaData &member,
                  void *ptr,
                  char *buffer,
@@ -172,5 +178,176 @@ serialize_save_conf(const char *path,
 	}
 
 	file_close(file_handle);
+}
+
+StructMemberMetaData *
+find_member(char *name,
+            int32_t length,
+            StructMemberMetaData *members,
+            size_t num_members)
+{
+	for (int32_t i = 0; i < (int32_t)num_members; i++)
+	{
+		if (strncmp(name, members[i].variable_name, length) == 0)
+			return &members[i];
+	}
+
+	return nullptr;
+}
+
+
+void
+member_from_string(char **ptr,
+                   StructMemberMetaData *members,
+                   size_t num_members,
+                   void *out)
+{
+	while (**ptr)
+	{
+		while (**ptr && **ptr == ' ') (*ptr)++;
+		if (**ptr == '}') return;
+
+		char *name = *ptr;
+
+		while (**ptr && **ptr != ' ') (*ptr)++;
+		int32_t name_length = (int32_t)((*ptr) - name);
+
+		StructMemberMetaData *member = find_member(name, name_length,
+		                                           members, num_members);
+
+		DEBUG_ASSERT(member != nullptr);
+
+
+		while (**ptr && **ptr != '=') (*ptr)++;
+		(*ptr)++;
+		while (**ptr && **ptr == ' ') (*ptr)++;
+
+
+		switch (member->variable_type) {
+		case VariableType_int32:
+		{
+			char *value_str = *ptr;
+			while (**ptr && **ptr != ' ' && **ptr != ',' && **ptr != '\n' && **ptr != '}') (*ptr)++;
+			int32_t value_length = (int32_t)((*ptr) - value_str);
+
+			int32_t value = 0;
+			for (int32_t i = 0; i < value_length; i++)
+			{
+				value *= 10;
+				value += value_str[i] - '0';
+			}
+
+			*(int32_t*)((uint8_t*)out + member->offset) = value;
+			break;
+		}
+		case VariableType_uint32:
+		{
+			char *value_str = *ptr;
+			while (**ptr && **ptr != ' ' && **ptr != ',' && **ptr != '\n' && **ptr != '}') (*ptr)++;
+			int32_t value_length = (int32_t)((*ptr) - value_str);
+
+			uint32_t value = 0;
+			for (int32_t i = 0; i < value_length; i++)
+			{
+				value *= 10;
+				value += value_str[i] - '0';
+			}
+
+			*(uint32_t*)((uint8_t*)out + member->offset) = value;
+			break;
+		}
+		case VariableType_int16:
+		{
+			char *value_str = *ptr;
+			while (**ptr && **ptr != ' ' && **ptr != ',' && **ptr != '\n' && **ptr != '}') (*ptr)++;
+			int32_t value_length = (int32_t)((*ptr) - value_str);
+
+			int16_t value = 0;
+			for (int32_t i = 0; i < value_length; i++)
+			{
+				value *= 10;
+				value += value_str[i] - '0';
+			}
+
+			*(int16_t*)((uint8_t*)out + member->offset) = value;
+			break;
+		}
+		case VariableType_uint16:
+		{
+			char *value_str = *ptr;
+			while (**ptr && **ptr != ' ' && **ptr != ',' && **ptr != '\n' && **ptr != '}') (*ptr)++;
+			int32_t value_length = (int32_t)((*ptr) - value_str);
+
+			int16_t value = 0;
+			for (int32_t i = 0; i < value_length; i++)
+			{
+				value *= 10;
+				value += value_str[i] - '0';
+			}
+
+			*(int16_t*)((uint8_t*)out + member->offset) = value;
+			break;
+		}
+		case VariableType_resolution:
+		{
+			while (**ptr && **ptr != '{') (*ptr)++;
+			(*ptr)++;
+
+			void *child = ((uint8_t*)out + member->offset);
+
+			member_from_string(ptr, Resolution_MemberMetaData,
+			                   sizeof(Resolution_MemberMetaData) /
+			                   sizeof(StructMemberMetaData),
+			                   child);
+
+			while (**ptr && **ptr != '}') (*ptr)++;
+			(*ptr)++;
+
+			break;
+		}
+		case VariableType_video_settings:
+		{
+			while (**ptr && **ptr != '{') (*ptr)++;
+			(*ptr)++;
+
+			void *child = ((uint8_t*)out + member->offset);
+
+			member_from_string(ptr, VideoSettings_MemberMetaData,
+			                   sizeof(VideoSettings_MemberMetaData) /
+			                   sizeof(StructMemberMetaData),
+			                   child);
+
+			while (**ptr && **ptr != '}') (*ptr)++;
+			(*ptr)++;
+
+			break;
+		}
+		}
+
+		while (**ptr && (**ptr == ' ' || **ptr == ',')) (*ptr)++;
+	}
+}
+
+void
+serialize_load_conf(const char *path,
+                    StructMemberMetaData *members,
+                    size_t num_members,
+                    void *out)
+{
+	VAR_UNUSED(out);
+	VAR_UNUSED(num_members);
+	VAR_UNUSED(members);
+
+	if (!file_exists(path))
+	{
+		DEBUG_ASSERT(false);
+		return;
+	}
+
+	char *ptr = (char*)"video = { resolution = { width = 720, height = 640 }, vsync = 0}";
+	member_from_string(&ptr, Settings_MemberMetaData,
+	                   sizeof(Settings_MemberMetaData) /
+	                   sizeof(StructMemberMetaData),
+	                   out);
 }
 

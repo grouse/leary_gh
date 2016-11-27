@@ -111,15 +111,18 @@ namespace {
 int WINAPI
 WinMain(HINSTANCE instance,
         HINSTANCE /*prev_instance*/,
-    	LPSTR     /*cmd_line*/,
-    	int       /*cmd_show*/)
+        LPSTR     /*cmd_line*/,
+        int       /*cmd_show*/)
 {
 	init_platform_paths(&platform_state);
 	platform_state.window.win32.hinstance = instance;
 
 	settings = load_settings("settings.ini", platform_state);
 
-	SERIALIZE_SAVE_CONF("settings.conf", Settings, &settings);
+	//SERIALIZE_SAVE_CONF("settings.conf", Settings, &settings);
+	SERIALIZE_LOAD_CONF("settings.conf", Settings, &settings);
+
+
 
 	WNDCLASS wc = {};
 	wc.lpfnWndProc   = window_proc;
