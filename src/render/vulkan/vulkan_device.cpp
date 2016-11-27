@@ -1382,8 +1382,10 @@ namespace
 	{
 		for (uint32_t i = 0; i < properties.memoryTypeCount; ++i) 
 		{
+			VkMemoryPropertyFlags flags = properties.memoryTypes[i].propertyFlags;
+
 			if ((type_bits & (1 << i)) &&
-			    (properties.memoryTypes[i].propertyFlags & req_properties))
+			    (flags & req_properties) == req_properties)
 			{
 				return (int32_t)i;
 			}
