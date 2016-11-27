@@ -324,11 +324,11 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 		// queue we create
 		float priority = 1.0f;
 
-		VkDeviceQueueCreateInfo queue_create_info = {};
-		queue_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-		queue_create_info.queueFamilyIndex = queue_family_index;
-		queue_create_info.queueCount       = 1;
-		queue_create_info.pQueuePriorities = &priority;
+		VkDeviceQueueCreateInfo queue_info = {};
+		queue_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+		queue_info.queueFamilyIndex = queue_family_index;
+		queue_info.queueCount       = 1;
+		queue_info.pQueuePriorities = &priority;
 
 		// TODO: look into VkPhysicalDeviceFeatures and how it relates to
 		// VkDeviceCreateInfo
@@ -339,16 +339,16 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 		// TODO: look into other extensions
 		const char *device_extensions[1] = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
 
-		VkDeviceCreateInfo device_create_info = {};
-		device_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-		device_create_info.queueCreateInfoCount    = 1;
-		device_create_info.pQueueCreateInfos       = &queue_create_info;
-		device_create_info.enabledExtensionCount   = 1;
-		device_create_info.ppEnabledExtensionNames = device_extensions;
-		device_create_info.pEnabledFeatures        = &physical_device_features;
+		VkDeviceCreateInfo device_info = {};
+		device_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+		device_info.queueCreateInfoCount    = 1;
+		device_info.pQueueCreateInfos       = &queue_info;
+		device_info.enabledExtensionCount   = 1;
+		device_info.ppEnabledExtensionNames = device_extensions;
+		device_info.pEnabledFeatures        = &physical_device_features;
 
 		result = vkCreateDevice(vk_physical_device,
-		                        &device_create_info,
+		                        &device_info,
 		                        nullptr,
 		                        &vk_device);
 		DEBUG_ASSERT(result == VK_SUCCESS);
@@ -654,16 +654,16 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 		subresource_range.baseArrayLayer = 0;
 		subresource_range.layerCount     = 1;
 
-		VkImageViewCreateInfo imageview_create_info = {};
-		imageview_create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-		imageview_create_info.image            = vk_depth_image;
-		imageview_create_info.viewType         = VK_IMAGE_VIEW_TYPE_2D;
-		imageview_create_info.format           = VK_FORMAT_D16_UNORM;
-		imageview_create_info.components       = components;
-		imageview_create_info.subresourceRange = subresource_range;
+		VkImageViewCreateInfo imageview_info = {};
+		imageview_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+		imageview_info.image            = vk_depth_image;
+		imageview_info.viewType         = VK_IMAGE_VIEW_TYPE_2D;
+		imageview_info.format           = VK_FORMAT_D16_UNORM;
+		imageview_info.components       = components;
+		imageview_info.subresourceRange = subresource_range;
 
 		result = vkCreateImageView(vk_device, 
-		                           &imageview_create_info, 
+		                           &imageview_info, 
 		                           nullptr, 
 		                           &vk_depth_imageview);
 		DEBUG_ASSERT(result == VK_SUCCESS);
@@ -888,15 +888,15 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 	 * Create pipeline
 	 *************************************************************************/
 	{
-		VkPipelineLayoutCreateInfo layout_create_info = {};
-		layout_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-		layout_create_info.setLayoutCount         = 0;
-		layout_create_info.pSetLayouts            = nullptr;
-		layout_create_info.pushConstantRangeCount = 0;
-		layout_create_info.pPushConstantRanges    = nullptr;
+		VkPipelineLayoutCreateInfo layout_info = {};
+		layout_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+		layout_info.setLayoutCount         = 0;
+		layout_info.pSetLayouts            = nullptr;
+		layout_info.pushConstantRangeCount = 0;
+		layout_info.pPushConstantRanges    = nullptr;
 
 		result = vkCreatePipelineLayout(vk_device,
-		                                &layout_create_info,
+		                                &layout_info,
 		                                nullptr,
 		                                &vk_pipeline_layout);
 		DEBUG_ASSERT(result == VK_SUCCESS);
@@ -1055,28 +1055,28 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 		multisample_info.alphaToCoverageEnable = VK_FALSE;
 		multisample_info.alphaToOneEnable      = VK_FALSE;
 
-		VkGraphicsPipelineCreateInfo pipeline_create_info = {};
-		pipeline_create_info.sType = 
+		VkGraphicsPipelineCreateInfo pipeline_info = {};
+		pipeline_info.sType = 
 			VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-		pipeline_create_info.stageCount          = 2;
-		pipeline_create_info.pStages             = shader_stage_info;
-		pipeline_create_info.pVertexInputState   = &vertex_input_info;
-		pipeline_create_info.pInputAssemblyState = &input_assembly_info;
-		pipeline_create_info.pViewportState      = &viewport_info;
-		pipeline_create_info.pRasterizationState = &raster_info;
-		pipeline_create_info.pMultisampleState   = &multisample_info;
-		pipeline_create_info.pDepthStencilState  = &depth_stencil_info;
-		pipeline_create_info.pColorBlendState    = &color_blend_info;
-		pipeline_create_info.pDynamicState       = &dynamic_state_info;
-		pipeline_create_info.layout              = vk_pipeline_layout;
-		pipeline_create_info.renderPass          = vk_renderpass;
-		pipeline_create_info.basePipelineHandle  = VK_NULL_HANDLE;
-		pipeline_create_info.basePipelineIndex   = -1;
+		pipeline_info.stageCount          = 2;
+		pipeline_info.pStages             = shader_stage_info;
+		pipeline_info.pVertexInputState   = &vertex_input_info;
+		pipeline_info.pInputAssemblyState = &input_assembly_info;
+		pipeline_info.pViewportState      = &viewport_info;
+		pipeline_info.pRasterizationState = &raster_info;
+		pipeline_info.pMultisampleState   = &multisample_info;
+		pipeline_info.pDepthStencilState  = &depth_stencil_info;
+		pipeline_info.pColorBlendState    = &color_blend_info;
+		pipeline_info.pDynamicState       = &dynamic_state_info;
+		pipeline_info.layout              = vk_pipeline_layout;
+		pipeline_info.renderPass          = vk_renderpass;
+		pipeline_info.basePipelineHandle  = VK_NULL_HANDLE;
+		pipeline_info.basePipelineIndex   = -1;
 
 		result = vkCreateGraphicsPipelines(vk_device,
 		                                   VK_NULL_HANDLE,
 		                                   1,
-		                                   &pipeline_create_info,
+		                                   &pipeline_info,
 		                                   nullptr,
 		                                   &vk_pipeline);
 		DEBUG_ASSERT(result == VK_SUCCESS);
@@ -1210,17 +1210,17 @@ VulkanDevice::present()
 
 	VkSemaphore image_acquired, render_completed;
 
-	VkSemaphoreCreateInfo sem_create_info = {};
-	sem_create_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+	VkSemaphoreCreateInfo semaphore_info = {};
+	semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
 	result = vkCreateSemaphore(vk_device,
-	                           &sem_create_info, 
+	                           &semaphore_info, 
 	                           nullptr, 
 	                           &image_acquired);
 	DEBUG_ASSERT(result == VK_SUCCESS);
 
 	result = vkCreateSemaphore(vk_device, 
-	                           &sem_create_info, 
+	                           &semaphore_info, 
 	                           nullptr, 
 	                           &render_completed);
 	DEBUG_ASSERT(result == VK_SUCCESS);
