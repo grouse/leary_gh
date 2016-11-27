@@ -61,6 +61,7 @@ option(LEARY_LOG_ENABLE "Enable game debug logging" ON)
 #---------------------------------------------------------------------------------------------------
 list(APPEND leary_ENGINE_CORE_SOURCE
 	${CMAKE_CURRENT_SOURCE_DIR}/src/core/settings.cpp
+
 )
 
 list(APPEND leary_ENGINE_RENDER_SOURCE
@@ -216,13 +217,11 @@ target_compile_definitions(leary
 #---------------------------------------------------------------------------------------------------
 if (MSVC)
 	list(APPEND PROJECT_COMPILE_OPTIONS
-		-Wall
+		-W4
 
-		/wd4820 # Implicit struct padding 
-		/wd4514 # Unreferenced inline function has been removed
-		/wd4710 # Function not inlined
-		/wd4061 # Enum value not explicitly handled by case label
-		/wd4996 # Unsafe function/variable (vsprintf vs vsprintf_s etc)
+		-wd4996 # unsafe string functions (strcpy, strcat, etc)
+		-wd4065 # switch contains default but no case labels
+
 	)
 
 	set_target_properties(leary PROPERTIES LINK_FLAGS "/SUBSYSTEM:WINDOWS")
@@ -242,9 +241,8 @@ else()
 	)
 endif()
 
-add_compile_options(-w)
 target_compile_options(leary
-	PRIVATE ${PROJECT_COMPILE_OPTIONS}
+	PUBLIC ${PROJECT_COMPILE_OPTIONS}
 )
 
 
