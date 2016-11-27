@@ -196,7 +196,7 @@ get_next_token(Tokenizer &tokenizer)
 				tokenizer.at++;
 			}
 
-			token.length = tokenizer.at - token.str;
+			token.length = (int32_t)(tokenizer.at - token.str);
 		} 
 		else
 		{
