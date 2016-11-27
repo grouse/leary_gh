@@ -84,6 +84,9 @@ enum VariableType
 	VariableType_int16,
 	VariableType_uint16,
 
+	VariableType_resolution,
+	VariableType_video_settings,
+
 	VariableType_unknown,
 	VariableType_num
 };
@@ -140,9 +143,38 @@ get_next_token(Tokenizer &tokenizer)
 	Token token = {};
 	token.type = TokenType_eof;
 
-	while (tokenizer.at[0] && is_whitespace(tokenizer.at[0]))
+	while (tokenizer.at[0])
 	{
-		tokenizer.at++;
+		if (is_whitespace(tokenizer.at[0]))
+		{
+			tokenizer.at++;
+		} 
+		else if (get_token_type(tokenizer.at[0]) == TokenType_forward_slash &&
+	    	get_token_type(tokenizer.at[1]) == TokenType_forward_slash)
+		{
+			tokenizer.at += 2;
+
+			while (tokenizer.at[0] && !is_newline(tokenizer.at[0]))
+			{
+				tokenizer.at++;
+			}
+		}
+		else if (get_token_type(tokenizer.at[0]) == TokenType_forward_slash &&
+	    	get_token_type(tokenizer.at[1]) == TokenType_asterisk)
+		{
+			tokenizer.at += 2;
+
+			while (tokenizer.at[0] &&
+			       (get_token_type(tokenizer.at[0]) != TokenType_asterisk ||
+			        get_token_type(tokenizer.at[1]) != TokenType_forward_slash))
+			{
+				tokenizer.at++;
+			}
+		}
+		else
+		{
+			break;
+		}
 	}
 
 	if (tokenizer.at[0])
@@ -211,11 +243,21 @@ get_member_variable_type(Token token)
 	{
 		result = VariableType_uint16;
 	} 
+	else if (is_identifier(token, "Resolution"))
+	{
+		result = VariableType_resolution;
+	}
+	else if (is_identifier(token, "VideoSettings"))
+	{
+		result = VariableType_video_settings;
+	}
 
 	return result;
 }
 
-#define CASE_RETURN_ENUM_STR(c) case c: return #c;
+#define CASE_RETURN_ENUM_STR(c)         case c: return #c;
+#define DEFAULT_CASE_RETURN_ENUM_STR(c) default: case c: return #c;
+
 
 const char* 
 get_variable_type_str(VariableType type)
@@ -225,7 +267,11 @@ get_variable_type_str(VariableType type)
 	CASE_RETURN_ENUM_STR(VariableType_uint32);
 	CASE_RETURN_ENUM_STR(VariableType_int16);
 	CASE_RETURN_ENUM_STR(VariableType_uint16);
-	CASE_RETURN_ENUM_STR(VariableType_unknown);
+
+	CASE_RETURN_ENUM_STR(VariableType_resolution);
+	CASE_RETURN_ENUM_STR(VariableType_video_settings);
+
+	DEFAULT_CASE_RETURN_ENUM_STR(VariableType_unknown);
 	}
 }
 
@@ -235,24 +281,31 @@ main(int argc, char **argv)
 	VAR_UNUSED(argc);
 	VAR_UNUSED(argv);
 
-	std::printf("enum VariableType\n{\n");
+	FILE *output_file = fopen("C:/Users/grouse/projects/leary/src/generated/meta_data.h", "w");
+	if (!output_file) 
+		return 0;
+
+	std::fprintf(output_file, "#ifndef META_DATA_H\n");
+	std::fprintf(output_file, "#define META_DATA_H\n\n");
+
+	std::fprintf(output_file, "enum VariableType\n{\n");
 	for (int32_t i = 0; i < VariableType_num; i++)
 	{
-		std::printf("\t%s", get_variable_type_str((VariableType)i));
+		std::fprintf(output_file, "\t%s", get_variable_type_str((VariableType)i));
 
 		if (i == (VariableType_num - 1))
-			std::printf("\n");
+			std::fprintf(output_file, "\n");
 		else
-			std::printf(",\n");
+			std::fprintf(output_file, ",\n");
 
 	}
-	std::printf("};\n\n");
+	std::fprintf(output_file, "};\n\n");
 
-	std::printf("struct StructMemberMetaData\n{\n");
-	std::printf("\tVariableType variable_type;\n");
-	std::printf("\tconst char   *variable_name;\n");
-	std::printf("\tsize_t       offset;\n");
-	std::printf("};\n\n");
+	std::fprintf(output_file, "struct StructMemberMetaData\n{\n");
+	std::fprintf(output_file, "\tVariableType variable_type;\n");
+	std::fprintf(output_file, "\tconst char   *variable_name;\n");
+	std::fprintf(output_file, "\tsize_t       offset;\n");
+	std::fprintf(output_file, "};\n\n");
 
 
 	size_t size;
@@ -285,7 +338,7 @@ main(int argc, char **argv)
 				{
 					token = get_next_token(tokenizer);
 
-					std::printf("StructMemberMetaData %.*s_MemberMetaData[] = {\n",
+					std::fprintf(output_file, "StructMemberMetaData %.*s_MemberMetaData[] = {\n",
 					            struct_name.length, struct_name.str);
 
 					while (token.type == TokenType_identifier)
@@ -296,7 +349,7 @@ main(int argc, char **argv)
 						VariableType member_variable_type = get_member_variable_type(member_type);
 						const char *member_type_str = get_variable_type_str(member_variable_type);
 
-						std::printf("\t{ %s, \"%.*s\", offsetof(%.*s, %.*s) }",
+						std::fprintf(output_file, "\t{ %s, \"%.*s\", offsetof(%.*s, %.*s) }",
 						            member_type_str,
 						            member_name.length, member_name.str,
 						            struct_name.length, struct_name.str,
@@ -311,19 +364,22 @@ main(int argc, char **argv)
 						token = get_next_token(tokenizer);
 
 						if (token.type == TokenType_close_curly_brace)
-							std::printf("\n");
+							std::fprintf(output_file, "\n");
 						else
-							std::printf(",\n");
+							std::fprintf(output_file, ",\n");
 					}
 
 					DEBUG_ASSERT(token.type == TokenType_close_curly_brace);
-					std::printf("};\n\n");
+					std::fprintf(output_file, "};\n\n");
 
 					token = get_next_token(tokenizer);
 				}
 			}
 		}
 	}
+
+	std::fprintf(output_file, "#endif // META_DATA_H\n");
+	fclose(output_file);
 
 	return 0;
 }
