@@ -28,11 +28,15 @@
 #include <cstdlib>
 
 #include "core/settings.h"
+
 #include "render/vulkan/vulkan_device.h"
 
 #include "win32_debug.cpp"
 #include "win32_vulkan.cpp"
 #include "win32_file.cpp"
+
+#include "core/serialize.cpp"
+
 
 namespace {
 	Settings      settings;
@@ -100,11 +104,6 @@ namespace {
 	}
 }
 
-int main()
-{
-
-}
-
 int
 WinMain(HINSTANCE instance,
         HINSTANCE /*prev_instance*/,
@@ -115,6 +114,8 @@ WinMain(HINSTANCE instance,
 	platform_state.window.win32.hinstance = instance;
 
 	settings = load_settings("settings.ini", platform_state);
+
+	SERIALIZE_SAVE_CONF("settings.conf", Settings, &settings);
 
 	WNDCLASS wc = {};
 	wc.lpfnWndProc   = window_proc;
