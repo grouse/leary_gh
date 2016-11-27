@@ -27,19 +27,30 @@
 
 #include <cstdint>
 
+#ifndef INTROSPECT
+#define INTROSPECT
+#endif
+
 struct PlatformState;
 
-struct Settings {
-	struct {
-		struct {
-			int32_t width  = 1280;
-			int32_t height = 720;
-		} resolution;
+INTROSPECT struct Resolution
+{
+	int32_t width  = 1280;
+	int32_t height = 720;
+};
 
-		// NOTE: these are integers to later support different fullscreen and vsync techniques
-		int16_t fullscreen = 0;
-		int16_t vsync      = 1;
-	} video;
+INTROSPECT struct VideoSettings
+{
+	Resolution resolution;
+
+	// NOTE: these are integers to later support different fullscreen and vsync techniques
+	int16_t fullscreen = 0;
+	int16_t vsync      = 1;
+};
+
+INTROSPECT struct Settings
+{
+	VideoSettings video;
 };
 
 Settings load_settings(const char* filename, PlatformState &platform_state);
