@@ -27,4 +27,4 @@ POPD
 
 REM TODO(jesper): remove this step and make the engine read environment
 REM variables for the data directory
-xcopy %ROOT%\data %BUILD_DIR%\data /e /i /h
+xcopy %ROOT%\data %BUILD_DIR%\data /e /i /y
