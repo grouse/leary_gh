@@ -53,6 +53,8 @@ platform_vulkan_enable_instance_extension(VkExtensionProperties &extension)
 bool
 platform_vulkan_enable_instance_layer(VkLayerProperties layer)
 {
+	VAR_UNUSED(layer);
+
 	bool enable = false;
 	return enable;
 }
