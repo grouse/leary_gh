@@ -10,13 +10,17 @@
 #include "platform/debug.h"
 #include "platform/file.h"
 
-#define SERIALIZE_SAVE_CONF(file, name, ptr) \
-	serialize_save_conf(file, name ## _MemberMetaData, \
-	                    sizeof(name ## _MemberMetaData) / sizeof(StructMemberMetaData), \
+#define SERIALIZE_SAVE_CONF(file, name, ptr)              \
+	serialize_save_conf(file, name ## _MemberMetaData,    \
+	                    sizeof(name ## _MemberMetaData) / \
+	                    sizeof(StructMemberMetaData),     \
 	                    ptr)
 
 int32_t
-member_to_string(StructMemberMetaData &member, void *ptr, char *buffer, size_t size)
+member_to_string(StructMemberMetaData &member,
+                 void *ptr,
+                 char *buffer,
+                 size_t size)
 {
 	int32_t bytes = 0;
 
@@ -59,12 +63,14 @@ member_to_string(StructMemberMetaData &member, void *ptr, char *buffer, size_t s
 	}
 	case VariableType_resolution:
 	{
-		int32_t child_bytes = std::sprintf(buffer, "%s = { ", member.variable_name);
+		int32_t child_bytes = std::sprintf(buffer, "%s = { ",
+		                                   member.variable_name);
 
 		bytes  += child_bytes;
 		buffer += child_bytes;
 
-		size_t num_members = sizeof(Resolution_MemberMetaData) / sizeof(StructMemberMetaData);
+		size_t num_members = sizeof(Resolution_MemberMetaData) /
+		                     sizeof(StructMemberMetaData);
 		for (int32_t i = 0; i < (int32_t)num_members; i++)
 		{
 			StructMemberMetaData &child = Resolution_MemberMetaData[i];
@@ -93,12 +99,14 @@ member_to_string(StructMemberMetaData &member, void *ptr, char *buffer, size_t s
 	}
 	case VariableType_video_settings:
 	{
-		int32_t child_bytes = std::sprintf(buffer, "%s = { ", member.variable_name);
+		int32_t child_bytes = std::sprintf(buffer, "%s = { ",
+		                                   member.variable_name);
 
 		bytes  += child_bytes;
 		buffer += child_bytes;
 
-		size_t num_members = sizeof(VideoSettings_MemberMetaData) / sizeof(StructMemberMetaData);
+		size_t num_members = sizeof(VideoSettings_MemberMetaData) /
+		                     sizeof(StructMemberMetaData);
 		for (int32_t i = 0; i < (int32_t)num_members; i++)
 		{
 			StructMemberMetaData &child = VideoSettings_MemberMetaData[i];
@@ -150,8 +158,9 @@ serialize_save_conf(const char *path,
 
 	void *file_handle = file_open(path, FileMode::write);
 
-	// TODO(jesper): rewrite this so that we do fewer file_write, potentially so that we only open
-	// file and write into it after we've got an entire buffer to write into it
+	// TODO(jesper): rewrite this so that we do fewer file_write, potentially 
+	// so that we only open file and write into it after we've got an entire 
+	// buffer to write into it
 	char buffer[2048];
 
 	for (int32_t i = 0; i < (int32_t)num_members; i++)
