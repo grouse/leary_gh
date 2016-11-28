@@ -34,8 +34,6 @@ member_to_string(StructMemberMetaData &member,
 	case VariableType_int32: {
 		int32_t value = *(int32_t*)(((char*)ptr) + member.offset);
 		bytes = std::sprintf(buffer, "%s = %d",
-		                     sizeof(Settings_MemberMetaData) /
-		                     sizeof(StructMemberMetaData),
 		                     member.variable_name, value);
 
 		DEBUG_ASSERT(bytes < size);
