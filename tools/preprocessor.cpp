@@ -9,18 +9,13 @@
 #include <stdio.h>
 #include <memory>
 
-// TODO(jesper): make use of the engine for this stuff
-#if defined(_MSC_VER)
-	#define DEBUG_BREAK()       __debugbreak()
-#else
-	#define DEBUG_BREAK()       asm("int $3")
-#endif
-
-#define VAR_UNUSED(var) (void)(var)
-
-#define DEBUG_ASSERT(condition) if (!(condition)) DEBUG_BREAK()
-
 #include "core/tokenizer.cpp"
+
+#if defined(_WIN32)
+#include "platform/win32_debug.cpp"
+#else
+#error "unsupported platform"
+#endif
 
 char *
 read_entire_file(const char* filename, size_t *out_size)

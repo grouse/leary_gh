@@ -23,7 +23,7 @@
 **/
 
 #define DEBUG_PRINT_IMPL
-#include "debug.h"
+#include "platform/debug.h"
 
 #include <Windows.h>
 
