@@ -9,6 +9,7 @@ enum VariableType
 	VariableType_uint16,
 	VariableType_resolution,
 	VariableType_video_settings,
+	VariableType_settings,
 	VariableType_unknown
 };
 

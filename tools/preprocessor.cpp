@@ -61,6 +61,7 @@ enum VariableType
 
 	VariableType_resolution,
 	VariableType_video_settings,
+	VariableType_settings,
 
 	VariableType_unknown,
 	VariableType_num
@@ -116,6 +117,7 @@ get_variable_type_str(VariableType type)
 
 	CASE_RETURN_ENUM_STR(VariableType_resolution);
 	CASE_RETURN_ENUM_STR(VariableType_video_settings);
+	CASE_RETURN_ENUM_STR(VariableType_settings);
 
 	DEFAULT_CASE_RETURN_ENUM_STR(VariableType_unknown);
 	}
