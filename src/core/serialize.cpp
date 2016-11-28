@@ -195,6 +195,33 @@ find_member(char *name,
 	return nullptr;
 }
 
+int64_t
+read_integer(char **ptr)
+{
+	int64_t result = 0;
+
+	while (**ptr && **ptr >= '0' && **ptr <= '9') {
+		result *= 10;
+		result += (**ptr) - '0';
+		(*ptr)++;
+	}
+
+	return result;
+}
+
+uint64_t
+read_unsigned_integer(char **ptr)
+{
+	uint64_t result = 0;
+
+	while (**ptr && **ptr >= '0' && **ptr <= '9') {
+		result *= 10;
+		result += (**ptr) - '0';
+		(*ptr)++;
+	}
+
+	return result;
+}
 
 void
 member_from_string(char **ptr,
@@ -202,8 +229,7 @@ member_from_string(char **ptr,
                    size_t num_members,
                    void *out)
 {
-	while (**ptr)
-	{
+	while (**ptr) {
 		while (**ptr && **ptr == ' ') (*ptr)++;
 		if (**ptr == '}') return;
 
@@ -224,72 +250,27 @@ member_from_string(char **ptr,
 
 
 		switch (member->variable_type) {
-		case VariableType_int32:
-		{
-			char *value_str = *ptr;
-			while (**ptr && **ptr != ' ' && **ptr != ',' && **ptr != '\n' && **ptr != '}') (*ptr)++;
-			int32_t value_length = (int32_t)((*ptr) - value_str);
-
-			int32_t value = 0;
-			for (int32_t i = 0; i < value_length; i++)
-			{
-				value *= 10;
-				value += value_str[i] - '0';
-			}
-
-			*(int32_t*)((uint8_t*)out + member->offset) = value;
+		case VariableType_int32: {
+			int64_t value = read_integer(ptr);
+			*(int32_t*)((uint8_t*)out + member->offset) = (int32_t)value;
 			break;
 		}
-		case VariableType_uint32:
-		{
-			char *value_str = *ptr;
-			while (**ptr && **ptr != ' ' && **ptr != ',' && **ptr != '\n' && **ptr != '}') (*ptr)++;
-			int32_t value_length = (int32_t)((*ptr) - value_str);
-
-			uint32_t value = 0;
-			for (int32_t i = 0; i < value_length; i++)
-			{
-				value *= 10;
-				value += value_str[i] - '0';
-			}
-
-			*(uint32_t*)((uint8_t*)out + member->offset) = value;
+		case VariableType_uint32: {
+			uint64_t value = read_unsigned_integer(ptr);
+			*(uint32_t*)((uint8_t*)out + member->offset) = (uint32_t)value;
 			break;
 		}
-		case VariableType_int16:
-		{
-			char *value_str = *ptr;
-			while (**ptr && **ptr != ' ' && **ptr != ',' && **ptr != '\n' && **ptr != '}') (*ptr)++;
-			int32_t value_length = (int32_t)((*ptr) - value_str);
-
-			int16_t value = 0;
-			for (int32_t i = 0; i < value_length; i++)
-			{
-				value *= 10;
-				value += value_str[i] - '0';
-			}
-
-			*(int16_t*)((uint8_t*)out + member->offset) = value;
+		case VariableType_int16: {
+			int64_t value = read_integer(ptr);
+			*(int16_t*)((uint8_t*)out + member->offset) = (int16_t)value;
 			break;
 		}
-		case VariableType_uint16:
-		{
-			char *value_str = *ptr;
-			while (**ptr && **ptr != ' ' && **ptr != ',' && **ptr != '\n' && **ptr != '}') (*ptr)++;
-			int32_t value_length = (int32_t)((*ptr) - value_str);
-
-			int16_t value = 0;
-			for (int32_t i = 0; i < value_length; i++)
-			{
-				value *= 10;
-				value += value_str[i] - '0';
-			}
-
-			*(int16_t*)((uint8_t*)out + member->offset) = value;
+		case VariableType_uint16: {
+			uint64_t value = read_unsigned_integer(ptr);
+			*(int16_t*)((uint8_t*)out + member->offset) = (uint16_t)value;
 			break;
 		}
-		case VariableType_resolution:
-		{
+		case VariableType_resolution: {
 			while (**ptr && **ptr != '{') (*ptr)++;
 			(*ptr)++;
 
@@ -305,8 +286,7 @@ member_from_string(char **ptr,
 
 			break;
 		}
-		case VariableType_video_settings:
-		{
+		case VariableType_video_settings: {
 			while (**ptr && **ptr != '{') (*ptr)++;
 			(*ptr)++;
 
@@ -334,20 +314,11 @@ serialize_load_conf(const char *path,
                     size_t num_members,
                     void *out)
 {
-	VAR_UNUSED(out);
+	VAR_UNUSED(path);
 	VAR_UNUSED(num_members);
 	VAR_UNUSED(members);
 
-	if (!file_exists(path))
-	{
-		DEBUG_ASSERT(false);
-		return;
-	}
-
 	char *ptr = (char*)"video = { resolution = { width = 720, height = 640 }, vsync = 0}";
-	member_from_string(&ptr, Settings_MemberMetaData,
-	                   sizeof(Settings_MemberMetaData) /
-	                   sizeof(StructMemberMetaData),
-	                   out);
+	member_from_string(&ptr, members, num_members, out);
 }
 
