@@ -21,7 +21,7 @@ SET LIBS=User32.lib Shlwapi.lib Shell32.lib
 SET LIBS=%LIBS% %VULKAN_LOCATION%\Bin\vulkan-1.lib
 
 PUSHD %BUILD_DIR%
-cl %FLAGS% %OPTIMIZED% %ROOT%\tools\preprocessor.cpp /link /SUBSYSTEM:CONSOLE
+cl %FLAGS% %OPTIMIZED% %INCLUDE_DIR% %ROOT%\tools\preprocessor.cpp /link /SUBSYSTEM:CONSOLE
 cl %FLAGS% %UNOPTIMIZED% %INCLUDE_DIR% /Feleary.exe %ROOT%\src\platform/win32_main.cpp /link %LIBS% /SUBSYSTEM:WINDOWS
 POPD
 
