@@ -31,17 +31,17 @@ member_to_string(StructMemberMetaData &member,
 	int32_t bytes = 0;
 
 	switch (member.variable_type) {
-	case VariableType_int32:
-	{
+	case VariableType_int32: {
 		int32_t value = *(int32_t*)(((char*)ptr) + member.offset);
 		bytes = std::sprintf(buffer, "%s = %d",
+		                     sizeof(Settings_MemberMetaData) /
+		                     sizeof(StructMemberMetaData),
 		                     member.variable_name, value);
 
 		DEBUG_ASSERT(bytes < size);
 		break;
 	}
-	case VariableType_uint32:
-	{
+	case VariableType_uint32: {
 		uint32_t value = *(uint32_t*)(((char*)ptr) + member.offset);
 		bytes = std::sprintf(buffer, "%s = %u",
 		                     member.variable_name, value);
@@ -49,8 +49,7 @@ member_to_string(StructMemberMetaData &member,
 		DEBUG_ASSERT(bytes < size);
 		break;
 	}
-	case VariableType_int16:
-	{
+	case VariableType_int16: {
 		int16_t value = *(int16_t*)(((char*)ptr) + member.offset);
 		bytes = std::sprintf(buffer, "%s = %" PRId16,
 		                     member.variable_name, value);
@@ -58,8 +57,7 @@ member_to_string(StructMemberMetaData &member,
 		DEBUG_ASSERT(bytes < size);
 		break;
 	}
-	case VariableType_uint16:
-	{
+	case VariableType_uint16: {
 		uint16_t value = *(uint16_t*)(((char*)ptr) + member.offset);
 		bytes = std::sprintf(buffer, "%s = %" PRIu16,
 		                     member.variable_name, value);
@@ -67,8 +65,7 @@ member_to_string(StructMemberMetaData &member,
 		DEBUG_ASSERT(bytes < size);
 		break;
 	}
-	case VariableType_resolution:
-	{
+	case VariableType_resolution: {
 		int32_t child_bytes = std::sprintf(buffer, "%s = { ",
 		                                   member.variable_name);
 
@@ -77,16 +74,15 @@ member_to_string(StructMemberMetaData &member,
 
 		size_t num_members = sizeof(Resolution_MemberMetaData) /
 		                     sizeof(StructMemberMetaData);
-		for (int32_t i = 0; i < (int32_t)num_members; i++)
-		{
+
+		for (int32_t i = 0; i < (int32_t)num_members; i++) {
 			StructMemberMetaData &child = Resolution_MemberMetaData[i];
 			child_bytes = member_to_string(child, ptr, buffer, size);
 
 			bytes  += child_bytes;
 			buffer += child_bytes;
 
-			if (i != (num_members - 1))
-			{
+			if (i != (num_members - 1)) {
 				child_bytes = std::sprintf(buffer, ", ");
 
 				bytes  += child_bytes;
@@ -103,8 +99,7 @@ member_to_string(StructMemberMetaData &member,
 
 		break;
 	}
-	case VariableType_video_settings:
-	{
+	case VariableType_video_settings: {
 		int32_t child_bytes = std::sprintf(buffer, "%s = { ",
 		                                   member.variable_name);
 
@@ -113,16 +108,15 @@ member_to_string(StructMemberMetaData &member,
 
 		size_t num_members = sizeof(VideoSettings_MemberMetaData) /
 		                     sizeof(StructMemberMetaData);
-		for (int32_t i = 0; i < (int32_t)num_members; i++)
-		{
+
+		for (int32_t i = 0; i < (int32_t)num_members; i++) {
 			StructMemberMetaData &child = VideoSettings_MemberMetaData[i];
 			child_bytes = member_to_string( child, ptr, buffer, size);
 
 			bytes  += child_bytes;
 			buffer += child_bytes;
 
-			if (i != (num_members - 1))
-			{
+			if (i != (num_members - 1)) {
 				child_bytes = std::sprintf(buffer, ", ");
 
 				bytes  += child_bytes;
@@ -139,8 +133,7 @@ member_to_string(StructMemberMetaData &member,
 
 		break;
 	}
-	default:
-	{
+	default: {
 		bytes = std::sprintf(buffer, "unknown type");
 		DEBUG_ASSERT(bytes < size);
 		break;
@@ -156,8 +149,7 @@ serialize_save_conf(const char *path,
                    size_t num_members,
                    void *ptr)
 {
-	if (!file_exists(path) && !file_create(path))
-	{
+	if (!file_exists(path) && !file_create(path)) {
 		DEBUG_ASSERT(false);
 		return;
 	}
@@ -169,8 +161,7 @@ serialize_save_conf(const char *path,
 	// buffer to write into it
 	char buffer[2048];
 
-	for (int32_t i = 0; i < (int32_t)num_members; i++)
-	{
+	for (int32_t i = 0; i < (int32_t)num_members; i++) {
 		StructMemberMetaData &member = members[i];
 		int32_t bytes = member_to_string(member, ptr, buffer, sizeof(buffer));
 
@@ -186,10 +177,10 @@ find_member(char *name,
             StructMemberMetaData *members,
             size_t num_members)
 {
-	for (int32_t i = 0; i < (int32_t)num_members; i++)
-	{
-		if (strncmp(name, members[i].variable_name, length) == 0)
+	for (int32_t i = 0; i < (int32_t)num_members; i++) {
+		if (strncmp(name, members[i].variable_name, length) == 0) {
 			return &members[i];
+		}
 	}
 
 	return nullptr;
