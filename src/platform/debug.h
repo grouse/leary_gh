@@ -43,20 +43,14 @@
 
 #define VAR_UNUSED(var) (void)(var)
 
-#if LEARY_DEBUG
-	#if defined(_MSC_VER)
-		#define DEBUG_BREAK()       __debugbreak()
-	#else
-		#define DEBUG_BREAK()       asm("int $3")
-	#endif
-
-    #define DEBUG_ASSERT(condition) if (!(condition)) DEBUG_BREAK()
-	#define DEBUG_UNIMPLEMENTED()   DEBUG_LOG(LogType::unimplemented, "fixme! stub");
+#if defined(_MSC_VER)
+	#define DEBUG_BREAK()       __debugbreak()
 #else
-	#define DEBUG_BREAK             do { } while(0)
-    #define DEBUG_ASSERT(condition) do { } while(0)
-    #define DEBUG_UNIMPLEMENTED     do { } while(0)
-#endif // LEARY_DEBUG
+	#define DEBUG_BREAK()       asm("int $3")
+#endif
+
+#define DEBUG_ASSERT(condition) if (!(condition)) DEBUG_BREAK()
+#define DEBUG_UNIMPLEMENTED()   DEBUG_LOG(LogType::unimplemented, "fixme! stub");
 
 enum class LogType {
 	error,
