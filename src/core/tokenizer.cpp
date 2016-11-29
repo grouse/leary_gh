@@ -22,6 +22,7 @@ enum TokenType {
 	TokenType_equals,
 	TokenType_asterisk,
 	TokenType_comma,
+	TokenType_period,
 	TokenType_ampersand,
 	TokenType_hash,
 	TokenType_forward_slash,
@@ -48,8 +49,7 @@ bool is_newline(char c)
 	return (c == '\n' || c == '\r');
 }
 
-TokenType
-get_token_type(char c)
+TokenType get_token_type(char c)
 {
 	TokenType type;
 
@@ -65,6 +65,7 @@ get_token_type(char c)
 	case '=':  type = TokenType_equals;            break;
 	case '*':  type = TokenType_asterisk;          break;
 	case ',':  type = TokenType_comma;             break;
+	case '.':  type = TokenType_period;            break;
 	case '&':  type = TokenType_ampersand;         break;
 	case '#':  type = TokenType_hash;              break;
 	case '/':  type = TokenType_forward_slash;     break;
@@ -77,8 +78,7 @@ get_token_type(char c)
 	return type;
 }
 
-Token
-get_next_token(Tokenizer &tokenizer)
+Token next_token(Tokenizer &tokenizer)
 {
 	Token token = {};
 	token.type = TokenType_eof;
@@ -126,8 +126,7 @@ get_next_token(Tokenizer &tokenizer)
 			}
 
 			token.length = (int32_t)(tokenizer.at - token.str);
-		} 
-		else {
+		} else {
 			tokenizer.at++;
 			token.length = 1;
 		}
@@ -136,15 +135,13 @@ get_next_token(Tokenizer &tokenizer)
 	return token;
 }
 
-Token
-peek_next_token(Tokenizer &in_tokenizer)
+Token peek_next_token(Tokenizer &in_tokenizer)
 {
 	Tokenizer tokenizer = in_tokenizer;
-	return get_next_token(tokenizer);
+	return next_token(tokenizer);
 }
 
-bool
-is_identifier(Token token, const char *str)
+bool is_identifier(Token token, const char *str)
 {
 	return (strncmp(token.str, str, token.length) == 0);
 }
