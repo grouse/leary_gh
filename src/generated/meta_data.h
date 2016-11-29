@@ -1,8 +1,7 @@
 #ifndef META_DATA_H
 #define META_DATA_H
 
-enum VariableType
-{
+enum VariableType {
 	VariableType_int32,
 	VariableType_uint32,
 	VariableType_int16,
@@ -13,8 +12,7 @@ enum VariableType
 	VariableType_unknown
 };
 
-struct StructMemberMetaData
-{
+struct StructMemberMetaData {
 	VariableType variable_type;
 	const char   *variable_name;
 	size_t       offset;

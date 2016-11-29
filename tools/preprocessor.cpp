@@ -102,12 +102,62 @@ const char *variable_type_str(VariableType type)
 	}
 }
 
+// TODO(jesper): put into platform_file
+char *platform_resolve_relative(const char *path)
+{
+	DWORD result;
+	VAR_UNUSED(result);
+
+	char buffer[MAX_PATH];
+	result = GetFullPathName(path, MAX_PATH, buffer, nullptr);
+	DEBUG_ASSERT(result > 0);
+	return strdup(buffer);
+}
+
 int main(int argc, char **argv)
 {
-	VAR_UNUSED(argc);
-	VAR_UNUSED(argv);
+	char *output_path = nullptr;
+	char *input_root  = nullptr;
 
-	FILE *output_file = fopen("C:/Users/grouse/projects/leary/src/generated/meta_data.h", "w");
+	char *exe_name = nullptr;
+	char *ptr = argv[0];
+	while (*ptr) {
+		if (*ptr++ == '\\') {
+			exe_name = ptr;
+		}
+	}
+
+	for (int32_t i = 1; i < argc; ++i) {
+		if (strcmp(argv[i], "-o") == 0 || strcmp(argv[i], "--output") == 0) {
+			output_path = platform_resolve_relative(argv[++i]);
+		} else if (strcmp(argv[i], "-r") == 0 ||
+		           strcmp(argv[i], "--root") == 0) 
+		{
+			input_root = platform_resolve_relative(argv[++i]);
+		} else {
+			std::printf("%s: invalid option: %s\n", exe_name, argv[i]);
+			break;
+		}
+	}
+
+	if (output_path == nullptr || input_root == nullptr) {
+		std::printf("Usage: %s -o|--output PATH -r|--root PATH\n", exe_name);
+		return 0;
+	}
+
+	char *output_file_path = (char*)malloc(strlen(output_path) +
+	                                       strlen("\\meta_data.h") + 1);
+
+	char *dst = output_file_path;
+
+	const char *src = output_path;
+	while (*src) *dst++ = *src++;
+
+	src = "\\meta_data.h";
+	while (*src) *dst++ = *src++;
+	*(dst+1) = '\0';
+
+	FILE *output_file = fopen(output_file_path, "w");
 	if (!output_file) {
 		return 0;
 	}
@@ -115,7 +165,7 @@ int main(int argc, char **argv)
 	std::fprintf(output_file, "#ifndef META_DATA_H\n");
 	std::fprintf(output_file, "#define META_DATA_H\n\n");
 
-	std::fprintf(output_file, "enum VariableType\n{\n");
+	std::fprintf(output_file, "enum VariableType {\n");
 	for (int32_t i = 0; i < VariableType_num; i++) {
 		std::fprintf(output_file, "\t%s", variable_type_str((VariableType)i));
 
@@ -127,73 +177,92 @@ int main(int argc, char **argv)
 	}
 	std::fprintf(output_file, "};\n\n");
 
-	std::fprintf(output_file, "struct StructMemberMetaData\n{\n");
+	std::fprintf(output_file, "struct StructMemberMetaData {\n");
 	std::fprintf(output_file, "\tVariableType variable_type;\n");
 	std::fprintf(output_file, "\tconst char   *variable_name;\n");
 	std::fprintf(output_file, "\tsize_t       offset;\n");
 	std::fprintf(output_file, "};\n\n");
 
-	size_t size;
-	char *file = read_entire_file("C:/Users/grouse/projects/leary/src/core/settings.h", &size);
+	const char *files[] = {
+		"\\core\\settings.h"
+	};
 
-	if (file == nullptr) {
-		return 0;
-	}
+	for (int32_t i = 0; i < (sizeof(files) / sizeof(files[0])); ++i) {
+		char *file_path = (char*)malloc(strlen(input_root) +
+		                                strlen(files[i]) + 1);
 
-	Tokenizer tokenizer;
-	tokenizer.at = file;
+		dst = file_path;
 
-	while (tokenizer.at[0])
-	{
-		Token token = next_token(tokenizer);
+		src = input_root;
+		while(*src) *dst++ = *src++;
 
-		if (token.type != TokenType_eof) {
-			if (is_identifier(token, "INTROSPECT")) {
-				next_token(tokenizer); // eat struct
+		src = files[i];
+		while(*src) *dst++ = *src++;
+		*(dst+1) = '\0';
 
-				Token struct_name = next_token(tokenizer);
-				DEBUG_ASSERT(struct_name.type == TokenType_identifier);
+		size_t size;
+		char *file = read_entire_file(file_path, &size);
 
-				if (next_token(tokenizer).type == TokenType_open_curly_brace) {
-					token = next_token(tokenizer);
+		if (file == nullptr) {
+			return 0;
+		}
 
-					std::fprintf(output_file, 
-					             "StructMemberMetaData %.*s_MemberMetaData[] = {\n",
-					             struct_name.length, struct_name.str);
+		Tokenizer tokenizer;
+		tokenizer.at = file;
 
-					while (token.type == TokenType_identifier) {
-						Token member_type = token;
-						Token member_name = next_token(tokenizer);
+		while (tokenizer.at[0]) {
+			Token token = next_token(tokenizer);
 
-						const char *member_type_str =
-							variable_type_str(variable_type(member_type));
+			if (token.type != TokenType_eof) {
+				if (is_identifier(token, "INTROSPECT")) {
+					next_token(tokenizer); // eat struct
 
-						std::fprintf(output_file, 
-						             "\t{ %s, \"%.*s\", offsetof(%.*s, %.*s) }",
-						             member_type_str,
-						             member_name.length, member_name.str,
-						             struct_name.length, struct_name.str,
-						             member_name.length, member_name.str);
-						do {
-							token = next_token(tokenizer);
-						} while (token.type != TokenType_semicolon);
+					Token struct_name = next_token(tokenizer);
+					DEBUG_ASSERT(struct_name.type == TokenType_identifier);
 
+					if (next_token(tokenizer).type == TokenType_open_curly_brace) {
 						token = next_token(tokenizer);
 
-						if (token.type == TokenType_close_curly_brace) {
-							std::fprintf(output_file, "\n");
-						} else {
-							std::fprintf(output_file, ",\n");
+						std::fprintf(output_file, 
+						             "StructMemberMetaData %.*s_MemberMetaData[] = {\n",
+						             struct_name.length, struct_name.str);
+
+						while (token.type == TokenType_identifier) {
+							Token member_type = token;
+							Token member_name = next_token(tokenizer);
+
+							const char *member_type_str =
+								variable_type_str(variable_type(member_type));
+
+							std::fprintf(output_file, 
+							             "\t{ %s, \"%.*s\", offsetof(%.*s, %.*s) }",
+							             member_type_str,
+							             member_name.length, member_name.str,
+							             struct_name.length, struct_name.str,
+							             member_name.length, member_name.str);
+							do {
+								token = next_token(tokenizer);
+							} while (token.type != TokenType_semicolon);
+
+							token = next_token(tokenizer);
+
+							if (token.type == TokenType_close_curly_brace) {
+								std::fprintf(output_file, "\n");
+							} else {
+								std::fprintf(output_file, ",\n");
+							}
 						}
+
+						DEBUG_ASSERT(token.type == TokenType_close_curly_brace);
+						std::fprintf(output_file, "};\n\n");
+
+						token = next_token(tokenizer);
 					}
-
-					DEBUG_ASSERT(token.type == TokenType_close_curly_brace);
-					std::fprintf(output_file, "};\n\n");
-
-					token = next_token(tokenizer);
 				}
 			}
 		}
+
+		free(file_path);
 	}
 
 	std::fprintf(output_file, "#endif // META_DATA_H\n");
