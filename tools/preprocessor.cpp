@@ -44,7 +44,6 @@ char *read_entire_file(const char* filename, size_t *out_size)
 	return buffer;
 }
 
-
 enum VariableType {
 	VariableType_int32,
 	VariableType_uint32,
@@ -58,7 +57,6 @@ enum VariableType {
 	VariableType_unknown,
 	VariableType_num
 };
-
 
 VariableType variable_type(Token token)
 {
@@ -131,7 +129,7 @@ int main(int argc, char **argv)
 		if (strcmp(argv[i], "-o") == 0 || strcmp(argv[i], "--output") == 0) {
 			output_path = platform_resolve_relative(argv[++i]);
 		} else if (strcmp(argv[i], "-r") == 0 ||
-		r          strcmp(argv[i], "--root") == 0)
+		           strcmp(argv[i], "--root") == 0)
 		{
 			input_root = platform_resolve_relative(argv[++i]);
 		} else {
@@ -261,7 +259,6 @@ int main(int argc, char **argv)
 				}
 			}
 		}
-
 		free(file_path);
 	}
 
