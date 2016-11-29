@@ -218,12 +218,14 @@ int main(int argc, char **argv)
 					Token struct_name = next_token(tokenizer);
 					DEBUG_ASSERT(struct_name.type == TokenType_identifier);
 
-					if (next_token(tokenizer).type == TokenType_open_curly_brace) {
+					Token curly_brace = next_token(tokenizer);
+					if (curly_brace.type == TokenType_open_curly_brace) {
 						token = next_token(tokenizer);
 
-						std::fprintf(output_file,
-						             "StructMemberMetaData %.*s_MemberMetaData[] = {\n",
-						             struct_name.length, struct_name.str);
+						std::fprintf(
+							output_file,
+							"StructMemberMetaData %.*s_MemberMetaData[] = {\n",
+							struct_name.length, struct_name.str);
 
 						while (token.type == TokenType_identifier) {
 							Token member_type = token;
@@ -233,11 +235,12 @@ int main(int argc, char **argv)
 								variable_type_str(variable_type(member_type));
 
 							std::fprintf(output_file,
-							             "\t{ %s, \"%.*s\", offsetof(%.*s, %.*s) }",
-							             member_type_str,
-							             member_name.length, member_name.str,
-							             struct_name.length, struct_name.str,
-							             member_name.length, member_name.str);
+								"\t{ %s, \"%.*s\", offsetof(%.*s, %.*s) }",
+								member_type_str,
+								member_name.length, member_name.str,
+								struct_name.length, struct_name.str,
+								member_name.length, member_name.str);
+
 							do {
 								token = next_token(tokenizer);
 							} while (token.type != TokenType_semicolon);
