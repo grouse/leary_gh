@@ -133,11 +133,12 @@ int main(int argc, char **argv)
 	std::fprintf(output_file, "\tsize_t       offset;\n");
 	std::fprintf(output_file, "};\n\n");
 
-
 	size_t size;
 	char *file = read_entire_file("C:/Users/grouse/projects/leary/src/core/settings.h", &size);
 
-	if (file == nullptr) return 0;
+	if (file == nullptr) {
+		return 0;
+	}
 
 	Tokenizer tokenizer;
 	tokenizer.at = file;
