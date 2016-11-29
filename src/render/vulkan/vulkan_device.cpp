@@ -72,7 +72,7 @@ debug_callback_func(VkFlags                    flags,
 	VAR_UNUSED(src);
 	VAR_UNUSED(location);
 
-	// NOTE: we never set any data when creating the callback, so useless for 
+	// NOTE: we never set any data when creating the callback, so useless for
 	// now
 	VAR_UNUSED(data);
 
@@ -85,7 +85,7 @@ debug_callback_func(VkFlags                    flags,
 	                  VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT))
 		log_type = LogType::info;
 	else
-		// NOTE: this would only happen if they extend the report callback 
+		// NOTE: this would only happen if they extend the report callback
 		// flags
 		log_type = LogType::info;
 
@@ -117,7 +117,7 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 		DEBUG_ASSERT(result == VK_SUCCESS);
 
 		uint32_t supported_extensions_count = 0;
-		result = 
+		result =
 			vkEnumerateInstanceExtensionProperties(nullptr,
 			                                       &supported_extensions_count,
 			                                       nullptr);
@@ -132,7 +132,7 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 			                                       supported_extensions);
 		DEBUG_ASSERT(result == VK_SUCCESS);
 
-		// NOTE(jesper): we might want to store these in the device for future 
+		// NOTE(jesper): we might want to store these in the device for future
 		// usage/debug information
 		int32_t enabled_layers_count = 0;
 		char **enabled_layers = (char**) malloc(sizeof(char*) *
@@ -164,7 +164,7 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 			    strcmp(extension.extensionName,
 			           VK_EXT_DEBUG_REPORT_EXTENSION_NAME) == 0)
 			{
-				enabled_extensions[enabled_extensions_count++] = 
+				enabled_extensions[enabled_extensions_count++] =
 					extension.extensionName;
 			}
 		}
@@ -622,21 +622,21 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 		DEBUG_ASSERT(memory_type_index >= 0);
 
 
-		// TODO: move this allocation to allocate from large memory pool in 
+		// TODO: move this allocation to allocate from large memory pool in
 		// VulkanDevice
 		VkMemoryAllocateInfo allocate_info = {};
 		allocate_info.sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 		allocate_info.allocationSize  = memory_requirements.size;
 		allocate_info.memoryTypeIndex = (uint32_t) memory_type_index;
 
-		result = vkAllocateMemory(vk_device, 
-		                          &allocate_info, 
-		                          nullptr, 
+		result = vkAllocateMemory(vk_device,
+		                          &allocate_info,
+		                          nullptr,
 		                          &vk_depth_memory);
 		DEBUG_ASSERT(result == VK_SUCCESS);
 
-		result = vkBindImageMemory(vk_device, 
-		                           vk_depth_image, 
+		result = vkBindImageMemory(vk_device,
+		                           vk_depth_image,
 		                           vk_depth_memory, 0);
 		DEBUG_ASSERT(result == VK_SUCCESS);
 
@@ -662,9 +662,9 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 		imageview_info.components       = components;
 		imageview_info.subresourceRange = subresource_range;
 
-		result = vkCreateImageView(vk_device, 
-		                           &imageview_info, 
-		                           nullptr, 
+		result = vkCreateImageView(vk_device,
+		                           &imageview_info,
+		                           nullptr,
 		                           &vk_depth_imageview);
 		DEBUG_ASSERT(result == VK_SUCCESS);
 
@@ -672,11 +672,11 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 		VkImageMemoryBarrier memory_barrier = {};
 		memory_barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
 		memory_barrier.srcAccessMask = 0;
-		memory_barrier.dstAccessMask = 
+		memory_barrier.dstAccessMask =
 			VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 
 		memory_barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		memory_barrier.newLayout = 
+		memory_barrier.newLayout =
 			VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
 		memory_barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
@@ -709,8 +709,8 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 		submit_info.commandBufferCount = 1;
 		submit_info.pCommandBuffers    = &vk_cmd_init;
 
-		// NOTE: we should probably add a semaphore here to wait on so that 
-		// we don't begin rendering until the initialisation command buffers 
+		// NOTE: we should probably add a semaphore here to wait on so that
+		// we don't begin rendering until the initialisation command buffers
 		// are completed
 		submit_info.signalSemaphoreCount = 0;
 		submit_info.pSignalSemaphores    = nullptr;
@@ -746,7 +746,7 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 		depth_stencil_attachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 
 		depth_stencil_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-		depth_stencil_attachment.stencilStoreOp = 
+		depth_stencil_attachment.stencilStoreOp =
 			VK_ATTACHMENT_STORE_OP_DONT_CARE;
 
 		depth_stencil_attachment.initialLayout  = depth_image_layout;
@@ -785,9 +785,9 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 		create_info.dependencyCount = 0;
 		create_info.pDependencies   = nullptr;
 
-		result = vkCreateRenderPass(vk_device, 
-		                            &create_info, 
-		                            nullptr, 
+		result = vkCreateRenderPass(vk_device,
+		                            &create_info,
+		                            nullptr,
 		                            &vk_renderpass);
 		DEBUG_ASSERT(result == VK_SUCCESS);
 	}
@@ -808,7 +808,7 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 		create_info.height          = vk_swapchain_extent.height;
 		create_info.layers          = 1;
 
-		for (int32_t i = 0; i < framebuffers_count; ++i) 
+		for (int32_t i = 0; i < framebuffers_count; ++i)
 		{
 			VkImageView views[2] =
 			{
@@ -818,9 +818,9 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 
 			create_info.pAttachments = views;
 
-			result = vkCreateFramebuffer(vk_device, 
-			                             &create_info, 
-			                             nullptr, 
+			result = vkCreateFramebuffer(vk_device,
+			                             &create_info,
+			                             nullptr,
 			                             &vk_framebuffers[i]);
 			DEBUG_ASSERT(result == VK_SUCCESS);
 		}
@@ -865,18 +865,18 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 		create_info.codeSize = vertex_size;
 		create_info.pCode    = (uint32_t*)vertex_source;
 
-		result = vkCreateShaderModule(vk_device, 
-		                              &create_info, 
-		                              nullptr, 
+		result = vkCreateShaderModule(vk_device,
+		                              &create_info,
+		                              nullptr,
 		                              &vk_vertex_shader);
 		DEBUG_ASSERT(result == VK_SUCCESS);
 
 		create_info.codeSize = fragment_size;
 		create_info.pCode    = (uint32_t*) fragment_source;
 
-		result = vkCreateShaderModule(vk_device, 
-		                              &create_info, 
-		                              nullptr, 
+		result = vkCreateShaderModule(vk_device,
+		                              &create_info,
+		                              nullptr,
 		                              &vk_fragment_shader);
 		DEBUG_ASSERT(result == VK_SUCCESS);
 
@@ -910,7 +910,7 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 		vertex_shader_stage.pSpecializationInfo = nullptr;
 
 		VkPipelineShaderStageCreateInfo fragment_shader_stage = {};
-		fragment_shader_stage.sType = 
+		fragment_shader_stage.sType =
 			VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 		fragment_shader_stage.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
 		fragment_shader_stage.module = vk_fragment_shader;
@@ -949,15 +949,15 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 			VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 
 		vertex_input_info.vertexBindingDescriptionCount = 1;
-		vertex_input_info.pVertexBindingDescriptions = 
+		vertex_input_info.pVertexBindingDescriptions =
 			&vertex_input_binding_desc;
 
 		vertex_input_info.vertexAttributeDescriptionCount = 2;
-		vertex_input_info.pVertexAttributeDescriptions = 
+		vertex_input_info.pVertexAttributeDescriptions =
 			vertex_input_attributes;
 
 		VkPipelineInputAssemblyStateCreateInfo input_assembly_info = {};
-		input_assembly_info.sType = 
+		input_assembly_info.sType =
 			VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
 
 		input_assembly_info.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
@@ -975,7 +975,7 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 		dynamic_state_info.pDynamicStates    = dynamic_states;
 
 		VkPipelineViewportStateCreateInfo viewport_info = {};
-		viewport_info.sType = 
+		viewport_info.sType =
 			VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
 		viewport_info.viewportCount = 1;
 		viewport_info.pViewports    = nullptr;
@@ -1020,7 +1020,7 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 		color_blend_info.pAttachments    = &color_blend_attachment;
 
 		memcpy(color_blend_info.blendConstants,
-		       blend_constants, 
+		       blend_constants,
 		       sizeof(blend_constants));
 
 		VkStencilOpState stencil_state = {};
@@ -1046,7 +1046,7 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 		depth_stencil_info.maxDepthBounds = 0.0f;
 
 		VkPipelineMultisampleStateCreateInfo multisample_info = {};
-		multisample_info.sType = 
+		multisample_info.sType =
 			VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
 		multisample_info.rasterizationSamples  = VK_SAMPLE_COUNT_1_BIT;
 		multisample_info.sampleShadingEnable   = VK_FALSE;
@@ -1056,7 +1056,7 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 		multisample_info.alphaToOneEnable      = VK_FALSE;
 
 		VkGraphicsPipelineCreateInfo pipeline_info = {};
-		pipeline_info.sType = 
+		pipeline_info.sType =
 			VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
 		pipeline_info.stageCount          = 2;
 		pipeline_info.pStages             = shader_stage_info;
@@ -1099,7 +1099,7 @@ VulkanDevice::destroy()
 	vkDestroyPipeline(vk_device, vk_pipeline, nullptr);
 	vkDestroyPipelineLayout(vk_device, vk_pipeline_layout, nullptr);
 
-	// TODO: move these calls out of VulkanDevice, they are meant to be 
+	// TODO: move these calls out of VulkanDevice, they are meant to be
 	// used outside as an api
 	destroy_vertex_buffer(&vertex_buffer);
 
@@ -1143,16 +1143,16 @@ VulkanDevice::create_vertex_buffer(size_t size, uint8_t* data)
 	create_info.queueFamilyIndexCount = 0;
 	create_info.pQueueFamilyIndices   = nullptr;
 
-	VkResult result = vkCreateBuffer(this->vk_device, 
-	                                 &create_info, 
-	                                 nullptr, 
+	VkResult result = vkCreateBuffer(this->vk_device,
+	                                 &create_info,
+	                                 nullptr,
 	                                 &buffer.vk_buffer);
 	DEBUG_ASSERT(result == VK_SUCCESS);
 
 	// TODO: allocate buffers from large memory pool in VulkanDevice
 	VkMemoryRequirements memory_requirements;
-	vkGetBufferMemoryRequirements(this->vk_device, 
-	                              buffer.vk_buffer, 
+	vkGetBufferMemoryRequirements(this->vk_device,
+	                              buffer.vk_buffer,
 	                              &memory_requirements);
 
 	int32_t index = find_memory_type_index(this->vk_physical_memory_properties,
@@ -1165,25 +1165,25 @@ VulkanDevice::create_vertex_buffer(size_t size, uint8_t* data)
 	allocate_info.allocationSize  = memory_requirements.size;
 	allocate_info.memoryTypeIndex = (uint32_t) index;
 
-	result = vkAllocateMemory(this->vk_device, 
-	                          &allocate_info, 
-	                          nullptr, 
+	result = vkAllocateMemory(this->vk_device,
+	                          &allocate_info,
+	                          nullptr,
 	                          &buffer.vk_memory);
 	DEBUG_ASSERT(result == VK_SUCCESS);
 
-	result = vkBindBufferMemory(this->vk_device, 
-	                            buffer.vk_buffer, 
+	result = vkBindBufferMemory(this->vk_device,
+	                            buffer.vk_buffer,
 	                            buffer.vk_memory, 0);
 	DEBUG_ASSERT(result == VK_SUCCESS);
 
 	if (data != nullptr)
 	{
 		void* memptr;
-		result = vkMapMemory(this->vk_device, 
-		                     buffer.vk_memory, 
-		                     0, 
-		                     VK_WHOLE_SIZE, 
-		                     0, 
+		result = vkMapMemory(this->vk_device,
+		                     buffer.vk_memory,
+		                     0,
+		                     VK_WHOLE_SIZE,
+		                     0,
 		                     &memptr);
 		DEBUG_ASSERT(result == VK_SUCCESS);
 
@@ -1214,14 +1214,14 @@ VulkanDevice::present()
 	semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
 	result = vkCreateSemaphore(vk_device,
-	                           &semaphore_info, 
-	                           nullptr, 
+	                           &semaphore_info,
+	                           nullptr,
 	                           &image_acquired);
 	DEBUG_ASSERT(result == VK_SUCCESS);
 
-	result = vkCreateSemaphore(vk_device, 
-	                           &semaphore_info, 
-	                           nullptr, 
+	result = vkCreateSemaphore(vk_device,
+	                           &semaphore_info,
+	                           nullptr,
 	                           &render_completed);
 	DEBUG_ASSERT(result == VK_SUCCESS);
 
@@ -1302,11 +1302,11 @@ VulkanDevice::present()
 	render_pass_begin_info.pClearValues    = clear_values;
 
 	vkCmdBeginRenderPass(vk_cmd_present,
-	                     &render_pass_begin_info, 
+	                     &render_pass_begin_info,
 	                     VK_SUBPASS_CONTENTS_INLINE);
 
-	vkCmdBindPipeline(vk_cmd_present, 
-	                  VK_PIPELINE_BIND_POINT_GRAPHICS, 
+	vkCmdBindPipeline(vk_cmd_present,
+	                  VK_PIPELINE_BIND_POINT_GRAPHICS,
 	                  vk_pipeline);
 
 	VkViewport viewport = {};
@@ -1334,7 +1334,7 @@ VulkanDevice::present()
 	/**************************************************************************
 	 * Submit Present command buffer to queue
 	 *************************************************************************/
-	VkPipelineStageFlags pipeline_stage_flags = 
+	VkPipelineStageFlags pipeline_stage_flags =
 		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 
 	VkSubmitInfo submit_info = {};
@@ -1380,7 +1380,7 @@ namespace
 	                       uint32_t type_bits,
 	                       VkMemoryPropertyFlags req_properties)
 	{
-		for (uint32_t i = 0; i < properties.memoryTypeCount; ++i) 
+		for (uint32_t i = 0; i < properties.memoryTypeCount; ++i)
 		{
 			VkMemoryPropertyFlags flags = properties.memoryTypes[i].propertyFlags;
 

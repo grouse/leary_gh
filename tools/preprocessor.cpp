@@ -131,7 +131,7 @@ int main(int argc, char **argv)
 		if (strcmp(argv[i], "-o") == 0 || strcmp(argv[i], "--output") == 0) {
 			output_path = platform_resolve_relative(argv[++i]);
 		} else if (strcmp(argv[i], "-r") == 0 ||
-		           strcmp(argv[i], "--root") == 0) 
+		r          strcmp(argv[i], "--root") == 0)
 		{
 			input_root = platform_resolve_relative(argv[++i]);
 		} else {
@@ -223,7 +223,7 @@ int main(int argc, char **argv)
 					if (next_token(tokenizer).type == TokenType_open_curly_brace) {
 						token = next_token(tokenizer);
 
-						std::fprintf(output_file, 
+						std::fprintf(output_file,
 						             "StructMemberMetaData %.*s_MemberMetaData[] = {\n",
 						             struct_name.length, struct_name.str);
 
@@ -234,7 +234,7 @@ int main(int argc, char **argv)
 							const char *member_type_str =
 								variable_type_str(variable_type(member_type));
 
-							std::fprintf(output_file, 
+							std::fprintf(output_file,
 							             "\t{ %s, \"%.*s\", offsetof(%.*s, %.*s) }",
 							             member_type_str,
 							             member_name.length, member_name.str,
