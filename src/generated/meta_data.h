@@ -20,17 +20,17 @@ struct StructMemberMetaData {
 
 StructMemberMetaData Resolution_MemberMetaData[] = {
 	{ VariableType_int32, "width", offsetof(Resolution, width) },
-	{ VariableType_int32, "height", offsetof(Resolution, height) }
+	{ VariableType_int32, "height", offsetof(Resolution, height) },
 };
 
 StructMemberMetaData VideoSettings_MemberMetaData[] = {
 	{ VariableType_resolution, "resolution", offsetof(VideoSettings, resolution) },
 	{ VariableType_int16, "fullscreen", offsetof(VideoSettings, fullscreen) },
-	{ VariableType_int16, "vsync", offsetof(VideoSettings, vsync) }
+	{ VariableType_int16, "vsync", offsetof(VideoSettings, vsync) },
 };
 
 StructMemberMetaData Settings_MemberMetaData[] = {
-	{ VariableType_video_settings, "video", offsetof(Settings, video) }
+	{ VariableType_video_settings, "video", offsetof(Settings, video) },
 };
 
 #endif // META_DATA_H

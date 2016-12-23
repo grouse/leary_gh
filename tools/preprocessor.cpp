@@ -7,6 +7,7 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <memory>
 
 #include "core/tokenizer.cpp"
@@ -70,6 +71,21 @@ char *read_entire_file(const char* filename, size_t *out_size)
 	return buffer;
 }
 
+char *string_duplicate(char *src, size_t size)
+{
+	char *result = (char*)malloc(size + 1);
+
+	char *dst = result;
+	while (size && *src) {
+		*dst++ = *src++;
+		--size;
+	}
+
+	if (*dst != '\0') *dst = '\0';
+
+	return result;
+}
+
 VariableType variable_type(Token token)
 {
 	VariableType result = VariableType_unknown;
@@ -124,50 +140,62 @@ char *platform_resolve_relative(const char *path)
 	return strdup(buffer);
 }
 
-StructInfo parse_struct_type_info(Tokenizer tokenizer, FILE *output_file)
+StructInfo parse_struct_type_info(Tokenizer tokenizer)
 {
-	next_token(tokenizer); // eat struct
+	StructInfo struct_info = {};
 
-	Token struct_name = next_token(tokenizer);
-	DEBUG_ASSERT(struct_name.type == TokenType_identifier);
+	Token token = next_token(tokenizer);
+	DEBUG_ASSERT(token.type == TokenType_identifier);
 
-	Token curly_brace = next_token(tokenizer);
-	if (curly_brace.type == TokenType_open_curly_brace) {
-		Token token = next_token(tokenizer);
+	struct_info.name = string_duplicate(token.str, token.length);
 
-		std::fprintf(output_file,
-		             "StructMemberMetaData %.*s_MemberMetaData[] = {\n",
-		             struct_name.length,
-		             struct_name.str);
+	do token = next_token(tokenizer);
+	while (token.type != TokenType_open_curly_brace);
 
-		while (token.type == TokenType_identifier) {
-			Token member_type = token;
-			Token member_name = next_token(tokenizer);
 
-			const char *member_type_str = variable_type_str(variable_type(member_type));
+#if 0
+#endif
 
-			std::fprintf(output_file,
-			             "\t{ %s, \"%.*s\", offsetof(%.*s, %.*s) }",
-			             member_type_str,
-			             member_name.length, member_name.str,
-			             struct_name.length, struct_name.str,
-			             member_name.length, member_name.str);
+#if 0
+#endif
 
-			do token = next_token(tokenizer);
-			while (token.type != TokenType_semicolon);
+	Tokenizer tmp = tokenizer;
+	do {
+		Token member_type = next_token(tmp);
 
-			token = next_token(tokenizer);
+		do token = next_token(tmp);
+		while (token.type != TokenType_identifier);
+		Token member_name = token;
 
-			if (token.type == TokenType_close_curly_brace) {
-				std::fprintf(output_file, "\n");
-			} else {
-				std::fprintf(output_file, ",\n");
-			}
-		}
+		++struct_info.num_members;
 
-		DEBUG_ASSERT(token.type == TokenType_close_curly_brace);
-		std::fprintf(output_file, "};\n\n");
-	}
+		do token = next_token(tmp);
+		while (token.type != TokenType_semicolon);
+
+		token = peek_next_token(tmp);
+	} while (token.type == TokenType_identifier);
+
+	struct_info.members = new TypeInfo[struct_info.num_members];
+	int32_t index = 0;
+
+	do {
+		VariableType member_type = variable_type(next_token(tokenizer));
+
+		do token = next_token(tokenizer);
+		while (token.type != TokenType_identifier);
+		char *member_name = string_duplicate(token.str, token.length);
+
+		struct_info.members[index].name = member_name;
+		struct_info.members[index].type = member_type;
+		++index;
+
+		do token = next_token(tokenizer);
+		while (token.type != TokenType_semicolon);
+
+		token = peek_next_token(tokenizer);
+	} while (token.type == TokenType_identifier);
+
+	return struct_info;
 }
 
 int main(int argc, char **argv)
@@ -270,8 +298,24 @@ int main(int argc, char **argv)
 			Token token = next_token(tokenizer);
 
 			if (token.type != TokenType_eof) {
-				if (is_identifier(token, "INTROSPECT")) {
-					StructInfo info = parse_struct_type_info(tokenizer, output_file);
+				if (is_identifier(token, "INTROSPECT") &&
+				    is_identifier(next_token(tokenizer), "struct")) {
+					StructInfo struct_info = parse_struct_type_info(tokenizer);
+
+					std::fprintf(output_file,
+					             "StructMemberMetaData %s_MemberMetaData[] = {\n",
+					             struct_info.name);
+					for (int32_t j = 0; j < struct_info.num_members; ++j) {
+						TypeInfo &type_info = struct_info.members[j];
+						std::fprintf(output_file,
+						             "\t{ %s, \"%s\", offsetof(%s, %s) },\n",
+						             variable_type_str(type_info.type),
+						             type_info.name,
+						             struct_info.name,
+						             type_info.name);
+					}
+
+					std::fprintf(output_file, "};\n\n");
 				}
 			}
 		}
