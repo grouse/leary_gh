@@ -17,6 +17,32 @@
 #error "unsupported platform"
 #endif
 
+enum VariableType {
+	VariableType_int32,
+	VariableType_uint32,
+	VariableType_int16,
+	VariableType_uint16,
+
+	VariableType_resolution,
+	VariableType_video_settings,
+	VariableType_settings,
+
+	VariableType_unknown,
+	VariableType_num
+};
+
+struct TypeInfo {
+	char *name;
+	VariableType type;
+};
+
+struct StructInfo {
+	char     *name;
+	int32_t  num_members;
+	TypeInfo *members;
+};
+
+
 char *read_entire_file(const char* filename, size_t *out_size)
 {
 	FILE *file = fopen(filename, "rb");
@@ -43,20 +69,6 @@ char *read_entire_file(const char* filename, size_t *out_size)
 	*out_size = size;
 	return buffer;
 }
-
-enum VariableType {
-	VariableType_int32,
-	VariableType_uint32,
-	VariableType_int16,
-	VariableType_uint16,
-
-	VariableType_resolution,
-	VariableType_video_settings,
-	VariableType_settings,
-
-	VariableType_unknown,
-	VariableType_num
-};
 
 VariableType variable_type(Token token)
 {
@@ -110,6 +122,52 @@ char *platform_resolve_relative(const char *path)
 	result = GetFullPathName(path, MAX_PATH, buffer, nullptr);
 	DEBUG_ASSERT(result > 0);
 	return strdup(buffer);
+}
+
+StructInfo parse_struct_type_info(Tokenizer tokenizer, FILE *output_file)
+{
+	next_token(tokenizer); // eat struct
+
+	Token struct_name = next_token(tokenizer);
+	DEBUG_ASSERT(struct_name.type == TokenType_identifier);
+
+	Token curly_brace = next_token(tokenizer);
+	if (curly_brace.type == TokenType_open_curly_brace) {
+		Token token = next_token(tokenizer);
+
+		std::fprintf(output_file,
+		             "StructMemberMetaData %.*s_MemberMetaData[] = {\n",
+		             struct_name.length,
+		             struct_name.str);
+
+		while (token.type == TokenType_identifier) {
+			Token member_type = token;
+			Token member_name = next_token(tokenizer);
+
+			const char *member_type_str = variable_type_str(variable_type(member_type));
+
+			std::fprintf(output_file,
+			             "\t{ %s, \"%.*s\", offsetof(%.*s, %.*s) }",
+			             member_type_str,
+			             member_name.length, member_name.str,
+			             struct_name.length, struct_name.str,
+			             member_name.length, member_name.str);
+
+			do token = next_token(tokenizer);
+			while (token.type != TokenType_semicolon);
+
+			token = next_token(tokenizer);
+
+			if (token.type == TokenType_close_curly_brace) {
+				std::fprintf(output_file, "\n");
+			} else {
+				std::fprintf(output_file, ",\n");
+			}
+		}
+
+		DEBUG_ASSERT(token.type == TokenType_close_curly_brace);
+		std::fprintf(output_file, "};\n\n");
+	}
 }
 
 int main(int argc, char **argv)
@@ -213,52 +271,7 @@ int main(int argc, char **argv)
 
 			if (token.type != TokenType_eof) {
 				if (is_identifier(token, "INTROSPECT")) {
-					next_token(tokenizer); // eat struct
-
-					Token struct_name = next_token(tokenizer);
-					DEBUG_ASSERT(struct_name.type == TokenType_identifier);
-
-					Token curly_brace = next_token(tokenizer);
-					if (curly_brace.type == TokenType_open_curly_brace) {
-						token = next_token(tokenizer);
-
-						std::fprintf(
-							output_file,
-							"StructMemberMetaData %.*s_MemberMetaData[] = {\n",
-							struct_name.length, struct_name.str);
-
-						while (token.type == TokenType_identifier) {
-							Token member_type = token;
-							Token member_name = next_token(tokenizer);
-
-							const char *member_type_str =
-								variable_type_str(variable_type(member_type));
-
-							std::fprintf(output_file,
-								"\t{ %s, \"%.*s\", offsetof(%.*s, %.*s) }",
-								member_type_str,
-								member_name.length, member_name.str,
-								struct_name.length, struct_name.str,
-								member_name.length, member_name.str);
-
-							do {
-								token = next_token(tokenizer);
-							} while (token.type != TokenType_semicolon);
-
-							token = next_token(tokenizer);
-
-							if (token.type == TokenType_close_curly_brace) {
-								std::fprintf(output_file, "\n");
-							} else {
-								std::fprintf(output_file, ",\n");
-							}
-						}
-
-						DEBUG_ASSERT(token.type == TokenType_close_curly_brace);
-						std::fprintf(output_file, "};\n\n");
-
-						token = next_token(tokenizer);
-					}
+					StructInfo info = parse_struct_type_info(tokenizer, output_file);
 				}
 			}
 		}
