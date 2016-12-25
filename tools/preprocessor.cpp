@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <memory>
+#include <vector>
 
 #include "core/tokenizer.cpp"
 
@@ -152,13 +153,6 @@ StructInfo parse_struct_type_info(Tokenizer tokenizer)
 	do token = next_token(tokenizer);
 	while (token.type != TokenType_open_curly_brace);
 
-
-#if 0
-#endif
-
-#if 0
-#endif
-
 	Tokenizer tmp = tokenizer;
 	do {
 		Token member_type = next_token(tmp);
@@ -271,6 +265,8 @@ int main(int argc, char **argv)
 		"\\core\\settings.h"
 	};
 
+	std::vector<StructInfo> struct_infos;
+
 	for (int32_t i = 0; i < (sizeof(files) / sizeof(files[0])); ++i) {
 		char *file_path = (char*)malloc(strlen(input_root) +
 		                                strlen(files[i]) + 1);
@@ -299,27 +295,30 @@ int main(int argc, char **argv)
 
 			if (token.type != TokenType_eof) {
 				if (is_identifier(token, "INTROSPECT") &&
-				    is_identifier(next_token(tokenizer), "struct")) {
-					StructInfo struct_info = parse_struct_type_info(tokenizer);
-
-					std::fprintf(output_file,
-					             "StructMemberMetaData %s_MemberMetaData[] = {\n",
-					             struct_info.name);
-					for (int32_t j = 0; j < struct_info.num_members; ++j) {
-						TypeInfo &type_info = struct_info.members[j];
-						std::fprintf(output_file,
-						             "\t{ %s, \"%s\", offsetof(%s, %s) },\n",
-						             variable_type_str(type_info.type),
-						             type_info.name,
-						             struct_info.name,
-						             type_info.name);
-					}
-
-					std::fprintf(output_file, "};\n\n");
+				    is_identifier(next_token(tokenizer), "struct"))
+				{
+					struct_infos.push_back(parse_struct_type_info(tokenizer));
 				}
 			}
 		}
 		free(file_path);
+	}
+
+	for (auto &struct_info : struct_infos) {
+		std::fprintf(output_file,
+				 	 "StructMemberMetaData %s_MemberMetaData[] = {\n",
+				 	 struct_info.name);
+		for (int32_t j = 0; j < struct_info.num_members; ++j) {
+			TypeInfo &type_info = struct_info.members[j];
+			std::fprintf(output_file,
+					 	 "\t{ %s, \"%s\", offsetof(%s, %s) },\n",
+					 	 variable_type_str(type_info.type),
+					 	 type_info.name,
+					 	 struct_info.name,
+					 	 type_info.name);
+		}
+
+		std::fprintf(output_file, "};\n\n");
 	}
 
 	std::fprintf(output_file, "#endif // META_DATA_H\n");
