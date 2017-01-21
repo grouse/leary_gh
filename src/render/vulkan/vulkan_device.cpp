@@ -32,12 +32,9 @@
 
 #include "core/math.h"
 
+
 namespace
 {
-	int32_t
-	find_memory_type_index(VkPhysicalDeviceMemoryProperties &properties,
-	                       uint32_t type_bits,
-	                       VkMemoryPropertyFlags req_properties);
 	constexpr int VERTEX_INPUT_BINDING = 0;	// The Vertex Input Binding for our vertex buffer.
 
 	// Vertex data to draw.
@@ -91,6 +88,265 @@ debug_callback_func(VkFlags                    flags,
 
 	DEBUG_LOGF(log_type, "[VULKAN]: %s (%d) - %s", prefix, code, msg);
 	return false;
+}
+
+void VulkanDevice::copy_image(uint32_t width, uint32_t height,
+                              VkImage src, VkImage dst)
+{
+	VkCommandBuffer command = begin_command_buffer();
+
+	// TODO(jesper): support mip layers
+	VkImageSubresourceLayers subresource = {};
+	subresource.aspectMask               = VK_IMAGE_ASPECT_COLOR_BIT;
+	subresource.baseArrayLayer           = 0;
+	subresource.mipLevel                 = 0;
+	subresource.layerCount               = 1;
+
+	VkImageCopy region = {};
+	// TODO(jesper): support copying images from/to different subresources?
+	region.srcSubresource = subresource;
+	region.dstSubresource = subresource;
+	// TODO(jesper): support subregion copy
+	region.srcOffset = { 0, 0, 0 };
+	region.dstOffset = { 0, 0, 0 };
+	region.extent.width = width;
+	region.extent.height = height;
+	region.extent.depth = 1;
+
+	vkCmdCopyImage(command,
+	               src, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+	               dst, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+	               1, &region);
+
+	end_command_buffer(command);
+}
+
+void VulkanDevice::transition_image(VkImage image,
+                                    VkImageLayout src,
+                                    VkImageLayout dst)
+{
+	VkCommandBuffer command = begin_command_buffer();
+
+	VkImageMemoryBarrier barrier = {};
+	barrier.sType                           = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+	barrier.oldLayout                       = src;
+	barrier.newLayout                       = dst;
+	barrier.srcQueueFamilyIndex             = VK_QUEUE_FAMILY_IGNORED;
+	barrier.dstQueueFamilyIndex             = VK_QUEUE_FAMILY_IGNORED;
+	barrier.image                           = image;
+	barrier.subresourceRange.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
+	// TODO(jesper): support mip layers
+	barrier.subresourceRange.baseMipLevel   = 0;
+	barrier.subresourceRange.levelCount     = 1;
+	barrier.subresourceRange.baseArrayLayer = 0;
+	barrier.subresourceRange.layerCount     = 1;
+
+	switch (src) {
+	case VK_IMAGE_LAYOUT_PREINITIALIZED:
+		barrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT;
+		break;
+	case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+		barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+		break;
+	default:
+		// TODO(jesper): unimplemented transfer
+		DEBUG_ASSERT(false);
+		barrier.srcAccessMask = 0;
+		break;
+	}
+
+	switch (dst) {
+	case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+		barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+		break;
+	case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+		barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+		break;
+	case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+		barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+		break;
+	case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
+		barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+		break;
+	default:
+		// TODO(jesper): unimplemented transfer
+		DEBUG_ASSERT(false);
+		barrier.dstAccessMask = 0;
+		break;
+	}
+
+	vkCmdPipelineBarrier(command,
+	                     VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+	                     VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+	                     0,
+	                     0, nullptr,
+	                     0, nullptr,
+	                     1, &barrier);
+
+	end_command_buffer(command);
+}
+
+VkCommandBuffer VulkanDevice::begin_command_buffer()
+{
+	// TODO(jesper): don't allocate command buffers on demand; allocate a big
+	// pool of them in the device init and keep a freelist if unused ones, or
+	// ring buffer, or something
+	VkCommandBufferAllocateInfo allocate_info = {};
+	allocate_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+	allocate_info.commandPool        = vk_command_pool;
+	allocate_info.level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+	allocate_info.commandBufferCount = 1;
+
+	VkCommandBuffer buffer;
+	VkResult result = vkAllocateCommandBuffers(vk_device, &allocate_info, &buffer);
+	DEBUG_ASSERT(result == VK_SUCCESS);
+
+	VkCommandBufferBeginInfo begin_info = {};
+	begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+
+	result = vkBeginCommandBuffer(buffer, &begin_info);
+	DEBUG_ASSERT(result == VK_SUCCESS);
+
+	return buffer;
+}
+
+void VulkanDevice::end_command_buffer(VkCommandBuffer buffer)
+{
+	VkResult result = vkEndCommandBuffer(buffer);
+	DEBUG_ASSERT(result == VK_SUCCESS);
+
+	VkSubmitInfo info = {};
+	info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	info.commandBufferCount = 1;
+	info.pCommandBuffers = &buffer;
+
+	// TODO(jesper): we just submit to the graphics queue right now, good enough
+	// for the forseable future but eventually there'll be compute
+	// TODO(jesper): look into pooling up ready-to-submit command buffers and
+	// submit them in a big batch, might be faster?
+	vkQueueSubmit(vk_queue, 1, &info, VK_NULL_HANDLE);
+	// TODO(jesper): this seems like a bad idea, a better idea is probably to be
+	// using semaphores and barriers, or let the caller decide whether it needs
+	// to wait for everything to finish
+	vkQueueWaitIdle(vk_queue);
+
+	vkFreeCommandBuffers(vk_device, vk_command_pool, 1, &buffer);
+}
+
+VkImage VulkanDevice::create_image(VkFormat format,
+                                   uint32_t width,
+                                   uint32_t height,
+                                   VkImageTiling tiling,
+                                   VkImageUsageFlags usage,
+                                   VkMemoryPropertyFlags properties,
+                                   VkDeviceMemory *memory)
+{
+	VkImage image;
+
+	VkImageCreateInfo info = {};
+	info.sType             = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+	info.imageType         = VK_IMAGE_TYPE_2D;
+	info.format            = format;
+	info.extent.width      = width;
+	info.extent.height     = height;
+	info.extent.depth      = 1;
+	info.mipLevels         = 1;
+	info.arrayLayers       = 1;
+	info.samples           = VK_SAMPLE_COUNT_1_BIT;
+	info.tiling            = tiling;
+	info.initialLayout     = VK_IMAGE_LAYOUT_PREINITIALIZED;
+	info.usage             = usage;
+	info.sharingMode       = VK_SHARING_MODE_EXCLUSIVE;
+
+	VkResult result = vkCreateImage(vk_device, &info, nullptr, &image);
+	DEBUG_ASSERT(result == VK_SUCCESS);
+
+	VkMemoryRequirements mem_requirements;
+	vkGetImageMemoryRequirements(vk_device, image, &mem_requirements);
+
+	// TODO(jesper): look into host coherent
+	uint32_t memory_type = find_memory_type(mem_requirements.memoryTypeBits,
+	                                        properties);
+	DEBUG_ASSERT(memory_type != -1);
+
+	VkMemoryAllocateInfo alloc_info = {};
+	alloc_info.sType                = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+	alloc_info.allocationSize       = mem_requirements.size;
+	alloc_info.memoryTypeIndex      = memory_type;
+
+	result = vkAllocateMemory(vk_device, &alloc_info, nullptr, memory);
+	DEBUG_ASSERT(result == VK_SUCCESS);
+
+	vkBindImageMemory(vk_device, image, *memory, 0);
+
+	return image;
+}
+
+VulkanTexture VulkanDevice::create_texture(uint32_t width,
+                                           uint32_t height,
+                                           VkFormat format,
+                                           uint8_t *pixels)
+{
+	VulkanTexture texture = {};
+	texture.format = format;
+	texture.width  = width;
+	texture.height = height;
+
+	VkDeviceMemory staging_memory;
+	VkImage staging_image = create_image(format, width, height,
+	                                     VK_IMAGE_TILING_LINEAR,
+	                                     VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+	                                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+	                                     VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+	                                     &staging_memory);
+
+	void *data;
+	// TODO(jesper): hardcoded 1 byte per channel and 4 channels, lookup based
+	// on the receieved VkFormat
+	VkDeviceSize size = width * height * 4;
+	vkMapMemory(vk_device, staging_memory, 0, size, 0, &data);
+
+	VkImageSubresource subresource = {};
+	subresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	subresource.mipLevel   = 0;
+	subresource.arrayLayer = 0;
+
+	VkSubresourceLayout staging_image_layout;
+	vkGetImageSubresourceLayout(vk_device, staging_image,
+	                            &subresource, &staging_image_layout);
+
+	if (staging_image_layout.rowPitch == width * 4) {
+		memcpy(data, pixels, (size_t)size);
+	} else {
+		uint8_t *bytes = (uint8_t*)data;
+		for (int32_t y = 0; y < (int32_t)height; y++) {
+			memcpy(&bytes[y * staging_image_layout.rowPitch],
+			       &pixels[y * width * 4],
+			       width * 4);
+		}
+	}
+
+	vkUnmapMemory(vk_device, staging_memory);
+
+	texture.image = create_image(format, width, height,
+	                             VK_IMAGE_TILING_OPTIMAL,
+	                             VK_IMAGE_USAGE_TRANSFER_DST_BIT |
+	                             VK_IMAGE_USAGE_SAMPLED_BIT,
+	                             VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+	                             &texture.memory);
+
+	transition_image(staging_image,
+	                 VK_IMAGE_LAYOUT_PREINITIALIZED,
+	                 VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+	transition_image(texture.image,
+	                 VK_IMAGE_LAYOUT_PREINITIALIZED,
+	                 VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+	copy_image(width, height, staging_image, texture.image);
+	transition_image(texture.image,
+	                 VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+	                 VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+	return texture;
 }
 
 void
@@ -579,66 +835,17 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 	 * Create Depth buffer
 	 *************************************************************************/
 	{
-		VkExtent3D extent =
-		{
-			vk_swapchain_extent.width,
-			vk_swapchain_extent.height, 1
-		};
+		vk_depth_image = create_image(VK_FORMAT_D16_UNORM,
+		                              vk_swapchain_extent.width,
+		                              vk_swapchain_extent.height,
+		                              VK_IMAGE_TILING_OPTIMAL,
+		                              VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+		                              (VkMemoryPropertyFlags)0,
+		                              &vk_depth_memory);
 
-		VkImageCreateInfo create_info = {};
-		create_info.sType       = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-		create_info.imageType   = VK_IMAGE_TYPE_2D;
-		create_info.format      = VK_FORMAT_D16_UNORM;
-		create_info.extent      = extent;
-		create_info.mipLevels   = 1;
-		create_info.arrayLayers = 1;
-		create_info.samples     = VK_SAMPLE_COUNT_1_BIT;
-		create_info.tiling      = VK_IMAGE_TILING_OPTIMAL;
-		create_info.usage       = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-		create_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-			// NOTE: must be VK_IMAGE_LAYOUT_UNDEFINED or
-			// VK_IMAGE_LAYOUT_PREINITIALIZED
-		create_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-
-		result = vkCreateImage(vk_device,
-		                       &create_info,
-		                       nullptr,
-		                       &vk_depth_image);
-		DEBUG_ASSERT(result == VK_SUCCESS);
-
-		// create memory
-		VkMemoryRequirements memory_requirements;
-		vkGetImageMemoryRequirements(vk_device,
-		                             vk_depth_image,
-		                             &memory_requirements);
-
-		// NOTE: look into memory property flags for depth buffer if/when we
-		// want to sample or map it
-		int32_t memory_type_index =
-			find_memory_type_index(vk_physical_memory_properties,
-			                       memory_requirements.memoryTypeBits,
-			                       (VkMemoryPropertyFlags) 0);
-		DEBUG_ASSERT(memory_type_index >= 0);
-
-
-		// TODO: move this allocation to allocate from large memory pool in
-		// VulkanDevice
-		VkMemoryAllocateInfo allocate_info = {};
-		allocate_info.sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-		allocate_info.allocationSize  = memory_requirements.size;
-		allocate_info.memoryTypeIndex = (uint32_t) memory_type_index;
-
-		result = vkAllocateMemory(vk_device,
-		                          &allocate_info,
-		                          nullptr,
-		                          &vk_depth_memory);
-		DEBUG_ASSERT(result == VK_SUCCESS);
-
-		result = vkBindImageMemory(vk_device,
-		                           vk_depth_image,
-		                           vk_depth_memory, 0);
-		DEBUG_ASSERT(result == VK_SUCCESS);
+		transition_image(vk_depth_image,
+		                 VK_IMAGE_LAYOUT_PREINITIALIZED,
+		                 VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 
 		// create image view
 		VkComponentMapping components = {};
@@ -655,7 +862,7 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 		subresource_range.layerCount     = 1;
 
 		VkImageViewCreateInfo imageview_info = {};
-		imageview_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+		imageview_info.sType            = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 		imageview_info.image            = vk_depth_image;
 		imageview_info.viewType         = VK_IMAGE_VIEW_TYPE_2D;
 		imageview_info.format           = VK_FORMAT_D16_UNORM;
@@ -668,58 +875,6 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 		                           &vk_depth_imageview);
 		DEBUG_ASSERT(result == VK_SUCCESS);
 
-		// transfer the depth buffer image layout to the correct type
-		VkImageMemoryBarrier memory_barrier = {};
-		memory_barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-		memory_barrier.srcAccessMask = 0;
-		memory_barrier.dstAccessMask =
-			VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-
-		memory_barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		memory_barrier.newLayout =
-			VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-		memory_barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-		memory_barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-		memory_barrier.image               = vk_depth_image;
-		memory_barrier.subresourceRange    = subresource_range;
-
-		VkCommandBufferBeginInfo cmd_begin_info = {};
-		cmd_begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-
-		result = vkBeginCommandBuffer(vk_cmd_init, &cmd_begin_info);
-		DEBUG_ASSERT(result == VK_SUCCESS);
-
-		vkCmdPipelineBarrier(vk_cmd_init,
-		                     VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-		                     VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-		                     0,
-		                     0, nullptr,
-		                     0, nullptr,
-		                     1, &memory_barrier);
-
-		result = vkEndCommandBuffer(vk_cmd_init);
-		DEBUG_ASSERT(result == VK_SUCCESS);
-
-		VkSubmitInfo submit_info = {};
-		submit_info.sType              = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-		submit_info.waitSemaphoreCount = 0;
-		submit_info.pWaitSemaphores    = nullptr;
-		submit_info.pWaitDstStageMask  = nullptr;
-		submit_info.commandBufferCount = 1;
-		submit_info.pCommandBuffers    = &vk_cmd_init;
-
-		// NOTE: we should probably add a semaphore here to wait on so that
-		// we don't begin rendering until the initialisation command buffers
-		// are completed
-		submit_info.signalSemaphoreCount = 0;
-		submit_info.pSignalSemaphores    = nullptr;
-
-		result = vkQueueSubmit(vk_queue, 1, &submit_info, VK_NULL_HANDLE);
-		DEBUG_ASSERT(result == VK_SUCCESS);
-
-		result = vkQueueWaitIdle(vk_queue);
-		DEBUG_ASSERT(result == VK_SUCCESS);
 	}
 
 	/**************************************************************************
@@ -1155,10 +1310,9 @@ VulkanDevice::create_vertex_buffer(size_t size, uint8_t* data)
 	                              buffer.vk_buffer,
 	                              &memory_requirements);
 
-	int32_t index = find_memory_type_index(this->vk_physical_memory_properties,
-	                                       memory_requirements.memoryTypeBits,
-	                                       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-	DEBUG_ASSERT(index >= 0);
+	uint32_t index = find_memory_type(memory_requirements.memoryTypeBits,
+	                                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+	DEBUG_ASSERT(index != -1);
 
 	VkMemoryAllocateInfo allocate_info = {};
 	allocate_info.sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
@@ -1373,24 +1527,21 @@ VulkanDevice::present()
 	vkDestroySemaphore(vk_device, image_acquired,  nullptr);
 }
 
-namespace
+uint32_t VulkanDevice::find_memory_type(uint32_t filter,
+                                        VkMemoryPropertyFlags req_flags)
 {
-	int32_t
-	find_memory_type_index(VkPhysicalDeviceMemoryProperties &properties,
-	                       uint32_t type_bits,
-	                       VkMemoryPropertyFlags req_properties)
-	{
-		for (uint32_t i = 0; i < properties.memoryTypeCount; ++i)
+	// TODO(jesper): do I need to query this or can I cache it?
+	VkPhysicalDeviceMemoryProperties properties;
+	vkGetPhysicalDeviceMemoryProperties(vk_physical_device, &properties);
+
+	for (uint32_t i = 0; i < properties.memoryTypeCount; i++) {
+		VkMemoryPropertyFlags flags = properties.memoryTypes[i].propertyFlags;
+		if ((filter & (1 << i)) &&
+		    (flags & req_flags) == req_flags)
 		{
-			VkMemoryPropertyFlags flags = properties.memoryTypes[i].propertyFlags;
-
-			if ((type_bits & (1 << i)) &&
-			    (flags & req_properties) == req_properties)
-			{
-				return (int32_t)i;
-			}
+			return i;
 		}
-
-		return -1;
 	}
+
+	return UINT32_MAX;
 }

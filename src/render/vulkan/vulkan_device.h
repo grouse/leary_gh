@@ -35,6 +35,15 @@ struct VulkanVertexBuffer {
 	VkDeviceMemory       vk_memory;
 };
 
+struct VulkanTexture {
+	VkFormat format;
+	uint32_t width;
+	uint32_t height;
+
+	VkImage image;
+	VkDeviceMemory memory;
+};
+
 class VulkanDevice {
 public:
 	void create(Settings settings, PlatformState platform_state);
@@ -42,8 +51,32 @@ public:
 
 	void present();
 
+	VkCommandBuffer begin_command_buffer();
+	void            end_command_buffer(VkCommandBuffer buffer);
+
+	void transition_image(VkImage image,
+	                      VkImageLayout src,
+	                      VkImageLayout dst);
+	void copy_image(uint32_t width, uint32_t height, VkImage src, VkImage dst);
+
+	uint32_t find_memory_type(uint32_t filter, VkMemoryPropertyFlags flags);
+
 	VulkanVertexBuffer create_vertex_buffer(size_t size, uint8_t *data);
 	void               destroy_vertex_buffer(VulkanVertexBuffer *buffer);
+
+
+	VkImage create_image(VkFormat format,
+	                     uint32_t width,
+	                     uint32_t height,
+	                     VkImageTiling tiling,
+	                     VkImageUsageFlags usage,
+	                     VkMemoryPropertyFlags properties,
+	                     VkDeviceMemory *memory);
+
+	VulkanTexture create_texture(uint32_t width,
+	                             uint32_t height,
+	                             VkFormat format,
+	                             uint8_t *pixels);
 
 	VkInstance       vk_instance;
 
