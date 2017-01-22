@@ -991,7 +991,7 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 	 * Create Shader modules
 	 *************************************************************************/
 	{
-		const char *vertex_file = FILE_SEP "shaders" FILE_SEP "vert.spv";
+		const char *vertex_file = FILE_SEP "shaders" FILE_SEP "triangle_vert.spv";
 		size_t vertex_path_length = platform_state.folders.game_data_length +
 		                            strlen(vertex_file) + 1;
 		char *vertex_path = (char*) malloc(vertex_path_length);
@@ -1003,7 +1003,7 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 		DEBUG_ASSERT(vertex_source != nullptr);
 		free(vertex_path);
 
-		const char *fragment_file = FILE_SEP "shaders" FILE_SEP "frag.spv";
+		const char *fragment_file = FILE_SEP "shaders" FILE_SEP "triangle_frag.spv";
 		size_t fragment_path_length = platform_state.folders.game_data_length +
 		                              strlen(fragment_file) + 1;
 		char *fragment_path = (char*) malloc(fragment_path_length);
