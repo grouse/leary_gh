@@ -287,6 +287,8 @@ VulkanTexture VulkanDevice::create_texture(uint32_t width,
                                            VkFormat format,
                                            uint8_t *pixels)
 {
+	VkResult result;
+
 	VulkanTexture texture = {};
 	texture.format = format;
 	texture.width  = width;
@@ -345,6 +347,21 @@ VulkanTexture VulkanDevice::create_texture(uint32_t width,
 	transition_image(texture.image,
 	                 VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 	                 VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+	VkImageViewCreateInfo view_info = {};
+	view_info.sType                           = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+	view_info.image                           = texture.image;
+	view_info.viewType                        = VK_IMAGE_VIEW_TYPE_2D;
+	view_info.format                          = texture.format;
+	view_info.subresourceRange.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
+	view_info.subresourceRange.baseMipLevel   = 0;
+	view_info.subresourceRange.levelCount     = 1;
+	view_info.subresourceRange.baseArrayLayer = 0;
+	view_info.subresourceRange.layerCount     = 1;
+
+	result = vkCreateImageView(vk_device, &view_info, nullptr,
+	                           &texture.image_view);
+	DEBUG_ASSERT(result == VK_SUCCESS);
 
 	return texture;
 }

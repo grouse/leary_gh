@@ -36,11 +36,11 @@ struct VulkanVertexBuffer {
 };
 
 struct VulkanTexture {
-	VkFormat format;
-	uint32_t width;
-	uint32_t height;
-
-	VkImage image;
+	uint32_t       width;
+	uint32_t       height;
+	VkFormat       format;
+	VkImage        image;
+	VkImageView    image_view;
 	VkDeviceMemory memory;
 };
 
