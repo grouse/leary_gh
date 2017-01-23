@@ -1073,7 +1073,7 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 	 *************************************************************************/
 	{
 		VkPipelineLayoutCreateInfo layout_info = {};
-		layout_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+		layout_info.sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 		layout_info.setLayoutCount         = 0;
 		layout_info.pSetLayouts            = nullptr;
 		layout_info.pushConstantRangeCount = 0;
@@ -1085,7 +1085,8 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 		                                &vk_pipeline_layout);
 		DEBUG_ASSERT(result == VK_SUCCESS);
 
-
+		// NOTE(jesper): it seems like it'd be worth creating and caching this
+		// inside the VulkanShader objects
 		VkPipelineShaderStageCreateInfo vertex_shader_stage = {};
 		vertex_shader_stage.sType               = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 		vertex_shader_stage.stage               = vertex_shader.stage;
@@ -1105,12 +1106,17 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 			fragment_shader_stage
 		};
 
+		// NOTE(jesper): this describes the number of vertex buffers we bind to
+		// the pipeline, so far we create 1 big vertex buffer containing both
+		// colour and vertices
 		VkVertexInputBindingDescription vertex_input_binding_desc = {};
 		vertex_input_binding_desc.binding   = VERTEX_INPUT_BINDING;
 		vertex_input_binding_desc.stride    = sizeof(float) * 6;
 		vertex_input_binding_desc.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
-
+		// NOTE(jesper): we need one of these per vertex shader input. Because
+		// it's going to be unique per shader, probably an idea to put this into
+		// VulkanShader
 		VkVertexInputAttributeDescription vertex_input_position = {};
 		vertex_input_position.location = 0;
 		vertex_input_position.binding  = VERTEX_INPUT_BINDING;
@@ -1129,22 +1135,15 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 		};
 
 		VkPipelineVertexInputStateCreateInfo vertex_input_info = {};
-		vertex_input_info.sType                           =
-			VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-
-		vertex_input_info.vertexBindingDescriptionCount = 1;
-		vertex_input_info.pVertexBindingDescriptions =
-			&vertex_input_binding_desc;
-
+		vertex_input_info.sType                           = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+		vertex_input_info.vertexBindingDescriptionCount   = 1;
+		vertex_input_info.pVertexBindingDescriptions      = &vertex_input_binding_desc;
 		vertex_input_info.vertexAttributeDescriptionCount = 2;
-		vertex_input_info.pVertexAttributeDescriptions =
-			vertex_input_attributes;
+		vertex_input_info.pVertexAttributeDescriptions    = vertex_input_attributes;
 
 		VkPipelineInputAssemblyStateCreateInfo input_assembly_info = {};
-		input_assembly_info.sType =
-			VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-
-		input_assembly_info.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+		input_assembly_info.sType                  = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+		input_assembly_info.topology               = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 		input_assembly_info.primitiveRestartEnable = VK_FALSE;
 
 		VkDynamicState dynamic_states[2] = {
@@ -1153,22 +1152,19 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 		};
 
 		VkPipelineDynamicStateCreateInfo dynamic_state_info = {};
-		dynamic_state_info.sType =
-			VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+		dynamic_state_info.sType             = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
 		dynamic_state_info.dynamicStateCount = 2;
 		dynamic_state_info.pDynamicStates    = dynamic_states;
 
 		VkPipelineViewportStateCreateInfo viewport_info = {};
-		viewport_info.sType =
-			VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+		viewport_info.sType         = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
 		viewport_info.viewportCount = 1;
 		viewport_info.pViewports    = nullptr;
 		viewport_info.scissorCount  = 1;
 		viewport_info.pScissors     = nullptr;
 
 		VkPipelineRasterizationStateCreateInfo raster_info = {};
-		raster_info.sType =
-			VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+		raster_info.sType                   = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
 		raster_info.depthClampEnable        = VK_FALSE;
 		raster_info.rasterizerDiscardEnable = VK_FALSE;
 		raster_info.polygonMode             = VK_POLYGON_MODE_FILL;
@@ -1196,8 +1192,7 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 		float blend_constants[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
 
 		VkPipelineColorBlendStateCreateInfo color_blend_info = {};
-		color_blend_info.sType =
-			VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+		color_blend_info.sType           = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
 		color_blend_info.logicOpEnable   = VK_FALSE;
 		color_blend_info.logicOp         = VK_LOGIC_OP_CLEAR;
 		color_blend_info.attachmentCount = 1;
@@ -1217,21 +1212,19 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 		stencil_state.reference   = 0;
 
 		VkPipelineDepthStencilStateCreateInfo depth_stencil_info = {};
-		depth_stencil_info.sType =
-			VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-		depth_stencil_info.depthTestEnable = VK_TRUE;
-		depth_stencil_info.depthWriteEnable = VK_TRUE;
-		depth_stencil_info.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
+		depth_stencil_info.sType                 = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+		depth_stencil_info.depthTestEnable       = VK_TRUE;
+		depth_stencil_info.depthWriteEnable      = VK_TRUE;
+		depth_stencil_info.depthCompareOp        = VK_COMPARE_OP_LESS_OR_EQUAL;
 		depth_stencil_info.depthBoundsTestEnable = VK_FALSE;
-		depth_stencil_info.stencilTestEnable = VK_FALSE;
-		depth_stencil_info.front = stencil_state;
-		depth_stencil_info.back = stencil_state;
-		depth_stencil_info.minDepthBounds = 0.0f;
-		depth_stencil_info.maxDepthBounds = 0.0f;
+		depth_stencil_info.stencilTestEnable     = VK_FALSE;
+		depth_stencil_info.front                 = stencil_state;
+		depth_stencil_info.back                  = stencil_state;
+		depth_stencil_info.minDepthBounds        = 0.0f;
+		depth_stencil_info.maxDepthBounds        = 0.0f;
 
 		VkPipelineMultisampleStateCreateInfo multisample_info = {};
-		multisample_info.sType =
-			VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+		multisample_info.sType                 = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
 		multisample_info.rasterizationSamples  = VK_SAMPLE_COUNT_1_BIT;
 		multisample_info.sampleShadingEnable   = VK_FALSE;
 		multisample_info.minSampleShading      = 0;
@@ -1240,8 +1233,7 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 		multisample_info.alphaToOneEnable      = VK_FALSE;
 
 		VkGraphicsPipelineCreateInfo pipeline_info = {};
-		pipeline_info.sType =
-			VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+		pipeline_info.sType               = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
 		pipeline_info.stageCount          = 2;
 		pipeline_info.pStages             = shader_stage_info;
 		pipeline_info.pVertexInputState   = &vertex_input_info;
