@@ -1106,8 +1106,9 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 		};
 
 		VkVertexInputBindingDescription vertex_input_binding_desc = {};
-		vertex_input_binding_desc.binding = VERTEX_INPUT_BINDING;
-		vertex_input_binding_desc.stride  = sizeof(float) * 6;
+		vertex_input_binding_desc.binding   = VERTEX_INPUT_BINDING;
+		vertex_input_binding_desc.stride    = sizeof(float) * 6;
+		vertex_input_binding_desc.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
 
 		VkVertexInputAttributeDescription vertex_input_position = {};
