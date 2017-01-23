@@ -44,6 +44,12 @@ struct VulkanTexture {
 	VkDeviceMemory memory;
 };
 
+struct VulkanShader {
+	VkShaderModule        module;
+	VkShaderStageFlagBits stage;
+	const char            *name;
+};
+
 class VulkanDevice {
 public:
 	void create(Settings settings, PlatformState platform_state);
@@ -77,6 +83,10 @@ public:
 	                             uint32_t height,
 	                             VkFormat format,
 	                             uint8_t *pixels);
+
+	VulkanShader create_shader(uint32_t *source,
+	                           size_t size,
+	                           VkShaderStageFlagBits stage);
 
 	VkInstance       vk_instance;
 
@@ -126,8 +136,8 @@ public:
 	VkPipeline       vk_pipeline;
 	VkPipelineLayout vk_pipeline_layout;
 
-	VkShaderModule   vk_vertex_shader;
-	VkShaderModule   vk_fragment_shader;
+	VulkanShader vertex_shader;
+	VulkanShader fragment_shader;
 };
 
 #endif // LEARY_VULKAN_DEVICE_H

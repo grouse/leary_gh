@@ -366,6 +366,30 @@ VulkanTexture VulkanDevice::create_texture(uint32_t width,
 	return texture;
 }
 
+VulkanShader VulkanDevice::create_shader(uint32_t *source,
+                                         size_t size,
+                                         VkShaderStageFlagBits stage)
+{
+	VkResult result;
+
+	VulkanShader shader = {};
+	// NOTE(jesper): this is the name of the entry point function in the shader,
+	// is it at all worth supporting other entry point names? maybe if we start
+	// using HLSL
+	shader.name         = "main";
+	shader.stage        = stage;
+
+	VkShaderModuleCreateInfo info = {};
+	info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+	info.codeSize = size;
+	info.pCode = source;
+
+	result = vkCreateShaderModule(vk_device, &info, nullptr, &shader.module);
+	DEBUG_ASSERT(result == VK_SUCCESS);
+
+	return shader;
+}
+
 void
 VulkanDevice::create(Settings settings, PlatformState platform_state)
 {
@@ -1032,25 +1056,13 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 		DEBUG_ASSERT(fragment_source != nullptr);
 		free(fragment_path);
 
-		VkShaderModuleCreateInfo create_info = {};
-		create_info.sType    = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-		create_info.codeSize = vertex_size;
-		create_info.pCode    = (uint32_t*)vertex_source;
+		vertex_shader = create_shader((uint32_t*)vertex_source,
+		                              vertex_size,
+		                              VK_SHADER_STAGE_VERTEX_BIT);
 
-		result = vkCreateShaderModule(vk_device,
-		                              &create_info,
-		                              nullptr,
-		                              &vk_vertex_shader);
-		DEBUG_ASSERT(result == VK_SUCCESS);
-
-		create_info.codeSize = fragment_size;
-		create_info.pCode    = (uint32_t*) fragment_source;
-
-		result = vkCreateShaderModule(vk_device,
-		                              &create_info,
-		                              nullptr,
-		                              &vk_fragment_shader);
-		DEBUG_ASSERT(result == VK_SUCCESS);
+		fragment_shader = create_shader((uint32_t*)fragment_source,
+		                                fragment_size,
+		                                VK_SHADER_STAGE_FRAGMENT_BIT);
 
 		free(fragment_source);
 		free(vertex_source);
@@ -1075,18 +1087,17 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 
 
 		VkPipelineShaderStageCreateInfo vertex_shader_stage = {};
-		vertex_shader_stage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-		vertex_shader_stage.stage               = VK_SHADER_STAGE_VERTEX_BIT;
-		vertex_shader_stage.module              = vk_vertex_shader;
-		vertex_shader_stage.pName               = "main";
+		vertex_shader_stage.sType               = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+		vertex_shader_stage.stage               = vertex_shader.stage;
+		vertex_shader_stage.module              = vertex_shader.module;
+		vertex_shader_stage.pName               = vertex_shader.name;
 		vertex_shader_stage.pSpecializationInfo = nullptr;
 
 		VkPipelineShaderStageCreateInfo fragment_shader_stage = {};
-		fragment_shader_stage.sType =
-			VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-		fragment_shader_stage.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-		fragment_shader_stage.module = vk_fragment_shader;
-		fragment_shader_stage.pName = "main";
+		fragment_shader_stage.sType               = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+		fragment_shader_stage.stage               = fragment_shader.stage;
+		fragment_shader_stage.module              = fragment_shader.module;
+		fragment_shader_stage.pName               = fragment_shader.name;
 		fragment_shader_stage.pSpecializationInfo = nullptr;
 
 		VkPipelineShaderStageCreateInfo shader_stage_info[2] = {
@@ -1253,8 +1264,10 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 		                                   &vk_pipeline);
 		DEBUG_ASSERT(result == VK_SUCCESS);
 
-		vkDestroyShaderModule(vk_device, vk_vertex_shader,   nullptr);
-		vkDestroyShaderModule(vk_device, vk_fragment_shader, nullptr);
+		// TODO(jesper): assuming we'll be reusing shader modules for several
+		// pipelines we should probably keep these around longer
+		vkDestroyShaderModule(vk_device, vertex_shader.module,   nullptr);
+		vkDestroyShaderModule(vk_device, fragment_shader.module, nullptr);
 	}
 }
 
