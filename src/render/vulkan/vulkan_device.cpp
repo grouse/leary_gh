@@ -38,7 +38,7 @@ namespace
 	constexpr int VERTEX_INPUT_BINDING = 0;	// The Vertex Input Binding for our vertex buffer.
 
 	// Vertex data to draw.
-	constexpr int NUM_DEMO_VERTICES = 3;
+	constexpr int NUM_DEMO_VERTICES = 6;
 
 	struct ColoredVertex {
 		Vector3f pos;
@@ -47,10 +47,14 @@ namespace
 
 	const ColoredVertex vertices[NUM_DEMO_VERTICES * 3] =
 	{
-	    //      position             color
-		{ { 0.5f,  0.5f,  0.0f},  {0.1f, 0.8f, 0.1f} },
-		{ {-0.5f,  0.5f,  0.0f},  {0.8f, 0.1f, 0.1f} },
-		{ { 0.0f, -0.5f,  0.0f},  {0.1f, 0.1f, 0.8f} }
+	    //      position             texture_coordinate
+		{ { 0.0f,  0.0f,  0.0f},  {0.0,  0.0f } },
+		{ { 0.5f,  0.0f,  0.0f},  {1.0f, 0.0f } },
+		{ { 0.5f,  0.5f,  0.0f},  {1.0f, 1.0f } },
+
+		{ { 0.0f,  0.0f,  0.0f},  {0.0f, 0.0f} },
+		{ { 0.0f,  0.5f,  0.0f},  {0.0f, 1.0f} },
+		{ { 0.5f,  0.5f,  0.0f},  {1.0f, 1.0f} },
 	};
 }
 
@@ -285,7 +289,7 @@ VkImage VulkanDevice::create_image(VkFormat format,
 VulkanTexture VulkanDevice::create_texture(uint32_t width,
                                            uint32_t height,
                                            VkFormat format,
-                                           uint8_t *pixels)
+                                           void *pixels)
 {
 	VkResult result;
 
@@ -321,9 +325,10 @@ VulkanTexture VulkanDevice::create_texture(uint32_t width,
 		memcpy(data, pixels, (size_t)size);
 	} else {
 		uint8_t *bytes = (uint8_t*)data;
+		uint8_t *pixel_bytes = (uint8_t*)pixels;
 		for (int32_t y = 0; y < (int32_t)height; y++) {
 			memcpy(&bytes[y * staging_image_layout.rowPitch],
-			       &pixels[y * width * 4],
+			       &pixel_bytes[y * width * 4],
 			       width * 4);
 		}
 	}
@@ -1025,8 +1030,13 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 	/**************************************************************************
 	 * Create Vertex buffer
 	 *************************************************************************/
-	vertex_buffer = create_vertex_buffer(sizeof(float) * 6 * NUM_DEMO_VERTICES,
+	vertex_buffer = create_vertex_buffer(sizeof(vertices),
 	                                     (uint8_t*) vertices);
+
+	uint8_t pixels[32*32*4];
+	pixels[0] = 255;
+	pixels[32*32*4 - 1] = 255;
+	VulkanTexture texture = create_texture(32, 32, VK_FORMAT_R8G8B8A8_UNORM, pixels);
 
 	/**************************************************************************
 	 * Create Shader modules
@@ -1064,6 +1074,22 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 		                                fragment_size,
 		                                VK_SHADER_STAGE_FRAGMENT_BIT);
 
+		VkSamplerCreateInfo sampler_info = {};
+		sampler_info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+		sampler_info.magFilter = VK_FILTER_LINEAR;
+		sampler_info.minFilter = VK_FILTER_LINEAR;
+		sampler_info.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+		sampler_info.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+		sampler_info.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+		sampler_info.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+		sampler_info.unnormalizedCoordinates = VK_FALSE;
+		sampler_info.compareEnable = VK_FALSE;
+		sampler_info.compareOp = VK_COMPARE_OP_ALWAYS;
+		sampler_info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+
+		result = vkCreateSampler(vk_device, &sampler_info, nullptr, &texture_sampler);
+		DEBUG_ASSERT(result == VK_SUCCESS);
+
 		free(fragment_source);
 		free(vertex_source);
 	}
@@ -1072,10 +1098,69 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 	 * Create pipeline
 	 *************************************************************************/
 	{
+		VkDescriptorSetLayoutBinding sampler = {};
+		sampler.binding = 0;
+		sampler.descriptorCount = 1;
+		sampler.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		sampler.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+		VkDescriptorSetLayoutCreateInfo layout_descriptor_info = {};
+		layout_descriptor_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+		layout_descriptor_info.bindingCount = 1;
+		layout_descriptor_info.pBindings = &sampler;
+
+		result = vkCreateDescriptorSetLayout(vk_device, &layout_descriptor_info,
+		                                     nullptr, &descriptor_layout);
+		DEBUG_ASSERT(result == VK_SUCCESS);
+
+		// NOTE(jesper): create a pool size descriptor for each type of
+		// descriptor this shader program uses
+		VkDescriptorPoolSize sampler_pool = {};
+		sampler_pool.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		sampler_pool.descriptorCount = 1;
+
+		VkDescriptorPoolCreateInfo pool_info = {};
+		pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+		pool_info.poolSizeCount = 1;
+		pool_info.pPoolSizes = &sampler_pool;
+		// NOTE(jesper): number of descriptor sets
+		pool_info.maxSets = 1;
+
+		result = vkCreateDescriptorPool(vk_device, &pool_info,
+		                                nullptr, &descriptor_pool);
+		DEBUG_ASSERT(result == VK_SUCCESS);
+
+		VkDescriptorSetAllocateInfo descriptor_alloc_info = {};
+		descriptor_alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+		descriptor_alloc_info.descriptorPool = descriptor_pool;
+		descriptor_alloc_info.descriptorSetCount = 1;
+		descriptor_alloc_info.pSetLayouts = &descriptor_layout;
+
+		result = vkAllocateDescriptorSets(vk_device,
+		                                  &descriptor_alloc_info,
+		                                  &descriptor_set);
+		DEBUG_ASSERT(result == VK_SUCCESS);
+
+		VkDescriptorImageInfo image_info = {};
+		image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		image_info.imageView   = texture.image_view;
+		image_info.sampler     = texture_sampler;
+
+		VkWriteDescriptorSet descriptor_writes = {};
+		descriptor_writes.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		descriptor_writes.dstSet = descriptor_set;
+		descriptor_writes.dstBinding = 0;
+		descriptor_writes.dstArrayElement = 0;
+		descriptor_writes.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		descriptor_writes.descriptorCount = 1;
+		descriptor_writes.pImageInfo = &image_info;
+
+		vkUpdateDescriptorSets(vk_device, 1, &descriptor_writes, 0, nullptr);
+
 		VkPipelineLayoutCreateInfo layout_info = {};
 		layout_info.sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-		layout_info.setLayoutCount         = 0;
-		layout_info.pSetLayouts            = nullptr;
+		layout_info.setLayoutCount         = 1;
+		layout_info.pSetLayouts            = &descriptor_layout;
 		layout_info.pushConstantRangeCount = 0;
 		layout_info.pPushConstantRanges    = nullptr;
 
@@ -1126,7 +1211,7 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 		VkVertexInputAttributeDescription vertex_input_color = {};
 		vertex_input_color.location = 1;
 		vertex_input_color.binding  = VERTEX_INPUT_BINDING;
-		vertex_input_color.format   = VK_FORMAT_R32G32B32_SFLOAT;
+		vertex_input_color.format   = VK_FORMAT_R32G32_SFLOAT;
 		vertex_input_color.offset   = sizeof(float) * 3;
 
 		VkVertexInputAttributeDescription vertex_input_attributes[2] = {
@@ -1497,11 +1582,18 @@ VulkanDevice::present()
 	vkCmdSetViewport(vk_cmd_present, 0, 1, &viewport);
 	vkCmdSetScissor(vk_cmd_present, 0, 1, &render_area);
 
+	vkCmdBindDescriptorSets(vk_cmd_present,
+	                        VK_PIPELINE_BIND_POINT_GRAPHICS,
+	                        vk_pipeline_layout,
+	                        0,
+	                        1, &descriptor_set,
+	                        0, nullptr);
+
 	VkDeviceSize buffer_offsets= 0;
 	vkCmdBindVertexBuffers(vk_cmd_present, VERTEX_INPUT_BINDING,
 	                       1, &vertex_buffer.vk_buffer, &buffer_offsets);
 
-	vkCmdDraw(vk_cmd_present, 3, 1, 0, 0);
+	vkCmdDraw(vk_cmd_present, 6, 1, 0, 0);
 
 	vkCmdEndRenderPass(vk_cmd_present);
 

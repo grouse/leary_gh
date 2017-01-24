@@ -82,7 +82,7 @@ public:
 	VulkanTexture create_texture(uint32_t width,
 	                             uint32_t height,
 	                             VkFormat format,
-	                             uint8_t *pixels);
+	                             void *pixels);
 
 	VulkanShader create_shader(uint32_t *source,
 	                           size_t size,
@@ -136,8 +136,13 @@ public:
 	VkPipeline       vk_pipeline;
 	VkPipelineLayout vk_pipeline_layout;
 
+	VkDescriptorSet       descriptor_set;
+	VkDescriptorPool      descriptor_pool;
+	VkDescriptorSetLayout descriptor_layout;
+
 	VulkanShader vertex_shader;
 	VulkanShader fragment_shader;
+	VkSampler texture_sampler;
 };
 
 #endif // LEARY_VULKAN_DEVICE_H
