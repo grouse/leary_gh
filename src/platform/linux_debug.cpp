@@ -29,6 +29,6 @@
 
 void platform_debug_output(const char *msg)
 {
-	std::printf(msg);
+	std::printf("%s\n", msg);
 }
 
