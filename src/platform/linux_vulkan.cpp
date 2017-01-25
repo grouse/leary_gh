@@ -35,9 +35,22 @@ vulkan_create_surface(VkInstance instance,
 		.sType = VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR,
 		.pNext = nullptr,
 		.flags = 0,
-		.connection = platform_state.xcb.connection,
-		.window     = platform_state.xcb.window
+		.connection = platform_state.window.xcb.connection,
+		.window     = platform_state.window.xcb.window
 	};
 
 	return vkCreateXcbSurfaceKHR(instance, &create_info, nullptr, surface);
 }
+
+bool
+platform_vulkan_enable_instance_extension(VkExtensionProperties &property)
+{
+	return false;
+}
+
+bool
+platform_vulkan_enable_instance_layer(VkLayerProperties layer)
+{
+	return false;
+}
+

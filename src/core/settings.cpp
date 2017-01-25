@@ -87,13 +87,13 @@ Settings load_settings(const char* filename, PlatformState &platform_state)
 		// TODO(jesper): validate user input, making sure values are within expected range and that
 		// they are the correct data type
 		if (strcmp(key, "video.resolution.width") == 0)
-			sscanf(value, "%d", &settings.video.resolution.width);
+			sscanf(value, "%" SCNd32, &settings.video.resolution.width);
 		else if (strcmp(key, "video.resolution.height") == 0)
-			sscanf(value, "%d", &settings.video.resolution.height);
+			sscanf(value, "%" SCNd32, &settings.video.resolution.height);
 		else if (strcmp(key, "video.fullscreen") == 0)
-			sscanf(value, "%" PRId16, &settings.video.fullscreen);
+			sscanf(value, "%" SCNd16, &settings.video.fullscreen);
 		else if (strcmp(key, "video.vsync") == 0)
-			sscanf(value, "%" PRId16, &settings.video.vsync);
+			sscanf(value, "%" SCNd16, &settings.video.vsync);
 		else
 			DEBUG_ASSERT(false);
 

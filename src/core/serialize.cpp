@@ -6,6 +6,7 @@
  * Copyright (c) 2016 - all rights reserved
  */
 
+#include <inttypes.h>
 #include "generated/meta_data.h"
 #include "platform/debug.h"
 #include "platform/file.h"
@@ -49,8 +50,7 @@ member_to_string(StructMemberMetaData &member,
 	}
 	case VariableType_int16: {
 		int16_t value = *(int16_t*)(((char*)ptr) + member.offset);
-		bytes = std::sprintf(buffer, "%s = %" PRId16,
-		                     member.variable_name, value);
+		bytes = std::sprintf(buffer, "%s = %" PRId16 , member.variable_name, value);
 
 		DEBUG_ASSERT(bytes < size);
 		break;
@@ -123,7 +123,7 @@ member_to_string(StructMemberMetaData &member,
 
 			DEBUG_ASSERT(bytes < size);
 		}
-		
+
 		child_bytes = std::sprintf(buffer, "}");
 
 		bytes  += child_bytes;
@@ -154,8 +154,8 @@ serialize_save_conf(const char *path,
 
 	void *file_handle = file_open(path, FileMode::write);
 
-	// TODO(jesper): rewrite this so that we do fewer file_write, potentially 
-	// so that we only open file and write into it after we've got an entire 
+	// TODO(jesper): rewrite this so that we do fewer file_write, potentially
+	// so that we only open file and write into it after we've got an entire
 	// buffer to write into it
 	char buffer[2048];
 
@@ -291,6 +291,9 @@ member_from_string(char **ptr,
 
 			break;
 		}
+		default:
+			DEBUG_LOGF(LogType::unimplemented, "unhandled case: %d", member->variable_type);
+			break;
 		}
 
 		while (**ptr && (**ptr == ' ' || **ptr == ',')) (*ptr)++;

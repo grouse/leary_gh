@@ -38,13 +38,13 @@
 struct PlatformState {
 	union {
 #if defined(__linux__)
-		struct 
+		struct
 		{
 			xcb_window_t     window;
 			xcb_connection_t *connection;
 		} xcb;
 #elif defined(_WIN32)
-		struct 
+		struct
 		{
 			HWND      hwnd;
 			HINSTANCE hinstance;
