@@ -42,10 +42,9 @@ vulkan_create_surface(VkInstance instance,
 }
 
 bool
-platform_vulkan_enable_instance_extension(VkExtensionProperties &property)
+platform_vulkan_enable_instance_extension(VkExtensionProperties &extension)
 {
-	VAR_UNUSED(property);
-	return false;
+	return strcmp(extension.extensionName, VK_KHR_XCB_SURFACE_EXTENSION_NAME) == 0;
 }
 
 bool
