@@ -2,15 +2,20 @@
 
 ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
+mkdir -p build/data/shaders
+
+
 FLAGS="-std=c++11 -g"
+WARNINGS="-Wall -Wextra -Wpedantic"
 INCLUDE_DIR="-I$ROOT/src"
-LIBS="-lvulkan -lxcb"
 
 OPTIMIZED=-O3
 UNOPTIMIZED=-O0
 
-mkdir -p build/data/shaders
+LEARY_LIBS="-lvulkan -lxcb"
+LEARY_FLAGS="$FLAGS $WARNINGS $UNOPTIMIZED $INCLUDE_DIR"
+
 
 pushd $ROOT/build
-$CXX $FLAGS $UNOPTIMIZED $INCLUDE_DIR $LIBS -o leary $ROOT/src/platform/linux_main.cpp
+$CXX $LEARY_FLAGS -o leary $ROOT/src/platform/linux_main.cpp
 popd
