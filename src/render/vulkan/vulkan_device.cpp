@@ -45,16 +45,14 @@ namespace
 		Vector3f color;
 	};
 
-	const ColoredVertex vertices[NUM_DEMO_VERTICES * 3] =
-	{
+	const float vertices[] = {
 	    //      position             texture_coordinate
-		{ { 0.0f,  0.0f,  0.0f},  {0.0,  0.0f } },
-		{ { 0.5f,  0.0f,  0.0f},  {1.0f, 0.0f } },
-		{ { 0.5f,  0.5f,  0.0f},  {1.0f, 1.0f } },
-
-		{ { 0.0f,  0.0f,  0.0f},  {0.0f, 0.0f} },
-		{ { 0.0f,  0.5f,  0.0f},  {0.0f, 1.0f} },
-		{ { 0.5f,  0.5f,  0.0f},  {1.0f, 1.0f} },
+		0.0f,  0.0f,  0.0f, 0.0,  0.0f,
+		0.5f,  0.0f,  0.0f, 1.0f, 0.0f,
+		0.5f,  0.5f,  0.0f, 1.0f, 1.0f,
+		0.0f,  0.0f,  0.0f, 0.0f, 0.0f,
+		0.0f,  0.5f,  0.0f, 0.0f, 1.0f,
+		0.5f,  0.5f,  0.0f, 1.0f, 1.0f,
 	};
 }
 
@@ -271,7 +269,7 @@ VkImage VulkanDevice::create_image(VkFormat format,
 	// TODO(jesper): look into host coherent
 	uint32_t memory_type = find_memory_type(mem_requirements.memoryTypeBits,
 	                                        properties);
-	DEBUG_ASSERT(memory_type != -1);
+	DEBUG_ASSERT(memory_type != UINT32_MAX);
 
 	VkMemoryAllocateInfo alloc_info = {};
 	alloc_info.sType                = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
@@ -1420,7 +1418,7 @@ VulkanDevice::create_vertex_buffer(size_t size, uint8_t* data)
 
 	uint32_t index = find_memory_type(memory_requirements.memoryTypeBits,
 	                                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-	DEBUG_ASSERT(index != -1);
+	DEBUG_ASSERT(index != UINT32_MAX);
 
 	VkMemoryAllocateInfo allocate_info = {};
 	allocate_info.sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;

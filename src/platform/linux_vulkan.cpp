@@ -31,26 +31,27 @@ vulkan_create_surface(VkInstance instance,
                       VkSurfaceKHR *surface,
                       PlatformState platform_state)
 {
-	VkXcbSurfaceCreateInfoKHR create_info = {
-		.sType = VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR,
-		.pNext = nullptr,
-		.flags = 0,
-		.connection = platform_state.window.xcb.connection,
-		.window     = platform_state.window.xcb.window
-	};
+	VkXcbSurfaceCreateInfoKHR info = {};
+	info.sType = VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR;
+	info.pNext = nullptr;
+	info.flags = 0;
+	info.connection = platform_state.window.xcb.connection;
+	info.window     = platform_state.window.xcb.window;
 
-	return vkCreateXcbSurfaceKHR(instance, &create_info, nullptr, surface);
+	return vkCreateXcbSurfaceKHR(instance, &info, nullptr, surface);
 }
 
 bool
 platform_vulkan_enable_instance_extension(VkExtensionProperties &property)
 {
+	VAR_UNUSED(property);
 	return false;
 }
 
 bool
 platform_vulkan_enable_instance_layer(VkLayerProperties layer)
 {
+	VAR_UNUSED(layer);
 	return false;
 }
 

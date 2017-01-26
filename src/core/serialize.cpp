@@ -23,11 +23,10 @@
 	                    sizeof(StructMemberMetaData),     \
 	                    ptr)
 int32_t
-
 member_to_string(StructMemberMetaData &member,
                  void *ptr,
                  char *buffer,
-                 size_t size)
+                 int32_t size)
 {
 	int32_t bytes = 0;
 
@@ -70,8 +69,8 @@ member_to_string(StructMemberMetaData &member,
 		bytes  += child_bytes;
 		buffer += child_bytes;
 
-		size_t num_members = sizeof(Resolution_MemberMetaData) /
-		                     sizeof(StructMemberMetaData);
+		int32_t num_members = (int32_t)(sizeof(Resolution_MemberMetaData) /
+		                                sizeof(StructMemberMetaData));
 
 		for (int32_t i = 0; i < (int32_t)num_members; i++) {
 			StructMemberMetaData &child = Resolution_MemberMetaData[i];
@@ -104,8 +103,8 @@ member_to_string(StructMemberMetaData &member,
 		bytes  += child_bytes;
 		buffer += child_bytes;
 
-		size_t num_members = sizeof(VideoSettings_MemberMetaData) /
-		                     sizeof(StructMemberMetaData);
+		int32_t num_members = (int32_t)(sizeof(VideoSettings_MemberMetaData) /
+		                                sizeof(StructMemberMetaData));
 
 		for (int32_t i = 0; i < (int32_t)num_members; i++) {
 			StructMemberMetaData &child = VideoSettings_MemberMetaData[i];

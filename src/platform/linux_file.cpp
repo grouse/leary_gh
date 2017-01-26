@@ -35,33 +35,43 @@
 
 void init_platform_paths(PlatformState *state)
 {
-
+	VAR_UNUSED(state);
 }
 
 bool file_exists(const char *path)
 {
+	VAR_UNUSED(path);
 	return false;
 }
 
 bool file_create(const char *path)
 {
+	VAR_UNUSED(path);
 	return false;
 }
 
 void* file_open(const char *path, FileMode mode)
 {
+	VAR_UNUSED(path);
+	VAR_UNUSED(mode);
 	return nullptr;
 }
 
 void file_close(void *file_handle)
 {
+	VAR_UNUSED(file_handle);
 }
 
 void* file_read(const char *filename, size_t *file_size)
 {
+	VAR_UNUSED(filename);
+	VAR_UNUSED(file_size);
 	return nullptr;
 }
 
 void file_write(void *file_handle, void *buffer, size_t bytes)
 {
+	VAR_UNUSED(file_handle);
+	VAR_UNUSED(buffer);
+	VAR_UNUSED(bytes);
 }
