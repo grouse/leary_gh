@@ -54,6 +54,8 @@ void init_platform_paths(PlatformState *state)
 	state->folders.game_data = (char*)malloc(length + strlen("data") + 1);
 	strncpy(state->folders.game_data, buffer, length);
 	strcat(state->folders.game_data, "data");
+	state->folders.game_data_length = strlen(state->folders.game_data);
+
 
 	char *local_share = getenv("XDG_DATA_HOME");
 	if (local_share == nullptr) {
