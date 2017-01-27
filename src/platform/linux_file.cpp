@@ -24,54 +24,130 @@
 
 #include "file.h"
 
-#include <memory>
-#include <algorithm>
-
-#include <sys/types.h>
-#include <sys/stat.h>
-
 #include <unistd.h>
+#include <linux/limits.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include <pwd.h>
+
 
 void init_platform_paths(PlatformState *state)
 {
-	VAR_UNUSED(state);
+	// TODO(jesper): deal with cases where the absolute path to the binary
+	// exceeds PATH_MAX bytes, haven't figured out a good way to do this
+	char buffer[PATH_MAX];
+	char linkname[64];
+
+	pid_t pid = getpid();
+	int result = snprintf(linkname, sizeof(linkname), "/proc/%i/exe", pid);
+	DEBUG_ASSERT(result >= 0);
+
+	ssize_t length = readlink(linkname, buffer, sizeof(buffer));
+	DEBUG_ASSERT(result >= 0);
+
+	for (; length >= 0; length--) {
+		if (buffer[length-1] == '/') {
+			break;
+		}
+	}
+
+	state->folders.game_data = (char*)malloc(length + strlen("data") + 1);
+	strncpy(state->folders.game_data, buffer, length);
+	strcat(state->folders.game_data, "data");
+
+	char *local_share = getenv("XDG_DATA_HOME");
+	if (local_share == nullptr) {
+		struct passwd *pw = getpwuid(getuid());
+		result = snprintf(buffer, sizeof(buffer), "%s/.local/share", pw->pw_dir);
+		DEBUG_ASSERT(result >= 0);
+
+		local_share = buffer;
+	}
+
+	const char *suffix = "/leary";
+	size_t suffix_length = strlen(suffix);
+
+	state->folders.preferences = (char*)malloc(strlen(local_share) + suffix_length + 1);
+	strcpy(state->folders.preferences, local_share);
+	strcat(state->folders.preferences, suffix);
+
+	state->folders.preferences_length = strlen(state->folders.preferences);
 }
 
 bool file_exists(const char *path)
 {
-	VAR_UNUSED(path);
-	return false;
+	struct stat st;
+	return (stat(path, &st) == 0);
 }
 
 bool file_create(const char *path)
 {
-	VAR_UNUSED(path);
-	return false;
+	int fd = open(path, O_CREAT);
+
+	if (fd >= 0) {
+		close(fd);
+	}
+
+	return fd >= 0;
 }
 
 void* file_open(const char *path, FileMode mode)
 {
-	VAR_UNUSED(path);
-	VAR_UNUSED(mode);
-	return nullptr;
+	int flags = 0;
+
+	switch (mode) {
+	case FileMode::read:
+		flags = O_RDONLY;
+		break;
+	case FileMode::write:
+		flags = O_WRONLY;
+		break;
+	case FileMode::read_write:
+		flags = O_RDWR;
+		break;
+	default:
+		DEBUG_ASSERT(false);
+		return nullptr;
+	}
+
+	int fd = open(path, flags);
+	if (fd < 0) {
+		return nullptr;
+	}
+
+	return (void*)fd;
 }
 
 void file_close(void *file_handle)
 {
-	VAR_UNUSED(file_handle);
+	int fd = (int)(int64_t)file_handle;
+	DEBUG_ASSERT(fd >= 0);
+
+	close(fd);
 }
 
-void* file_read(const char *filename, size_t *file_size)
+void* file_read(const char *path, size_t *file_size)
 {
-	VAR_UNUSED(filename);
-	VAR_UNUSED(file_size);
-	return nullptr;
+	struct stat st;
+	int result = stat(path, &st);
+	DEBUG_ASSERT(result == 0);
+
+	char *buffer = (char*)malloc(st.st_size);
+
+	int fd = open(path, O_RDONLY);
+	DEBUG_ASSERT(fd >= 0);
+
+	ssize_t bytes_read = read(fd, buffer, st.st_size);
+	DEBUG_ASSERT(bytes_read == st.st_size);
+	*file_size = bytes_read;
+
+	return buffer;
 }
 
 void file_write(void *file_handle, void *buffer, size_t bytes)
 {
-	VAR_UNUSED(file_handle);
-	VAR_UNUSED(buffer);
-	VAR_UNUSED(bytes);
+	int fd = (int)(int64_t)file_handle;
+	ssize_t written = write(fd, buffer, bytes);
+	DEBUG_ASSERT(written >= 0);
+	DEBUG_ASSERT((size_t)written == bytes);
 }
