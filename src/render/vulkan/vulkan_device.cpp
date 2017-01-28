@@ -58,38 +58,134 @@ namespace
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL
 debug_callback_func(VkFlags                    flags,
-                    VkDebugReportObjectTypeEXT type,
-                    uint64_t                   src,
+                    VkDebugReportObjectTypeEXT object_type,
+                    uint64_t                   object,
                     size_t                     location,
-                    int32_t                    code,
-                    const char*                prefix,
-                    const char*                msg,
-                    void*                      data)
+                    int32_t                    message_code,
+                    const char*                layer,
+                    const char*                message,
+                    void*                      user_data)
 {
 	// NOTE: these might be useful?
-	VAR_UNUSED(type);
-	VAR_UNUSED(src);
+	VAR_UNUSED(object);
 	VAR_UNUSED(location);
+	VAR_UNUSED(user_data);
 
-	// NOTE: we never set any data when creating the callback, so useless for
-	// now
-	VAR_UNUSED(data);
-
+	// TODO(jesper): multiple flags can be set at the same time, I don't really
+	// have a way to express this in my current logging system so I let the log
+	// type be decided by a severity precedence
 	LogType log_type;
-	if (flags & VK_DEBUG_REPORT_ERROR_BIT_EXT)
+	if (flags & VK_DEBUG_REPORT_ERROR_BIT_EXT) {
 		log_type = LogType::error;
-	else if (flags & VK_DEBUG_REPORT_WARNING_BIT_EXT)
+	} else if (flags & VK_DEBUG_REPORT_WARNING_BIT_EXT) {
 		log_type = LogType::warning;
-	else if (flags & (VK_DEBUG_REPORT_DEBUG_BIT_EXT |
-	                  VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT))
+	} else if (flags & (VK_DEBUG_REPORT_DEBUG_BIT_EXT |
+	                    VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT))
+	{
 		log_type = LogType::info;
-	else
+	} else {
 		// NOTE: this would only happen if they extend the report callback
 		// flags
 		log_type = LogType::info;
+	}
 
-	DEBUG_LOGF(log_type, "[VULKAN]: %s (%d) - %s", prefix, code, msg);
-	return false;
+	const char *object_str;
+	switch (object_type) {
+	case VK_DEBUG_REPORT_OBJECT_TYPE_BUFFER_EXT:
+		object_str = "VkBuffer";
+		break;
+	case VK_DEBUG_REPORT_OBJECT_TYPE_BUFFER_VIEW_EXT:
+		object_str = "VkBufferView";
+		break;
+	case VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT:
+		object_str = "VkCommandBuffer";
+		break;
+	case VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_POOL_EXT:
+		object_str = "VkCommandPool";
+		break;
+	case VK_DEBUG_REPORT_OBJECT_TYPE_DEBUG_REPORT_EXT:
+		object_str = "VkDebugReport";
+		break;
+	case VK_DEBUG_REPORT_OBJECT_TYPE_DESCRIPTOR_POOL_EXT:
+		object_str = "VkDescriptorPool";
+		break;
+	case VK_DEBUG_REPORT_OBJECT_TYPE_DESCRIPTOR_SET_EXT:
+		object_str = "VkDescriptorSet";
+		break;
+	case VK_DEBUG_REPORT_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT_EXT:
+		object_str = "VkDescriptorSetLayout";
+		break;
+	case VK_DEBUG_REPORT_OBJECT_TYPE_DEVICE_EXT:
+		object_str = "VkDevice";
+		break;
+	case VK_DEBUG_REPORT_OBJECT_TYPE_DEVICE_MEMORY_EXT:
+		object_str = "VkDeviceMemory";
+		break;
+	case VK_DEBUG_REPORT_OBJECT_TYPE_EVENT_EXT:
+		object_str = "VkEvent";
+		break;
+	case VK_DEBUG_REPORT_OBJECT_TYPE_FENCE_EXT:
+		object_str = "VkFence";
+		break;
+	case VK_DEBUG_REPORT_OBJECT_TYPE_FRAMEBUFFER_EXT:
+		object_str = "VkFramebuffer";
+		break;
+	case VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT:
+		object_str = "VkImage";
+		break;
+	case VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_VIEW_EXT:
+		object_str = "VkImageView";
+		break;
+	case VK_DEBUG_REPORT_OBJECT_TYPE_INSTANCE_EXT:
+		object_str = "VkInstance";
+		break;
+	case VK_DEBUG_REPORT_OBJECT_TYPE_PHYSICAL_DEVICE_EXT:
+		object_str = "VkPhysicalDevice";
+		break;
+	case VK_DEBUG_REPORT_OBJECT_TYPE_PIPELINE_CACHE_EXT:
+		object_str = "VkPipelineCache";
+		break;
+	case VK_DEBUG_REPORT_OBJECT_TYPE_PIPELINE_EXT:
+		object_str = "VkPipeline";
+		break;
+	case VK_DEBUG_REPORT_OBJECT_TYPE_PIPELINE_LAYOUT_EXT:
+		object_str = "VkPipelineLayout";
+		break;
+	case VK_DEBUG_REPORT_OBJECT_TYPE_QUERY_POOL_EXT:
+		object_str = "VkQueryPool";
+		break;
+	case VK_DEBUG_REPORT_OBJECT_TYPE_QUEUE_EXT:
+		object_str = "VkQueue";
+		break;
+	case VK_DEBUG_REPORT_OBJECT_TYPE_RENDER_PASS_EXT:
+		object_str = "VkRenderPass";
+		break;
+	case VK_DEBUG_REPORT_OBJECT_TYPE_SAMPLER_EXT:
+		object_str = "VkSampler";
+		break;
+	case VK_DEBUG_REPORT_OBJECT_TYPE_SEMAPHORE_EXT:
+		object_str = "VkSemaphore";
+		break;
+	case VK_DEBUG_REPORT_OBJECT_TYPE_SHADER_MODULE_EXT:
+		object_str = "VkShaderModule";
+		break;
+	case VK_DEBUG_REPORT_OBJECT_TYPE_SURFACE_KHR_EXT:
+		object_str = "VkSurfaceKHR";
+		break;
+	case VK_DEBUG_REPORT_OBJECT_TYPE_SWAPCHAIN_KHR_EXT:
+		object_str = "VkSwapchainKHR";
+		break;
+
+	default:
+	case VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT:
+		object_str = "unknown";
+		break;
+	}
+
+	DEBUG_LOGF(log_type, "[Vulkan:%s] [%s:%d] - %s",
+	           layer, object_str, message_code, message);
+	DEBUG_ASSERT(log_type != LogType::error);
+	return VK_FALSE;
 }
 
 void VulkanDevice::copy_image(uint32_t width, uint32_t height,
@@ -129,6 +225,16 @@ void VulkanDevice::transition_image(VkImage image,
 {
 	VkCommandBuffer command = begin_command_buffer();
 
+	VkImageAspectFlags aspect_mask = 0;
+	switch (dst) {
+	case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
+		aspect_mask |= VK_IMAGE_ASPECT_DEPTH_BIT;
+		break;
+	default:
+		aspect_mask |= VK_IMAGE_ASPECT_COLOR_BIT;
+		break;
+	}
+
 	VkImageMemoryBarrier barrier = {};
 	barrier.sType                           = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
 	barrier.oldLayout                       = src;
@@ -136,7 +242,7 @@ void VulkanDevice::transition_image(VkImage image,
 	barrier.srcQueueFamilyIndex             = VK_QUEUE_FAMILY_IGNORED;
 	barrier.dstQueueFamilyIndex             = VK_QUEUE_FAMILY_IGNORED;
 	barrier.image                           = image;
-	barrier.subresourceRange.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
+	barrier.subresourceRange.aspectMask     = aspect_mask;
 	// TODO(jesper): support mip layers
 	barrier.subresourceRange.baseMipLevel   = 0;
 	barrier.subresourceRange.levelCount     = 1;

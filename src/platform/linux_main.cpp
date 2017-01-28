@@ -140,11 +140,12 @@ main()
 				if (keymap->keys[key->detail / 8] & (1 << (key->detail % 8)))
 					break;
 
+#if 0
 				switch (key->detail) {
 				default:
 					std::printf("unhandled key release event: %d\n", key->detail);
-
 				}
+#endif
 
 				break;
 			}
@@ -157,14 +158,18 @@ main()
 					quit();
 					break;
 				default:
+#if 0
 					std::printf("unhandled key press event: %d\n", key->detail);
+#endif
 					break;
 				}
 
 				break;
 			}
 			default:
+#if 0
 				std::printf("unhandled event: %d\n", event->response_type);
+#endif
 				break;
 			}
 		}
