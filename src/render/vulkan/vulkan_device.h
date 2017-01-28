@@ -116,11 +116,12 @@ public:
 	VkImage          *vk_swapchain_images;
 	VkImageView      *vk_swapchain_imageviews;
 
+	VkSemaphore swapchain_image_available;
+	VkSemaphore render_completed;
+
 	// Command pool and buffers
 	VkCommandPool    vk_command_pool;
 
-	VkCommandBuffer  vk_cmd_buffers[2];
-	VkCommandBuffer  vk_cmd_init;
 	VkCommandBuffer  vk_cmd_present;
 
 	// Depth Buffer

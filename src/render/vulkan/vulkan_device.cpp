@@ -967,27 +967,6 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 		DEBUG_ASSERT(result == VK_SUCCESS);
 	}
 
-	/**************************************************************************
-	 * Create VkCommandBuffer for initialisation and present
-	 *************************************************************************/
-	{
-		// NOTE: we want to allocate all the command buffers we're going to need
-		// in the game at once.
-		VkCommandBufferAllocateInfo allocate_info = {};
-		allocate_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-		allocate_info.commandPool        = vk_command_pool;
-		allocate_info.level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-		allocate_info.commandBufferCount = 2;
-
-		result = vkAllocateCommandBuffers(vk_device,
-		                                  &allocate_info,
-		                                  vk_cmd_buffers);
-		DEBUG_ASSERT(result == VK_SUCCESS);
-
-		vk_cmd_init    = vk_cmd_buffers[0];
-		vk_cmd_present = vk_cmd_buffers[1];
-	}
-
 
 	/**************************************************************************
 	 * Create Depth buffer
@@ -1461,6 +1440,44 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 		vkDestroyShaderModule(vk_device, vertex_shader.module,   nullptr);
 		vkDestroyShaderModule(vk_device, fragment_shader.module, nullptr);
 	}
+
+	VkSemaphoreCreateInfo semaphore_info = {};
+	semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+
+	result = vkCreateSemaphore(vk_device,
+	                           &semaphore_info,
+	                           nullptr,
+	                           &swapchain_image_available);
+	DEBUG_ASSERT(result == VK_SUCCESS);
+
+	result = vkCreateSemaphore(vk_device,
+	                           &semaphore_info,
+	                           nullptr,
+	                           &render_completed);
+	DEBUG_ASSERT(result == VK_SUCCESS);
+
+	// create command buffers used to draw the frame
+	{
+
+	}
+	/**************************************************************************
+	 * Create VkCommandBuffer for frame
+	 *************************************************************************/
+	{
+		// NOTE: we want to allocate all the command buffers we're going to need
+		// in the game at once.
+		VkCommandBufferAllocateInfo allocate_info = {};
+		allocate_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+		allocate_info.commandPool        = vk_command_pool;
+		allocate_info.level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+		allocate_info.commandBufferCount = 1;
+
+		result = vkAllocateCommandBuffers(vk_device, &allocate_info, &vk_cmd_present);
+		DEBUG_ASSERT(result == VK_SUCCESS);
+
+
+	}
+
 }
 
 void
@@ -1468,6 +1485,8 @@ VulkanDevice::destroy()
 {
 	VkResult result;
 	VAR_UNUSED(result);
+
+	vkDestroySemaphore(vk_device, swapchain_image_available, nullptr);
 
 	// wait for pending operations
 	result = vkQueueWaitIdle(vk_queue);
@@ -1493,7 +1512,7 @@ VulkanDevice::destroy()
 	vkFreeMemory(vk_device, vk_depth_memory, nullptr);
 	vkDestroyImage(vk_device, vk_depth_image, nullptr);
 
-	vkFreeCommandBuffers(vk_device, vk_command_pool, 2, vk_cmd_buffers);
+	vkFreeCommandBuffers(vk_device, vk_command_pool, 1, &vk_cmd_present);
 	vkDestroyCommandPool(vk_device, vk_command_pool, nullptr);
 
 	vkDestroySwapchainKHR(vk_device, vk_swapchain, nullptr);
@@ -1579,156 +1598,136 @@ VulkanDevice::destroy_vertex_buffer(VulkanVertexBuffer* buffer)
 	vkDestroyBuffer(this->vk_device, buffer->vk_buffer, nullptr);
 }
 
-void
-VulkanDevice::present()
+
+void VulkanDevice::present()
 {
 	VkResult result;
 
-	VkSemaphore image_acquired, render_completed;
-
-	VkSemaphoreCreateInfo semaphore_info = {};
-	semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-
-	result = vkCreateSemaphore(vk_device,
-	                           &semaphore_info,
-	                           nullptr,
-	                           &image_acquired);
-	DEBUG_ASSERT(result == VK_SUCCESS);
-
-	result = vkCreateSemaphore(vk_device,
-	                           &semaphore_info,
-	                           nullptr,
-	                           &render_completed);
-	DEBUG_ASSERT(result == VK_SUCCESS);
-
-	/**************************************************************************
-	 * Acquire next available swapchain image
-	 *************************************************************************/
-	uint32_t image_index = std::numeric_limits<uint32_t>::max();
-	uint64_t timeout     = std::numeric_limits<uint64_t>::max();
-
+	uint32_t image_index;
 	result = vkAcquireNextImageKHR(vk_device,
 	                               vk_swapchain,
-	                               timeout,
-	                               image_acquired,
+	                               UINT64_MAX,
+	                               swapchain_image_available,
 	                               VK_NULL_HANDLE,
 	                               &image_index);
 	DEBUG_ASSERT(result == VK_SUCCESS);
 
-	/**************************************************************************
-	 * Fill present command buffer
-	 *************************************************************************/
-	VkCommandBufferBeginInfo present_begin_info = {};
-	present_begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	present_begin_info.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
-	present_begin_info.pInheritanceInfo = nullptr;
+	{
+		VkCommandBufferBeginInfo begin_info = {};
+		begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+		begin_info.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
 
-	result = vkBeginCommandBuffer(vk_cmd_present, &present_begin_info);
-	DEBUG_ASSERT(result == VK_SUCCESS);
+		result = vkBeginCommandBuffer(vk_cmd_present, &begin_info);
+		DEBUG_ASSERT(result == VK_SUCCESS);
 
-	transition_image(vk_cmd_present,
-	                 vk_swapchain_images[image_index],
-	                 VK_IMAGE_LAYOUT_UNDEFINED,
-	                 VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+		VkClearValue clear_values[2];
+		clear_values[0].color = { {1.0f, 0.0f, 0.0f, 0.0f} };
+		clear_values[1].depthStencil = { 1, 0 };
 
-	VkClearValue clear_values[2];
-	clear_values[0].color.float32[0] = 0.3f;
-	clear_values[0].color.float32[1] = 0.5f;
-	clear_values[0].color.float32[2] = 0.9f;
-	clear_values[0].color.float32[3] = 1.0f;
+		VkRenderPassBeginInfo render_info = {};
+		render_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+		render_info.renderPass = vk_renderpass;
+		render_info.framebuffer = vk_framebuffers[image_index];
+		render_info.renderArea.offset = { 0, 0 };
+		render_info.renderArea.extent = vk_swapchain_extent;
+		render_info.clearValueCount = 2;
+		render_info.pClearValues = clear_values;
 
-	clear_values[1].depthStencil  = { 1, 0 };
+		vkCmdBeginRenderPass(vk_cmd_present,
+		                     &render_info,
+		                     VK_SUBPASS_CONTENTS_INLINE);
 
-	VkRect2D render_area = {
-		{ 0,       0        },
-		{ vk_swapchain_extent.width, vk_swapchain_extent.height }
-	};
+			vkCmdBindPipeline(vk_cmd_present,
+			                  VK_PIPELINE_BIND_POINT_GRAPHICS,
+			                  vk_pipeline);
 
-	VkRenderPassBeginInfo render_pass_begin_info = {};
-	render_pass_begin_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-	render_pass_begin_info.renderPass      = vk_renderpass;
-	render_pass_begin_info.framebuffer     = vk_framebuffers[image_index];
-	render_pass_begin_info.renderArea      = render_area;
-	render_pass_begin_info.clearValueCount = 2;
-	render_pass_begin_info.pClearValues    = clear_values;
+			VkViewport viewport = {};
+			viewport.x        = 0.0f;
+			viewport.y        = 0.0f;
+			viewport.width    = (float)vk_swapchain_extent.width;
+			viewport.height   = (float)vk_swapchain_extent.height;
+			viewport.minDepth = 0.0f;
+			viewport.maxDepth = 1.0f;
 
-	vkCmdBeginRenderPass(vk_cmd_present,
-	                     &render_pass_begin_info,
-	                     VK_SUBPASS_CONTENTS_INLINE);
+			VkRect2D render_area = {
+				{ 0,       0        },
+				{ vk_swapchain_extent.width, vk_swapchain_extent.height }
+			};
 
-	vkCmdBindPipeline(vk_cmd_present,
-	                  VK_PIPELINE_BIND_POINT_GRAPHICS,
-	                  vk_pipeline);
+			vkCmdSetViewport(vk_cmd_present, 0, 1, &viewport);
+			vkCmdSetScissor(vk_cmd_present, 0, 1, &render_area);
 
-	VkViewport viewport = {};
-	viewport.x        = 0.0f;
-	viewport.y        = 0.0f;
-	viewport.width    = (float)vk_swapchain_extent.width;
-	viewport.height   = (float)vk_swapchain_extent.height;
-	viewport.minDepth = 0.0f;
-	viewport.maxDepth = 1.0f;
+			VkDeviceSize offsets[] = { 0 };
+			vkCmdBindVertexBuffers(vk_cmd_present,
+			                       0,
+			                       1, &vertex_buffer.vk_buffer,
+			                       offsets);
 
-	vkCmdSetViewport(vk_cmd_present, 0, 1, &viewport);
-	vkCmdSetScissor(vk_cmd_present, 0, 1, &render_area);
+			vkCmdBindDescriptorSets(vk_cmd_present,
+			                        VK_PIPELINE_BIND_POINT_GRAPHICS,
+			                        vk_pipeline_layout,
+			                        0,
+			                        1, &descriptor_set,
+			                        0, nullptr);
 
-	vkCmdBindDescriptorSets(vk_cmd_present,
-	                        VK_PIPELINE_BIND_POINT_GRAPHICS,
-	                        vk_pipeline_layout,
-	                        0,
-	                        1, &descriptor_set,
-	                        0, nullptr);
+			vkCmdDraw(vk_cmd_present, 6, 1, 0, 0);
+		vkCmdEndRenderPass(vk_cmd_present);
+		result = vkEndCommandBuffer(vk_cmd_present);
+		DEBUG_ASSERT(result == VK_SUCCESS);
+	}
 
-	VkDeviceSize buffer_offsets= 0;
-	vkCmdBindVertexBuffers(vk_cmd_present, VERTEX_INPUT_BINDING,
-	                       1, &vertex_buffer.vk_buffer, &buffer_offsets);
+	{
+		VkSemaphore wait_semaphores[] = {
+			swapchain_image_available
+		};
 
-	vkCmdDraw(vk_cmd_present, 6, 1, 0, 0);
+		VkPipelineStageFlags wait_stages[] = {
+			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
+		};
 
-	vkCmdEndRenderPass(vk_cmd_present);
+		VkSemaphore signal_semaphores[] = {
+			render_completed
+		};
 
-	result = vkEndCommandBuffer(vk_cmd_present);
-	DEBUG_ASSERT(result == VK_SUCCESS);
+		VkSubmitInfo submit_info = {};
+		submit_info.sType                = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+		submit_info.waitSemaphoreCount   = 1;
+		submit_info.pWaitSemaphores      = wait_semaphores;
+		submit_info.pWaitDstStageMask    = wait_stages;
+		submit_info.commandBufferCount   = 1;
+		submit_info.pCommandBuffers      = &vk_cmd_present;
+		submit_info.signalSemaphoreCount = 1;
+		submit_info.pSignalSemaphores    = signal_semaphores;
 
-	/**************************************************************************
-	 * Submit Present command buffer to queue
-	 *************************************************************************/
-	VkPipelineStageFlags pipeline_stage_flags =
-		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		// TODO(jesper): split graphics and present queue
+		result = vkQueueSubmit(vk_queue, 1, &submit_info, VK_NULL_HANDLE);
+		DEBUG_ASSERT(result == VK_SUCCESS);
+	}
 
-	VkSubmitInfo submit_info = {};
-	submit_info.sType                = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-	submit_info.waitSemaphoreCount   = 1;
-	submit_info.pWaitSemaphores      = &image_acquired;
-	submit_info.pWaitDstStageMask    = &pipeline_stage_flags;
-	submit_info.commandBufferCount   = 1;
-	submit_info.pCommandBuffers      = &vk_cmd_present;
-	submit_info.signalSemaphoreCount = 1;
-	submit_info.pSignalSemaphores    = &render_completed;
+	{
+		VkSemaphore wait_semaphores[] = {
+			render_completed
+		};
 
-	result = vkQueueSubmit(vk_queue, 1, &submit_info, VK_NULL_HANDLE);
-	DEBUG_ASSERT(result == VK_SUCCESS);
+		VkSwapchainKHR swapchains[] = {
+			vk_swapchain
+		};
 
-	/**************************************************************************
-	 * Present the rendered image
-	 *************************************************************************/
-	VkPresentInfoKHR present_info = {};
-	present_info.sType              = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-	present_info.waitSemaphoreCount = 1;
-	present_info.pWaitSemaphores    = &render_completed;
-	present_info.swapchainCount     = 1;
-	present_info.pSwapchains        = &vk_swapchain;
-	present_info.pImageIndices      = &image_index;
-	present_info.pResults           = nullptr;
+		VkPresentInfoKHR present_info = {};
+		present_info.sType              = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+		present_info.waitSemaphoreCount = 1;
+		present_info.pWaitSemaphores    = wait_semaphores;
+		present_info.swapchainCount     = 1;
+		present_info.pSwapchains        = swapchains;
+		present_info.pImageIndices      = &image_index;
 
-	result = vkQueuePresentKHR(vk_queue, &present_info);
-	DEBUG_ASSERT(result == VK_SUCCESS);
+		// TODO(jesper): split graphics and present queue
+		result = vkQueuePresentKHR(vk_queue, &present_info);
+		DEBUG_ASSERT(result == VK_SUCCESS);
+	}
 
-	// wait for idle operations
 	result = vkQueueWaitIdle(vk_queue);
 	DEBUG_ASSERT(result == VK_SUCCESS);
-
-	vkDestroySemaphore(vk_device, render_completed, nullptr);
-	vkDestroySemaphore(vk_device, image_acquired,  nullptr);
 }
 
 uint32_t VulkanDevice::find_memory_type(uint32_t filter,
