@@ -34,6 +34,10 @@ struct Vector3f {
 	float x, y, z;
 };
 
+struct Vector4f {
+	float x, y, z, w;
+};
+
 inline float    length(Vector3f vec);
 inline float    dot(Vector3f lhs, Vector3f rhs);
 inline Vector3f cross(Vector3f lhs, Vector3f rhs);

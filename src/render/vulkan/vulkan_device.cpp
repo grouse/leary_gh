@@ -46,7 +46,6 @@ namespace
 	};
 
 	const float vertices[] = {
-	    //      position             texture_coordinate
 		0.0f,  0.0f,  0.0f, 0.0,  0.0f,
 		0.5f,  0.0f,  0.0f, 1.0f, 0.0f,
 		0.5f,  0.5f,  0.0f, 1.0f, 1.0f,
@@ -219,12 +218,11 @@ void VulkanDevice::copy_image(uint32_t width, uint32_t height,
 	end_command_buffer(command);
 }
 
-void VulkanDevice::transition_image(VkImage image,
+void VulkanDevice::transition_image(VkCommandBuffer command,
+                                    VkImage image,
                                     VkImageLayout src,
                                     VkImageLayout dst)
 {
-	VkCommandBuffer command = begin_command_buffer();
-
 	VkImageAspectFlags aspect_mask = 0;
 	switch (dst) {
 	case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
@@ -250,6 +248,9 @@ void VulkanDevice::transition_image(VkImage image,
 	barrier.subresourceRange.layerCount     = 1;
 
 	switch (src) {
+	case VK_IMAGE_LAYOUT_UNDEFINED:
+		barrier.srcAccessMask = 0;
+		break;
 	case VK_IMAGE_LAYOUT_PREINITIALIZED:
 		barrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT;
 		break;
@@ -290,7 +291,14 @@ void VulkanDevice::transition_image(VkImage image,
 	                     0, nullptr,
 	                     0, nullptr,
 	                     1, &barrier);
+}
 
+void VulkanDevice::transition_image(VkImage image,
+                                    VkImageLayout src,
+                                    VkImageLayout dst)
+{
+	VkCommandBuffer command = begin_command_buffer();
+	transition_image(command, image, src, dst);
 	end_command_buffer(command);
 }
 
@@ -1137,10 +1145,12 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 	vertex_buffer = create_vertex_buffer(sizeof(vertices),
 	                                     (uint8_t*) vertices);
 
-	uint8_t pixels[32*32*4];
-	pixels[0] = 255;
-	pixels[32*32*4 - 1] = 255;
-	VulkanTexture texture = create_texture(32, 32, VK_FORMAT_R8G8B8A8_UNORM, pixels);
+	Vector4f pixels[32*32] = {};
+	pixels[0]     = { 1.0f, 0.0f, 0.0f, 1.0f };
+	pixels[31]    = { 0.0f, 1.0f, 0.0f, 1.0f };
+	pixels[31*31] = { 0.0f, 0.0f, 1.0f, 1.0f };
+
+	VulkanTexture texture = create_texture(32, 32, VK_FORMAT_R32G32B32A32_SFLOAT, pixels);
 
 	/**************************************************************************
 	 * Create Shader modules
@@ -1616,35 +1626,10 @@ VulkanDevice::present()
 	result = vkBeginCommandBuffer(vk_cmd_present, &present_begin_info);
 	DEBUG_ASSERT(result == VK_SUCCESS);
 
-	VkImageSubresourceRange subresource_range = {};
-	subresource_range.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
-	subresource_range.baseMipLevel   = 0;
-	subresource_range.levelCount     = 1;
-	subresource_range.baseArrayLayer = 0;
-	subresource_range.layerCount     = 1;
-
-	VkImageMemoryBarrier memory_barrier = {};
-	memory_barrier.sType               = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-	memory_barrier.srcAccessMask       = 0;
-	memory_barrier.dstAccessMask       = 0;
-	memory_barrier.oldLayout           = VK_IMAGE_LAYOUT_UNDEFINED;
-	memory_barrier.newLayout           = VK_IMAGE_LAYOUT_UNDEFINED;
-	memory_barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-	memory_barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-	memory_barrier.image               = vk_swapchain_images[image_index];
-	memory_barrier.subresourceRange    = subresource_range;
-
-	// transition swapchain image to VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
-	memory_barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-	memory_barrier.newLayout     = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-
-	vkCmdPipelineBarrier(vk_cmd_present,
-	                     VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-	                     VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-	                     0,
-	                     0, nullptr,
-	                     0, nullptr,
-	                     1, &memory_barrier);
+	transition_image(vk_cmd_present,
+	                 vk_swapchain_images[image_index],
+	                 VK_IMAGE_LAYOUT_UNDEFINED,
+	                 VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
 	VkClearValue clear_values[2];
 	clear_values[0].color.float32[0] = 0.3f;

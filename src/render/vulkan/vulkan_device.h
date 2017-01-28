@@ -60,9 +60,15 @@ public:
 	VkCommandBuffer begin_command_buffer();
 	void            end_command_buffer(VkCommandBuffer buffer);
 
+	void transition_image(VkCommandBuffer command,
+	                      VkImage image,
+	                      VkImageLayout src,
+	                      VkImageLayout dst);
+
 	void transition_image(VkImage image,
 	                      VkImageLayout src,
 	                      VkImageLayout dst);
+
 	void copy_image(uint32_t width, uint32_t height, VkImage src, VkImage dst);
 
 	uint32_t find_memory_type(uint32_t filter, VkMemoryPropertyFlags flags);
