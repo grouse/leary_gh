@@ -36,13 +36,13 @@
 namespace
 {
 	const float vertices[] = {
-		0.0f,  0.0f,  0.0f,   0.0f, 0.0f, 0.0f, 0.0f,   0.0,  0.0f,
-		0.5f,  0.0f,  0.0f,   0.0f, 0.0f, 0.0f, 0.0f,   1.0f, 0.0f,
-		0.5f,  0.5f,  0.0f,   0.0f, 0.0f, 0.0f, 0.0f,   1.0f, 1.0f,
+		-0.5f, -0.5f,  0.0f,   0.0f, 0.0f, 0.0f, 0.0f,   0.0,  0.0f,
+		 0.5f, -0.5f,  0.0f,   0.0f, 0.0f, 0.0f, 0.0f,   1.0f, 0.0f,
+		 0.5f,  0.5f,  0.0f,   0.0f, 0.0f, 0.0f, 0.0f,   1.0f, 1.0f,
 
-		0.5f,  0.5f,  0.0f,   0.0f, 0.0f, 0.0f, 0.0f,   1.0f, 1.0f,
-		0.0f,  0.5f,  0.0f,   0.0f, 0.0f, 0.0f, 0.0f,   0.0f, 1.0f,
-		0.0f,  0.0f,  0.0f,   0.0f, 0.0f, 0.0f, 0.0f,   0.0f, 0.0f,
+		 0.5f,  0.5f,  0.0f,   0.0f, 0.0f, 0.0f, 0.0f,   1.0f, 1.0f,
+		-0.5f,  0.5f,  0.0f,   0.0f, 0.0f, 0.0f, 0.0f,   0.0f, 1.0f,
+		-0.5f, -0.5f,  0.0f,   0.0f, 0.0f, 0.0f, 0.0f,   0.0f, 0.0f,
 	};
 }
 
@@ -1331,19 +1331,10 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 		raster_info.cullMode                = VK_CULL_MODE_BACK_BIT;
 		raster_info.frontFace               = VK_FRONT_FACE_CLOCKWISE;
 		raster_info.depthBiasEnable         = VK_FALSE;
-		raster_info.depthBiasConstantFactor = 0.0f;
-		raster_info.depthBiasClamp          = 0.0f;
-		raster_info.depthBiasSlopeFactor    = 0.0f;
 		raster_info.lineWidth               = 1.0;
 
 		VkPipelineColorBlendAttachmentState color_blend_attachment = {};
 		color_blend_attachment.blendEnable         = VK_FALSE;
-		color_blend_attachment.srcColorBlendFactor = VK_BLEND_FACTOR_ZERO;
-		color_blend_attachment.dstColorBlendFactor = VK_BLEND_FACTOR_ZERO;
-		color_blend_attachment.colorBlendOp        = VK_BLEND_OP_ADD;
-		color_blend_attachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-		color_blend_attachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-		color_blend_attachment.alphaBlendOp        = VK_BLEND_OP_ADD;
 		color_blend_attachment.colorWriteMask      = VK_COLOR_COMPONENT_R_BIT |
 		                                             VK_COLOR_COMPONENT_G_BIT |
 		                                             VK_COLOR_COMPONENT_B_BIT |
