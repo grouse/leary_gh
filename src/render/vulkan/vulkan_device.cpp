@@ -35,23 +35,14 @@
 
 namespace
 {
-	constexpr int VERTEX_INPUT_BINDING = 0;	// The Vertex Input Binding for our vertex buffer.
-
-	// Vertex data to draw.
-	constexpr int NUM_DEMO_VERTICES = 6;
-
-	struct ColoredVertex {
-		Vector3f pos;
-		Vector3f color;
-	};
-
 	const float vertices[] = {
-		0.0f,  0.0f,  0.0f, 0.0,  0.0f,
-		0.5f,  0.0f,  0.0f, 1.0f, 0.0f,
-		0.5f,  0.5f,  0.0f, 1.0f, 1.0f,
-		0.0f,  0.0f,  0.0f, 0.0f, 0.0f,
-		0.0f,  0.5f,  0.0f, 0.0f, 1.0f,
-		0.5f,  0.5f,  0.0f, 1.0f, 1.0f,
+		0.0f,  0.0f,  0.0f,   0.0f, 0.0f, 0.0f, 0.0f,   0.0,  0.0f,
+		0.5f,  0.0f,  0.0f,   0.0f, 0.0f, 0.0f, 0.0f,   1.0f, 0.0f,
+		0.5f,  0.5f,  0.0f,   0.0f, 0.0f, 0.0f, 0.0f,   1.0f, 1.0f,
+
+		0.5f,  0.5f,  0.0f,   0.0f, 0.0f, 0.0f, 0.0f,   1.0f, 1.0f,
+		0.0f,  0.5f,  0.0f,   0.0f, 0.0f, 0.0f, 0.0f,   0.0f, 1.0f,
+		0.0f,  0.0f,  0.0f,   0.0f, 0.0f, 0.0f, 0.0f,   0.0f, 0.0f,
 	};
 }
 
@@ -418,11 +409,6 @@ VulkanTexture VulkanDevice::create_texture(uint32_t width,
 	                                     VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
 	                                     &staging_memory);
 
-	void *data;
-	// TODO(jesper): hardcoded 1 byte per channel and 4 channels, lookup based
-	// on the receieved VkFormat
-	VkDeviceSize size = width * height * 4;
-	vkMapMemory(vk_device, staging_memory, 0, size, 0, &data);
 
 	VkImageSubresource subresource = {};
 	subresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -433,15 +419,21 @@ VulkanTexture VulkanDevice::create_texture(uint32_t width,
 	vkGetImageSubresourceLayout(vk_device, staging_image,
 	                            &subresource, &staging_image_layout);
 
-	if (staging_image_layout.rowPitch == width * 4) {
+	void *data;
+	// TODO(jesper): hardcoded 1 byte per channel and 4 channels, lookup based
+	// on the receieved VkFormat
+	VkDeviceSize size = width * height * 4 * 4;
+	vkMapMemory(vk_device, staging_memory, 0, size, 0, &data);
+
+	if (staging_image_layout.rowPitch == width * 4 * 4) {
 		memcpy(data, pixels, (size_t)size);
 	} else {
 		uint8_t *bytes = (uint8_t*)data;
 		uint8_t *pixel_bytes = (uint8_t*)pixels;
 		for (int32_t y = 0; y < (int32_t)height; y++) {
-			memcpy(&bytes[y * staging_image_layout.rowPitch],
-			       &pixel_bytes[y * width * 4],
-			       width * 4);
+			memcpy(&bytes[y * 4 * staging_image_layout.rowPitch],
+			       &pixel_bytes[y * width * 4 * 4],
+			       width * 4 * 4);
 		}
 	}
 
@@ -573,10 +565,8 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 			VkExtensionProperties &extension = supported_extensions[i];
 
 			if (platform_vulkan_enable_instance_extension(extension) ||
-			    strcmp(extension.extensionName,
-			           VK_KHR_SURFACE_EXTENSION_NAME) == 0 ||
-			    strcmp(extension.extensionName,
-			           VK_EXT_DEBUG_REPORT_EXTENSION_NAME) == 0)
+			    strcmp(extension.extensionName, VK_KHR_SURFACE_EXTENSION_NAME) == 0 ||
+			    strcmp(extension.extensionName, VK_EXT_DEBUG_REPORT_EXTENSION_NAME) == 0)
 			{
 				enabled_extensions[enabled_extensions_count++] =
 					extension.extensionName;
@@ -1032,15 +1022,12 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 		color_attachment.finalLayout    = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
 		VkAttachmentDescription depth_stencil_attachment = {};
-		depth_stencil_attachment.format  = VK_FORMAT_D16_UNORM;
-		depth_stencil_attachment.samples = VK_SAMPLE_COUNT_1_BIT;
-		depth_stencil_attachment.loadOp  = VK_ATTACHMENT_LOAD_OP_CLEAR;
-		depth_stencil_attachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-
-		depth_stencil_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-		depth_stencil_attachment.stencilStoreOp =
-			VK_ATTACHMENT_STORE_OP_DONT_CARE;
-
+		depth_stencil_attachment.format         = VK_FORMAT_D16_UNORM;
+		depth_stencil_attachment.samples        = VK_SAMPLE_COUNT_1_BIT;
+		depth_stencil_attachment.loadOp         = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		depth_stencil_attachment.storeOp        = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		depth_stencil_attachment.stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		depth_stencil_attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 		depth_stencil_attachment.initialLayout  = depth_image_layout;
 		depth_stencil_attachment.finalLayout    = depth_image_layout;
 
@@ -1124,10 +1111,10 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 	vertex_buffer = create_vertex_buffer(sizeof(vertices),
 	                                     (uint8_t*) vertices);
 
-	Vector4f pixels[32*32] = {};
+	Vector4f pixels[32 * 32] = {};
 	pixels[0]     = { 1.0f, 0.0f, 0.0f, 1.0f };
 	pixels[31]    = { 0.0f, 1.0f, 0.0f, 1.0f };
-	pixels[31*31] = { 0.0f, 0.0f, 1.0f, 1.0f };
+	pixels[1023]     = { 0.0f, 0.0f, 1.0f, 1.0f };
 
 	VulkanTexture texture = create_texture(32, 32, VK_FORMAT_R32G32B32A32_SFLOAT, pixels);
 
@@ -1171,10 +1158,10 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 		sampler_info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
 		sampler_info.magFilter = VK_FILTER_LINEAR;
 		sampler_info.minFilter = VK_FILTER_LINEAR;
-		sampler_info.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-		sampler_info.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-		sampler_info.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-		sampler_info.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+		sampler_info.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+		sampler_info.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+		sampler_info.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+		sampler_info.borderColor = VK_BORDER_COLOR_INT_OPAQUE_WHITE;
 		sampler_info.unnormalizedCoordinates = VK_FALSE;
 		sampler_info.compareEnable = VK_FALSE;
 		sampler_info.compareOp = VK_COMPARE_OP_ALWAYS;
@@ -1224,10 +1211,10 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 		DEBUG_ASSERT(result == VK_SUCCESS);
 
 		VkDescriptorSetAllocateInfo descriptor_alloc_info = {};
-		descriptor_alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-		descriptor_alloc_info.descriptorPool = descriptor_pool;
+		descriptor_alloc_info.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+		descriptor_alloc_info.descriptorPool     = descriptor_pool;
 		descriptor_alloc_info.descriptorSetCount = 1;
-		descriptor_alloc_info.pSetLayouts = &descriptor_layout;
+		descriptor_alloc_info.pSetLayouts        = &descriptor_layout;
 
 		result = vkAllocateDescriptorSets(vk_device,
 		                                  &descriptor_alloc_info,
@@ -1240,13 +1227,13 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 		image_info.sampler     = texture_sampler;
 
 		VkWriteDescriptorSet descriptor_writes = {};
-		descriptor_writes.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		descriptor_writes.dstSet = descriptor_set;
-		descriptor_writes.dstBinding = 0;
+		descriptor_writes.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		descriptor_writes.dstSet          = descriptor_set;
+		descriptor_writes.dstBinding      = 0;
 		descriptor_writes.dstArrayElement = 0;
-		descriptor_writes.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		descriptor_writes.descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 		descriptor_writes.descriptorCount = 1;
-		descriptor_writes.pImageInfo = &image_info;
+		descriptor_writes.pImageInfo      = &image_info;
 
 		vkUpdateDescriptorSets(vk_device, 1, &descriptor_writes, 0, nullptr);
 
@@ -1287,37 +1274,40 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 		// NOTE(jesper): this describes the number of vertex buffers we bind to
 		// the pipeline, so far we create 1 big vertex buffer containing both
 		// colour and vertices
-		VkVertexInputBindingDescription vertex_input_binding_desc = {};
-		vertex_input_binding_desc.binding   = VERTEX_INPUT_BINDING;
-		vertex_input_binding_desc.stride    = sizeof(float) * 6;
-		vertex_input_binding_desc.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+		VkVertexInputBindingDescription vertex_bindings[1];
+		vertex_bindings[0].binding   = 0;
+		vertex_bindings[0].stride    = sizeof(float) * 9;
+		vertex_bindings[0].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
 		// NOTE(jesper): we need one of these per vertex shader input. Because
 		// it's going to be unique per shader, probably an idea to put this into
 		// VulkanShader
-		VkVertexInputAttributeDescription vertex_input_position = {};
-		vertex_input_position.location = 0;
-		vertex_input_position.binding  = VERTEX_INPUT_BINDING;
-		vertex_input_position.format   = VK_FORMAT_R32G32B32_SFLOAT;
-		vertex_input_position.offset   = 0;
+		VkVertexInputAttributeDescription vertex_descriptions[3];
+		// vertices
+		vertex_descriptions[0].location = 0;
+		vertex_descriptions[0].binding  = 0;
+		vertex_descriptions[0].format   = VK_FORMAT_R32G32B32_SFLOAT;
+		vertex_descriptions[0].offset   = 0;
 
-		VkVertexInputAttributeDescription vertex_input_color = {};
-		vertex_input_color.location = 1;
-		vertex_input_color.binding  = VERTEX_INPUT_BINDING;
-		vertex_input_color.format   = VK_FORMAT_R32G32_SFLOAT;
-		vertex_input_color.offset   = sizeof(float) * 3;
+		// color
+		vertex_descriptions[1].location = 1;
+		vertex_descriptions[1].binding  = 0;
+		vertex_descriptions[1].format   = VK_FORMAT_R32G32B32A32_SFLOAT;
+		vertex_descriptions[1].offset   = sizeof(float) * 3;
 
-		VkVertexInputAttributeDescription vertex_input_attributes[2] = {
-			vertex_input_position,
-			vertex_input_color
-		};
+		// texture coordinates
+		vertex_descriptions[2].location = 2;
+		vertex_descriptions[2].binding  = 0;
+		vertex_descriptions[2].format   = VK_FORMAT_R32G32_SFLOAT;
+		vertex_descriptions[2].offset   = sizeof(float) * 7;
+
 
 		VkPipelineVertexInputStateCreateInfo vertex_input_info = {};
 		vertex_input_info.sType                           = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 		vertex_input_info.vertexBindingDescriptionCount   = 1;
-		vertex_input_info.pVertexBindingDescriptions      = &vertex_input_binding_desc;
-		vertex_input_info.vertexAttributeDescriptionCount = 2;
-		vertex_input_info.pVertexAttributeDescriptions    = vertex_input_attributes;
+		vertex_input_info.pVertexBindingDescriptions      = vertex_bindings;
+		vertex_input_info.vertexAttributeDescriptionCount = 3;
+		vertex_input_info.pVertexAttributeDescriptions    = vertex_descriptions;
 
 		VkPipelineInputAssemblyStateCreateInfo input_assembly_info = {};
 		input_assembly_info.sType                  = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
@@ -1529,6 +1519,7 @@ VulkanVertexBuffer
 VulkanDevice::create_vertex_buffer(size_t size, uint8_t* data)
 {
 	VulkanVertexBuffer buffer;
+
 	buffer.size = size;
 
 	VkBufferCreateInfo create_info = {};

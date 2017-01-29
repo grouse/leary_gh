@@ -36,26 +36,34 @@ void init_platform_paths(PlatformState *state)
 	// TODO(jesper): deal with cases where the absolute path to the binary
 	// exceeds PATH_MAX bytes, haven't figured out a good way to do this
 	char buffer[PATH_MAX];
-	char linkname[64];
+	int result;
 
-	pid_t pid = getpid();
-	int result = snprintf(linkname, sizeof(linkname), "/proc/%i/exe", pid);
-	DEBUG_ASSERT(result >= 0);
+	char *data_env = getenv("LEARY_DATA_ROOT");
+	if (data_env) {
+		size_t length = strlen(data_env);
+		state->folders.game_data = (char*)malloc(length + 1);
+		state->folders.game_data_length = length;
+		strcpy(state->folders.game_data, data_env);
+	} else {
+		char linkname[64];
+		pid_t pid = getpid();
+		result = snprintf(linkname, sizeof(linkname), "/proc/%i/exe", pid);
+		DEBUG_ASSERT(result >= 0);
 
-	ssize_t length = readlink(linkname, buffer, sizeof(buffer));
-	DEBUG_ASSERT(result >= 0);
+		ssize_t length = readlink(linkname, buffer, sizeof(buffer));
+		DEBUG_ASSERT(result >= 0);
 
-	for (; length >= 0; length--) {
-		if (buffer[length-1] == '/') {
-			break;
+		for (; length >= 0; length--) {
+			if (buffer[length-1] == '/') {
+				break;
+			}
 		}
+
+		state->folders.game_data = (char*)malloc(length + strlen("data") + 1);
+		strncpy(state->folders.game_data, buffer, length);
+		strcat(state->folders.game_data, "data");
+		state->folders.game_data_length = strlen(state->folders.game_data);
 	}
-
-	state->folders.game_data = (char*)malloc(length + strlen("data") + 1);
-	strncpy(state->folders.game_data, buffer, length);
-	strcat(state->folders.game_data, "data");
-	state->folders.game_data_length = strlen(state->folders.game_data);
-
 
 	char *local_share = getenv("XDG_DATA_HOME");
 	if (local_share == nullptr) {
