@@ -38,10 +38,49 @@ struct Vector4f {
 	float x, y, z, w;
 };
 
+struct Matrix4f {
+	Vector4f columns[4];
+
+	static inline Matrix4f identity()
+	{
+		Matrix4f identity = {};
+		identity.columns[0].x = 1.0f;
+		identity.columns[1].y = 1.0f;
+		identity.columns[2].z = 1.0f;
+		identity.columns[3].w = 1.0f;
+		return identity;
+	}
+
+	static inline Matrix4f orthographic(float left, float right,
+	                                    float top, float bottom,
+	                                    float near, float far)
+	{
+		Matrix4f result = Matrix4f::identity();
+		result.columns[0].x = 2.0f / (right - left);
+		result.columns[1].y = 2.0f / (top - bottom);
+		result.columns[2].z = 1.0f / (far - near);
+		result.columns[3].x = - (right + left) / (right - left);
+		result.columns[3].y = - (top + bottom ) / (top - bottom);
+		result.columns[3].z = - near / (far - near);
+		return result;
+	}
+};
+
+/*******************************************************************************
+ * Vector3f function declarations
+ ******************************************************************************/
 inline float    length(Vector3f vec);
 inline float    dot(Vector3f lhs, Vector3f rhs);
 inline Vector3f cross(Vector3f lhs, Vector3f rhs);
 
+/*******************************************************************************
+ * Matrix4f function declarations
+ ******************************************************************************/
+inline Matrix4f translate(Matrix4f mat, Vector4f v);
+
+/*******************************************************************************
+ * Vector3f function definitions
+ ******************************************************************************/
 inline float length(Vector3f vec)
 {
 	return std::sqrt(vec.x * vec.x +
@@ -66,9 +105,23 @@ inline Vector3f cross(Vector3f lhs, Vector3f rhs)
 	return vec;
 }
 
-/**************************************************************************************************
+/******************************************************************************
+ * Matrix4f function definitions
+ *****************************************************************************/
+inline Matrix4f translate(Matrix4f m, Vector4f v)
+{
+	Matrix4f result = m;
+	result.columns[3] = m.columns[0] * v.x +
+	                    m.columns[1] * v.y +
+	                    m.columns[2] * v.z +
+	                    m.columns[3];
+	return result;
+}
+
+
+/*******************************************************************************
  * Vector3f operator declarations
- *************************************************************************************************/
+ ******************************************************************************/
 inline Vector3f operator + (Vector3f lhs, Vector3f rhs);
 inline Vector3f operator + (Vector3f lhs, float rhs);
 inline Vector3f operator + (float lhs, Vector3f rhs);
@@ -85,9 +138,28 @@ inline Vector3f operator * (Vector3f lhs, float rhs);
 inline Vector3f operator * (float lhs, Vector3f rhs);
 inline Vector3f operator *= (Vector3f lhs, float rhs);
 
-/**************************************************************************************************
- * Vector3f operator declarations
- *************************************************************************************************/
+/*******************************************************************************
+ * Vector4f operator declarations
+ ******************************************************************************/
+inline Vector4f operator + (Vector4f lhs, Vector4f rhs);
+inline Vector4f operator + (Vector4f lhs, float rhs);
+inline Vector4f operator + (float lhs, Vector4f rhs);
+inline Vector4f operator += (Vector4f lhs, Vector4f rhs);
+inline Vector4f operator += (Vector4f lhs, float rhs);
+
+inline Vector4f operator - (Vector4f lhs, Vector4f rhs);
+inline Vector4f operator - (Vector4f lhs, float rhs);
+inline Vector4f operator - (float lhs, Vector4f rhs);
+inline Vector4f operator -= (Vector4f lhs, Vector4f rhs);
+inline Vector4f operator -= (Vector4f lhs, float rhs);
+
+inline Vector4f operator * (Vector4f lhs, float rhs);
+inline Vector4f operator * (float lhs, Vector4f rhs);
+inline Vector4f operator *= (Vector4f lhs, float rhs);
+
+/*******************************************************************************
+ * Vector3f operator definitions
+ ******************************************************************************/
 inline Vector3f operator + (Vector3f lhs, Vector3f rhs)
 {
 	Vector3f vec;
@@ -184,5 +256,103 @@ inline Vector3f & operator *= (Vector3f &lhs, float rhs)
 	return lhs;
 }
 
+/*******************************************************************************
+ * Vector4f operator definitions
+ ******************************************************************************/
+inline Vector4f operator + (Vector4f lhs, Vector4f rhs)
+{
+	Vector4f vec;
+	vec.x = lhs.x + rhs.x;
+	vec.y = lhs.y + rhs.y;
+	vec.z = lhs.z + rhs.z;
+
+	return vec;
+}
+
+inline Vector4f operator + (Vector4f lhs, float rhs)
+{
+	Vector4f vec;
+	vec.x = lhs.x + rhs;
+	vec.y = lhs.y + rhs;
+	vec.z = lhs.z + rhs;
+
+	return vec;
+}
+
+inline Vector4f operator + (float lhs, Vector4f rhs)
+{
+	return rhs + lhs;
+}
+
+inline Vector4f & operator += (Vector4f &lhs, Vector4f rhs)
+{
+	lhs = lhs + rhs;
+	return lhs;
+
+}
+
+inline Vector4f & operator += (Vector4f &lhs, float rhs)
+{
+	lhs = lhs + rhs;
+	return lhs;
+}
+
+inline Vector4f operator - (Vector4f lhs, Vector4f rhs)
+{
+	Vector4f vec;
+	vec.x = lhs.x - rhs.x;
+	vec.y = lhs.y - rhs.y;
+	vec.z = lhs.z - rhs.z;
+
+	return vec;
+}
+
+inline Vector4f operator - (Vector4f lhs, float rhs)
+{
+	Vector4f vec;
+	vec.x = lhs.x - rhs;
+	vec.y = lhs.y - rhs;
+	vec.z = lhs.z - rhs;
+
+	return vec;
+}
+
+inline Vector4f operator - (float lhs, Vector4f rhs)
+{
+	return rhs - lhs;
+}
+
+inline Vector4f & operator -= (Vector4f &lhs, Vector4f rhs)
+{
+	lhs = lhs - rhs;
+	return lhs;
+}
+
+inline Vector4f & operator -= (Vector4f &lhs, float rhs)
+{
+	lhs = lhs - rhs;
+	return lhs;
+}
+
+inline Vector4f operator * (Vector4f lhs, float rhs)
+{
+	Vector4f vec;
+	vec.x = lhs.x * rhs;
+	vec.y = lhs.y * rhs;
+	vec.z = lhs.z * rhs;
+
+	return vec;
+}
+
+inline Vector4f operator * (float lhs, Vector4f rhs)
+{
+	return rhs * lhs;
+}
+
+inline Vector4f & operator *= (Vector4f &lhs, float rhs)
+{
+	lhs = lhs * rhs;
+	return lhs;
+}
 
 #endif // LEARY_MATH_H
