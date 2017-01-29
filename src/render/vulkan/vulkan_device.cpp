@@ -844,18 +844,8 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 				(uint32_t)settings.video.resolution.height;
 		}
 
-		VkSurfaceTransformFlagBitsKHR pre_transform =
-			surface_capabilities.currentTransform;
-
-		if (surface_capabilities.supportedTransforms &
-		    VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR)
-		{
-			pre_transform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
-		}
-
 		// TODO: determine the number of VkImages to use in the swapchain
-		uint32_t desired_swapchain_images =
-			surface_capabilities.minImageCount + 1;
+		uint32_t desired_swapchain_images = surface_capabilities.minImageCount + 1;
 
 		if (surface_capabilities.maxImageCount > 0)
 		{
@@ -875,7 +865,7 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 		create_info.imageSharingMode      = VK_SHARING_MODE_EXCLUSIVE;
 		create_info.queueFamilyIndexCount = 1;
 		create_info.pQueueFamilyIndices   = &queue_family_index;
-		create_info.preTransform          = pre_transform;
+		create_info.preTransform          = surface_capabilities.currentTransform;
 		create_info.compositeAlpha        = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
 		create_info.presentMode           = surface_present_mode;
 		create_info.clipped               = VK_TRUE;
@@ -1155,17 +1145,17 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 		                                VK_SHADER_STAGE_FRAGMENT_BIT);
 
 		VkSamplerCreateInfo sampler_info = {};
-		sampler_info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-		sampler_info.magFilter = VK_FILTER_LINEAR;
-		sampler_info.minFilter = VK_FILTER_LINEAR;
-		sampler_info.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-		sampler_info.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-		sampler_info.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-		sampler_info.borderColor = VK_BORDER_COLOR_INT_OPAQUE_WHITE;
+		sampler_info.sType                   = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+		sampler_info.magFilter               = VK_FILTER_LINEAR;
+		sampler_info.minFilter               = VK_FILTER_LINEAR;
+		sampler_info.addressModeU            = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+		sampler_info.addressModeV            = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+		sampler_info.addressModeW            = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+		sampler_info.borderColor             = VK_BORDER_COLOR_INT_OPAQUE_WHITE;
 		sampler_info.unnormalizedCoordinates = VK_FALSE;
-		sampler_info.compareEnable = VK_FALSE;
-		sampler_info.compareOp = VK_COMPARE_OP_ALWAYS;
-		sampler_info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+		sampler_info.compareEnable           = VK_FALSE;
+		sampler_info.compareOp               = VK_COMPARE_OP_ALWAYS;
+		sampler_info.mipmapMode              = VK_SAMPLER_MIPMAP_MODE_LINEAR;
 
 		result = vkCreateSampler(vk_device, &sampler_info, nullptr, &texture_sampler);
 		DEBUG_ASSERT(result == VK_SUCCESS);
@@ -1314,22 +1304,24 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 		input_assembly_info.topology               = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 		input_assembly_info.primitiveRestartEnable = VK_FALSE;
 
-		VkDynamicState dynamic_states[2] = {
-			VK_DYNAMIC_STATE_VIEWPORT,
-			VK_DYNAMIC_STATE_SCISSOR
-		};
+		VkViewport viewport = {};
+		viewport.x = 0.0f;
+		viewport.y = 0.0f;
+		viewport.width = (float) vk_swapchain_extent.width;
+		viewport.height = (float) vk_swapchain_extent.height;
+		viewport.minDepth = 0.0f;
+		viewport.maxDepth = 1.0f;
 
-		VkPipelineDynamicStateCreateInfo dynamic_state_info = {};
-		dynamic_state_info.sType             = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
-		dynamic_state_info.dynamicStateCount = 2;
-		dynamic_state_info.pDynamicStates    = dynamic_states;
+		VkRect2D scissor = {};
+		scissor.offset = {0, 0};
+		scissor.extent = vk_swapchain_extent;
 
 		VkPipelineViewportStateCreateInfo viewport_info = {};
 		viewport_info.sType         = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
 		viewport_info.viewportCount = 1;
-		viewport_info.pViewports    = nullptr;
+		viewport_info.pViewports    = &viewport;
 		viewport_info.scissorCount  = 1;
-		viewport_info.pScissors     = nullptr;
+		viewport_info.pScissors     = &scissor;
 
 		VkPipelineRasterizationStateCreateInfo raster_info = {};
 		raster_info.sType                   = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
@@ -1411,7 +1403,6 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 		pipeline_info.pMultisampleState   = &multisample_info;
 		pipeline_info.pDepthStencilState  = &depth_stencil_info;
 		pipeline_info.pColorBlendState    = &color_blend_info;
-		pipeline_info.pDynamicState       = &dynamic_state_info;
 		pipeline_info.layout              = vk_pipeline_layout;
 		pipeline_info.renderPass          = vk_renderpass;
 		pipeline_info.basePipelineHandle  = VK_NULL_HANDLE;
@@ -1631,22 +1622,6 @@ void VulkanDevice::present()
 			vkCmdBindPipeline(vk_cmd_present,
 			                  VK_PIPELINE_BIND_POINT_GRAPHICS,
 			                  vk_pipeline);
-
-			VkViewport viewport = {};
-			viewport.x        = 0.0f;
-			viewport.y        = 0.0f;
-			viewport.width    = (float)vk_swapchain_extent.width;
-			viewport.height   = (float)vk_swapchain_extent.height;
-			viewport.minDepth = 0.0f;
-			viewport.maxDepth = 1.0f;
-
-			VkRect2D render_area = {
-				{ 0,       0        },
-				{ vk_swapchain_extent.width, vk_swapchain_extent.height }
-			};
-
-			vkCmdSetViewport(vk_cmd_present, 0, 1, &viewport);
-			vkCmdSetScissor(vk_cmd_present, 0, 1, &render_area);
 
 			VkDeviceSize offsets[] = { 0 };
 			vkCmdBindVertexBuffers(vk_cmd_present,
