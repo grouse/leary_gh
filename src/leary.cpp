@@ -10,3 +10,4 @@
 #include "render/vulkan/vulkan_device.cpp"
 
 #include "core/settings.cpp"
+#include "core/serialize.cpp"

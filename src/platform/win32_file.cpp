@@ -172,7 +172,7 @@ void* file_read(const char *filename, size_t *size)
 		buffer = malloc((size_t)file_size.QuadPart);
 
 		DWORD bytes_read;
-		if (!ReadFile(file, buffer, (uint32_t)file_size.QuadPart, &bytes_read, 0))
+		if (!ReadFile(file, buffer, (u32)file_size.QuadPart, &bytes_read, 0))
 		{
 			free(buffer);
 			buffer = nullptr;

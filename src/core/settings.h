@@ -35,8 +35,8 @@ struct PlatformState;
 
 INTROSPECT struct Resolution
 {
-	int32_t width  = 1280;
-	int32_t height = 720;
+	i32 width  = 1280;
+	i32 height = 720;
 };
 
 INTROSPECT struct VideoSettings
@@ -44,8 +44,8 @@ INTROSPECT struct VideoSettings
 	Resolution resolution;
 
 	// NOTE: these are integers to later support different fullscreen and vsync techniques
-	int16_t fullscreen = 0;
-	int16_t vsync      = 1;
+	i16 fullscreen = 0;
+	i16 vsync      = 1;
 };
 
 INTROSPECT struct Settings

@@ -36,7 +36,7 @@ void init_platform_paths(PlatformState *state)
 	// TODO(jesper): deal with cases where the absolute path to the binary
 	// exceeds PATH_MAX bytes, haven't figured out a good way to do this
 	char buffer[PATH_MAX];
-	int result;
+	i32 result;
 
 	char *data_env = getenv("LEARY_DATA_ROOT");
 	if (data_env) {
@@ -92,7 +92,7 @@ bool file_exists(const char *path)
 
 bool file_create(const char *path)
 {
-	int fd = open(path, O_CREAT);
+	i32 fd = open(path, O_CREAT);
 
 	if (fd >= 0) {
 		close(fd);
@@ -103,7 +103,7 @@ bool file_create(const char *path)
 
 void* file_open(const char *path, FileMode mode)
 {
-	int flags = 0;
+	i32 flags = 0;
 
 	switch (mode) {
 	case FileMode::read:
@@ -120,7 +120,7 @@ void* file_open(const char *path, FileMode mode)
 		return nullptr;
 	}
 
-	int fd = open(path, flags);
+	i32 fd = open(path, flags);
 	if (fd < 0) {
 		return nullptr;
 	}
@@ -130,7 +130,7 @@ void* file_open(const char *path, FileMode mode)
 
 void file_close(void *file_handle)
 {
-	int fd = (int)(int64_t)file_handle;
+	i32 fd = (i32)(i64)file_handle;
 	DEBUG_ASSERT(fd >= 0);
 
 	close(fd);
@@ -139,12 +139,12 @@ void file_close(void *file_handle)
 void* file_read(const char *path, size_t *file_size)
 {
 	struct stat st;
-	int result = stat(path, &st);
+	i32 result = stat(path, &st);
 	DEBUG_ASSERT(result == 0);
 
 	char *buffer = (char*)malloc(st.st_size);
 
-	int fd = open(path, O_RDONLY);
+	i32 fd = open(path, O_RDONLY);
 	DEBUG_ASSERT(fd >= 0);
 
 	ssize_t bytes_read = read(fd, buffer, st.st_size);
@@ -156,7 +156,7 @@ void* file_read(const char *path, size_t *file_size)
 
 void file_write(void *file_handle, void *buffer, size_t bytes)
 {
-	int fd = (int)(int64_t)file_handle;
+	i32 fd = (i32)(i64)file_handle;
 	ssize_t written = write(fd, buffer, bytes);
 	DEBUG_ASSERT(written >= 0);
 	DEBUG_ASSERT((size_t)written == bytes);

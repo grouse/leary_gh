@@ -22,17 +22,17 @@
 	                    sizeof(name ## _MemberMetaData) / \
 	                    sizeof(StructMemberMetaData),     \
 	                    ptr)
-int32_t
+i32
 member_to_string(StructMemberMetaData &member,
                  void *ptr,
                  char *buffer,
-                 int32_t size)
+                 i32 size)
 {
-	int32_t bytes = 0;
+	i32 bytes = 0;
 
 	switch (member.variable_type) {
 	case VariableType_int32: {
-		int32_t value = *(int32_t*)(((char*)ptr) + member.offset);
+		i32 value = *(i32*)(((char*)ptr) + member.offset);
 		bytes = std::sprintf(buffer, "%s = %d",
 		                     member.variable_name, value);
 
@@ -40,7 +40,7 @@ member_to_string(StructMemberMetaData &member,
 		break;
 	}
 	case VariableType_uint32: {
-		uint32_t value = *(uint32_t*)(((char*)ptr) + member.offset);
+		u32 value = *(u32*)(((char*)ptr) + member.offset);
 		bytes = std::sprintf(buffer, "%s = %u",
 		                     member.variable_name, value);
 
@@ -48,14 +48,14 @@ member_to_string(StructMemberMetaData &member,
 		break;
 	}
 	case VariableType_int16: {
-		int16_t value = *(int16_t*)(((char*)ptr) + member.offset);
+		i16 value = *(i16*)(((char*)ptr) + member.offset);
 		bytes = std::sprintf(buffer, "%s = %" PRId16 , member.variable_name, value);
 
 		DEBUG_ASSERT(bytes < size);
 		break;
 	}
 	case VariableType_uint16: {
-		uint16_t value = *(uint16_t*)(((char*)ptr) + member.offset);
+		u16 value = *(u16*)(((char*)ptr) + member.offset);
 		bytes = std::sprintf(buffer, "%s = %" PRIu16,
 		                     member.variable_name, value);
 
@@ -63,16 +63,16 @@ member_to_string(StructMemberMetaData &member,
 		break;
 	}
 	case VariableType_resolution: {
-		int32_t child_bytes = std::sprintf(buffer, "%s = { ",
+		i32 child_bytes = std::sprintf(buffer, "%s = { ",
 		                                   member.variable_name);
 
 		bytes  += child_bytes;
 		buffer += child_bytes;
 
-		int32_t num_members = (int32_t)(sizeof(Resolution_MemberMetaData) /
+		i32 num_members = (i32)(sizeof(Resolution_MemberMetaData) /
 		                                sizeof(StructMemberMetaData));
 
-		for (int32_t i = 0; i < (int32_t)num_members; i++) {
+		for (i32 i = 0; i < (i32)num_members; i++) {
 			StructMemberMetaData &child = Resolution_MemberMetaData[i];
 			child_bytes = member_to_string(child, ptr, buffer, size);
 
@@ -97,16 +97,16 @@ member_to_string(StructMemberMetaData &member,
 		break;
 	}
 	case VariableType_video_settings: {
-		int32_t child_bytes = std::sprintf(buffer, "%s = { ",
+		i32 child_bytes = std::sprintf(buffer, "%s = { ",
 		                                   member.variable_name);
 
 		bytes  += child_bytes;
 		buffer += child_bytes;
 
-		int32_t num_members = (int32_t)(sizeof(VideoSettings_MemberMetaData) /
+		i32 num_members = (i32)(sizeof(VideoSettings_MemberMetaData) /
 		                                sizeof(StructMemberMetaData));
 
-		for (int32_t i = 0; i < (int32_t)num_members; i++) {
+		for (i32 i = 0; i < (i32)num_members; i++) {
 			StructMemberMetaData &child = VideoSettings_MemberMetaData[i];
 			child_bytes = member_to_string( child, ptr, buffer, size);
 
@@ -158,9 +158,9 @@ serialize_save_conf(const char *path,
 	// buffer to write into it
 	char buffer[2048];
 
-	for (int32_t i = 0; i < (int32_t)num_members; i++) {
+	for (i32 i = 0; i < (i32)num_members; i++) {
 		StructMemberMetaData &member = members[i];
-		int32_t bytes = member_to_string(member, ptr, buffer, sizeof(buffer));
+		i32 bytes = member_to_string(member, ptr, buffer, sizeof(buffer));
 
 		file_write(file_handle, buffer, (size_t)bytes);
 	}
@@ -170,11 +170,11 @@ serialize_save_conf(const char *path,
 
 StructMemberMetaData *
 find_member(char *name,
-            int32_t length,
+            i32 length,
             StructMemberMetaData *members,
             size_t num_members)
 {
-	for (int32_t i = 0; i < (int32_t)num_members; i++) {
+	for (i32 i = 0; i < (i32)num_members; i++) {
 		if (strncmp(name, members[i].variable_name, length) == 0) {
 			return &members[i];
 		}
@@ -183,10 +183,10 @@ find_member(char *name,
 	return nullptr;
 }
 
-int64_t
+i64
 read_integer(char **ptr)
 {
-	int64_t result = 0;
+	i64 result = 0;
 
 	while (**ptr && **ptr >= '0' && **ptr <= '9') {
 		result *= 10;
@@ -197,10 +197,10 @@ read_integer(char **ptr)
 	return result;
 }
 
-uint64_t
+u64
 read_unsigned_integer(char **ptr)
 {
-	uint64_t result = 0;
+	u64 result = 0;
 
 	while (**ptr && **ptr >= '0' && **ptr <= '9') {
 		result *= 10;
@@ -224,7 +224,7 @@ member_from_string(char **ptr,
 		char *name = *ptr;
 
 		while (**ptr && **ptr != ' ') (*ptr)++;
-		int32_t name_length = (int32_t)((*ptr) - name);
+		i32 name_length = (i32)((*ptr) - name);
 
 		StructMemberMetaData *member = find_member(name, name_length,
 		                                           members, num_members);
@@ -239,30 +239,30 @@ member_from_string(char **ptr,
 
 		switch (member->variable_type) {
 		case VariableType_int32: {
-			int64_t value = read_integer(ptr);
-			*(int32_t*)((uint8_t*)out + member->offset) = (int32_t)value;
+			i64 value = read_integer(ptr);
+			*(i32*)((u8*)out + member->offset) = (i32)value;
 			break;
 		}
 		case VariableType_uint32: {
-			uint64_t value = read_unsigned_integer(ptr);
-			*(uint32_t*)((uint8_t*)out + member->offset) = (uint32_t)value;
+			u64 value = read_unsigned_integer(ptr);
+			*(u32*)((u8*)out + member->offset) = (u32)value;
 			break;
 		}
 		case VariableType_int16: {
-			int64_t value = read_integer(ptr);
-			*(int16_t*)((uint8_t*)out + member->offset) = (int16_t)value;
+			i64 value = read_integer(ptr);
+			*(i16*)((u8*)out + member->offset) = (i16)value;
 			break;
 		}
 		case VariableType_uint16: {
-			uint64_t value = read_unsigned_integer(ptr);
-			*(int16_t*)((uint8_t*)out + member->offset) = (uint16_t)value;
+			u64 value = read_unsigned_integer(ptr);
+			*(u16*)((u8*)out + member->offset) = (u16)value;
 			break;
 		}
 		case VariableType_resolution: {
 			while (**ptr && **ptr != '{') (*ptr)++;
 			(*ptr)++;
 
-			void *child = ((uint8_t*)out + member->offset);
+			void *child = ((u8*)out + member->offset);
 
 			member_from_string(ptr, Resolution_MemberMetaData,
 			                   sizeof(Resolution_MemberMetaData) /
@@ -278,7 +278,7 @@ member_from_string(char **ptr,
 			while (**ptr && **ptr != '{') (*ptr)++;
 			(*ptr)++;
 
-			void *child = ((uint8_t*)out + member->offset);
+			void *child = ((u8*)out + member->offset);
 
 			member_from_string(ptr, VideoSettings_MemberMetaData,
 			                   sizeof(VideoSettings_MemberMetaData) /

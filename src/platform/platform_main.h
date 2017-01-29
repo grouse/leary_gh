@@ -33,6 +33,9 @@
 	#error "unsupported platform"
 #endif
 
+#include "core/types.h"
+
+
 // NOTE: this is a union so that we can support multiple different windowing systems on the same
 // platform, e.g. Wayland and X11 on Linux.
 struct PlatformState {

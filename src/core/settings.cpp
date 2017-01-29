@@ -124,7 +124,7 @@ void save_settings(Settings &settings, const char* filename, PlatformState &plat
 	// file and write into it after we've got an entire buffer to write into it
 	char *buffer = (char*)malloc(2048);
 
-	int32_t bytes = sprintf(buffer, "%s = %d" FILE_EOL,
+	i32 bytes = sprintf(buffer, "%s = %d" FILE_EOL,
 	                        "video.resolution.width", settings.video.resolution.width);
 	file_write(file_handle, buffer, (size_t) bytes);
 

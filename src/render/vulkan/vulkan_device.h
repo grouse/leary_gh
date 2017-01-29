@@ -36,8 +36,8 @@ struct VulkanVertexBuffer {
 };
 
 struct VulkanTexture {
-	uint32_t       width;
-	uint32_t       height;
+	u32       width;
+	u32       height;
 	VkFormat       format;
 	VkImage        image;
 	VkImageView    image_view;
@@ -69,28 +69,28 @@ public:
 	                      VkImageLayout src,
 	                      VkImageLayout dst);
 
-	void copy_image(uint32_t width, uint32_t height, VkImage src, VkImage dst);
+	void copy_image(u32 width, u32 height, VkImage src, VkImage dst);
 
-	uint32_t find_memory_type(uint32_t filter, VkMemoryPropertyFlags flags);
+	u32 find_memory_type(u32 filter, VkMemoryPropertyFlags flags);
 
-	VulkanVertexBuffer create_vertex_buffer(size_t size, uint8_t *data);
+	VulkanVertexBuffer create_vertex_buffer(size_t size, u8 *data);
 	void               destroy_vertex_buffer(VulkanVertexBuffer *buffer);
 
 
 	VkImage create_image(VkFormat format,
-	                     uint32_t width,
-	                     uint32_t height,
+	                     u32 width,
+	                     u32 height,
 	                     VkImageTiling tiling,
 	                     VkImageUsageFlags usage,
 	                     VkMemoryPropertyFlags properties,
 	                     VkDeviceMemory *memory);
 
-	VulkanTexture create_texture(uint32_t width,
-	                             uint32_t height,
+	VulkanTexture create_texture(u32 width,
+	                             u32 height,
 	                             VkFormat format,
 	                             void *pixels);
 
-	VulkanShader create_shader(uint32_t *source,
+	VulkanShader create_shader(u32 *source,
 	                           size_t size,
 	                           VkShaderStageFlagBits stage);
 
@@ -99,7 +99,7 @@ public:
 	// Device and its queue(s)
 	VkDevice         vk_device;
 	VkQueue          vk_queue;
-	uint32_t         queue_family_index;
+	u32         queue_family_index;
 
 	// Physical device
 	VkPhysicalDevice                 vk_physical_device;
@@ -112,7 +112,7 @@ public:
 	VkSwapchainKHR   vk_swapchain;
 	VkExtent2D       vk_swapchain_extent;
 
-	uint32_t         swapchain_images_count;
+	u32         swapchain_images_count;
 	VkImage          *vk_swapchain_images;
 	VkImageView      *vk_swapchain_imageviews;
 
@@ -133,7 +133,7 @@ public:
 	VkRenderPass     vk_renderpass;
 
 	// Framebuffer
-	int32_t          framebuffers_count;
+	i32          framebuffers_count;
 	VkFramebuffer    *vk_framebuffers;
 
 	// Vertex buffer

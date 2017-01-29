@@ -27,15 +27,11 @@
 #include <cinttypes>
 #include <cstdlib>
 
-#include "core/settings.h"
-
-#include "render/vulkan/vulkan_device.h"
+#include "platform_main.h"
 
 #include "win32_debug.cpp"
 #include "win32_vulkan.cpp"
 #include "win32_file.cpp"
-
-#include "core/serialize.cpp"
 
 // TODO(jesper): move this into its own translation unit. Eventually i want to be able to compile
 // the game into a .dll and load it dynamically in the platform layer, if feature is turned off,

@@ -28,13 +28,10 @@
 #include <xcb/xcb.h>
 
 #include "platform_main.h"
-#include "core/settings.h"
 
 #include "linux_debug.cpp"
 #include "linux_vulkan.cpp"
 #include "linux_file.cpp"
-
-#include "core/serialize.cpp"
 
 #include "leary.cpp"
 
@@ -49,8 +46,7 @@ namespace  {
 	}
 }
 
-int
-main()
+int main()
 {
 	init_platform_paths(&platform_state);
 
@@ -63,8 +59,8 @@ main()
 
 	platform_state.window.xcb.window = xcb_generate_id(platform_state.window.xcb.connection);
 
-	uint32_t mask     = XCB_CW_EVENT_MASK;
-	uint32_t values[] = {
+	u32 mask     = XCB_CW_EVENT_MASK;
+	u32 values[] = {
 		XCB_EVENT_MASK_POINTER_MOTION |
 		XCB_EVENT_MASK_KEY_PRESS      |
 		XCB_EVENT_MASK_KEY_RELEASE

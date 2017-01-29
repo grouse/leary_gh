@@ -31,11 +31,11 @@
 #define MAX(a, b) (a) > (b) ? (a) : (b)
 
 struct Vector3f {
-	float x, y, z;
+	f32 x, y, z;
 };
 
 struct Vector4f {
-	float x, y, z, w;
+	f32 x, y, z, w;
 };
 
 struct Matrix4f {
@@ -51,9 +51,9 @@ struct Matrix4f {
 		return identity;
 	}
 
-	static inline Matrix4f orthographic(float left, float right,
-	                                    float top, float bottom,
-	                                    float near, float far)
+	static inline Matrix4f orthographic(f32 left, f32 right,
+	                                    f32 top, f32 bottom,
+	                                    f32 near, f32 far)
 	{
 		Matrix4f result = Matrix4f::identity();
 		result.columns[0].x = 2.0f / (right - left);
@@ -69,8 +69,8 @@ struct Matrix4f {
 /*******************************************************************************
  * Vector3f function declarations
  ******************************************************************************/
-inline float    length(Vector3f vec);
-inline float    dot(Vector3f lhs, Vector3f rhs);
+inline f32    length(Vector3f vec);
+inline f32    dot(Vector3f lhs, Vector3f rhs);
 inline Vector3f cross(Vector3f lhs, Vector3f rhs);
 
 /*******************************************************************************
@@ -79,16 +79,54 @@ inline Vector3f cross(Vector3f lhs, Vector3f rhs);
 inline Matrix4f translate(Matrix4f mat, Vector4f v);
 
 /*******************************************************************************
+ * Vector3f operator declarations
+ ******************************************************************************/
+inline Vector3f operator + (Vector3f lhs, Vector3f rhs);
+inline Vector3f operator + (Vector3f lhs, f32 rhs);
+inline Vector3f operator + (f32 lhs, Vector3f rhs);
+inline Vector3f operator += (Vector3f lhs, Vector3f rhs);
+inline Vector3f operator += (Vector3f lhs, f32 rhs);
+
+inline Vector3f operator - (Vector3f lhs, Vector3f rhs);
+inline Vector3f operator - (Vector3f lhs, f32 rhs);
+inline Vector3f operator - (f32 lhs, Vector3f rhs);
+inline Vector3f operator -= (Vector3f lhs, Vector3f rhs);
+inline Vector3f operator -= (Vector3f lhs, f32 rhs);
+
+inline Vector3f operator * (Vector3f lhs, f32 rhs);
+inline Vector3f operator * (f32 lhs, Vector3f rhs);
+inline Vector3f operator *= (Vector3f lhs, f32 rhs);
+
+/*******************************************************************************
+ * Vector4f operator declarations
+ ******************************************************************************/
+inline Vector4f operator + (Vector4f lhs, Vector4f rhs);
+inline Vector4f operator + (Vector4f lhs, f32 rhs);
+inline Vector4f operator + (f32 lhs, Vector4f rhs);
+inline Vector4f operator += (Vector4f lhs, Vector4f rhs);
+inline Vector4f operator += (Vector4f lhs, f32 rhs);
+
+inline Vector4f operator - (Vector4f lhs, Vector4f rhs);
+inline Vector4f operator - (Vector4f lhs, f32 rhs);
+inline Vector4f operator - (f32 lhs, Vector4f rhs);
+inline Vector4f operator -= (Vector4f lhs, Vector4f rhs);
+inline Vector4f operator -= (Vector4f lhs, f32 rhs);
+
+inline Vector4f operator * (Vector4f lhs, f32 rhs);
+inline Vector4f operator * (f32 lhs, Vector4f rhs);
+inline Vector4f operator *= (Vector4f lhs, f32 rhs);
+
+/*******************************************************************************
  * Vector3f function definitions
  ******************************************************************************/
-inline float length(Vector3f vec)
+inline f32 length(Vector3f vec)
 {
 	return std::sqrt(vec.x * vec.x +
 	                 vec.y * vec.y +
 	                 vec.z * vec.z);
 }
 
-inline float dot(Vector3f lhs, Vector3f rhs)
+inline f32 dot(Vector3f lhs, Vector3f rhs)
 {
 	return lhs.x * rhs.x +
 	       lhs.y * rhs.y +
@@ -119,43 +157,6 @@ inline Matrix4f translate(Matrix4f m, Vector4f v)
 }
 
 
-/*******************************************************************************
- * Vector3f operator declarations
- ******************************************************************************/
-inline Vector3f operator + (Vector3f lhs, Vector3f rhs);
-inline Vector3f operator + (Vector3f lhs, float rhs);
-inline Vector3f operator + (float lhs, Vector3f rhs);
-inline Vector3f operator += (Vector3f lhs, Vector3f rhs);
-inline Vector3f operator += (Vector3f lhs, float rhs);
-
-inline Vector3f operator - (Vector3f lhs, Vector3f rhs);
-inline Vector3f operator - (Vector3f lhs, float rhs);
-inline Vector3f operator - (float lhs, Vector3f rhs);
-inline Vector3f operator -= (Vector3f lhs, Vector3f rhs);
-inline Vector3f operator -= (Vector3f lhs, float rhs);
-
-inline Vector3f operator * (Vector3f lhs, float rhs);
-inline Vector3f operator * (float lhs, Vector3f rhs);
-inline Vector3f operator *= (Vector3f lhs, float rhs);
-
-/*******************************************************************************
- * Vector4f operator declarations
- ******************************************************************************/
-inline Vector4f operator + (Vector4f lhs, Vector4f rhs);
-inline Vector4f operator + (Vector4f lhs, float rhs);
-inline Vector4f operator + (float lhs, Vector4f rhs);
-inline Vector4f operator += (Vector4f lhs, Vector4f rhs);
-inline Vector4f operator += (Vector4f lhs, float rhs);
-
-inline Vector4f operator - (Vector4f lhs, Vector4f rhs);
-inline Vector4f operator - (Vector4f lhs, float rhs);
-inline Vector4f operator - (float lhs, Vector4f rhs);
-inline Vector4f operator -= (Vector4f lhs, Vector4f rhs);
-inline Vector4f operator -= (Vector4f lhs, float rhs);
-
-inline Vector4f operator * (Vector4f lhs, float rhs);
-inline Vector4f operator * (float lhs, Vector4f rhs);
-inline Vector4f operator *= (Vector4f lhs, float rhs);
 
 /*******************************************************************************
  * Vector3f operator definitions
@@ -170,7 +171,7 @@ inline Vector3f operator + (Vector3f lhs, Vector3f rhs)
 	return vec;
 }
 
-inline Vector3f operator + (Vector3f lhs, float rhs)
+inline Vector3f operator + (Vector3f lhs, f32 rhs)
 {
 	Vector3f vec;
 	vec.x = lhs.x + rhs;
@@ -180,7 +181,7 @@ inline Vector3f operator + (Vector3f lhs, float rhs)
 	return vec;
 }
 
-inline Vector3f operator + (float lhs, Vector3f rhs)
+inline Vector3f operator + (f32 lhs, Vector3f rhs)
 {
 	return rhs + lhs;
 }
@@ -192,7 +193,7 @@ inline Vector3f & operator += (Vector3f &lhs, Vector3f rhs)
 
 }
 
-inline Vector3f & operator += (Vector3f &lhs, float rhs)
+inline Vector3f & operator += (Vector3f &lhs, f32 rhs)
 {
 	lhs = lhs + rhs;
 	return lhs;
@@ -208,7 +209,7 @@ inline Vector3f operator - (Vector3f lhs, Vector3f rhs)
 	return vec;
 }
 
-inline Vector3f operator - (Vector3f lhs, float rhs)
+inline Vector3f operator - (Vector3f lhs, f32 rhs)
 {
 	Vector3f vec;
 	vec.x = lhs.x - rhs;
@@ -218,7 +219,7 @@ inline Vector3f operator - (Vector3f lhs, float rhs)
 	return vec;
 }
 
-inline Vector3f operator - (float lhs, Vector3f rhs)
+inline Vector3f operator - (f32 lhs, Vector3f rhs)
 {
 	return rhs - lhs;
 }
@@ -229,13 +230,13 @@ inline Vector3f & operator -= (Vector3f &lhs, Vector3f rhs)
 	return lhs;
 }
 
-inline Vector3f & operator -= (Vector3f &lhs, float rhs)
+inline Vector3f & operator -= (Vector3f &lhs, f32 rhs)
 {
 	lhs = lhs - rhs;
 	return lhs;
 }
 
-inline Vector3f operator * (Vector3f lhs, float rhs)
+inline Vector3f operator * (Vector3f lhs, f32 rhs)
 {
 	Vector3f vec;
 	vec.x = lhs.x * rhs;
@@ -245,12 +246,12 @@ inline Vector3f operator * (Vector3f lhs, float rhs)
 	return vec;
 }
 
-inline Vector3f operator * (float lhs, Vector3f rhs)
+inline Vector3f operator * (f32 lhs, Vector3f rhs)
 {
 	return rhs * lhs;
 }
 
-inline Vector3f & operator *= (Vector3f &lhs, float rhs)
+inline Vector3f & operator *= (Vector3f &lhs, f32 rhs)
 {
 	lhs = lhs * rhs;
 	return lhs;
@@ -269,7 +270,7 @@ inline Vector4f operator + (Vector4f lhs, Vector4f rhs)
 	return vec;
 }
 
-inline Vector4f operator + (Vector4f lhs, float rhs)
+inline Vector4f operator + (Vector4f lhs, f32 rhs)
 {
 	Vector4f vec;
 	vec.x = lhs.x + rhs;
@@ -279,7 +280,7 @@ inline Vector4f operator + (Vector4f lhs, float rhs)
 	return vec;
 }
 
-inline Vector4f operator + (float lhs, Vector4f rhs)
+inline Vector4f operator + (f32 lhs, Vector4f rhs)
 {
 	return rhs + lhs;
 }
@@ -291,7 +292,7 @@ inline Vector4f & operator += (Vector4f &lhs, Vector4f rhs)
 
 }
 
-inline Vector4f & operator += (Vector4f &lhs, float rhs)
+inline Vector4f & operator += (Vector4f &lhs, f32 rhs)
 {
 	lhs = lhs + rhs;
 	return lhs;
@@ -307,7 +308,7 @@ inline Vector4f operator - (Vector4f lhs, Vector4f rhs)
 	return vec;
 }
 
-inline Vector4f operator - (Vector4f lhs, float rhs)
+inline Vector4f operator - (Vector4f lhs, f32 rhs)
 {
 	Vector4f vec;
 	vec.x = lhs.x - rhs;
@@ -317,7 +318,7 @@ inline Vector4f operator - (Vector4f lhs, float rhs)
 	return vec;
 }
 
-inline Vector4f operator - (float lhs, Vector4f rhs)
+inline Vector4f operator - (f32 lhs, Vector4f rhs)
 {
 	return rhs - lhs;
 }
@@ -328,13 +329,13 @@ inline Vector4f & operator -= (Vector4f &lhs, Vector4f rhs)
 	return lhs;
 }
 
-inline Vector4f & operator -= (Vector4f &lhs, float rhs)
+inline Vector4f & operator -= (Vector4f &lhs, f32 rhs)
 {
 	lhs = lhs - rhs;
 	return lhs;
 }
 
-inline Vector4f operator * (Vector4f lhs, float rhs)
+inline Vector4f operator * (Vector4f lhs, f32 rhs)
 {
 	Vector4f vec;
 	vec.x = lhs.x * rhs;
@@ -344,12 +345,12 @@ inline Vector4f operator * (Vector4f lhs, float rhs)
 	return vec;
 }
 
-inline Vector4f operator * (float lhs, Vector4f rhs)
+inline Vector4f operator * (f32 lhs, Vector4f rhs)
 {
 	return rhs * lhs;
 }
 
-inline Vector4f & operator *= (Vector4f &lhs, float rhs)
+inline Vector4f & operator *= (Vector4f &lhs, f32 rhs)
 {
 	lhs = lhs * rhs;
 	return lhs;

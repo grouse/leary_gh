@@ -11,6 +11,7 @@
 #include <memory>
 #include <vector>
 
+#include "core/types.h"
 #include "core/tokenizer.cpp"
 
 #if defined(_WIN32)
@@ -40,7 +41,7 @@ struct TypeInfo {
 
 struct StructInfo {
 	char     *name;
-	int32_t  num_members;
+	i32  num_members;
 	TypeInfo *members;
 };
 
@@ -92,14 +93,21 @@ VariableType variable_type(Token token)
 	VariableType result = VariableType_unknown;
 
 	if (is_identifier(token, "int32_t") ||
+	    is_identifier(token, "i32") ||
 	    is_identifier(token, "int"))
 	{
 		result = VariableType_int32;
-	} else if (is_identifier(token, "uint32_t")) {
+	} else if (is_identifier(token, "uint32_t") ||
+	           is_identifier(token, "u32"))
+	{
 		result = VariableType_uint32;
-	} else if (is_identifier(token, "int16_t")) {
+	} else if (is_identifier(token, "int16_t") ||
+	           is_identifier(token, "i16"))
+	{
 		result = VariableType_int16;
-	} else if (is_identifier(token, "uint16_t")) {
+	} else if (is_identifier(token, "uint16_t") ||
+	          is_identifier(token, "u16"))
+	{
 		result = VariableType_uint16;
 	} else if (is_identifier(token, "Resolution")) {
 		result = VariableType_resolution;
@@ -170,7 +178,7 @@ StructInfo parse_struct_type_info(Tokenizer tokenizer)
 	} while (token.type == TokenType_identifier);
 
 	struct_info.members = new TypeInfo[struct_info.num_members];
-	int32_t index = 0;
+	i32 index = 0;
 
 	do {
 		VariableType member_type = variable_type(next_token(tokenizer));
@@ -205,7 +213,7 @@ int main(int argc, char **argv)
 		}
 	}
 
-	for (int32_t i = 1; i < argc; ++i) {
+	for (i32 i = 1; i < argc; ++i) {
 		if (strcmp(argv[i], "-o") == 0 || strcmp(argv[i], "--output") == 0) {
 			output_path = platform_resolve_relative(argv[++i]);
 		} else if (strcmp(argv[i], "-r") == 0 ||
@@ -244,7 +252,7 @@ int main(int argc, char **argv)
 	std::fprintf(output_file, "#define META_DATA_H\n\n");
 
 	std::fprintf(output_file, "enum VariableType {\n");
-	for (int32_t i = 0; i < VariableType_num; i++) {
+	for (i32 i = 0; i < VariableType_num; i++) {
 		std::fprintf(output_file, "\t%s", variable_type_str((VariableType)i));
 
 		if (i == (VariableType_num - 1)) {
@@ -267,7 +275,7 @@ int main(int argc, char **argv)
 
 	std::vector<StructInfo> struct_infos;
 
-	for (int32_t i = 0; i < (sizeof(files) / sizeof(files[0])); ++i) {
+	for (i32 i = 0; i < (sizeof(files) / sizeof(files[0])); ++i) {
 		char *file_path = (char*)malloc(strlen(input_root) +
 		                                strlen(files[i]) + 1);
 
@@ -308,7 +316,7 @@ int main(int argc, char **argv)
 		std::fprintf(output_file,
 				 	 "StructMemberMetaData %s_MemberMetaData[] = {\n",
 				 	 struct_info.name);
-		for (int32_t j = 0; j < struct_info.num_members; ++j) {
+		for (i32 j = 0; j < struct_info.num_members; ++j) {
 			TypeInfo &type_info = struct_info.members[j];
 			std::fprintf(output_file,
 					 	 "\t{ %s, \"%s\", offsetof(%s, %s) },\n",
