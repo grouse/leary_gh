@@ -310,6 +310,7 @@ VkCommandBuffer VulkanDevice::begin_command_buffer()
 
 	VkCommandBufferBeginInfo begin_info = {};
 	begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 
 	result = vkBeginCommandBuffer(buffer, &begin_info);
 	DEBUG_ASSERT(result == VK_SUCCESS);
@@ -1107,6 +1108,14 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 	pixels[1023]     = { 0.0f, 0.0f, 1.0f, 1.0f };
 
 	VulkanTexture texture = create_texture(32, 32, VK_FORMAT_R32G32B32A32_SFLOAT, pixels);
+	// TODO: fill out the mvp buffer
+	VulkanUniformBuffer camera_buffer = create_uniform_buffer(sizeof(Camera));
+
+	camera.view = Matrix4f::identity();
+	camera.view = translate(camera.view, Vector3f{0.0f, 0.0f, 0.0f});
+
+	update_uniform_data(camera_buffer, &camera, sizeof(camera));
+
 
 	/**************************************************************************
 	 * Create Shader modules
@@ -1168,16 +1177,26 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 	 * Create pipeline
 	 *************************************************************************/
 	{
+		VkDescriptorSetLayoutBinding mvp = {};
+		mvp.binding = 0;
+		mvp.descriptorCount = 1;
+		mvp.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		mvp.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
 		VkDescriptorSetLayoutBinding sampler = {};
-		sampler.binding = 0;
+		sampler.binding = 1;
 		sampler.descriptorCount = 1;
 		sampler.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 		sampler.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
+		VkDescriptorSetLayoutBinding bindings[] = {
+			mvp, sampler
+		};
+
 		VkDescriptorSetLayoutCreateInfo layout_descriptor_info = {};
 		layout_descriptor_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-		layout_descriptor_info.bindingCount = 1;
-		layout_descriptor_info.pBindings = &sampler;
+		layout_descriptor_info.bindingCount = 2;
+		layout_descriptor_info.pBindings = bindings;
 
 		result = vkCreateDescriptorSetLayout(vk_device, &layout_descriptor_info,
 		                                     nullptr, &descriptor_layout);
@@ -1189,10 +1208,19 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 		sampler_pool.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 		sampler_pool.descriptorCount = 1;
 
+		VkDescriptorPoolSize uniform_pool = {};
+		uniform_pool.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		uniform_pool.descriptorCount = 1;
+
+		VkDescriptorPoolSize pool_sizes[] = {
+			sampler_pool,
+			uniform_pool
+		};
+
 		VkDescriptorPoolCreateInfo pool_info = {};
 		pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-		pool_info.poolSizeCount = 1;
-		pool_info.pPoolSizes = &sampler_pool;
+		pool_info.poolSizeCount = 2;
+		pool_info.pPoolSizes = pool_sizes;
 		// NOTE(jesper): number of descriptor sets
 		pool_info.maxSets = 1;
 
@@ -1211,21 +1239,40 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 		                                  &descriptor_set);
 		DEBUG_ASSERT(result == VK_SUCCESS);
 
+		VkDescriptorBufferInfo buffer_info = {};
+		buffer_info.buffer = camera_buffer.buffer.handle;
+		buffer_info.offset = 0;
+		buffer_info.range  = camera_buffer.buffer.size;
+
+		VkWriteDescriptorSet uniform_writes = {};
+		uniform_writes.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		uniform_writes.dstSet          = descriptor_set;
+		uniform_writes.dstBinding      = 0;
+		uniform_writes.dstArrayElement = 0;
+		uniform_writes.descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		uniform_writes.descriptorCount = 1;
+		uniform_writes.pBufferInfo = &buffer_info;
+
 		VkDescriptorImageInfo image_info = {};
 		image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 		image_info.imageView   = texture.image_view;
 		image_info.sampler     = texture_sampler;
 
-		VkWriteDescriptorSet descriptor_writes = {};
-		descriptor_writes.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		descriptor_writes.dstSet          = descriptor_set;
-		descriptor_writes.dstBinding      = 0;
-		descriptor_writes.dstArrayElement = 0;
-		descriptor_writes.descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		descriptor_writes.descriptorCount = 1;
-		descriptor_writes.pImageInfo      = &image_info;
+		VkWriteDescriptorSet sampler_writes = {};
+		sampler_writes.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		sampler_writes.dstSet          = descriptor_set;
+		sampler_writes.dstBinding      = 1;
+		sampler_writes.dstArrayElement = 0;
+		sampler_writes.descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		sampler_writes.descriptorCount = 1;
+		sampler_writes.pImageInfo      = &image_info;
 
-		vkUpdateDescriptorSets(vk_device, 1, &descriptor_writes, 0, nullptr);
+		VkWriteDescriptorSet descriptor_writes[] = {
+			uniform_writes,
+			sampler_writes
+		};
+
+		vkUpdateDescriptorSets(vk_device, 2, descriptor_writes, 0, nullptr);
 
 		VkPipelineLayoutCreateInfo layout_info = {};
 		layout_info.sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -1469,7 +1516,7 @@ VulkanDevice::destroy()
 
 	// TODO: move these calls out of VulkanDevice, they are meant to be
 	// used outside as an api
-	destroy_vertex_buffer(&vertex_buffer);
+	destroy_buffer(&vertex_buffer);
 
 	for (i32 i = 0; i < framebuffers_count; ++i) {
 		vkDestroyFramebuffer(vk_device, vk_framebuffers[i], nullptr);
@@ -1497,78 +1544,128 @@ VulkanDevice::destroy()
 	vkDestroyInstance(vk_instance, nullptr);
 }
 
-VulkanVertexBuffer
-VulkanDevice::create_vertex_buffer(size_t size, u8* data)
+VulkanBuffer
+VulkanDevice::create_buffer(size_t size,
+                            VkBufferUsageFlags usage,
+                            VkMemoryPropertyFlags memory_flags)
 {
-	VulkanVertexBuffer buffer;
-
+	VulkanBuffer buffer = {};
 	buffer.size = size;
 
 	VkBufferCreateInfo create_info = {};
 	create_info.sType                 = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
 	create_info.size                  = size;
-	create_info.usage                 = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+	create_info.usage                 = usage;
 	create_info.sharingMode           = VK_SHARING_MODE_EXCLUSIVE;
 	create_info.queueFamilyIndexCount = 0;
 	create_info.pQueueFamilyIndices   = nullptr;
 
-	VkResult result = vkCreateBuffer(this->vk_device,
+	VkResult result = vkCreateBuffer(vk_device,
 	                                 &create_info,
 	                                 nullptr,
-	                                 &buffer.vk_buffer);
+	                                 &buffer.handle);
 	DEBUG_ASSERT(result == VK_SUCCESS);
 
 	// TODO: allocate buffers from large memory pool in VulkanDevice
 	VkMemoryRequirements memory_requirements;
-	vkGetBufferMemoryRequirements(this->vk_device,
-	                              buffer.vk_buffer,
-	                              &memory_requirements);
+	vkGetBufferMemoryRequirements(vk_device, buffer.handle, &memory_requirements);
 
-	u32 index = find_memory_type(memory_requirements.memoryTypeBits,
-	                                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+	u32 index = find_memory_type(memory_requirements.memoryTypeBits, memory_flags);
 	DEBUG_ASSERT(index != UINT32_MAX);
 
 	VkMemoryAllocateInfo allocate_info = {};
 	allocate_info.sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 	allocate_info.allocationSize  = memory_requirements.size;
-	allocate_info.memoryTypeIndex = (u32) index;
+	allocate_info.memoryTypeIndex = index;
 
-	result = vkAllocateMemory(this->vk_device,
+	result = vkAllocateMemory(vk_device,
 	                          &allocate_info,
 	                          nullptr,
-	                          &buffer.vk_memory);
+	                          &buffer.memory);
 	DEBUG_ASSERT(result == VK_SUCCESS);
 
-	result = vkBindBufferMemory(this->vk_device,
-	                            buffer.vk_buffer,
-	                            buffer.vk_memory, 0);
+	result = vkBindBufferMemory(vk_device, buffer.handle, buffer.memory, 0);
 	DEBUG_ASSERT(result == VK_SUCCESS);
+
+	return buffer;
+}
+
+VulkanBuffer
+VulkanDevice::create_vertex_buffer(size_t size, u8* data)
+{
+	VulkanBuffer buffer = create_buffer(size,
+	                                    VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+	                                    VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
 
 	if (data != nullptr)
 	{
 		void* memptr;
-		result = vkMapMemory(this->vk_device,
-		                     buffer.vk_memory,
-		                     0,
-		                     VK_WHOLE_SIZE,
-		                     0,
-		                     &memptr);
+		VkResult result = vkMapMemory(this->vk_device,
+		                              buffer.memory,
+		                              0, VK_WHOLE_SIZE,
+		                              0, &memptr);
 		DEBUG_ASSERT(result == VK_SUCCESS);
 
 		memcpy(memptr, data, size);
 
-		vkUnmapMemory(this->vk_device, buffer.vk_memory);
+		vkUnmapMemory(this->vk_device, buffer.memory);
 	}
 
 	return buffer;
 }
 
+VulkanUniformBuffer VulkanDevice::create_uniform_buffer(size_t size)
+{
+	VulkanUniformBuffer ubo;
+	ubo.staging = create_buffer(size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+	                            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+	                            VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+	ubo.buffer = create_buffer(size,
+	                           VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+	                           VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+	                           VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+	return ubo;
+}
+
+void VulkanDevice::update_uniform_data(VulkanUniformBuffer ubo,
+                                       void *data,
+                                       size_t size)
+{
+	void *mapped;
+	vkMapMemory(vk_device,
+	            ubo.staging.memory,
+	            0,
+	            size,
+	            0,
+	            &mapped);
+	memcpy(mapped, data, size);
+	vkUnmapMemory(vk_device, ubo.staging.memory);
+
+	copy_buffer(ubo.staging.handle, ubo.buffer.handle, size);
+}
+
+void VulkanDevice::copy_buffer(VkBuffer src, VkBuffer dst, VkDeviceSize size)
+{
+	VkCommandBuffer command = begin_command_buffer();
+
+	VkBufferCopy region = {};
+	region.srcOffset    = 0;
+	region.dstOffset    = 0;
+	region.size         = size;
+
+	vkCmdCopyBuffer(command, src, dst, 1, &region);
+
+	end_command_buffer(command);
+}
+
 void
-VulkanDevice::destroy_vertex_buffer(VulkanVertexBuffer* buffer)
+VulkanDevice::destroy_buffer(VulkanBuffer * buffer)
 {
 	// TODO: free memory from large memory pool in VulkanDevice
-	vkFreeMemory(this->vk_device,    buffer->vk_memory, nullptr);
-	vkDestroyBuffer(this->vk_device, buffer->vk_buffer, nullptr);
+	vkFreeMemory(this->vk_device,    buffer->memory, nullptr);
+	vkDestroyBuffer(this->vk_device, buffer->handle, nullptr);
 }
 
 
@@ -1617,7 +1714,7 @@ void VulkanDevice::present()
 			VkDeviceSize offsets[] = { 0 };
 			vkCmdBindVertexBuffers(vk_cmd_present,
 			                       0,
-			                       1, &vertex_buffer.vk_buffer,
+			                       1, &vertex_buffer.handle,
 			                       offsets);
 
 			vkCmdBindDescriptorSets(vk_cmd_present,

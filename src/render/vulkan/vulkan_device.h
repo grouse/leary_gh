@@ -27,12 +27,17 @@
 
 #include "core/settings.h"
 #include "platform/platform_vulkan.h"
+#include "core/math.h"
 
-struct VulkanVertexBuffer {
-	size_t               size;
+struct VulkanBuffer {
+	size_t         size;
+	VkBuffer       handle;
+	VkDeviceMemory memory;
+};
 
-	VkBuffer             vk_buffer;
-	VkDeviceMemory       vk_memory;
+struct VulkanUniformBuffer {
+	VulkanBuffer staging;
+	VulkanBuffer buffer;
 };
 
 struct VulkanTexture {
@@ -49,6 +54,11 @@ struct VulkanShader {
 	VkShaderStageFlagBits stage;
 	const char            *name;
 };
+
+struct Camera {
+	Matrix4f view;
+};
+
 
 class VulkanDevice {
 public:
@@ -73,8 +83,15 @@ public:
 
 	u32 find_memory_type(u32 filter, VkMemoryPropertyFlags flags);
 
-	VulkanVertexBuffer create_vertex_buffer(size_t size, u8 *data);
-	void               destroy_vertex_buffer(VulkanVertexBuffer *buffer);
+	VulkanBuffer create_buffer(size_t size,
+	                           VkBufferUsageFlags usage,
+	                           VkMemoryPropertyFlags memory_flags);
+	void         destroy_buffer(VulkanBuffer *buffer);
+
+	VulkanBuffer create_vertex_buffer(size_t size, u8 *data);
+	VulkanUniformBuffer create_uniform_buffer(size_t size);
+	void update_uniform_data(VulkanUniformBuffer buffer, void *data, size_t size);
+	void copy_buffer(VkBuffer src, VkBuffer dst, VkDeviceSize size);
 
 
 	VkImage create_image(VkFormat format,
@@ -94,6 +111,8 @@ public:
 	                           size_t size,
 	                           VkShaderStageFlagBits stage);
 
+
+	Camera camera;
 	VkInstance       vk_instance;
 
 	// Device and its queue(s)
@@ -137,7 +156,7 @@ public:
 	VkFramebuffer    *vk_framebuffers;
 
 	// Vertex buffer
-	VulkanVertexBuffer vertex_buffer;
+	VulkanBuffer vertex_buffer;
 
 	// Pipeline
 	VkPipeline       vk_pipeline;

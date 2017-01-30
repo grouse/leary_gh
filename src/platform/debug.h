@@ -60,7 +60,7 @@ enum class LogType {
 	unimplemented
 };
 
-#define DEBUG_BUFFER_SIZE (512)
+#define DEBUG_BUFFER_SIZE (1024)
 
 void platform_debug_output(const char *msg);
 

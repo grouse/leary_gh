@@ -76,7 +76,7 @@ inline Vector3f cross(Vector3f lhs, Vector3f rhs);
 /*******************************************************************************
  * Matrix4f function declarations
  ******************************************************************************/
-inline Matrix4f translate(Matrix4f mat, Vector4f v);
+inline Matrix4f translate(Matrix4f mat, Vector3f v);
 
 /*******************************************************************************
  * Vector3f operator declarations
@@ -146,7 +146,7 @@ inline Vector3f cross(Vector3f lhs, Vector3f rhs)
 /******************************************************************************
  * Matrix4f function definitions
  *****************************************************************************/
-inline Matrix4f translate(Matrix4f m, Vector4f v)
+inline Matrix4f translate(Matrix4f m, Vector3f v)
 {
 	Matrix4f result = m;
 	result.columns[3] = m.columns[0] * v.x +
