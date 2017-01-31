@@ -266,6 +266,7 @@ inline Vector4f operator + (Vector4f lhs, Vector4f rhs)
 	vec.x = lhs.x + rhs.x;
 	vec.y = lhs.y + rhs.y;
 	vec.z = lhs.z + rhs.z;
+	vec.w = lhs.w + rhs.w;
 
 	return vec;
 }
@@ -276,6 +277,7 @@ inline Vector4f operator + (Vector4f lhs, f32 rhs)
 	vec.x = lhs.x + rhs;
 	vec.y = lhs.y + rhs;
 	vec.z = lhs.z + rhs;
+	vec.w = lhs.w + rhs;
 
 	return vec;
 }
@@ -304,6 +306,7 @@ inline Vector4f operator - (Vector4f lhs, Vector4f rhs)
 	vec.x = lhs.x - rhs.x;
 	vec.y = lhs.y - rhs.y;
 	vec.z = lhs.z - rhs.z;
+	vec.w = lhs.w - rhs.w;
 
 	return vec;
 }
@@ -314,6 +317,7 @@ inline Vector4f operator - (Vector4f lhs, f32 rhs)
 	vec.x = lhs.x - rhs;
 	vec.y = lhs.y - rhs;
 	vec.z = lhs.z - rhs;
+	vec.w = lhs.w - rhs;
 
 	return vec;
 }
@@ -341,6 +345,7 @@ inline Vector4f operator * (Vector4f lhs, f32 rhs)
 	vec.x = lhs.x * rhs;
 	vec.y = lhs.y * rhs;
 	vec.z = lhs.z * rhs;
+	vec.w = lhs.w * rhs;
 
 	return vec;
 }
