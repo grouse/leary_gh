@@ -37,6 +37,7 @@
 
 namespace  {
 	Settings      settings;
+	GameState     game_state;
 	PlatformState platform_state;
 
 	void quit()
@@ -48,6 +49,10 @@ namespace  {
 
 int main()
 {
+	platform_state = {};
+	game_state     = {};
+	settings       = {};
+
 	init_platform_paths(&platform_state);
 
 	SERIALIZE_LOAD_CONF("settings.conf", Settings, &settings);
@@ -102,8 +107,7 @@ int main()
 	xcb_map_window(platform_state.window.xcb.connection, platform_state.window.xcb.window);
 	xcb_flush(platform_state.window.xcb.connection);
 
-	VulkanDevice vulkan_device;
-	vulkan_device.create(settings, platform_state);
+	init_game(&settings, &platform_state, &game_state);
 
 	while (true)
 	{
@@ -170,7 +174,8 @@ int main()
 			}
 		}
 
-		vulkan_device.present();
+		update_game();
+		render_game(&game_state);
 	}
 
 	return 0;

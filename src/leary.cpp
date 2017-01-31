@@ -11,3 +11,23 @@
 
 #include "core/settings.cpp"
 #include "core/serialize.cpp"
+
+struct GameState {
+	VulkanDevice vulkan_device;
+};
+
+
+void init_game(Settings *settings, PlatformState *platform, GameState *game)
+{
+	VAR_UNUSED(platform);
+	game->vulkan_device.create(*settings, *platform);
+}
+
+void update_game()
+{
+}
+
+void render_game(GameState *state)
+{
+	state->vulkan_device.present();
+}
