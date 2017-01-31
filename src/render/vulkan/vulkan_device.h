@@ -57,6 +57,7 @@ struct VulkanShader {
 
 struct Camera {
 	Matrix4f view;
+	Matrix4f projection;
 };
 
 

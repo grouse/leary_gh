@@ -36,13 +36,13 @@
 namespace
 {
 	const f32 vertices[] = {
-		-0.5f, -0.5f,  0.0f,   0.0f, 0.0f, 0.0f, 0.0f,   0.0,  0.0f,
-		 0.5f, -0.5f,  0.0f,   0.0f, 0.0f, 0.0f, 0.0f,   1.0f, 0.0f,
-		 0.5f,  0.5f,  0.0f,   0.0f, 0.0f, 0.0f, 0.0f,   1.0f, 1.0f,
+		-16.0f,  -16.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0,  0.0f,
+		 16.0f,  -16.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f,
+		 16.0f,  16.0f,  0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f,
 
-		 0.5f,  0.5f,  0.0f,   0.0f, 0.0f, 0.0f, 0.0f,   1.0f, 1.0f,
-		-0.5f,  0.5f,  0.0f,   0.0f, 0.0f, 0.0f, 0.0f,   0.0f, 1.0f,
-		-0.5f, -0.5f,  0.0f,   0.0f, 0.0f, 0.0f, 0.0f,   0.0f, 0.0f,
+		 16.0f,  16.0f,  0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f,
+		-16.0f,  16.0f,  0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f,
+		-16.0f, -16.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
 	};
 }
 
@@ -1113,6 +1113,12 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 
 	camera.view = Matrix4f::identity();
 	camera.view = translate(camera.view, Vector3f{0.0f, 0.0f, 0.0f});
+
+	float left   = - (float)vk_swapchain_extent.width / 2.0f;
+	float right  =   (float)vk_swapchain_extent.width / 2.0f;
+	float bottom = - (float)vk_swapchain_extent.height / 2.0f;
+	float top    =   (float)vk_swapchain_extent.height / 2.0f;
+	camera.projection = Matrix4f::orthographic(left, right, top, bottom, 0.0f, 1.0f);
 
 	update_uniform_data(camera_buffer, &camera, sizeof(camera));
 

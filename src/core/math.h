@@ -55,13 +55,21 @@ struct Matrix4f {
 	                                    f32 top, f32 bottom,
 	                                    f32 near, f32 far)
 	{
+		VAR_UNUSED(near);
+		VAR_UNUSED(far);
+
 		Matrix4f result = Matrix4f::identity();
 		result.columns[0].x = 2.0f / (right - left);
 		result.columns[1].y = 2.0f / (top - bottom);
-		result.columns[2].z = 1.0f / (far - near);
+
+#if 0
+		result.columns[2].z = - 2.0f / (far - near);
+
 		result.columns[3].x = - (right + left) / (right - left);
 		result.columns[3].y = - (top + bottom ) / (top - bottom);
-		result.columns[3].z = - near / (far - near);
+		result.columns[3].z = - (far + near) / (far - near);
+#endif
+
 		return result;
 	}
 };
