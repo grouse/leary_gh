@@ -37,12 +37,12 @@
 
 namespace  {
 	Settings      settings;
-	GameState     game_state;
 	PlatformState platform_state;
+	GameState     game_state;
 
 	void quit()
 	{
-		save_settings(settings, "settings.ini", platform_state);
+		quit_game(&settings, &platform_state, &game_state);
 		exit(EXIT_SUCCESS);
 	}
 }
@@ -54,8 +54,6 @@ int main()
 	settings       = {};
 
 	init_platform_paths(&platform_state);
-
-	SERIALIZE_LOAD_CONF("settings.conf", Settings, &settings);
 
 	platform_state.window.xcb.connection = xcb_connect(nullptr, nullptr);
 

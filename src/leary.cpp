@@ -19,8 +19,17 @@ struct GameState {
 
 void init_game(Settings *settings, PlatformState *platform, GameState *game)
 {
+	SERIALIZE_LOAD_CONF("settings.conf", Settings, settings);
+
 	VAR_UNUSED(platform);
 	game->vulkan_device.create(*settings, *platform);
+}
+
+void quit_game(Settings *settings, PlatformState *platform, GameState *game)
+{
+	VAR_UNUSED(platform);
+	VAR_UNUSED(game);
+	SERIALIZE_SAVE_CONF("settings.conf", Settings, settings);
 }
 
 void update_game()
