@@ -1414,7 +1414,9 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 	pipeline = create_pipeline(platform_state);
 
 	/**************************************************************************
-	 * Create pipeline
+	 * Update descriptor sets
+	 * TODO(jesper): this has a dependency on the pipeline and need to be moved
+	 * into an API in some fashion, not sure what the best way to go about it is
 	 *************************************************************************/
 	{
 		VkDescriptorBufferInfo buffer_info = {};
@@ -1661,11 +1663,9 @@ VulkanDevice::destroy_buffer(VulkanBuffer * buffer)
 	vkDestroyBuffer(this->vk_device, buffer->handle, nullptr);
 }
 
-
-void VulkanDevice::present()
+u32 VulkanDevice::acquire_swapchain_image()
 {
 	VkResult result;
-
 	u32 image_index;
 	result = vkAcquireNextImageKHR(vk_device,
 	                               vk_swapchain,
@@ -1674,55 +1674,11 @@ void VulkanDevice::present()
 	                               VK_NULL_HANDLE,
 	                               &image_index);
 	DEBUG_ASSERT(result == VK_SUCCESS);
-
-	{
-		VkCommandBufferBeginInfo begin_info = {};
-		begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-		begin_info.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
-
-		result = vkBeginCommandBuffer(vk_cmd_present, &begin_info);
-		DEBUG_ASSERT(result == VK_SUCCESS);
-
-		VkClearValue clear_values[2];
-		clear_values[0].color = { {1.0f, 0.0f, 0.0f, 0.0f} };
-		clear_values[1].depthStencil = { 1, 0 };
-
-		VkRenderPassBeginInfo render_info = {};
-		render_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-		render_info.renderPass = vk_renderpass;
-		render_info.framebuffer = vk_framebuffers[image_index];
-		render_info.renderArea.offset = { 0, 0 };
-		render_info.renderArea.extent = vk_swapchain_extent;
-		render_info.clearValueCount = 2;
-		render_info.pClearValues = clear_values;
-
-		vkCmdBeginRenderPass(vk_cmd_present,
-		                     &render_info,
-		                     VK_SUBPASS_CONTENTS_INLINE);
-
-			vkCmdBindPipeline(vk_cmd_present,
-			                  VK_PIPELINE_BIND_POINT_GRAPHICS,
-			                  pipeline.handle);
-
-			VkDeviceSize offsets[] = { 0 };
-			vkCmdBindVertexBuffers(vk_cmd_present,
-			                       0,
-			                       1, &vertex_buffer.handle,
-			                       offsets);
-
-			vkCmdBindDescriptorSets(vk_cmd_present,
-			                        VK_PIPELINE_BIND_POINT_GRAPHICS,
-			                        pipeline.layout,
-			                        0,
-			                        1, &pipeline.descriptor_set,
-			                        0, nullptr);
-
-			vkCmdDraw(vk_cmd_present, 6, 1, 0, 0);
-		vkCmdEndRenderPass(vk_cmd_present);
-		result = vkEndCommandBuffer(vk_cmd_present);
-		DEBUG_ASSERT(result == VK_SUCCESS);
-	}
-
+	return image_index;
+}
+void VulkanDevice::present(u32 image_index)
+{
+	VkResult result;
 	{
 		VkSemaphore wait_semaphores[] = {
 			swapchain_image_available
@@ -1775,6 +1731,60 @@ void VulkanDevice::present()
 
 	result = vkQueueWaitIdle(vk_queue);
 	DEBUG_ASSERT(result == VK_SUCCESS);
+}
+
+void VulkanDevice::draw(u32 image_index)
+{
+	VkResult result;
+
+	{
+		VkCommandBufferBeginInfo begin_info = {};
+		begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+		begin_info.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
+
+		result = vkBeginCommandBuffer(vk_cmd_present, &begin_info);
+		DEBUG_ASSERT(result == VK_SUCCESS);
+
+		VkClearValue clear_values[2];
+		clear_values[0].color = { {1.0f, 0.0f, 0.0f, 0.0f} };
+		clear_values[1].depthStencil = { 1, 0 };
+
+		VkRenderPassBeginInfo render_info = {};
+		render_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+		render_info.renderPass = vk_renderpass;
+		render_info.framebuffer = vk_framebuffers[image_index];
+		render_info.renderArea.offset = { 0, 0 };
+		render_info.renderArea.extent = vk_swapchain_extent;
+		render_info.clearValueCount = 2;
+		render_info.pClearValues = clear_values;
+
+		vkCmdBeginRenderPass(vk_cmd_present,
+		                     &render_info,
+		                     VK_SUBPASS_CONTENTS_INLINE);
+
+			vkCmdBindPipeline(vk_cmd_present,
+			                  VK_PIPELINE_BIND_POINT_GRAPHICS,
+			                  pipeline.handle);
+
+			VkDeviceSize offsets[] = { 0 };
+			vkCmdBindVertexBuffers(vk_cmd_present,
+			                       0,
+			                       1, &vertex_buffer.handle,
+			                       offsets);
+
+			vkCmdBindDescriptorSets(vk_cmd_present,
+			                        VK_PIPELINE_BIND_POINT_GRAPHICS,
+			                        pipeline.layout,
+			                        0,
+			                        1, &pipeline.descriptor_set,
+			                        0, nullptr);
+
+			vkCmdDraw(vk_cmd_present, 6, 1, 0, 0);
+		vkCmdEndRenderPass(vk_cmd_present);
+		result = vkEndCommandBuffer(vk_cmd_present);
+		DEBUG_ASSERT(result == VK_SUCCESS);
+	}
+
 }
 
 u32 VulkanDevice::find_memory_type(u32 filter,

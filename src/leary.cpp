@@ -38,5 +38,7 @@ void update_game()
 
 void render_game(GameState *state)
 {
-	state->vulkan_device.present();
+	u32 image_index = state->vulkan_device.acquire_swapchain_image();
+	state->vulkan_device.draw(image_index);
+	state->vulkan_device.present(image_index);
 }

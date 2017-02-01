@@ -82,7 +82,9 @@ public:
 	void create(Settings settings, PlatformState platform_state);
 	void destroy();
 
-	void present();
+	u32 acquire_swapchain_image();
+	void draw(u32 image_index);
+	void present(u32 image_index);
 
 	VulkanPipeline create_pipeline(PlatformState &platform_state);
 
