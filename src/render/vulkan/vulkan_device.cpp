@@ -1391,69 +1391,11 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 	vertex_buffer = create_vertex_buffer(sizeof(vertices),
 	                                     (u8*) vertices);
 
-	Vector4f pixels[32 * 32] = {};
-	pixels[0]     = { 1.0f, 0.0f, 0.0f, 1.0f };
-	pixels[31]    = { 0.0f, 1.0f, 0.0f, 1.0f };
-	pixels[1023]     = { 0.0f, 0.0f, 1.0f, 1.0f };
-
-	VulkanTexture texture = create_texture(32, 32, VK_FORMAT_R32G32B32A32_SFLOAT, pixels);
-	// TODO: fill out the mvp buffer
-	VulkanUniformBuffer camera_buffer = create_uniform_buffer(sizeof(Camera));
-
-	camera.view = Matrix4f::identity();
-	camera.view = translate(camera.view, Vector3f{0.0f, 0.0f, 0.0f});
-
-	float left   = - (float)vk_swapchain_extent.width / 2.0f;
-	float right  =   (float)vk_swapchain_extent.width / 2.0f;
-	float bottom = - (float)vk_swapchain_extent.height / 2.0f;
-	float top    =   (float)vk_swapchain_extent.height / 2.0f;
-	camera.projection = Matrix4f::orthographic(left, right, top, bottom, 0.0f, 1.0f);
-
-	update_uniform_data(camera_buffer, &camera, sizeof(camera));
-
-	pipeline = create_pipeline(platform_state);
-
 	/**************************************************************************
 	 * Update descriptor sets
 	 * TODO(jesper): this has a dependency on the pipeline and need to be moved
 	 * into an API in some fashion, not sure what the best way to go about it is
 	 *************************************************************************/
-	{
-		VkDescriptorBufferInfo buffer_info = {};
-		buffer_info.buffer = camera_buffer.buffer.handle;
-		buffer_info.offset = 0;
-		buffer_info.range  = camera_buffer.buffer.size;
-
-		VkWriteDescriptorSet uniform_writes = {};
-		uniform_writes.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		uniform_writes.dstSet          = pipeline.descriptor_set;
-		uniform_writes.dstBinding      = 0;
-		uniform_writes.dstArrayElement = 0;
-		uniform_writes.descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		uniform_writes.descriptorCount = 1;
-		uniform_writes.pBufferInfo = &buffer_info;
-
-		VkDescriptorImageInfo image_info = {};
-		image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		image_info.imageView   = texture.image_view;
-		image_info.sampler     = pipeline.texture_sampler;
-
-		VkWriteDescriptorSet sampler_writes = {};
-		sampler_writes.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		sampler_writes.dstSet          = pipeline.descriptor_set;
-		sampler_writes.dstBinding      = 1;
-		sampler_writes.dstArrayElement = 0;
-		sampler_writes.descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		sampler_writes.descriptorCount = 1;
-		sampler_writes.pImageInfo      = &image_info;
-
-		VkWriteDescriptorSet descriptor_writes[] = {
-			uniform_writes,
-			sampler_writes
-		};
-
-		vkUpdateDescriptorSets(vk_device, 2, descriptor_writes, 0, nullptr);
-	}
 
 	VkSemaphoreCreateInfo semaphore_info = {};
 	semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -1505,9 +1447,6 @@ VulkanDevice::destroy()
 	// wait for pending operations
 	result = vkQueueWaitIdle(vk_queue);
 	DEBUG_ASSERT(result == VK_SUCCESS);
-
-	vkDestroyPipeline(vk_device, pipeline.handle, nullptr);
-	vkDestroyPipelineLayout(vk_device, pipeline.layout, nullptr);
 
 	// TODO: move these calls out of VulkanDevice, they are meant to be
 	// used outside as an api
@@ -1663,6 +1602,42 @@ VulkanDevice::destroy_buffer(VulkanBuffer * buffer)
 	vkDestroyBuffer(this->vk_device, buffer->handle, nullptr);
 }
 
+void VulkanDevice::update_descriptor_sets(VulkanPipeline pipeline,
+                                          VulkanTexture texture,
+                                          VulkanUniformBuffer ubo)
+{
+	VkDescriptorBufferInfo buffer_info = {};
+	buffer_info.buffer = ubo.buffer.handle;
+	buffer_info.offset = 0;
+	buffer_info.range  = ubo.buffer.size;
+
+	VkDescriptorImageInfo image_info = {};
+	image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	image_info.imageView   = texture.image_view;
+	image_info.sampler     = pipeline.texture_sampler;
+
+	std::array<VkWriteDescriptorSet, 2> descriptor_writes = {};
+	descriptor_writes[0].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	descriptor_writes[0].dstSet          = pipeline.descriptor_set;
+	descriptor_writes[0].dstBinding      = 0;
+	descriptor_writes[0].dstArrayElement = 0;
+	descriptor_writes[0].descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	descriptor_writes[0].descriptorCount = 1;
+	descriptor_writes[0].pBufferInfo     = &buffer_info;
+
+	descriptor_writes[1].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	descriptor_writes[1].dstSet          = pipeline.descriptor_set;
+	descriptor_writes[1].dstBinding      = 1;
+	descriptor_writes[1].dstArrayElement = 0;
+	descriptor_writes[1].descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	descriptor_writes[1].descriptorCount = 1;
+	descriptor_writes[1].pImageInfo      = &image_info;
+
+	vkUpdateDescriptorSets(vk_device,
+	                       descriptor_writes.size(), descriptor_writes.data(),
+	                       0, nullptr);
+}
+
 u32 VulkanDevice::acquire_swapchain_image()
 {
 	VkResult result;
@@ -1678,6 +1653,11 @@ u32 VulkanDevice::acquire_swapchain_image()
 }
 void VulkanDevice::present(u32 image_index)
 {
+	// TODO(jesper): the various semaphores to wait and signal have to be
+	// dynamic based on what has happened in the draw call. Not sure yet whether
+	// to leave the responsibility of figuring these out to the user-space and
+	// have it pass in the semaphores and pipeline stages to wait for or whether
+	// to record this automatically in the device somehow
 	VkResult result;
 	{
 		VkSemaphore wait_semaphores[] = {
@@ -1733,7 +1713,7 @@ void VulkanDevice::present(u32 image_index)
 	DEBUG_ASSERT(result == VK_SUCCESS);
 }
 
-void VulkanDevice::draw(u32 image_index)
+void VulkanDevice::draw(u32 image_index, VulkanPipeline pipeline)
 {
 	VkResult result;
 
@@ -1746,17 +1726,17 @@ void VulkanDevice::draw(u32 image_index)
 		DEBUG_ASSERT(result == VK_SUCCESS);
 
 		VkClearValue clear_values[2];
-		clear_values[0].color = { {1.0f, 0.0f, 0.0f, 0.0f} };
+		clear_values[0].color        = { {1.0f, 0.0f, 0.0f, 0.0f} };
 		clear_values[1].depthStencil = { 1, 0 };
 
 		VkRenderPassBeginInfo render_info = {};
-		render_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-		render_info.renderPass = vk_renderpass;
-		render_info.framebuffer = vk_framebuffers[image_index];
+		render_info.sType             = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+		render_info.renderPass        = vk_renderpass;
+		render_info.framebuffer       = vk_framebuffers[image_index];
 		render_info.renderArea.offset = { 0, 0 };
 		render_info.renderArea.extent = vk_swapchain_extent;
-		render_info.clearValueCount = 2;
-		render_info.pClearValues = clear_values;
+		render_info.clearValueCount   = 2;
+		render_info.pClearValues      = clear_values;
 
 		vkCmdBeginRenderPass(vk_cmd_present,
 		                     &render_info,

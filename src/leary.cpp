@@ -13,7 +13,12 @@
 #include "core/serialize.cpp"
 
 struct GameState {
-	VulkanDevice vulkan_device;
+	VulkanDevice vulkan;
+	VulkanPipeline pipeline;
+
+	VulkanTexture texture;
+	Camera camera;
+	VulkanUniformBuffer camera_buffer;
 };
 
 
@@ -22,7 +27,31 @@ void init_game(Settings *settings, PlatformState *platform, GameState *game)
 	SERIALIZE_LOAD_CONF("settings.conf", Settings, settings);
 
 	VAR_UNUSED(platform);
-	game->vulkan_device.create(*settings, *platform);
+	game->vulkan.create(*settings, *platform);
+
+	Vector4f pixels[32 * 32] = {};
+	pixels[0]     = { 1.0f, 0.0f, 0.0f, 1.0f };
+	pixels[31]    = { 0.0f, 1.0f, 0.0f, 1.0f };
+	pixels[1023]     = { 0.0f, 0.0f, 1.0f, 1.0f };
+
+	game->texture = game->vulkan.create_texture(32, 32, VK_FORMAT_R32G32B32A32_SFLOAT, pixels);
+
+	game->camera.view = Matrix4f::identity();
+	game->camera.view = translate(game->camera.view, Vector3f{0.0f, 0.0f, 0.0f});
+
+	float left   = - (float)settings->video.resolution.width / 2.0f;
+	float right  =   (float)settings->video.resolution.width / 2.0f;
+	float bottom = - (float)settings->video.resolution.height / 2.0f;
+	float top    =   (float)settings->video.resolution.height / 2.0f;
+	game->camera.projection = Matrix4f::orthographic(left, right, top, bottom, 0.0f, 1.0f);
+
+	game->camera_buffer = game->vulkan.create_uniform_buffer(sizeof(Camera));
+	game->vulkan.update_uniform_data(game->camera_buffer,
+	                                 &game->camera,
+	                                 sizeof(Camera));
+
+	game->pipeline = game->vulkan.create_pipeline(*platform);
+	game->vulkan.update_descriptor_sets(game->pipeline, game->texture, game->camera_buffer);
 }
 
 void quit_game(Settings *settings, PlatformState *platform, GameState *game)
@@ -36,9 +65,9 @@ void update_game()
 {
 }
 
-void render_game(GameState *state)
+void render_game(GameState *game)
 {
-	u32 image_index = state->vulkan_device.acquire_swapchain_image();
-	state->vulkan_device.draw(image_index);
-	state->vulkan_device.present(image_index);
+	u32 image_index = game->vulkan.acquire_swapchain_image();
+	game->vulkan.draw(image_index, game->pipeline);
+	game->vulkan.present(image_index);
 }

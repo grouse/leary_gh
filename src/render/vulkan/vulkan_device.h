@@ -83,8 +83,12 @@ public:
 	void destroy();
 
 	u32 acquire_swapchain_image();
-	void draw(u32 image_index);
+	void draw(u32 image_index, VulkanPipeline pipeline);
 	void present(u32 image_index);
+
+	void update_descriptor_sets(VulkanPipeline pipeline,
+	                            VulkanTexture texture,
+	                            VulkanUniformBuffer ubo);
 
 	VulkanPipeline create_pipeline(PlatformState &platform_state);
 
@@ -133,7 +137,6 @@ public:
 	                           VkShaderStageFlagBits stage);
 
 
-	Camera camera;
 	VkInstance       vk_instance;
 
 	// Device and its queue(s)
@@ -178,9 +181,6 @@ public:
 
 	// Vertex buffer
 	VulkanBuffer vertex_buffer;
-
-	// Pipeline
-	VulkanPipeline pipeline;
 };
 
 #endif // LEARY_VULKAN_DEVICE_H
