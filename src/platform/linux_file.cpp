@@ -92,7 +92,8 @@ bool file_exists(const char *path)
 
 bool file_create(const char *path)
 {
-	i32 fd = open(path, O_CREAT);
+	i32 access = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
+	i32 fd = open(path, O_CREAT, access);
 
 	if (fd >= 0) {
 		close(fd);
