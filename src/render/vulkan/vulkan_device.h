@@ -55,6 +55,22 @@ struct VulkanShader {
 	const char            *name;
 };
 
+enum ShaderStage {
+	ShaderStage_vertex,
+	ShaderStage_fragment,
+	ShaderStage_max
+};
+
+struct VulkanPipeline {
+	VkPipeline            handle;
+	VkPipelineLayout      layout;
+	VkDescriptorSet       descriptor_set;
+	VkDescriptorPool      descriptor_pool;
+	VkDescriptorSetLayout descriptor_layout;
+	VulkanShader          shaders[ShaderStage_max];
+	VkSampler             texture_sampler;
+};
+
 struct Camera {
 	Matrix4f view;
 	Matrix4f projection;
@@ -67,6 +83,8 @@ public:
 	void destroy();
 
 	void present();
+
+	VulkanPipeline create_pipeline(PlatformState &platform_state);
 
 	VkCommandBuffer begin_command_buffer();
 	void            end_command_buffer(VkCommandBuffer buffer);
@@ -160,16 +178,7 @@ public:
 	VulkanBuffer vertex_buffer;
 
 	// Pipeline
-	VkPipeline       vk_pipeline;
-	VkPipelineLayout vk_pipeline_layout;
-
-	VkDescriptorSet       descriptor_set;
-	VkDescriptorPool      descriptor_pool;
-	VkDescriptorSetLayout descriptor_layout;
-
-	VulkanShader vertex_shader;
-	VulkanShader fragment_shader;
-	VkSampler texture_sampler;
+	VulkanPipeline pipeline;
 };
 
 #endif // LEARY_VULKAN_DEVICE_H

@@ -26,6 +26,7 @@
 
 #include <limits>
 #include <fstream>
+#include <array>
 
 #include "platform/debug.h"
 #include "platform/file.h"
@@ -176,6 +177,294 @@ debug_callback_func(VkFlags                    flags,
 	           layer, object_str, message_code, message);
 	DEBUG_ASSERT(log_type != LogType::error);
 	return VK_FALSE;
+}
+
+VulkanPipeline VulkanDevice::create_pipeline(PlatformState &platform_state)
+{
+	VkResult result;
+	VulkanPipeline pipeline = {};
+
+	const char *vertex_file = FILE_SEP "shaders" FILE_SEP "triangle_vert.spv";
+	size_t vertex_path_length = platform_state.folders.game_data_length +
+		                        strlen(vertex_file) + 1;
+	char *vertex_path = (char*) malloc(vertex_path_length);
+	strcpy(vertex_path, platform_state.folders.game_data);
+	strcat(vertex_path, vertex_file);
+
+	size_t vertex_size;
+	void *vertex_source = file_read(vertex_path, &vertex_size);
+	DEBUG_ASSERT(vertex_source != nullptr);
+	free(vertex_path);
+
+	const char *fragment_file = FILE_SEP "shaders" FILE_SEP "triangle_frag.spv";
+	size_t fragment_path_length = platform_state.folders.game_data_length +
+		                          strlen(fragment_file) + 1;
+	char *fragment_path = (char*) malloc(fragment_path_length);
+	strcpy(fragment_path, platform_state.folders.game_data);
+	strcat(fragment_path, fragment_file);
+
+	size_t fragment_size;
+	void *fragment_source = file_read(fragment_path, &fragment_size);
+	DEBUG_ASSERT(fragment_source != nullptr);
+	free(fragment_path);
+
+	pipeline.shaders[ShaderStage_vertex] =
+		create_shader((u32*)vertex_source, vertex_size,
+		              VK_SHADER_STAGE_VERTEX_BIT);
+
+	pipeline.shaders[ShaderStage_fragment] =
+		create_shader((u32*)fragment_source, fragment_size,
+		              VK_SHADER_STAGE_FRAGMENT_BIT);
+
+
+	VkSamplerCreateInfo sampler_info = {};
+	sampler_info.sType                   = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+	sampler_info.magFilter               = VK_FILTER_LINEAR;
+	sampler_info.minFilter               = VK_FILTER_LINEAR;
+	sampler_info.addressModeU            = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	sampler_info.addressModeV            = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	sampler_info.addressModeW            = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	sampler_info.borderColor             = VK_BORDER_COLOR_INT_OPAQUE_WHITE;
+	sampler_info.unnormalizedCoordinates = VK_FALSE;
+	sampler_info.compareEnable           = VK_FALSE;
+	sampler_info.compareOp               = VK_COMPARE_OP_ALWAYS;
+	sampler_info.mipmapMode              = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+
+	result = vkCreateSampler(vk_device,
+	                         &sampler_info,
+	                         nullptr,
+	                         &pipeline.texture_sampler);
+	DEBUG_ASSERT(result == VK_SUCCESS);
+
+	free(fragment_source);
+	free(vertex_source);
+
+	std::array<VkDescriptorSetLayoutBinding, 2> bindings = {};
+	// camera ubo
+	bindings[0].binding         = 0;
+	bindings[0].descriptorCount = 1;
+	bindings[0].descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	bindings[0].stageFlags      = VK_SHADER_STAGE_VERTEX_BIT;
+
+	// texture sampler
+	bindings[1].binding         = 1;
+	bindings[1].descriptorCount = 1;
+	bindings[1].descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	bindings[1].stageFlags      = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+	VkDescriptorSetLayoutCreateInfo descriptor_layout_info = {};
+	descriptor_layout_info.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+	descriptor_layout_info.bindingCount = bindings.size();
+	descriptor_layout_info.pBindings    = bindings.data();
+
+	result = vkCreateDescriptorSetLayout(vk_device,
+	                                     &descriptor_layout_info,
+		                                 nullptr,
+		                                 &pipeline.descriptor_layout);
+	DEBUG_ASSERT(result == VK_SUCCESS);
+
+	// NOTE(jesper): create a pool size descriptor for each type of
+	// descriptor this shader program uses
+	std::array<VkDescriptorPoolSize, 2> pool_sizes = {};
+	pool_sizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	pool_sizes[0].descriptorCount = 1;
+
+	pool_sizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	pool_sizes[1].descriptorCount = 1;
+
+	VkDescriptorPoolCreateInfo pool_info = {};
+	pool_info.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+	pool_info.poolSizeCount = pool_sizes.size();
+	pool_info.pPoolSizes    = pool_sizes.data();
+	pool_info.maxSets       = 1;
+
+	result = vkCreateDescriptorPool(vk_device,
+	                                &pool_info,
+		                            nullptr,
+		                            &pipeline.descriptor_pool);
+	DEBUG_ASSERT(result == VK_SUCCESS);
+
+	VkDescriptorSetAllocateInfo descriptor_alloc_info = {};
+	descriptor_alloc_info.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+	descriptor_alloc_info.descriptorPool     = pipeline.descriptor_pool;
+	descriptor_alloc_info.descriptorSetCount = 1;
+	descriptor_alloc_info.pSetLayouts        = &pipeline.descriptor_layout;
+
+	result = vkAllocateDescriptorSets(vk_device,
+		                              &descriptor_alloc_info,
+		                              &pipeline.descriptor_set);
+	DEBUG_ASSERT(result == VK_SUCCESS);
+
+	VkPipelineLayoutCreateInfo layout_info = {};
+	layout_info.sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+	layout_info.setLayoutCount         = 1;
+	layout_info.pSetLayouts            = &pipeline.descriptor_layout;
+	layout_info.pushConstantRangeCount = 0;
+	layout_info.pPushConstantRanges    = nullptr;
+
+	result = vkCreatePipelineLayout(vk_device,
+		                            &layout_info,
+		                            nullptr,
+		                            &pipeline.layout);
+	DEBUG_ASSERT(result == VK_SUCCESS);
+
+
+	// NOTE(jesper): this describes the number of vertex buffers we bind to
+	// the pipeline, so far we create 1 big vertex buffer containing both
+	// colour and vertices
+	std::array<VkVertexInputBindingDescription, 1> vertex_bindings = {};
+	vertex_bindings[0].binding   = 0;
+	vertex_bindings[0].stride    = sizeof(f32) * 9;
+	vertex_bindings[0].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+	// NOTE(jesper): we need one of these per vertex shader input. Because
+	// it's going to be unique per shader, probably an idea to put this into
+	// VulkanShader
+	std::array<VkVertexInputAttributeDescription, 3> vertex_descriptions = {};
+	// vertices
+	vertex_descriptions[0].location = 0;
+	vertex_descriptions[0].binding  = 0;
+	vertex_descriptions[0].format   = VK_FORMAT_R32G32B32_SFLOAT;
+	vertex_descriptions[0].offset   = 0;
+
+	// color
+	vertex_descriptions[1].location = 1;
+	vertex_descriptions[1].binding  = 0;
+	vertex_descriptions[1].format   = VK_FORMAT_R32G32B32A32_SFLOAT;
+	vertex_descriptions[1].offset   = sizeof(f32) * 3;
+
+	// texture coordinates
+	vertex_descriptions[2].location = 2;
+	vertex_descriptions[2].binding  = 0;
+	vertex_descriptions[2].format   = VK_FORMAT_R32G32_SFLOAT;
+	vertex_descriptions[2].offset   = sizeof(f32) * 7;
+
+	VkPipelineVertexInputStateCreateInfo vertex_input_info = {};
+	vertex_input_info.sType                           = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+	vertex_input_info.vertexBindingDescriptionCount   = vertex_bindings.size();
+	vertex_input_info.pVertexBindingDescriptions      = vertex_bindings.data();
+	vertex_input_info.vertexAttributeDescriptionCount = vertex_descriptions.size();
+	vertex_input_info.pVertexAttributeDescriptions    = vertex_descriptions.data();
+
+	VkPipelineInputAssemblyStateCreateInfo input_assembly_info = {};
+	input_assembly_info.sType                  = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+	input_assembly_info.topology               = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+	input_assembly_info.primitiveRestartEnable = VK_FALSE;
+
+	VkViewport viewport = {};
+	viewport.x        = 0.0f;
+	viewport.y        = 0.0f;
+	viewport.width    = (f32) vk_swapchain_extent.width;
+	viewport.height   = (f32) vk_swapchain_extent.height;
+	viewport.minDepth = 0.0f;
+	viewport.maxDepth = 1.0f;
+
+	VkRect2D scissor = {};
+	scissor.offset = {0, 0};
+	scissor.extent = vk_swapchain_extent;
+
+	VkPipelineViewportStateCreateInfo viewport_info = {};
+	viewport_info.sType         = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+	viewport_info.viewportCount = 1;
+	viewport_info.pViewports    = &viewport;
+	viewport_info.scissorCount  = 1;
+	viewport_info.pScissors     = &scissor;
+
+	VkPipelineRasterizationStateCreateInfo raster_info = {};
+	raster_info.sType                   = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+	raster_info.depthClampEnable        = VK_FALSE;
+	raster_info.rasterizerDiscardEnable = VK_FALSE;
+	raster_info.polygonMode             = VK_POLYGON_MODE_FILL;
+	raster_info.cullMode                = VK_CULL_MODE_BACK_BIT;
+	raster_info.frontFace               = VK_FRONT_FACE_CLOCKWISE;
+	raster_info.depthBiasEnable         = VK_FALSE;
+	raster_info.lineWidth               = 1.0;
+
+	VkPipelineColorBlendAttachmentState color_blend_attachment = {};
+	color_blend_attachment.blendEnable    = VK_FALSE;
+	color_blend_attachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT |
+	                                        VK_COLOR_COMPONENT_G_BIT |
+	                                        VK_COLOR_COMPONENT_B_BIT |
+	                                        VK_COLOR_COMPONENT_A_BIT;
+
+	VkPipelineColorBlendStateCreateInfo color_blend_info = {};
+	color_blend_info.sType             = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+	color_blend_info.logicOpEnable     = VK_FALSE;
+	color_blend_info.logicOp           = VK_LOGIC_OP_CLEAR;
+	color_blend_info.attachmentCount   = 1;
+	color_blend_info.pAttachments      = &color_blend_attachment;
+	color_blend_info.blendConstants[0] = 0.0f;
+	color_blend_info.blendConstants[1] = 0.0f;
+	color_blend_info.blendConstants[2] = 0.0f;
+	color_blend_info.blendConstants[3] = 0.0f;
+
+	VkStencilOpState stencil_state = {};
+	stencil_state.failOp      = VK_STENCIL_OP_KEEP;
+	stencil_state.passOp      = VK_STENCIL_OP_KEEP;
+	stencil_state.depthFailOp = VK_STENCIL_OP_KEEP;
+	stencil_state.compareOp   = VK_COMPARE_OP_ALWAYS;
+	stencil_state.compareMask = 0;
+	stencil_state.writeMask   = 0;
+	stencil_state.reference   = 0;
+
+	VkPipelineDepthStencilStateCreateInfo depth_stencil_info = {};
+	depth_stencil_info.sType                 = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+	depth_stencil_info.depthTestEnable       = VK_TRUE;
+	depth_stencil_info.depthWriteEnable      = VK_TRUE;
+	depth_stencil_info.depthCompareOp        = VK_COMPARE_OP_LESS_OR_EQUAL;
+	depth_stencil_info.depthBoundsTestEnable = VK_FALSE;
+	depth_stencil_info.stencilTestEnable     = VK_FALSE;
+	depth_stencil_info.front                 = stencil_state;
+	depth_stencil_info.back                  = stencil_state;
+	depth_stencil_info.minDepthBounds        = 0.0f;
+	depth_stencil_info.maxDepthBounds        = 0.0f;
+
+	VkPipelineMultisampleStateCreateInfo multisample_info = {};
+	multisample_info.sType                 = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+	multisample_info.rasterizationSamples  = VK_SAMPLE_COUNT_1_BIT;
+	multisample_info.sampleShadingEnable   = VK_FALSE;
+	multisample_info.minSampleShading      = 0;
+	multisample_info.pSampleMask           = nullptr;
+	multisample_info.alphaToCoverageEnable = VK_FALSE;
+	multisample_info.alphaToOneEnable      = VK_FALSE;
+
+	// NOTE(jesper): it seems like it'd be worth creating and caching this
+	// inside the VulkanShader objects
+	std::array<VkPipelineShaderStageCreateInfo, 2> shader_stages = {};
+	shader_stages[0].sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	shader_stages[0].stage  = pipeline.shaders[ShaderStage_vertex].stage;
+	shader_stages[0].module = pipeline.shaders[ShaderStage_vertex].module;
+	shader_stages[0].pName  = pipeline.shaders[ShaderStage_vertex].name;
+
+	shader_stages[1].sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	shader_stages[1].stage  = pipeline.shaders[ShaderStage_fragment].stage;
+	shader_stages[1].module = pipeline.shaders[ShaderStage_fragment].module;
+	shader_stages[1].pName  = pipeline.shaders[ShaderStage_fragment].name;
+
+	VkGraphicsPipelineCreateInfo pipeline_info = {};
+	pipeline_info.sType               = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+	pipeline_info.stageCount          = shader_stages.size();
+	pipeline_info.pStages             = shader_stages.data();
+	pipeline_info.pVertexInputState   = &vertex_input_info;
+	pipeline_info.pInputAssemblyState = &input_assembly_info;
+	pipeline_info.pViewportState      = &viewport_info;
+	pipeline_info.pRasterizationState = &raster_info;
+	pipeline_info.pMultisampleState   = &multisample_info;
+	pipeline_info.pDepthStencilState  = &depth_stencil_info;
+	pipeline_info.pColorBlendState    = &color_blend_info;
+	pipeline_info.layout              = pipeline.layout;
+	pipeline_info.renderPass          = vk_renderpass;
+	pipeline_info.basePipelineHandle  = VK_NULL_HANDLE;
+	pipeline_info.basePipelineIndex   = -1;
+
+	result = vkCreateGraphicsPipelines(vk_device,
+		                               VK_NULL_HANDLE,
+		                               1,
+		                               &pipeline_info,
+		                               nullptr,
+		                               &pipeline.handle);
+	DEBUG_ASSERT(result == VK_SUCCESS);
+	return pipeline;
 }
 
 void VulkanDevice::copy_image(u32 width, u32 height,
@@ -1122,129 +1411,12 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 
 	update_uniform_data(camera_buffer, &camera, sizeof(camera));
 
-
-	/**************************************************************************
-	 * Create Shader modules
-	 *************************************************************************/
-	{
-		const char *vertex_file = FILE_SEP "shaders" FILE_SEP "triangle_vert.spv";
-		size_t vertex_path_length = platform_state.folders.game_data_length +
-		                            strlen(vertex_file) + 1;
-		char *vertex_path = (char*) malloc(vertex_path_length);
-		strcpy(vertex_path, platform_state.folders.game_data);
-		strcat(vertex_path, vertex_file);
-
-		size_t vertex_size;
-		void *vertex_source = file_read(vertex_path, &vertex_size);
-		DEBUG_ASSERT(vertex_source != nullptr);
-		free(vertex_path);
-
-		const char *fragment_file = FILE_SEP "shaders" FILE_SEP "triangle_frag.spv";
-		size_t fragment_path_length = platform_state.folders.game_data_length +
-		                              strlen(fragment_file) + 1;
-		char *fragment_path = (char*) malloc(fragment_path_length);
-		strcpy(fragment_path, platform_state.folders.game_data);
-		strcat(fragment_path, fragment_file);
-
-		size_t fragment_size;
-		void *fragment_source = file_read(fragment_path, &fragment_size);
-		DEBUG_ASSERT(fragment_source != nullptr);
-		free(fragment_path);
-
-		vertex_shader = create_shader((u32*)vertex_source,
-		                              vertex_size,
-		                              VK_SHADER_STAGE_VERTEX_BIT);
-
-		fragment_shader = create_shader((u32*)fragment_source,
-		                                fragment_size,
-		                                VK_SHADER_STAGE_FRAGMENT_BIT);
-
-		VkSamplerCreateInfo sampler_info = {};
-		sampler_info.sType                   = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-		sampler_info.magFilter               = VK_FILTER_LINEAR;
-		sampler_info.minFilter               = VK_FILTER_LINEAR;
-		sampler_info.addressModeU            = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-		sampler_info.addressModeV            = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-		sampler_info.addressModeW            = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-		sampler_info.borderColor             = VK_BORDER_COLOR_INT_OPAQUE_WHITE;
-		sampler_info.unnormalizedCoordinates = VK_FALSE;
-		sampler_info.compareEnable           = VK_FALSE;
-		sampler_info.compareOp               = VK_COMPARE_OP_ALWAYS;
-		sampler_info.mipmapMode              = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-
-		result = vkCreateSampler(vk_device, &sampler_info, nullptr, &texture_sampler);
-		DEBUG_ASSERT(result == VK_SUCCESS);
-
-		free(fragment_source);
-		free(vertex_source);
-	}
+	pipeline = create_pipeline(platform_state);
 
 	/**************************************************************************
 	 * Create pipeline
 	 *************************************************************************/
 	{
-		VkDescriptorSetLayoutBinding mvp = {};
-		mvp.binding = 0;
-		mvp.descriptorCount = 1;
-		mvp.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		mvp.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-
-		VkDescriptorSetLayoutBinding sampler = {};
-		sampler.binding = 1;
-		sampler.descriptorCount = 1;
-		sampler.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		sampler.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-
-		VkDescriptorSetLayoutBinding bindings[] = {
-			mvp, sampler
-		};
-
-		VkDescriptorSetLayoutCreateInfo layout_descriptor_info = {};
-		layout_descriptor_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-		layout_descriptor_info.bindingCount = 2;
-		layout_descriptor_info.pBindings = bindings;
-
-		result = vkCreateDescriptorSetLayout(vk_device, &layout_descriptor_info,
-		                                     nullptr, &descriptor_layout);
-		DEBUG_ASSERT(result == VK_SUCCESS);
-
-		// NOTE(jesper): create a pool size descriptor for each type of
-		// descriptor this shader program uses
-		VkDescriptorPoolSize sampler_pool = {};
-		sampler_pool.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		sampler_pool.descriptorCount = 1;
-
-		VkDescriptorPoolSize uniform_pool = {};
-		uniform_pool.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		uniform_pool.descriptorCount = 1;
-
-		VkDescriptorPoolSize pool_sizes[] = {
-			sampler_pool,
-			uniform_pool
-		};
-
-		VkDescriptorPoolCreateInfo pool_info = {};
-		pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-		pool_info.poolSizeCount = 2;
-		pool_info.pPoolSizes = pool_sizes;
-		// NOTE(jesper): number of descriptor sets
-		pool_info.maxSets = 1;
-
-		result = vkCreateDescriptorPool(vk_device, &pool_info,
-		                                nullptr, &descriptor_pool);
-		DEBUG_ASSERT(result == VK_SUCCESS);
-
-		VkDescriptorSetAllocateInfo descriptor_alloc_info = {};
-		descriptor_alloc_info.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-		descriptor_alloc_info.descriptorPool     = descriptor_pool;
-		descriptor_alloc_info.descriptorSetCount = 1;
-		descriptor_alloc_info.pSetLayouts        = &descriptor_layout;
-
-		result = vkAllocateDescriptorSets(vk_device,
-		                                  &descriptor_alloc_info,
-		                                  &descriptor_set);
-		DEBUG_ASSERT(result == VK_SUCCESS);
-
 		VkDescriptorBufferInfo buffer_info = {};
 		buffer_info.buffer = camera_buffer.buffer.handle;
 		buffer_info.offset = 0;
@@ -1252,7 +1424,7 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 
 		VkWriteDescriptorSet uniform_writes = {};
 		uniform_writes.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		uniform_writes.dstSet          = descriptor_set;
+		uniform_writes.dstSet          = pipeline.descriptor_set;
 		uniform_writes.dstBinding      = 0;
 		uniform_writes.dstArrayElement = 0;
 		uniform_writes.descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -1262,11 +1434,11 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 		VkDescriptorImageInfo image_info = {};
 		image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 		image_info.imageView   = texture.image_view;
-		image_info.sampler     = texture_sampler;
+		image_info.sampler     = pipeline.texture_sampler;
 
 		VkWriteDescriptorSet sampler_writes = {};
 		sampler_writes.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		sampler_writes.dstSet          = descriptor_set;
+		sampler_writes.dstSet          = pipeline.descriptor_set;
 		sampler_writes.dstBinding      = 1;
 		sampler_writes.dstArrayElement = 0;
 		sampler_writes.descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
@@ -1279,191 +1451,6 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 		};
 
 		vkUpdateDescriptorSets(vk_device, 2, descriptor_writes, 0, nullptr);
-
-		VkPipelineLayoutCreateInfo layout_info = {};
-		layout_info.sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-		layout_info.setLayoutCount         = 1;
-		layout_info.pSetLayouts            = &descriptor_layout;
-		layout_info.pushConstantRangeCount = 0;
-		layout_info.pPushConstantRanges    = nullptr;
-
-		result = vkCreatePipelineLayout(vk_device,
-		                                &layout_info,
-		                                nullptr,
-		                                &vk_pipeline_layout);
-		DEBUG_ASSERT(result == VK_SUCCESS);
-
-		// NOTE(jesper): it seems like it'd be worth creating and caching this
-		// inside the VulkanShader objects
-		VkPipelineShaderStageCreateInfo vertex_shader_stage = {};
-		vertex_shader_stage.sType               = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-		vertex_shader_stage.stage               = vertex_shader.stage;
-		vertex_shader_stage.module              = vertex_shader.module;
-		vertex_shader_stage.pName               = vertex_shader.name;
-		vertex_shader_stage.pSpecializationInfo = nullptr;
-
-		VkPipelineShaderStageCreateInfo fragment_shader_stage = {};
-		fragment_shader_stage.sType               = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-		fragment_shader_stage.stage               = fragment_shader.stage;
-		fragment_shader_stage.module              = fragment_shader.module;
-		fragment_shader_stage.pName               = fragment_shader.name;
-		fragment_shader_stage.pSpecializationInfo = nullptr;
-
-		VkPipelineShaderStageCreateInfo shader_stage_info[2] = {
-			vertex_shader_stage,
-			fragment_shader_stage
-		};
-
-		// NOTE(jesper): this describes the number of vertex buffers we bind to
-		// the pipeline, so far we create 1 big vertex buffer containing both
-		// colour and vertices
-		VkVertexInputBindingDescription vertex_bindings[1];
-		vertex_bindings[0].binding   = 0;
-		vertex_bindings[0].stride    = sizeof(f32) * 9;
-		vertex_bindings[0].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-		// NOTE(jesper): we need one of these per vertex shader input. Because
-		// it's going to be unique per shader, probably an idea to put this into
-		// VulkanShader
-		VkVertexInputAttributeDescription vertex_descriptions[3];
-		// vertices
-		vertex_descriptions[0].location = 0;
-		vertex_descriptions[0].binding  = 0;
-		vertex_descriptions[0].format   = VK_FORMAT_R32G32B32_SFLOAT;
-		vertex_descriptions[0].offset   = 0;
-
-		// color
-		vertex_descriptions[1].location = 1;
-		vertex_descriptions[1].binding  = 0;
-		vertex_descriptions[1].format   = VK_FORMAT_R32G32B32A32_SFLOAT;
-		vertex_descriptions[1].offset   = sizeof(f32) * 3;
-
-		// texture coordinates
-		vertex_descriptions[2].location = 2;
-		vertex_descriptions[2].binding  = 0;
-		vertex_descriptions[2].format   = VK_FORMAT_R32G32_SFLOAT;
-		vertex_descriptions[2].offset   = sizeof(f32) * 7;
-
-
-		VkPipelineVertexInputStateCreateInfo vertex_input_info = {};
-		vertex_input_info.sType                           = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-		vertex_input_info.vertexBindingDescriptionCount   = 1;
-		vertex_input_info.pVertexBindingDescriptions      = vertex_bindings;
-		vertex_input_info.vertexAttributeDescriptionCount = 3;
-		vertex_input_info.pVertexAttributeDescriptions    = vertex_descriptions;
-
-		VkPipelineInputAssemblyStateCreateInfo input_assembly_info = {};
-		input_assembly_info.sType                  = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-		input_assembly_info.topology               = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-		input_assembly_info.primitiveRestartEnable = VK_FALSE;
-
-		VkViewport viewport = {};
-		viewport.x = 0.0f;
-		viewport.y = 0.0f;
-		viewport.width = (f32) vk_swapchain_extent.width;
-		viewport.height = (f32) vk_swapchain_extent.height;
-		viewport.minDepth = 0.0f;
-		viewport.maxDepth = 1.0f;
-
-		VkRect2D scissor = {};
-		scissor.offset = {0, 0};
-		scissor.extent = vk_swapchain_extent;
-
-		VkPipelineViewportStateCreateInfo viewport_info = {};
-		viewport_info.sType         = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-		viewport_info.viewportCount = 1;
-		viewport_info.pViewports    = &viewport;
-		viewport_info.scissorCount  = 1;
-		viewport_info.pScissors     = &scissor;
-
-		VkPipelineRasterizationStateCreateInfo raster_info = {};
-		raster_info.sType                   = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-		raster_info.depthClampEnable        = VK_FALSE;
-		raster_info.rasterizerDiscardEnable = VK_FALSE;
-		raster_info.polygonMode             = VK_POLYGON_MODE_FILL;
-		raster_info.cullMode                = VK_CULL_MODE_BACK_BIT;
-		raster_info.frontFace               = VK_FRONT_FACE_CLOCKWISE;
-		raster_info.depthBiasEnable         = VK_FALSE;
-		raster_info.lineWidth               = 1.0;
-
-		VkPipelineColorBlendAttachmentState color_blend_attachment = {};
-		color_blend_attachment.blendEnable         = VK_FALSE;
-		color_blend_attachment.colorWriteMask      = VK_COLOR_COMPONENT_R_BIT |
-		                                             VK_COLOR_COMPONENT_G_BIT |
-		                                             VK_COLOR_COMPONENT_B_BIT |
-		                                             VK_COLOR_COMPONENT_A_BIT;
-
-		f32 blend_constants[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
-
-		VkPipelineColorBlendStateCreateInfo color_blend_info = {};
-		color_blend_info.sType           = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-		color_blend_info.logicOpEnable   = VK_FALSE;
-		color_blend_info.logicOp         = VK_LOGIC_OP_CLEAR;
-		color_blend_info.attachmentCount = 1;
-		color_blend_info.pAttachments    = &color_blend_attachment;
-
-		memcpy(color_blend_info.blendConstants,
-		       blend_constants,
-		       sizeof(blend_constants));
-
-		VkStencilOpState stencil_state = {};
-		stencil_state.failOp      = VK_STENCIL_OP_KEEP;
-		stencil_state.passOp      = VK_STENCIL_OP_KEEP;
-		stencil_state.depthFailOp = VK_STENCIL_OP_KEEP;
-		stencil_state.compareOp   = VK_COMPARE_OP_ALWAYS;
-		stencil_state.compareMask = 0;
-		stencil_state.writeMask   = 0;
-		stencil_state.reference   = 0;
-
-		VkPipelineDepthStencilStateCreateInfo depth_stencil_info = {};
-		depth_stencil_info.sType                 = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-		depth_stencil_info.depthTestEnable       = VK_TRUE;
-		depth_stencil_info.depthWriteEnable      = VK_TRUE;
-		depth_stencil_info.depthCompareOp        = VK_COMPARE_OP_LESS_OR_EQUAL;
-		depth_stencil_info.depthBoundsTestEnable = VK_FALSE;
-		depth_stencil_info.stencilTestEnable     = VK_FALSE;
-		depth_stencil_info.front                 = stencil_state;
-		depth_stencil_info.back                  = stencil_state;
-		depth_stencil_info.minDepthBounds        = 0.0f;
-		depth_stencil_info.maxDepthBounds        = 0.0f;
-
-		VkPipelineMultisampleStateCreateInfo multisample_info = {};
-		multisample_info.sType                 = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-		multisample_info.rasterizationSamples  = VK_SAMPLE_COUNT_1_BIT;
-		multisample_info.sampleShadingEnable   = VK_FALSE;
-		multisample_info.minSampleShading      = 0;
-		multisample_info.pSampleMask           = nullptr;
-		multisample_info.alphaToCoverageEnable = VK_FALSE;
-		multisample_info.alphaToOneEnable      = VK_FALSE;
-
-		VkGraphicsPipelineCreateInfo pipeline_info = {};
-		pipeline_info.sType               = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-		pipeline_info.stageCount          = 2;
-		pipeline_info.pStages             = shader_stage_info;
-		pipeline_info.pVertexInputState   = &vertex_input_info;
-		pipeline_info.pInputAssemblyState = &input_assembly_info;
-		pipeline_info.pViewportState      = &viewport_info;
-		pipeline_info.pRasterizationState = &raster_info;
-		pipeline_info.pMultisampleState   = &multisample_info;
-		pipeline_info.pDepthStencilState  = &depth_stencil_info;
-		pipeline_info.pColorBlendState    = &color_blend_info;
-		pipeline_info.layout              = vk_pipeline_layout;
-		pipeline_info.renderPass          = vk_renderpass;
-		pipeline_info.basePipelineHandle  = VK_NULL_HANDLE;
-		pipeline_info.basePipelineIndex   = -1;
-
-		result = vkCreateGraphicsPipelines(vk_device,
-		                                   VK_NULL_HANDLE,
-		                                   1,
-		                                   &pipeline_info,
-		                                   nullptr,
-		                                   &vk_pipeline);
-		DEBUG_ASSERT(result == VK_SUCCESS);
-
-		// TODO(jesper): assuming we'll be reusing shader modules for several
-		// pipelines we should probably keep these around longer
-		vkDestroyShaderModule(vk_device, vertex_shader.module,   nullptr);
-		vkDestroyShaderModule(vk_device, fragment_shader.module, nullptr);
 	}
 
 	VkSemaphoreCreateInfo semaphore_info = {};
@@ -1517,8 +1504,8 @@ VulkanDevice::destroy()
 	result = vkQueueWaitIdle(vk_queue);
 	DEBUG_ASSERT(result == VK_SUCCESS);
 
-	vkDestroyPipeline(vk_device, vk_pipeline, nullptr);
-	vkDestroyPipelineLayout(vk_device, vk_pipeline_layout, nullptr);
+	vkDestroyPipeline(vk_device, pipeline.handle, nullptr);
+	vkDestroyPipelineLayout(vk_device, pipeline.layout, nullptr);
 
 	// TODO: move these calls out of VulkanDevice, they are meant to be
 	// used outside as an api
@@ -1715,7 +1702,7 @@ void VulkanDevice::present()
 
 			vkCmdBindPipeline(vk_cmd_present,
 			                  VK_PIPELINE_BIND_POINT_GRAPHICS,
-			                  vk_pipeline);
+			                  pipeline.handle);
 
 			VkDeviceSize offsets[] = { 0 };
 			vkCmdBindVertexBuffers(vk_cmd_present,
@@ -1725,9 +1712,9 @@ void VulkanDevice::present()
 
 			vkCmdBindDescriptorSets(vk_cmd_present,
 			                        VK_PIPELINE_BIND_POINT_GRAPHICS,
-			                        vk_pipeline_layout,
+			                        pipeline.layout,
 			                        0,
-			                        1, &descriptor_set,
+			                        1, &pipeline.descriptor_set,
 			                        0, nullptr);
 
 			vkCmdDraw(vk_cmd_present, 6, 1, 0, 0);
