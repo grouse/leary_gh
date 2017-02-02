@@ -225,14 +225,9 @@ member_from_string(char **ptr,
 	tokenizer.at = *ptr;
 
 	Token token = next_token(tokenizer);
-	while (tokenizer.at[0]) {
-		if (token.type == TokenType_close_curly_brace ||
-		    token.type == TokenType_eof)
-		{
-			*ptr = tokenizer.at;
-			return;
-		}
-
+	while (token.type != TokenType_eof &&
+	       token.type != TokenType_close_curly_brace)
+	{
 		DEBUG_ASSERT(token.type == TokenType_identifier);
 		Token name = token;
 
@@ -265,22 +260,20 @@ member_from_string(char **ptr,
 			*(u16*)((u8*)out + member->offset) = (u16)value;
 		} break;
 		case VariableType_resolution: {
-			do token = next_token(tokenizer);
-			while (token.type != TokenType_open_curly_brace);
+			token = next_token(tokenizer);
+			DEBUG_ASSERT(token.type == TokenType_open_curly_brace);
 
 			void *child = ((u8*)out + member->offset);
-
 			member_from_string(&tokenizer.at, Resolution_members,
 			                   sizeof(Resolution_members) /
 			                   sizeof(StructMemberInfo),
 			                   child);
 		} break;
 		case VariableType_video_settings: {
-			do token = next_token(tokenizer);
-			while (token.type != TokenType_open_curly_brace);
+			token = next_token(tokenizer);
+			DEBUG_ASSERT(token.type == TokenType_open_curly_brace);
 
 			void *child = ((u8*)out + member->offset);
-
 			member_from_string(&tokenizer.at, VideoSettings_members,
 			                   sizeof(VideoSettings_members) /
 			                   sizeof(StructMemberInfo),
@@ -290,27 +283,30 @@ member_from_string(char **ptr,
 			DEBUG_LOGF(LogType::unimplemented, "unhandled case: %d", member->type);
 		}
 
-		if (peek_next_token(tokenizer).type == TokenType_close_curly_brace) {
-			return;
-		}
-
-		token = next_token(tokenizer);
-		DEBUG_ASSERT(token.type == TokenType_comma);
-		token = next_token(tokenizer);
+		do token = next_token(tokenizer);
+		while (token.type == TokenType_comma);
 	}
+
+	*ptr = tokenizer.at;
 }
 
 void
-serialize_load_conf(const char *path,
+serialize_load_conf(const char *filename,
                     StructMemberInfo *members,
                     size_t num_members,
                     void *out)
 {
-	VAR_UNUSED(path);
-	VAR_UNUSED(num_members);
-	VAR_UNUSED(members);
+	char *path = platform_resolve_relative(filename);
 
-	char *ptr = (char*)"video = { resolution = { width = 720, height = 640 }, vsync = 0}";
+	if (!file_exists(path)) {
+		return;
+	}
+
+	size_t size;
+	char *file, *ptr;
+	file = ptr = platform_read_file(path, &size);
 	member_from_string(&ptr, members, num_members, out);
+	free(file);
+	free(path);
 }
 
