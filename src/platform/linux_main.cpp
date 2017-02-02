@@ -42,7 +42,7 @@ namespace  {
 
 	void quit()
 	{
-		quit_game(&settings, &platform_state, &game_state);
+		game_quit(&settings, &platform_state, &game_state);
 		exit(EXIT_SUCCESS);
 	}
 }
@@ -54,6 +54,7 @@ int main()
 	settings       = {};
 
 	init_platform_paths(&platform_state);
+	game_load_settings(&settings);
 
 	platform_state.window.xcb.connection = xcb_connect(nullptr, nullptr);
 
@@ -105,7 +106,7 @@ int main()
 	xcb_map_window(platform_state.window.xcb.connection, platform_state.window.xcb.window);
 	xcb_flush(platform_state.window.xcb.connection);
 
-	init_game(&settings, &platform_state, &game_state);
+	game_init(&settings, &platform_state, &game_state);
 
 	while (true)
 	{
@@ -172,8 +173,8 @@ int main()
 			}
 		}
 
-		update_game();
-		render_game(&game_state);
+		game_update();
+		game_render(&game_state);
 	}
 
 	return 0;

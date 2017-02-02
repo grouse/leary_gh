@@ -22,11 +22,13 @@ struct GameState {
 	VulkanUniformBuffer camera_buffer;
 };
 
-
-void init_game(Settings *settings, PlatformState *platform, GameState *game)
+void game_load_settings(Settings *settings)
 {
 	SERIALIZE_LOAD_CONF("settings.conf", Settings, settings);
+}
 
+void game_init(Settings *settings, PlatformState *platform, GameState *game)
+{
 	VAR_UNUSED(platform);
 	game->vulkan.create(*settings, *platform);
 
@@ -55,18 +57,18 @@ void init_game(Settings *settings, PlatformState *platform, GameState *game)
 	game->vulkan.update_descriptor_sets(game->pipeline, game->texture, game->camera_buffer);
 }
 
-void quit_game(Settings *settings, PlatformState *platform, GameState *game)
+void game_quit(Settings *settings, PlatformState *platform, GameState *game)
 {
 	VAR_UNUSED(platform);
 	VAR_UNUSED(game);
 	SERIALIZE_SAVE_CONF("settings.conf", Settings, settings);
 }
 
-void update_game()
+void game_update()
 {
 }
 
-void render_game(GameState *game)
+void game_render(GameState *game)
 {
 	u32 image_index = game->vulkan.acquire_swapchain_image();
 	game->vulkan.draw(image_index, game->pipeline);
