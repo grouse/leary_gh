@@ -44,7 +44,7 @@ Settings load_settings(const char* filename, PlatformState &platform_state)
 	if (!file_exists(path)) return settings;
 
 	size_t size;
-	void *buffer = file_read(path, &size);
+	void *buffer = platform_read_file(path, &size);
 
 	if (buffer == nullptr) return settings;
 

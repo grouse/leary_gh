@@ -6,6 +6,7 @@
  * Copyright (c) 2016 - all rights reserved
  */
 
+#include <cstring>
 struct Tokenizer {
 	char *at;
 };
@@ -74,7 +75,7 @@ TokenType get_token_type(char c)
 	case '\0': type = TokenType_eof;               break;
 	default:   type = TokenType_identifier;        break;
 	}
-	
+
 	return type;
 }
 

@@ -17,10 +17,12 @@ UNOPTIMIZED=-O0
 
 LEARY_LIBS="-lvulkan -lxcb"
 LEARY_FLAGS="$FLAGS $WARNINGS $UNOPTIMIZED $INCLUDE_DIR $LEARY_LIBS"
+TOOLS_FLAGS="$FLAGS $WARNINGS $UNOPTIMIZED $INCLUDE_DIR"
 
 
 pushd $ROOT/build
 glslangValidator -V $ROOT/data/shaders/triangle.vert -o $ROOT/build/data/shaders/triangle_vert.spv
 glslangValidator -V $ROOT/data/shaders/triangle.frag -o $ROOT/build/data/shaders/triangle_frag.spv
 $CXX $LEARY_FLAGS -o leary $ROOT/src/platform/linux_main.cpp
+$CXX $TOOLS_FLAGS -o preprocessor $ROOT/tools/preprocessor.cpp
 popd

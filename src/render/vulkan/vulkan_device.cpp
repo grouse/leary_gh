@@ -192,7 +192,7 @@ VulkanPipeline VulkanDevice::create_pipeline(PlatformState &platform_state)
 	strcat(vertex_path, vertex_file);
 
 	size_t vertex_size;
-	void *vertex_source = file_read(vertex_path, &vertex_size);
+	void *vertex_source = platform_read_file(vertex_path, &vertex_size);
 	DEBUG_ASSERT(vertex_source != nullptr);
 	free(vertex_path);
 
@@ -204,7 +204,7 @@ VulkanPipeline VulkanDevice::create_pipeline(PlatformState &platform_state)
 	strcat(fragment_path, fragment_file);
 
 	size_t fragment_size;
-	void *fragment_source = file_read(fragment_path, &fragment_size);
+	void *fragment_source = platform_read_file(fragment_path, &fragment_size);
 	DEBUG_ASSERT(fragment_source != nullptr);
 	free(fragment_path);
 

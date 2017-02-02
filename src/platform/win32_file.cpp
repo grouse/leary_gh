@@ -149,7 +149,7 @@ void file_close(void *file_handle)
 	CloseHandle((HANDLE)file_handle);
 }
 
-void* file_read(const char *filename, size_t *size)
+void* platform_read_file(const char *filename, size_t *size)
 {
 	void *buffer = nullptr;
 
@@ -204,3 +204,13 @@ void file_write(void *file_handle, void *buffer, size_t bytes)
 	DEBUG_ASSERT(result == TRUE);
 }
 
+char *platform_resolve_relative(const char *path)
+{
+	DWORD result;
+	VAR_UNUSED(result);
+
+	char buffer[MAX_PATH];
+	result = GetFullPathName(path, MAX_PATH, buffer, nullptr);
+	DEBUG_ASSERT(result > 0);
+	return strdup(buffer);
+}

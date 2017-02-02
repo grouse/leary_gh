@@ -56,7 +56,9 @@ bool  file_create(const char *path);
 void* file_open(const char *path, FileMode mode);
 void  file_close(void *file_handle);
 
-void* file_read(const char *filename, size_t *file_size);
 void  file_write(void *file_handle, void *buffer, size_t bytes);
+
+char *platform_read_file(const char* path, size_t *out_size);
+char *platform_resolve_relative(const char *path);
 
 #endif // LEARY_FILE_H

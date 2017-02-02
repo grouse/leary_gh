@@ -10,12 +10,17 @@
 #include <stdlib.h>
 #include <memory>
 #include <vector>
+#include <cstring>
 
 #include "core/types.h"
 #include "core/tokenizer.cpp"
 
 #if defined(_WIN32)
 #include "platform/win32_debug.cpp"
+#include "platform/win32_file.cpp"
+#elif defined(__linux__)
+#include "platform/linux_debug.cpp"
+#include "platform/linux_file.cpp"
 #else
 #error "unsupported platform"
 #endif
@@ -46,32 +51,6 @@ struct StructInfo {
 };
 
 
-char *read_entire_file(const char* filename, size_t *out_size)
-{
-	FILE *file = fopen(filename, "rb");
-
-	size_t size  = 0;
-	char *buffer = nullptr;
-
-	if (file) {
-		fseek(file, 0, SEEK_END);
-		size = ftell(file);
-
-		if (size != 0) {
-			rewind(file);
-
-			buffer = (char*)malloc(size + 1);
-			size_t result = fread(buffer, 1, size, file);
-			DEBUG_ASSERT(result == size);
-			buffer[size] = '\0';
-
-			fclose(file);
-		}
-	}
-
-	*out_size = size;
-	return buffer;
-}
 
 char *string_duplicate(char *src, size_t size)
 {
@@ -137,18 +116,6 @@ const char *variable_type_str(VariableType type)
 	}
 }
 
-// TODO(jesper): put into platform_file
-char *platform_resolve_relative(const char *path)
-{
-	DWORD result;
-	VAR_UNUSED(result);
-
-	char buffer[MAX_PATH];
-	result = GetFullPathName(path, MAX_PATH, buffer, nullptr);
-	DEBUG_ASSERT(result > 0);
-	return strdup(buffer);
-}
-
 StructInfo parse_struct_type_info(Tokenizer tokenizer)
 {
 	StructInfo struct_info = {};
@@ -163,11 +130,10 @@ StructInfo parse_struct_type_info(Tokenizer tokenizer)
 
 	Tokenizer tmp = tokenizer;
 	do {
-		Token member_type = next_token(tmp);
+		next_token(tmp);
 
 		do token = next_token(tmp);
 		while (token.type != TokenType_identifier);
-		Token member_name = token;
 
 		++struct_info.num_members;
 
@@ -208,8 +174,10 @@ int main(int argc, char **argv)
 	char *exe_name = nullptr;
 	char *ptr = argv[0];
 	while (*ptr) {
-		if (*ptr++ == '\\') {
-			exe_name = ptr;
+		if (strcmp(ptr, FILE_SEP) == 0) {
+			exe_name = ++ptr;
+		} else {
+			ptr++;
 		}
 	}
 
@@ -232,14 +200,14 @@ int main(int argc, char **argv)
 	}
 
 	char *output_file_path = (char*)malloc(strlen(output_path) +
-	                                       strlen("\\meta_data.h") + 1);
+	                                       strlen(FILE_SEP "type_info.h") + 1);
 
 	char *dst = output_file_path;
 
 	const char *src = output_path;
 	while (*src) *dst++ = *src++;
 
-	src = "\\meta_data.h";
+	src = FILE_SEP "type_info.h";
 	while (*src) *dst++ = *src++;
 	*(dst+1) = '\0';
 
@@ -248,8 +216,8 @@ int main(int argc, char **argv)
 		return 0;
 	}
 
-	std::fprintf(output_file, "#ifndef META_DATA_H\n");
-	std::fprintf(output_file, "#define META_DATA_H\n\n");
+	std::fprintf(output_file, "#ifndef TYPE_INFO_H\n");
+	std::fprintf(output_file, "#define TYPE_INFO_H\n\n");
 
 	std::fprintf(output_file, "enum VariableType {\n");
 	for (i32 i = 0; i < VariableType_num; i++) {
@@ -263,19 +231,21 @@ int main(int argc, char **argv)
 	}
 	std::fprintf(output_file, "};\n\n");
 
-	std::fprintf(output_file, "struct StructMemberMetaData {\n");
-	std::fprintf(output_file, "\tVariableType variable_type;\n");
-	std::fprintf(output_file, "\tconst char   *variable_name;\n");
+	std::fprintf(output_file, "struct StructMemberInfo {\n");
+	std::fprintf(output_file, "\tVariableType type;\n");
+	std::fprintf(output_file, "\tconst char   *name;\n");
 	std::fprintf(output_file, "\tsize_t       offset;\n");
 	std::fprintf(output_file, "};\n\n");
 
 	const char *files[] = {
-		"\\core\\settings.h"
+		FILE_SEP "core" FILE_SEP "settings.h"
 	};
 
 	std::vector<StructInfo> struct_infos;
 
-	for (i32 i = 0; i < (sizeof(files) / sizeof(files[0])); ++i) {
+	i32 num_files = (i32)sizeof(files) / sizeof(files[0]);
+
+	for (i32 i = 0; i < num_files; ++i) {
 		char *file_path = (char*)malloc(strlen(input_root) +
 		                                strlen(files[i]) + 1);
 
@@ -289,7 +259,7 @@ int main(int argc, char **argv)
 		*(dst+1) = '\0';
 
 		size_t size;
-		char *file = read_entire_file(file_path, &size);
+		char *file = platform_read_file(file_path, &size);
 
 		if (file == nullptr) {
 			return 0;
@@ -314,7 +284,7 @@ int main(int argc, char **argv)
 
 	for (auto &struct_info : struct_infos) {
 		std::fprintf(output_file,
-				 	 "StructMemberMetaData %s_MemberMetaData[] = {\n",
+				 	 "StructMemberInfo %s_members[] = {\n",
 				 	 struct_info.name);
 		for (i32 j = 0; j < struct_info.num_members; ++j) {
 			TypeInfo &type_info = struct_info.members[j];
@@ -329,7 +299,7 @@ int main(int argc, char **argv)
 		std::fprintf(output_file, "};\n\n");
 	}
 
-	std::fprintf(output_file, "#endif // META_DATA_H\n");
+	std::fprintf(output_file, "#endif // TYPE_INFO\n");
 	fclose(output_file);
 
 	return 0;

@@ -30,6 +30,8 @@
 #include <fcntl.h>
 #include <pwd.h>
 
+#include "platform/platform_main.h"
+
 
 void init_platform_paths(PlatformState *state)
 {
@@ -137,7 +139,7 @@ void file_close(void *file_handle)
 	close(fd);
 }
 
-void* file_read(const char *path, size_t *file_size)
+char* platform_read_file(const char *path, size_t *file_size)
 {
 	struct stat st;
 	i32 result = stat(path, &st);
@@ -161,4 +163,10 @@ void file_write(void *file_handle, void *buffer, size_t bytes)
 	ssize_t written = write(fd, buffer, bytes);
 	DEBUG_ASSERT(written >= 0);
 	DEBUG_ASSERT((size_t)written == bytes);
+}
+
+
+char *platform_resolve_relative(const char *path)
+{
+	return realpath(path, nullptr);
 }

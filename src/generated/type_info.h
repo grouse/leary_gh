@@ -1,5 +1,5 @@
-#ifndef META_DATA_H
-#define META_DATA_H
+#ifndef TYPE_INFO_H
+#define TYPE_INFO_H
 
 enum VariableType {
 	VariableType_int32,
@@ -12,25 +12,25 @@ enum VariableType {
 	VariableType_unknown
 };
 
-struct StructMemberMetaData {
-	VariableType variable_type;
-	const char   *variable_name;
+struct StructMemberInfo {
+	VariableType type;
+	const char   *name;
 	size_t       offset;
 };
 
-StructMemberMetaData Resolution_MemberMetaData[] = {
+StructMemberInfo Resolution_members[] = {
 	{ VariableType_int32, "width", offsetof(Resolution, width) },
 	{ VariableType_int32, "height", offsetof(Resolution, height) },
 };
 
-StructMemberMetaData VideoSettings_MemberMetaData[] = {
+StructMemberInfo VideoSettings_members[] = {
 	{ VariableType_resolution, "resolution", offsetof(VideoSettings, resolution) },
 	{ VariableType_int16, "fullscreen", offsetof(VideoSettings, fullscreen) },
 	{ VariableType_int16, "vsync", offsetof(VideoSettings, vsync) },
 };
 
-StructMemberMetaData Settings_MemberMetaData[] = {
+StructMemberInfo Settings_members[] = {
 	{ VariableType_video_settings, "video", offsetof(Settings, video) },
 };
 
-#endif // META_DATA_H
+#endif // TYPE_INFO

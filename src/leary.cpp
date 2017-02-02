@@ -10,6 +10,7 @@
 #include "render/vulkan/vulkan_device.cpp"
 
 #include "core/settings.cpp"
+#include "core/tokenizer.cpp"
 #include "core/serialize.cpp"
 
 struct GameState {
