@@ -7,7 +7,7 @@
  */
 
 
-#include "render/vulkan/vulkan_device.cpp"
+#include "render/vulkan_device.cpp"
 
 #include "core/settings.cpp"
 #include "core/tokenizer.cpp"
