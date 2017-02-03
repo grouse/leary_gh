@@ -179,32 +179,21 @@ debug_callback_func(VkFlags                    flags,
 	return VK_FALSE;
 }
 
-VulkanPipeline VulkanDevice::create_pipeline(PlatformState &platform_state)
+VulkanPipeline VulkanDevice::create_pipeline()
 {
 	VkResult result;
 	VulkanPipeline pipeline = {};
 
-	const char *vertex_file = FILE_SEP "shaders" FILE_SEP "triangle_vert.spv";
-	size_t vertex_path_length = platform_state.folders.game_data_length +
-		                        strlen(vertex_file) + 1;
-	char *vertex_path = (char*) malloc(vertex_path_length);
-	strcpy(vertex_path, platform_state.folders.game_data);
-	strcat(vertex_path, vertex_file);
+	char *vertex_path   = platform_resolve_path(GamePath_shaders, "triangle_vert.spv");
+	char *fragment_path = platform_resolve_path(GamePath_shaders, "triangle_frag.spv");
 
 	size_t vertex_size;
-	void *vertex_source = platform_read_file(vertex_path, &vertex_size);
+	void *vertex_source = platform_file_read(vertex_path, &vertex_size);
 	DEBUG_ASSERT(vertex_source != nullptr);
 	free(vertex_path);
 
-	const char *fragment_file = FILE_SEP "shaders" FILE_SEP "triangle_frag.spv";
-	size_t fragment_path_length = platform_state.folders.game_data_length +
-		                          strlen(fragment_file) + 1;
-	char *fragment_path = (char*) malloc(fragment_path_length);
-	strcpy(fragment_path, platform_state.folders.game_data);
-	strcat(fragment_path, fragment_file);
-
 	size_t fragment_size;
-	void *fragment_source = platform_read_file(fragment_path, &fragment_size);
+	void *fragment_source = platform_file_read(fragment_path, &fragment_size);
 	DEBUG_ASSERT(fragment_source != nullptr);
 	free(fragment_path);
 

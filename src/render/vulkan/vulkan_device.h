@@ -90,7 +90,7 @@ public:
 	                            VulkanTexture texture,
 	                            VulkanUniformBuffer ubo);
 
-	VulkanPipeline create_pipeline(PlatformState &platform_state);
+	VulkanPipeline create_pipeline();
 
 	VkCommandBuffer begin_command_buffer();
 	void            end_command_buffer(VkCommandBuffer buffer);

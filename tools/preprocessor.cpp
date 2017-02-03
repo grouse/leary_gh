@@ -183,11 +183,11 @@ int main(int argc, char **argv)
 
 	for (i32 i = 1; i < argc; ++i) {
 		if (strcmp(argv[i], "-o") == 0 || strcmp(argv[i], "--output") == 0) {
-			output_path = platform_resolve_relative(argv[++i]);
+			output_path = platform_resolve_path(argv[++i]);
 		} else if (strcmp(argv[i], "-r") == 0 ||
 		           strcmp(argv[i], "--root") == 0)
 		{
-			input_root = platform_resolve_relative(argv[++i]);
+			input_root = platform_resolve_path(argv[++i]);
 		} else {
 			std::printf("%s: invalid option: %s\n", exe_name, argv[i]);
 			break;
@@ -259,7 +259,7 @@ int main(int argc, char **argv)
 		*(dst+1) = '\0';
 
 		size_t size;
-		char *file = platform_read_file(file_path, &size);
+		char *file = platform_file_read(file_path, &size);
 
 		if (file == nullptr) {
 			return 0;

@@ -24,7 +24,9 @@ struct GameState {
 
 void game_load_settings(Settings *settings)
 {
-	SERIALIZE_LOAD_CONF("settings.conf", Settings, settings);
+	char *settings_path = platform_resolve_path(GamePath_preferences, "settings.conf");
+	SERIALIZE_LOAD_CONF(settings_path, Settings, settings);
+	free(settings_path);
 }
 
 void game_init(Settings *settings, PlatformState *platform, GameState *game)
@@ -53,15 +55,17 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 	                                 &game->camera,
 	                                 sizeof(Camera));
 
-	game->pipeline = game->vulkan.create_pipeline(*platform);
+	game->pipeline = game->vulkan.create_pipeline();
 	game->vulkan.update_descriptor_sets(game->pipeline, game->texture, game->camera_buffer);
 }
 
-void game_quit(Settings *settings, PlatformState *platform, GameState *game)
+void game_quit(Settings *settings)
 {
-	VAR_UNUSED(platform);
-	VAR_UNUSED(game);
-	SERIALIZE_SAVE_CONF("settings.conf", Settings, settings);
+	char *settings_path = platform_resolve_path(GamePath_preferences, "settings.conf");
+	SERIALIZE_SAVE_CONF(settings_path, Settings, settings);
+	free(settings_path);
+
+	platform_quit();
 }
 
 void game_update()

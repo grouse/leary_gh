@@ -56,14 +56,8 @@ struct PlatformState {
 	#error "unsupported platform"
 #endif
 	} window;
-
-	struct {
-		char   *preferences;
-		size_t preferences_length;
-
-		char   *game_data;
-		size_t game_data_length;
-	} folders;
 };
+
+void platform_quit();
 
 #endif // LEARY_PLATFORM_MAIN_H

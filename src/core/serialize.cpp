@@ -146,12 +146,12 @@ serialize_save_conf(const char *path,
                    size_t num_members,
                    void *ptr)
 {
-	if (!file_exists(path) && !file_create(path)) {
+	if (!platform_file_exists(path) && !platform_file_create(path)) {
 		DEBUG_ASSERT(false);
 		return;
 	}
 
-	void *file_handle = file_open(path, FileMode::write);
+	void *file_handle = platform_file_open(path, FileAccess_write);
 
 	// TODO(jesper): rewrite this so that we do fewer file_write, potentially
 	// so that we only open file and write into it after we've got an entire
@@ -162,10 +162,10 @@ serialize_save_conf(const char *path,
 		StructMemberInfo &member = members[i];
 		i32 bytes = member_to_string(member, ptr, buffer, sizeof(buffer));
 
-		file_write(file_handle, buffer, (size_t)bytes);
+		platform_file_write(file_handle, buffer, (size_t)bytes);
 	}
 
-	file_close(file_handle);
+	platform_file_close(file_handle);
 }
 
 StructMemberInfo *
@@ -291,22 +291,19 @@ member_from_string(char **ptr,
 }
 
 void
-serialize_load_conf(const char *filename,
+serialize_load_conf(const char *path,
                     StructMemberInfo *members,
                     size_t num_members,
                     void *out)
 {
-	char *path = platform_resolve_relative(filename);
-
-	if (!file_exists(path)) {
+	if (!platform_file_exists(path)) {
 		return;
 	}
 
 	size_t size;
 	char *file, *ptr;
-	file = ptr = platform_read_file(path, &size);
+	file = ptr = platform_file_read(path, &size);
 	member_from_string(&ptr, members, num_members, out);
 	free(file);
-	free(path);
 }
 

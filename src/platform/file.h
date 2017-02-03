@@ -35,30 +35,29 @@
 	#error "unsupported platform"
 #endif
 
-struct PlatformState;
-
-enum class EnvironmentFolder {
-	preferences,
-	game_data
+enum FileAccess {
+	FileAccess_read,
+	FileAccess_write,
+	FileAccess_read_write
 };
 
-enum class FileMode {
-	read,
-	write,
-	read_write
+enum GamePath {
+	GamePath_data,
+	GamePath_shaders,
+	GamePath_preferences
 };
 
-void  init_platform_paths(PlatformState *state);
+char *platform_path(GamePath path);
+char *platform_resolve_path(const char *path);
+char *platform_resolve_path(GamePath root, const char *path);
 
-bool  file_exists(const char *path);
-bool  file_create(const char *path);
+bool  platform_file_exists(const char *path);
+bool  platform_file_create(const char *path);
 
-void* file_open(const char *path, FileMode mode);
-void  file_close(void *file_handle);
+void* platform_file_open(const char *path, FileAccess access);
+void  platform_file_close(void *file_handle);
 
-void  file_write(void *file_handle, void *buffer, size_t bytes);
-
-char *platform_read_file(const char* path, size_t *out_size);
-char *platform_resolve_relative(const char *path);
+void  platform_file_write(void *file_handle, void *buffer, size_t bytes);
+char *platform_file_read(const char* path, size_t *out_size);
 
 #endif // LEARY_FILE_H

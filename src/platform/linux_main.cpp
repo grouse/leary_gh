@@ -39,12 +39,11 @@ namespace  {
 	Settings      settings;
 	PlatformState platform_state;
 	GameState     game_state;
+}
 
-	void quit()
-	{
-		game_quit(&settings, &platform_state, &game_state);
-		exit(EXIT_SUCCESS);
-	}
+void platform_quit()
+{
+	exit(EXIT_SUCCESS);
 }
 
 int main()
@@ -53,7 +52,6 @@ int main()
 	game_state     = {};
 	settings       = {};
 
-	init_platform_paths(&platform_state);
 	game_load_settings(&settings);
 
 	platform_state.window.xcb.connection = xcb_connect(nullptr, nullptr);
@@ -119,7 +117,7 @@ int main()
 				auto message = (xcb_client_message_event_t*)event;
 
 				if (message->data.data32[0] == wm_delete_window_reply->atom)
-					quit();
+					game_quit(&settings);
 
 				break;
 			}
@@ -154,7 +152,7 @@ int main()
 
 				switch (key->detail) {
 				case 9: /* ESC */
-					quit();
+					game_quit(&settings);
 					break;
 				default:
 #if 0
