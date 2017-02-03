@@ -47,6 +47,9 @@ namespace
 	};
 }
 
+PFN_vkCreateDebugReportCallbackEXT   CreateDebugReportCallbackEXT;
+PFN_vkDestroyDebugReportCallbackEXT  DestroyDebugReportCallbackEXT;
+
 static VKAPI_ATTR VkBool32 VKAPI_CALL
 debug_callback_func(VkFlags                    flags,
                     VkDebugReportObjectTypeEXT object_type,
@@ -751,6 +754,9 @@ VulkanTexture VulkanDevice::create_texture(u32 width,
 	                           &texture.image_view);
 	DEBUG_ASSERT(result == VK_SUCCESS);
 
+	vkFreeMemory(vk_device, staging_memory, nullptr);
+	vkDestroyImage(vk_device, staging_image, nullptr);
+
 	return texture;
 }
 
@@ -883,12 +889,16 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 	 * Create debug callbacks
 	 *************************************************************************/
 	{
-		VkDebugReportCallbackEXT debug_callback;
 
-		auto pfn_vkCreateDebugReportCallbackEXT =
+		CreateDebugReportCallbackEXT =
 			(PFN_vkCreateDebugReportCallbackEXT)
 			vkGetInstanceProcAddr(vk_instance,
 			                      "vkCreateDebugReportCallbackEXT");
+
+		DestroyDebugReportCallbackEXT =
+			(PFN_vkDestroyDebugReportCallbackEXT)
+			vkGetInstanceProcAddr(vk_instance,
+			                      "vkDestroyDebugReportCallbackEXT");
 
 		VkDebugReportCallbackCreateInfoEXT create_info = {};
 		create_info.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CREATE_INFO_EXT;
@@ -900,10 +910,10 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 
 		create_info.pfnCallback = &debug_callback_func;
 
-		result = pfn_vkCreateDebugReportCallbackEXT(vk_instance,
-		                                            &create_info,
-		                                            nullptr,
-		                                            &debug_callback);
+		result = CreateDebugReportCallbackEXT(vk_instance,
+		                                      &create_info,
+		                                      nullptr,
+		                                      &debug_callback);
 		DEBUG_ASSERT(result == VK_SUCCESS);
 	}
 
@@ -1425,45 +1435,92 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 
 }
 
+void VulkanDevice::destroy(VulkanPipeline pipeline)
+{
+	// TODO(jesper): find a better way to clean these up; not every pipeline
+	// will have every shader stage and we'll probably want to keep shader
+	// stages in a map of some sort of in the device to reuse
+	vkDestroyShaderModule(vk_device, pipeline.shaders[ShaderStage_vertex].module, nullptr);
+	vkDestroyShaderModule(vk_device, pipeline.shaders[ShaderStage_fragment].module, nullptr);
+
+	vkDestroySampler(vk_device, pipeline.texture_sampler, nullptr);
+	vkDestroyDescriptorPool(vk_device, pipeline.descriptor_pool, nullptr);
+	vkDestroyDescriptorSetLayout(vk_device, pipeline.descriptor_layout, nullptr);
+	vkDestroyPipelineLayout(vk_device, pipeline.layout, nullptr);
+	vkDestroyPipeline(vk_device, pipeline.handle, nullptr);
+
+}
+
+void VulkanDevice::destroy(VulkanTexture texture)
+{
+	vkDestroyImageView(vk_device, texture.image_view, nullptr);
+	vkDestroyImage(vk_device, texture.image, nullptr);
+	vkFreeMemory(vk_device, texture.memory, nullptr);
+}
+
+void VulkanDevice::destroy(VulkanBuffer buffer)
+{
+	vkFreeMemory(vk_device, buffer.memory, nullptr);
+	vkDestroyBuffer(vk_device, buffer.handle, nullptr);
+}
+
+void VulkanDevice::destroy(VulkanUniformBuffer ubo)
+{
+	destroy(ubo.staging);
+	destroy(ubo.buffer);
+}
+
 void
 VulkanDevice::destroy()
 {
 	VkResult result;
 	VAR_UNUSED(result);
 
-	vkDestroySemaphore(vk_device, swapchain_image_available, nullptr);
+	vkQueueWaitIdle(vk_queue);
 
-	// wait for pending operations
-	result = vkQueueWaitIdle(vk_queue);
-	DEBUG_ASSERT(result == VK_SUCCESS);
 
-	// TODO: move these calls out of VulkanDevice, they are meant to be
-	// used outside as an api
-	destroy_buffer(&vertex_buffer);
+	destroy(vertex_buffer);
+
 
 	for (i32 i = 0; i < framebuffers_count; ++i) {
 		vkDestroyFramebuffer(vk_device, vk_framebuffers[i], nullptr);
 	}
-
-
 	free(vk_framebuffers);
+
 
 	vkDestroyRenderPass(vk_device, vk_renderpass, nullptr);
 
-	vkDestroyImageView(vk_device, vk_depth_imageview, nullptr);
+
 	vkFreeMemory(vk_device, vk_depth_memory, nullptr);
+	vkDestroyImageView(vk_device, vk_depth_imageview, nullptr);
 	vkDestroyImage(vk_device, vk_depth_image, nullptr);
+
 
 	vkFreeCommandBuffers(vk_device, vk_command_pool, 1, &vk_cmd_present);
 	vkDestroyCommandPool(vk_device, vk_command_pool, nullptr);
+
+
+	vkDestroySemaphore(vk_device, swapchain_image_available, nullptr);
+	vkDestroySemaphore(vk_device, render_completed, nullptr);
+
+
+	for (i32 i = 0; i < (i32)swapchain_images_count; i++) {
+		vkDestroyImageView(vk_device, vk_swapchain_imageviews[i], nullptr);
+		//vkDestroyImage(vk_device, vk_swapchain_images[i], nullptr);
+	}
+
 
 	vkDestroySwapchainKHR(vk_device, vk_swapchain, nullptr);
 
 	delete[] vk_swapchain_imageviews;
 	delete[] vk_swapchain_images;
 
+
 	vkDestroyDevice(vk_device,     nullptr);
 	vkDestroySurfaceKHR(vk_instance, vk_surface, nullptr);
+
+	DestroyDebugReportCallbackEXT(vk_instance, debug_callback, nullptr);
+
 	vkDestroyInstance(vk_instance, nullptr);
 }
 

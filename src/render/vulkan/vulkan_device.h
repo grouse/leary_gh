@@ -82,6 +82,11 @@ public:
 	void create(Settings settings, PlatformState platform_state);
 	void destroy();
 
+	void destroy(VulkanPipeline pipeline);
+	void destroy(VulkanTexture texture);
+	void destroy(VulkanBuffer buffer);
+	void destroy(VulkanUniformBuffer ubo);
+
 	u32 acquire_swapchain_image();
 	void draw(u32 image_index, VulkanPipeline pipeline);
 	void present(u32 image_index);
@@ -138,6 +143,7 @@ public:
 
 
 	VkInstance       vk_instance;
+	VkDebugReportCallbackEXT debug_callback;
 
 	// Device and its queue(s)
 	VkDevice         vk_device;

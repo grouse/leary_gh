@@ -43,6 +43,8 @@ namespace  {
 
 void platform_quit()
 {
+	xcb_destroy_window(platform_state.window.xcb.connection,
+	                   platform_state.window.xcb.window);
 	exit(EXIT_SUCCESS);
 }
 
@@ -117,7 +119,7 @@ int main()
 				auto message = (xcb_client_message_event_t*)event;
 
 				if (message->data.data32[0] == wm_delete_window_reply->atom)
-					game_quit(&settings);
+					game_quit(&settings, &game_state);
 
 				break;
 			}
@@ -152,7 +154,7 @@ int main()
 
 				switch (key->detail) {
 				case 9: /* ESC */
-					game_quit(&settings);
+					game_quit(&settings, &game_state);
 					break;
 				default:
 #if 0

@@ -59,8 +59,15 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 	game->vulkan.update_descriptor_sets(game->pipeline, game->texture, game->camera_buffer);
 }
 
-void game_quit(Settings *settings)
+void game_quit(Settings *settings, GameState *game)
 {
+	game->vulkan.destroy(game->camera_buffer);
+	game->vulkan.destroy(game->texture);
+	game->vulkan.destroy(game->pipeline);
+
+	game->vulkan.destroy();
+
+
 	char *settings_path = platform_resolve_path(GamePath_preferences, "settings.conf");
 	SERIALIZE_SAVE_CONF(settings_path, Settings, settings);
 	free(settings_path);
