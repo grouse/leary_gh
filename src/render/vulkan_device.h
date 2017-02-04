@@ -143,48 +143,48 @@ public:
 	                           VkShaderStageFlagBits stage);
 
 
-	VkInstance       vk_instance;
+	VkInstance       instance;
 	VkDebugReportCallbackEXT debug_callback;
 
 	// Device and its queue(s)
-	VkDevice         vk_device;
-	VkQueue          vk_queue;
+	VkDevice         handle;
+	VkQueue          queue;
 	u32         queue_family_index;
 
 	// Physical device
-	VkPhysicalDevice                 vk_physical_device;
-	VkPhysicalDeviceMemoryProperties vk_physical_memory_properties;
+	VkPhysicalDevice                 physical_device;
+	VkPhysicalDeviceMemoryProperties physical_memory_properties;
 
 
 	// Swapchain
-	VkSurfaceKHR     vk_surface;
-	VkFormat         vk_surface_format;
-	VkSwapchainKHR   vk_swapchain;
-	VkExtent2D       vk_swapchain_extent;
+	VkSurfaceKHR     surface;
+	VkFormat         surface_format;
+	VkSwapchainKHR   swapchain;
+	VkExtent2D       swapchain_extent;
 
 	u32         swapchain_images_count;
-	VkImage          *vk_swapchain_images;
-	VkImageView      *vk_swapchain_imageviews;
+	VkImage          *swapchain_images;
+	VkImageView      *swapchain_imageviews;
 
 	VkSemaphore swapchain_image_available;
 	VkSemaphore render_completed;
 
 	// Command pool and buffers
-	VkCommandPool    vk_command_pool;
+	VkCommandPool    command_pool;
 
-	VkCommandBuffer  vk_cmd_present;
+	VkCommandBuffer  cmd_present;
 
 	// Depth Buffer
-	VkImage          vk_depth_image;
-	VkImageView      vk_depth_imageview;
-	VkDeviceMemory   vk_depth_memory;
+	VkImage          depth_image;
+	VkImageView      depth_imageview;
+	VkDeviceMemory   depth_memory;
 
 	// Render pass
-	VkRenderPass     vk_renderpass;
+	VkRenderPass     renderpass;
 
 	// Framebuffer
 	i32          framebuffers_count;
-	VkFramebuffer    *vk_framebuffers;
+	VkFramebuffer    *framebuffers;
 
 	// Vertex buffer
 	VulkanBuffer vertex_buffer;

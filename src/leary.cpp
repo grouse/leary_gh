@@ -126,7 +126,7 @@ void game_render(GameState *game)
 	begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 	begin_info.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
 
-	result = vkBeginCommandBuffer(game->vulkan.vk_cmd_present, &begin_info);
+	result = vkBeginCommandBuffer(game->vulkan.cmd_present, &begin_info);
 	DEBUG_ASSERT(result == VK_SUCCESS);
 
 	VkClearValue clear_values[2];
@@ -135,39 +135,39 @@ void game_render(GameState *game)
 
 	VkRenderPassBeginInfo render_info = {};
 	render_info.sType             = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-	render_info.renderPass        = game->vulkan.vk_renderpass;
-	render_info.framebuffer       = game->vulkan.vk_framebuffers[image_index];
+	render_info.renderPass        = game->vulkan.renderpass;
+	render_info.framebuffer       = game->vulkan.framebuffers[image_index];
 	render_info.renderArea.offset = { 0, 0 };
-	render_info.renderArea.extent = game->vulkan.vk_swapchain_extent;
+	render_info.renderArea.extent = game->vulkan.swapchain_extent;
 	render_info.clearValueCount   = 2;
 	render_info.pClearValues      = clear_values;
 
-	vkCmdBeginRenderPass(game->vulkan.vk_cmd_present,
+	vkCmdBeginRenderPass(game->vulkan.cmd_present,
 		                 &render_info,
 		                 VK_SUBPASS_CONTENTS_INLINE);
 
-		vkCmdBindPipeline(game->vulkan.vk_cmd_present,
+		vkCmdBindPipeline(game->vulkan.cmd_present,
 			              VK_PIPELINE_BIND_POINT_GRAPHICS,
 			              game->pipeline.handle);
 
 		VkDeviceSize offsets[] = { 0 };
-		vkCmdBindVertexBuffers(game->vulkan.vk_cmd_present,
+		vkCmdBindVertexBuffers(game->vulkan.cmd_present,
 			                   0,
 			                   1, &game->vulkan.vertex_buffer.handle,
 			                   offsets);
 
-		vkCmdBindDescriptorSets(game->vulkan.vk_cmd_present,
+		vkCmdBindDescriptorSets(game->vulkan.cmd_present,
 			                    VK_PIPELINE_BIND_POINT_GRAPHICS,
 			                    game->pipeline.layout,
 			                    0,
 			                    1, &game->pipeline.descriptor_set,
 			                    0, nullptr);
 
-		vkCmdDraw(game->vulkan.vk_cmd_present, 6, 1, 0, 0);
-	vkCmdEndRenderPass(game->vulkan.vk_cmd_present);
+		vkCmdDraw(game->vulkan.cmd_present, 6, 1, 0, 0);
+	vkCmdEndRenderPass(game->vulkan.cmd_present);
 
-	result = vkEndCommandBuffer(game->vulkan.vk_cmd_present);
+	result = vkEndCommandBuffer(game->vulkan.cmd_present);
 	DEBUG_ASSERT(result == VK_SUCCESS);
 
-	game->vulkan.present(image_index, 1, &game->vulkan.vk_cmd_present);
+	game->vulkan.present(image_index, 1, &game->vulkan.cmd_present);
 }
