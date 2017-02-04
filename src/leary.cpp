@@ -19,7 +19,15 @@ struct GameState {
 
 	VulkanTexture texture;
 	Camera camera;
+	Vector3f velocity = {};
 	VulkanUniformBuffer camera_buffer;
+};
+
+enum InputAction {
+	InputAction_move_vertical_start,
+	InputAction_move_horizontal_start,
+	InputAction_move_vertical_end,
+	InputAction_move_horizontal_end,
 };
 
 void game_load_settings(Settings *settings)
@@ -44,10 +52,10 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 	game->camera.view = Matrix4f::identity();
 	game->camera.view = translate(game->camera.view, Vector3f{0.0f, 0.0f, 0.0f});
 
-	float left   = - (float)settings->video.resolution.width / 2.0f;
-	float right  =   (float)settings->video.resolution.width / 2.0f;
-	float bottom = - (float)settings->video.resolution.height / 2.0f;
-	float top    =   (float)settings->video.resolution.height / 2.0f;
+	f32 left   = - (f32)settings->video.resolution.width / 2.0f;
+	f32 right  =   (f32)settings->video.resolution.width / 2.0f;
+	f32 bottom = - (f32)settings->video.resolution.height / 2.0f;
+	f32 top    =   (f32)settings->video.resolution.height / 2.0f;
 	game->camera.projection = Matrix4f::orthographic(left, right, top, bottom, 0.0f, 1.0f);
 
 	game->camera_buffer = game->vulkan.create_uniform_buffer(sizeof(Camera));
@@ -57,6 +65,32 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 
 	game->pipeline = game->vulkan.create_pipeline();
 	game->vulkan.update_descriptor_sets(game->pipeline, game->texture, game->camera_buffer);
+}
+
+void game_input(GameState *game, InputAction action, float axis)
+{
+	switch (action) {
+	case InputAction_move_vertical_start:
+		game->velocity.y = axis * 50.0f;
+		break;
+	case InputAction_move_horizontal_start:
+		game->velocity.x = axis * 50.0f;
+		break;
+	default: break;
+	}
+}
+
+void game_input(GameState *game, InputAction action)
+{
+	switch (action) {
+	case InputAction_move_vertical_end:
+		game->velocity.y = 0.0f;
+		break;
+	case InputAction_move_horizontal_end:
+		game->velocity.x = 0.0f;
+		break;
+	default: break;
+	}
 }
 
 void game_quit(Settings *settings, GameState *game)
@@ -75,8 +109,12 @@ void game_quit(Settings *settings, GameState *game)
 	platform_quit();
 }
 
-void game_update()
+void game_update(GameState* game, f32 dt)
 {
+	game->camera.view = translate(game->camera.view, dt * game->velocity);
+	game->vulkan.update_uniform_data(game->camera_buffer,
+	                                 &game->camera,
+	                                 sizeof(Camera));
 }
 
 void game_render(GameState *game)

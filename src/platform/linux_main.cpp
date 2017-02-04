@@ -25,6 +25,8 @@
 #include <cstdint>
 #include <cstdlib>
 
+#include <time.h>
+
 #include <xcb/xcb.h>
 
 #include "platform_main.h"
@@ -46,6 +48,22 @@ void platform_quit()
 	xcb_destroy_window(platform_state.window.xcb.connection,
 	                   platform_state.window.xcb.window);
 	exit(EXIT_SUCCESS);
+}
+
+timespec get_time()
+{
+	timespec ts;
+	i32 result = clock_gettime(CLOCK_MONOTONIC, &ts);
+	DEBUG_ASSERT(result == 0);
+	return ts;
+}
+
+long get_time_difference(timespec start, timespec end)
+{
+	i64 difference = (end.tv_sec - start.tv_sec) * 1000000000 +
+	                 (end.tv_nsec - start.tv_nsec);
+	DEBUG_ASSERT(difference >= 0);
+	return difference;
 }
 
 int main()
@@ -108,8 +126,18 @@ int main()
 
 	game_init(&settings, &platform_state, &game_state);
 
+	timespec last_time = get_time();
+
 	while (true)
 	{
+		timespec current_time = get_time();
+		long difference = get_time_difference(last_time, current_time);
+		last_time = current_time;
+		f32 dt = (f32)difference / 1000000000.0f;
+		DEBUG_ASSERT(difference >= 0);
+
+		DEBUG_LOGF(LogType::info, "frame time: %ld ns", difference);
+
 		xcb_generic_event_t *event;
 		while ((event = xcb_poll_for_event(platform_state.window.xcb.connection)))
 		{
@@ -139,12 +167,22 @@ int main()
 				if (keymap->keys[key->detail / 8] & (1 << (key->detail % 8)))
 					break;
 
-#if 0
 				switch (key->detail) {
+				case 40: /* D */
+					game_input(&game_state, InputAction_move_horizontal_end);
+					break;
+				case 38: /* A */
+					game_input(&game_state, InputAction_move_horizontal_end);
+					break;
+				case 39: /* S */
+					game_input(&game_state, InputAction_move_vertical_end);
+					break;
+				case 25: /* W */
+					game_input(&game_state, InputAction_move_vertical_end);
+					break;
 				default:
 					std::printf("unhandled key release event: %d\n", key->detail);
 				}
-#endif
 
 				break;
 			}
@@ -155,6 +193,18 @@ int main()
 				switch (key->detail) {
 				case 9: /* ESC */
 					game_quit(&settings, &game_state);
+					break;
+				case 40: /* D */
+					game_input(&game_state, InputAction_move_horizontal_start, 1.0f);
+					break;
+				case 38: /* A */
+					game_input(&game_state, InputAction_move_horizontal_start, -1.0f);
+					break;
+				case 39: /* S */
+					game_input(&game_state, InputAction_move_vertical_start, 1.0f);
+					break;
+				case 25: /* W */
+					game_input(&game_state, InputAction_move_vertical_start, -1.0f);
 					break;
 				default:
 #if 0
@@ -173,7 +223,7 @@ int main()
 			}
 		}
 
-		game_update();
+		game_update(&game_state, dt);
 		game_render(&game_state);
 	}
 
