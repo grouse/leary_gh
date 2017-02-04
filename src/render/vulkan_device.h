@@ -185,9 +185,6 @@ public:
 	// Framebuffer
 	i32          framebuffers_count;
 	VkFramebuffer    *framebuffers;
-
-	// Vertex buffer
-	VulkanBuffer vertex_buffer;
 };
 
 #endif // LEARY_VULKAN_DEVICE_H
