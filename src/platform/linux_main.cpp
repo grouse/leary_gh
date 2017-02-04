@@ -146,7 +146,7 @@ int main()
 		f32 dt = (f32)difference / 1000000000.0f;
 		DEBUG_ASSERT(difference >= 0);
 
-		//DEBUG_LOGF(LogType::info, "frame time: %ld ns", difference);
+		DEBUG_LOGF(LogType::info, "frame time: %ld ns", difference);
 
 		xcb_generic_event_t *event;
 		while ((event = xcb_poll_for_event(platform_state.window.xcb.connection)))

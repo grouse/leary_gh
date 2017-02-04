@@ -36,15 +36,6 @@
 
 namespace
 {
-	const f32 vertices[] = {
-		-16.0f,  -16.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0,  0.0f,
-		 16.0f,  -16.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f,
-		 16.0f,  16.0f,  0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f,
-
-		 16.0f,  16.0f,  0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f,
-		-16.0f,  16.0f,  0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f,
-		-16.0f, -16.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
-	};
 }
 
 PFN_vkCreateDebugReportCallbackEXT   CreateDebugReportCallbackEXT;
@@ -1385,12 +1376,6 @@ VulkanDevice::create(Settings settings, PlatformState platform_state)
 	}
 
 	/**************************************************************************
-	 * Create Vertex buffer
-	 *************************************************************************/
-	vertex_buffer = create_vertex_buffer(sizeof(vertices),
-	                                     (u8*) vertices);
-
-	/**************************************************************************
 	 * Update descriptor sets
 	 * TODO(jesper): this has a dependency on the pipeline and need to be moved
 	 * into an API in some fashion, not sure what the best way to go about it is
@@ -1478,8 +1463,6 @@ VulkanDevice::destroy()
 
 	vkQueueWaitIdle(queue);
 
-
-	destroy(vertex_buffer);
 
 
 	for (i32 i = 0; i < framebuffers_count; ++i) {

@@ -21,6 +21,8 @@ struct GameState {
 	Camera camera;
 	Vector3f velocity = {};
 	VulkanUniformBuffer camera_buffer;
+
+	VulkanBuffer vertex_buffer;
 };
 
 enum InputAction {
@@ -28,6 +30,16 @@ enum InputAction {
 	InputAction_move_horizontal_start,
 	InputAction_move_vertical_end,
 	InputAction_move_horizontal_end,
+};
+
+const f32 vertices[] = {
+	-16.0f,  -16.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0,  0.0f,
+	 16.0f,  -16.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f,
+	 16.0f,  16.0f,  0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f,
+
+	 16.0f,  16.0f,  0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f,
+	-16.0f,  16.0f,  0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f,
+	-16.0f, -16.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
 };
 
 void game_load_settings(Settings *settings)
@@ -63,6 +75,8 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 	                                 &game->camera,
 	                                 sizeof(Camera));
 
+	game->vertex_buffer = game->vulkan.create_vertex_buffer(sizeof(vertices), (u8*)vertices);
+
 	game->pipeline = game->vulkan.create_pipeline();
 	game->vulkan.update_descriptor_sets(game->pipeline, game->texture, game->camera_buffer);
 }
@@ -95,6 +109,7 @@ void game_input(GameState *game, InputAction action)
 
 void game_quit(Settings *settings, GameState *game)
 {
+	game->vulkan.destroy(game->vertex_buffer);
 	game->vulkan.destroy(game->camera_buffer);
 	game->vulkan.destroy(game->texture);
 	game->vulkan.destroy(game->pipeline);
@@ -153,7 +168,7 @@ void game_render(GameState *game)
 		VkDeviceSize offsets[] = { 0 };
 		vkCmdBindVertexBuffers(game->vulkan.cmd_present,
 			                   0,
-			                   1, &game->vulkan.vertex_buffer.handle,
+			                   1, &game->vertex_buffer.handle,
 			                   offsets);
 
 		vkCmdBindDescriptorSets(game->vulkan.cmd_present,
