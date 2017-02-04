@@ -52,14 +52,16 @@ void game_load_settings(Settings *settings)
 void game_init(Settings *settings, PlatformState *platform, GameState *game)
 {
 	VAR_UNUSED(platform);
-	game->vulkan.create(*settings, *platform);
+	game->vulkan = vulkan_create(*settings, *platform);
 
 	Vector4f pixels[32 * 32] = {};
 	pixels[0]     = { 1.0f, 0.0f, 0.0f, 1.0f };
 	pixels[31]    = { 0.0f, 1.0f, 0.0f, 1.0f };
 	pixels[1023]     = { 0.0f, 0.0f, 1.0f, 1.0f };
 
-	game->texture = game->vulkan.create_texture(32, 32, VK_FORMAT_R32G32B32A32_SFLOAT, pixels);
+	game->texture = create_texture(&game->vulkan,
+	                               32, 32, VK_FORMAT_R32G32B32A32_SFLOAT,
+	                               pixels);
 
 	game->camera.view = Matrix4f::identity();
 	game->camera.view = translate(game->camera.view, Vector3f{0.0f, 0.0f, 0.0f});
@@ -70,15 +72,21 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 	f32 top    =   (f32)settings->video.resolution.height / 2.0f;
 	game->camera.projection = Matrix4f::orthographic(left, right, top, bottom, 0.0f, 1.0f);
 
-	game->camera_buffer = game->vulkan.create_uniform_buffer(sizeof(Camera));
-	game->vulkan.update_uniform_data(game->camera_buffer,
-	                                 &game->camera,
-	                                 sizeof(Camera));
+	game->camera_buffer = create_uniform_buffer(&game->vulkan, sizeof(Camera));
+	update_uniform_data(&game->vulkan,
+	                    game->camera_buffer,
+	                    &game->camera,
+	                    sizeof(Camera));
 
-	game->vertex_buffer = game->vulkan.create_vertex_buffer(sizeof(vertices), (u8*)vertices);
+	game->vertex_buffer = create_vertex_buffer(&game->vulkan,
+	                                           sizeof(vertices),
+	                                           (u8*)vertices);
 
-	game->pipeline = game->vulkan.create_pipeline();
-	game->vulkan.update_descriptor_sets(game->pipeline, game->texture, game->camera_buffer);
+	game->pipeline = create_pipeline(&game->vulkan);
+	update_descriptor_sets(&game->vulkan,
+	                       game->pipeline,
+	                       game->texture,
+	                       game->camera_buffer);
 }
 
 void game_input(GameState *game, InputAction action, float axis)
@@ -109,12 +117,11 @@ void game_input(GameState *game, InputAction action)
 
 void game_quit(Settings *settings, GameState *game)
 {
-	game->vulkan.destroy(game->vertex_buffer);
-	game->vulkan.destroy(game->camera_buffer);
-	game->vulkan.destroy(game->texture);
-	game->vulkan.destroy(game->pipeline);
-
-	game->vulkan.destroy();
+	destroy(&game->vulkan, game->vertex_buffer);
+	destroy(&game->vulkan, game->camera_buffer);
+	destroy(&game->vulkan, game->texture);
+	destroy(&game->vulkan, game->pipeline);
+	destroy(&game->vulkan);
 
 
 	char *settings_path = platform_resolve_path(GamePath_preferences, "settings.conf");
@@ -127,15 +134,13 @@ void game_quit(Settings *settings, GameState *game)
 void game_update(GameState* game, f32 dt)
 {
 	game->camera.view = translate(game->camera.view, dt * game->velocity);
-	game->vulkan.update_uniform_data(game->camera_buffer,
-	                                 &game->camera,
-	                                 sizeof(Camera));
+	update_uniform_data(&game->vulkan, game->camera_buffer, &game->camera, sizeof(Camera));
 }
 
 void game_render(GameState *game)
 {
 	VkResult result;
-	u32 image_index = game->vulkan.acquire_swapchain_image();
+	u32 image_index = acquire_swapchain_image(&game->vulkan);
 
 	VkCommandBufferBeginInfo begin_info = {};
 	begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -184,5 +189,5 @@ void game_render(GameState *game)
 	result = vkEndCommandBuffer(game->vulkan.cmd_present);
 	DEBUG_ASSERT(result == VK_SUCCESS);
 
-	game->vulkan.present(image_index, 1, &game->vulkan.cmd_present);
+	present(&game->vulkan, image_index, 1, &game->vulkan.cmd_present);
 }
