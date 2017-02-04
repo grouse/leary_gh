@@ -88,8 +88,9 @@ public:
 	void destroy(VulkanUniformBuffer ubo);
 
 	u32 acquire_swapchain_image();
-	void draw(u32 image_index, VulkanPipeline pipeline);
-	void present(u32 image_index);
+	void present(u32 image_index,
+	             i32 command_buffers_count,
+	             VkCommandBuffer *command_buffers);
 
 	void update_descriptor_sets(VulkanPipeline pipeline,
 	                            VulkanTexture texture,

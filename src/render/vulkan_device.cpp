@@ -1697,7 +1697,10 @@ u32 VulkanDevice::acquire_swapchain_image()
 	DEBUG_ASSERT(result == VK_SUCCESS);
 	return image_index;
 }
-void VulkanDevice::present(u32 image_index)
+
+void VulkanDevice::present(u32 image_index,
+                           i32 command_buffers_count,
+                           VkCommandBuffer *command_buffers)
 {
 	// TODO(jesper): the various semaphores to wait and signal have to be
 	// dynamic based on what has happened in the draw call. Not sure yet whether
@@ -1723,8 +1726,8 @@ void VulkanDevice::present(u32 image_index)
 		submit_info.waitSemaphoreCount   = 1;
 		submit_info.pWaitSemaphores      = wait_semaphores;
 		submit_info.pWaitDstStageMask    = wait_stages;
-		submit_info.commandBufferCount   = 1;
-		submit_info.pCommandBuffers      = &vk_cmd_present;
+		submit_info.commandBufferCount   = command_buffers_count;
+		submit_info.pCommandBuffers      = command_buffers;
 		submit_info.signalSemaphoreCount = 1;
 		submit_info.pSignalSemaphores    = signal_semaphores;
 
@@ -1757,60 +1760,6 @@ void VulkanDevice::present(u32 image_index)
 
 	result = vkQueueWaitIdle(vk_queue);
 	DEBUG_ASSERT(result == VK_SUCCESS);
-}
-
-void VulkanDevice::draw(u32 image_index, VulkanPipeline pipeline)
-{
-	VkResult result;
-
-	{
-		VkCommandBufferBeginInfo begin_info = {};
-		begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-		begin_info.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
-
-		result = vkBeginCommandBuffer(vk_cmd_present, &begin_info);
-		DEBUG_ASSERT(result == VK_SUCCESS);
-
-		VkClearValue clear_values[2];
-		clear_values[0].color        = { {1.0f, 0.0f, 0.0f, 0.0f} };
-		clear_values[1].depthStencil = { 1, 0 };
-
-		VkRenderPassBeginInfo render_info = {};
-		render_info.sType             = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-		render_info.renderPass        = vk_renderpass;
-		render_info.framebuffer       = vk_framebuffers[image_index];
-		render_info.renderArea.offset = { 0, 0 };
-		render_info.renderArea.extent = vk_swapchain_extent;
-		render_info.clearValueCount   = 2;
-		render_info.pClearValues      = clear_values;
-
-		vkCmdBeginRenderPass(vk_cmd_present,
-		                     &render_info,
-		                     VK_SUBPASS_CONTENTS_INLINE);
-
-			vkCmdBindPipeline(vk_cmd_present,
-			                  VK_PIPELINE_BIND_POINT_GRAPHICS,
-			                  pipeline.handle);
-
-			VkDeviceSize offsets[] = { 0 };
-			vkCmdBindVertexBuffers(vk_cmd_present,
-			                       0,
-			                       1, &vertex_buffer.handle,
-			                       offsets);
-
-			vkCmdBindDescriptorSets(vk_cmd_present,
-			                        VK_PIPELINE_BIND_POINT_GRAPHICS,
-			                        pipeline.layout,
-			                        0,
-			                        1, &pipeline.descriptor_set,
-			                        0, nullptr);
-
-			vkCmdDraw(vk_cmd_present, 6, 1, 0, 0);
-		vkCmdEndRenderPass(vk_cmd_present);
-		result = vkEndCommandBuffer(vk_cmd_present);
-		DEBUG_ASSERT(result == VK_SUCCESS);
-	}
-
 }
 
 u32 VulkanDevice::find_memory_type(u32 filter,
