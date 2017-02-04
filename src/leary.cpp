@@ -71,10 +71,10 @@ void game_input(GameState *game, InputAction action, float axis)
 {
 	switch (action) {
 	case InputAction_move_vertical_start:
-		game->velocity.y = axis * 50.0f;
+		game->velocity.y += axis * 50.0f;
 		break;
 	case InputAction_move_horizontal_start:
-		game->velocity.x = axis * 50.0f;
+		game->velocity.x += axis * 50.0f;
 		break;
 	default: break;
 	}

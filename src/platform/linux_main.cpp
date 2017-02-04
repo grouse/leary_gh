@@ -43,6 +43,14 @@ namespace  {
 	GameState     game_state;
 }
 
+struct KeyState {
+	bool just_pressed  = false;
+	bool pressed       = false;
+	bool just_released = false;
+	bool released      = true;
+};
+
+
 void platform_quit()
 {
 	xcb_destroy_window(platform_state.window.xcb.connection,
@@ -58,7 +66,7 @@ timespec get_time()
 	return ts;
 }
 
-long get_time_difference(timespec start, timespec end)
+i64 get_time_difference(timespec start, timespec end)
 {
 	i64 difference = (end.tv_sec - start.tv_sec) * 1000000000 +
 	                 (end.tv_nsec - start.tv_nsec);
@@ -124,6 +132,8 @@ int main()
 	xcb_map_window(platform_state.window.xcb.connection, platform_state.window.xcb.window);
 	xcb_flush(platform_state.window.xcb.connection);
 
+	KeyState key_states[255] = {};
+
 	game_init(&settings, &platform_state, &game_state);
 
 	timespec last_time = get_time();
@@ -131,12 +141,12 @@ int main()
 	while (true)
 	{
 		timespec current_time = get_time();
-		long difference = get_time_difference(last_time, current_time);
+		i64 difference = get_time_difference(last_time, current_time);
 		last_time = current_time;
 		f32 dt = (f32)difference / 1000000000.0f;
 		DEBUG_ASSERT(difference >= 0);
 
-		DEBUG_LOGF(LogType::info, "frame time: %ld ns", difference);
+		//DEBUG_LOGF(LogType::info, "frame time: %ld ns", difference);
 
 		xcb_generic_event_t *event;
 		while ((event = xcb_poll_for_event(platform_state.window.xcb.connection)))
@@ -154,6 +164,7 @@ int main()
 			case XCB_KEY_RELEASE:
 			{
 				auto key = (xcb_key_release_event_t*)event;
+				u8 key_index = key->detail / 8;
 
 				// check if the release event is a repeat event by checking its pressed state.
 				// NOTE(grouse): doing this with a keymap because the usual Xlib method of peeking
@@ -164,24 +175,37 @@ int main()
 				auto keymap_cookie = xcb_query_keymap(platform_state.window.xcb.connection);
 				auto keymap = xcb_query_keymap_reply(platform_state.window.xcb.connection, keymap_cookie, nullptr);
 
-				if (keymap->keys[key->detail / 8] & (1 << (key->detail % 8)))
+				if (keymap->keys[key_index] & (1 << (key->detail % 8)))
 					break;
 
-				switch (key->detail) {
-				case 40: /* D */
-					game_input(&game_state, InputAction_move_horizontal_end);
-					break;
-				case 38: /* A */
-					game_input(&game_state, InputAction_move_horizontal_end);
-					break;
-				case 39: /* S */
-					game_input(&game_state, InputAction_move_vertical_end);
-					break;
-				case 25: /* W */
-					game_input(&game_state, InputAction_move_vertical_end);
-					break;
-				default:
-					std::printf("unhandled key release event: %d\n", key->detail);
+				key_states[key->detail].released = true;
+				if (key_states[key->detail].pressed) {
+					key_states[key->detail].just_released = true;
+					key_states[key->detail].just_pressed  = false;
+					key_states[key->detail].pressed       = false;
+				}
+
+				// NOTE(jesper): when we release one of the movement keys, set
+				// the opposing movement key's just_pressed state to whether
+				// it's currenty being pressed down
+				// This is to achieve the behaviour of pressing A then D =
+				// nothing, followed by A then D then -D = A, etc
+				if (key_states[key->detail].just_released) {
+					switch (key->detail) {
+					case 25: /* W */
+						key_states[39].just_pressed = key_states[39].pressed;
+						break;
+					case 38: /* A */
+						key_states[40].just_pressed = key_states[40].pressed;
+						break;
+					case 39: /* S */
+						key_states[25].just_pressed = key_states[25].pressed;
+						break;
+					case 40: /* D */
+						key_states[38].just_pressed = key_states[38].pressed;
+						break;
+					default: break;
+					}
 				}
 
 				break;
@@ -190,12 +214,52 @@ int main()
 			{
 				auto key = (xcb_key_press_event_t*)event;
 
-				switch (key->detail) {
+				key_states[key->detail].pressed = true;
+				if (key_states[key->detail].released) {
+					key_states[key->detail].just_pressed  = true;
+					key_states[key->detail].just_released = false;
+					key_states[key->detail].released      = false;
+				}
+
+				break;
+			}
+			default: break;
+			}
+		}
+
+		// HACK(jesper): loop through the released events first, this is so that
+		// we can be sure any movement input caused by e.g. releasing A gets to
+		// the game before we then tell it that D was pressed
+		for (i32 i = 0; i < 255; i++) {
+			if (key_states[i].just_released) {
+				key_states[i].just_released = false;
+				switch (i) {
 				case 9: /* ESC */
 					game_quit(&settings, &game_state);
 					break;
+				case 25: /* W */
+					game_input(&game_state, InputAction_move_vertical_end);
+					break;
+				case 38: /* A */
+					game_input(&game_state, InputAction_move_horizontal_end);
+					break;
+				case 39: /* S */
+					game_input(&game_state, InputAction_move_vertical_end);
+					break;
 				case 40: /* D */
-					game_input(&game_state, InputAction_move_horizontal_start, 1.0f);
+					game_input(&game_state, InputAction_move_horizontal_end);
+					break;
+				default: break;
+				}
+			}
+		}
+
+		for (i32 i = 0; i < 255; i++) {
+			if (key_states[i].just_pressed) {
+				key_states[i].just_pressed = false;
+				switch (i) {
+				case 25: /* W */
+					game_input(&game_state, InputAction_move_vertical_start, -1.0f);
 					break;
 				case 38: /* A */
 					game_input(&game_state, InputAction_move_horizontal_start, -1.0f);
@@ -203,23 +267,11 @@ int main()
 				case 39: /* S */
 					game_input(&game_state, InputAction_move_vertical_start, 1.0f);
 					break;
-				case 25: /* W */
-					game_input(&game_state, InputAction_move_vertical_start, -1.0f);
+				case 40: /* D */
+					game_input(&game_state, InputAction_move_horizontal_start, 1.0f);
 					break;
-				default:
-#if 0
-					std::printf("unhandled key press event: %d\n", key->detail);
-#endif
-					break;
+				default: break;
 				}
-
-				break;
-			}
-			default:
-#if 0
-				std::printf("unhandled event: %d\n", event->response_type);
-#endif
-				break;
 			}
 		}
 
