@@ -13,6 +13,11 @@
 #include "core/tokenizer.cpp"
 #include "core/serialize.cpp"
 
+struct Camera {
+	Matrix4f view;
+	Matrix4f projection;
+};
+
 struct GameState {
 	VulkanDevice vulkan;
 	VulkanPipeline pipeline;
@@ -31,6 +36,8 @@ enum InputAction {
 	InputAction_move_vertical_end,
 	InputAction_move_horizontal_end,
 };
+
+
 
 const f32 vertices[] = {
 	-16.0f,  -16.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0,  0.0f,
@@ -52,7 +59,7 @@ void game_load_settings(Settings *settings)
 void game_init(Settings *settings, PlatformState *platform, GameState *game)
 {
 	VAR_UNUSED(platform);
-	game->vulkan = vulkan_create(*settings, *platform);
+	game->vulkan = create_device(settings, platform);
 
 	Vector4f pixels[32 * 32] = {};
 	pixels[0]     = { 1.0f, 0.0f, 0.0f, 1.0f };
@@ -158,7 +165,7 @@ void game_render(GameState *game)
 	render_info.renderPass        = game->vulkan.renderpass;
 	render_info.framebuffer       = game->vulkan.framebuffers[image_index];
 	render_info.renderArea.offset = { 0, 0 };
-	render_info.renderArea.extent = game->vulkan.swapchain_extent;
+	render_info.renderArea.extent = game->vulkan.swapchain.extent;
 	render_info.clearValueCount   = 2;
 	render_info.pClearValues      = clear_values;
 

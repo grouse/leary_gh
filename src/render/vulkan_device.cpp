@@ -44,8 +44,8 @@ struct VulkanUniformBuffer {
 };
 
 struct VulkanTexture {
-	u32       width;
-	u32       height;
+	u32            width;
+	u32            height;
 	VkFormat       format;
 	VkImage        image;
 	VkImageView    image_view;
@@ -74,15 +74,22 @@ struct VulkanPipeline {
 	VkSampler             texture_sampler;
 };
 
-struct Camera {
-	Matrix4f view;
-	Matrix4f projection;
-};
+struct VulkanSwapchain {
+	VkSurfaceKHR   surface;
+	VkFormat       format;
+	VkSwapchainKHR handle;
+	VkExtent2D     extent;
 
+	u32            images_count;
+	VkImage        *images;
+	VkImageView    *imageviews;
+};
 
 struct VulkanDevice {
 	VkInstance       instance;
 	VkDebugReportCallbackEXT debug_callback;
+
+	VulkanSwapchain swapchain;
 
 	// Device and its queue(s)
 	VkDevice         handle;
@@ -93,16 +100,7 @@ struct VulkanDevice {
 	VkPhysicalDevice                 physical_device;
 	VkPhysicalDeviceMemoryProperties physical_memory_properties;
 
-
 	// Swapchain
-	VkSurfaceKHR     surface;
-	VkFormat         surface_format;
-	VkSwapchainKHR   swapchain;
-	VkExtent2D       swapchain_extent;
-
-	u32         swapchain_images_count;
-	VkImage          *swapchain_images;
-	VkImageView      *swapchain_imageviews;
 
 	VkSemaphore swapchain_image_available;
 	VkSemaphore render_completed;
@@ -124,6 +122,9 @@ struct VulkanDevice {
 	i32          framebuffers_count;
 	VkFramebuffer    *framebuffers;
 };
+
+
+
 PFN_vkCreateDebugReportCallbackEXT   CreateDebugReportCallbackEXT;
 PFN_vkDestroyDebugReportCallbackEXT  DestroyDebugReportCallbackEXT;
 
@@ -265,6 +266,162 @@ debug_callback_func(VkFlags                    flags,
 	           layer, object_str, message_code, message);
 	DEBUG_ASSERT(log_type != LogType::error);
 	return VK_FALSE;
+}
+
+VulkanSwapchain create_swapchain(VulkanDevice *device,
+                                 VkSurfaceKHR surface,
+                                 Settings *settings)
+
+{
+	VkResult result;
+	VulkanSwapchain swapchain = {};
+	swapchain.surface = surface;
+
+	// figure out the color space for the swapchain
+	u32 formats_count;
+	result = vkGetPhysicalDeviceSurfaceFormatsKHR(device->physical_device,
+		                                          swapchain.surface,
+		                                          &formats_count,
+		                                          nullptr);
+	DEBUG_ASSERT(result == VK_SUCCESS);
+
+	VkSurfaceFormatKHR *formats = new VkSurfaceFormatKHR[formats_count];
+	result = vkGetPhysicalDeviceSurfaceFormatsKHR(device->physical_device,
+		                                          swapchain.surface,
+		                                          &formats_count,
+		                                          formats);
+	DEBUG_ASSERT(result == VK_SUCCESS);
+
+	// NOTE: if impl. reports only 1 surface format and that is undefined
+	// it has no preferred format, so we choose BGRA8_UNORM
+	if (formats_count == 1 && formats[0].format == VK_FORMAT_UNDEFINED)
+		swapchain.format = VK_FORMAT_B8G8R8A8_UNORM;
+	else
+		swapchain.format = formats[0].format;
+
+	// TODO: does the above note affect the color space at all?
+	VkColorSpaceKHR surface_colorspace = formats[0].colorSpace;
+
+	VkSurfaceCapabilitiesKHR surface_capabilities;
+	result = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device->physical_device,
+		                                               swapchain.surface,
+		                                               &surface_capabilities);
+	DEBUG_ASSERT(result == VK_SUCCESS);
+
+	// figure out the present mode for the swapchain
+	u32 present_modes_count;
+	result = vkGetPhysicalDeviceSurfacePresentModesKHR(device->physical_device,
+		                                               swapchain.surface,
+		                                               &present_modes_count,
+		                                               nullptr);
+	DEBUG_ASSERT(result == VK_SUCCESS);
+
+	auto present_modes = new VkPresentModeKHR[present_modes_count];
+	result = vkGetPhysicalDeviceSurfacePresentModesKHR(device->physical_device,
+		                                               swapchain.surface,
+		                                               &present_modes_count,
+		                                               present_modes);
+	DEBUG_ASSERT(result == VK_SUCCESS);
+
+	VkPresentModeKHR surface_present_mode = VK_PRESENT_MODE_FIFO_KHR;
+	for (u32 i = 0; i < present_modes_count; ++i) {
+		const VkPresentModeKHR &mode = present_modes[i];
+
+		if (settings->video.vsync && mode == VK_PRESENT_MODE_MAILBOX_KHR) {
+			surface_present_mode = VK_PRESENT_MODE_MAILBOX_KHR;
+			break;
+		}
+
+		if (!settings->video.vsync && mode == VK_PRESENT_MODE_IMMEDIATE_KHR) {
+			surface_present_mode = VK_PRESENT_MODE_IMMEDIATE_KHR;
+			break;
+		}
+	}
+
+	swapchain.extent = surface_capabilities.currentExtent;
+	if (swapchain.extent.width == (u32) (-1)) {
+		// TODO(grouse): clean up usage of window dimensions
+		DEBUG_ASSERT(settings->video.resolution.width  >= 0);
+		DEBUG_ASSERT(settings->video.resolution.height >= 0);
+
+		swapchain.extent.width  = (u32)settings->video.resolution.width;
+		swapchain.extent.height = (u32)settings->video.resolution.height;
+	}
+
+	// TODO: determine the number of VkImages to use in the swapchain
+	u32 desired_swapchain_images = surface_capabilities.minImageCount + 1;
+
+	if (surface_capabilities.maxImageCount > 0) {
+		desired_swapchain_images = MIN(desired_swapchain_images,
+			                           surface_capabilities.maxImageCount);
+	}
+
+	VkSwapchainCreateInfoKHR create_info = {};
+	create_info.sType                 = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+	create_info.surface               = swapchain.surface;
+	create_info.minImageCount         = desired_swapchain_images;
+	create_info.imageFormat           = swapchain.format;
+	create_info.imageColorSpace       = surface_colorspace;
+	create_info.imageExtent           = swapchain.extent;
+	create_info.imageArrayLayers      = 1;
+	create_info.imageUsage            = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+	create_info.imageSharingMode      = VK_SHARING_MODE_EXCLUSIVE;
+	create_info.queueFamilyIndexCount = 1;
+	create_info.pQueueFamilyIndices   = &device->queue_family_index;
+	create_info.preTransform          = surface_capabilities.currentTransform;
+	create_info.compositeAlpha        = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+	create_info.presentMode           = surface_present_mode;
+	create_info.clipped               = VK_TRUE;
+	create_info.oldSwapchain          = VK_NULL_HANDLE;
+
+	result = vkCreateSwapchainKHR(device->handle,
+		                          &create_info,
+		                          nullptr,
+		                          &swapchain.handle);
+
+	DEBUG_ASSERT(result == VK_SUCCESS);
+
+	delete[] present_modes;
+	delete[] formats;
+
+	result = vkGetSwapchainImagesKHR(device->handle,
+		                             swapchain.handle,
+		                             &swapchain.images_count,
+		                             nullptr);
+	DEBUG_ASSERT(result == VK_SUCCESS);
+
+	swapchain.images = new VkImage[swapchain.images_count];
+	result = vkGetSwapchainImagesKHR(device->handle,
+		                             swapchain.handle,
+		                             &swapchain.images_count,
+		                             swapchain.images);
+	DEBUG_ASSERT(result == VK_SUCCESS);
+
+	swapchain.imageviews = new VkImageView[swapchain.images_count];
+
+	VkImageSubresourceRange subresource_range = {};
+	subresource_range.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
+	subresource_range.baseMipLevel   = 0;
+	subresource_range.levelCount     = 1;
+	subresource_range.baseArrayLayer = 0;
+	subresource_range.layerCount     = 1;
+
+	VkImageViewCreateInfo imageview_create_info = {};
+	imageview_create_info.sType            = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+	imageview_create_info.viewType         = VK_IMAGE_VIEW_TYPE_2D;
+	imageview_create_info.format           = swapchain.format;
+	imageview_create_info.subresourceRange = subresource_range;
+
+	for (i32 i = 0; i < (i32) swapchain.images_count; ++i)
+	{
+		imageview_create_info.image = swapchain.images[i];
+
+		result = vkCreateImageView(device->handle, &imageview_create_info, nullptr,
+			                       &swapchain.imageviews[i]);
+		DEBUG_ASSERT(result == VK_SUCCESS);
+	}
+
+	return swapchain;
 }
 
 VulkanPipeline create_pipeline(VulkanDevice *device)
@@ -433,14 +590,14 @@ VulkanPipeline create_pipeline(VulkanDevice *device)
 	VkViewport viewport = {};
 	viewport.x        = 0.0f;
 	viewport.y        = 0.0f;
-	viewport.width    = (f32) device->swapchain_extent.width;
-	viewport.height   = (f32) device->swapchain_extent.height;
+	viewport.width    = (f32) device->swapchain.extent.width;
+	viewport.height   = (f32) device->swapchain.extent.height;
 	viewport.minDepth = 0.0f;
 	viewport.maxDepth = 1.0f;
 
 	VkRect2D scissor = {};
 	scissor.offset = {0, 0};
-	scissor.extent = device->swapchain_extent;
+	scissor.extent = device->swapchain.extent;
 
 	VkPipelineViewportStateCreateInfo viewport_info = {};
 	viewport_info.sType         = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
@@ -879,7 +1036,7 @@ VulkanShader create_shader(VulkanDevice *device,
 	return shader;
 }
 
-VulkanDevice vulkan_create(Settings settings, PlatformState platform_state)
+VulkanDevice create_device(Settings *settings, PlatformState *platform)
 {
 	VulkanDevice device = {};
 
@@ -1041,13 +1198,13 @@ VulkanDevice vulkan_create(Settings settings, PlatformState platform_state)
 		delete[] physical_devices;
 	}
 
-	/**************************************************************************
-	 * Create VkSurfaceKHR
-	 *************************************************************************/
-	{
-		result = vulkan_create_surface(device.instance, &device.surface, platform_state);
-		DEBUG_ASSERT(result == VK_SUCCESS);
-	}
+	// NOTE(jesper): this is so annoying. The surface belongs with the swapchain
+	// (imo), but to create the swapchain we need the device, and to create the
+	// device we need the surface
+	VkSurfaceKHR surface;
+	result = vulkan_create_surface(device.instance, &surface, *platform);
+	DEBUG_ASSERT(result == VK_SUCCESS);
+
 
 	/**************************************************************************
 	 * Create VkDevice and get its queue
@@ -1072,7 +1229,7 @@ VulkanDevice vulkan_create(Settings settings, PlatformState platform_state)
 			VkBool32 supports_present = VK_FALSE;
 			result = vkGetPhysicalDeviceSurfaceSupportKHR(device.physical_device,
 			                                              device.queue_family_index,
-			                                              device.surface,
+			                                              surface,
 			                                              &supports_present);
 			DEBUG_ASSERT(result == VK_SUCCESS);
 
@@ -1155,169 +1312,11 @@ VulkanDevice vulkan_create(Settings settings, PlatformState platform_state)
 	/**************************************************************************
 	 * Create VkSwapchainKHR
 	 *************************************************************************/
-	{
-		// figure out the color space for the swapchain
-		u32 formats_count;
-		result = vkGetPhysicalDeviceSurfaceFormatsKHR(device.physical_device,
-		                                              device.surface,
-		                                              &formats_count,
-		                                              nullptr);
-		DEBUG_ASSERT(result == VK_SUCCESS);
-
-		VkSurfaceFormatKHR *formats = new VkSurfaceFormatKHR[formats_count];
-		result = vkGetPhysicalDeviceSurfaceFormatsKHR(device.physical_device,
-		                                              device.surface,
-		                                              &formats_count,
-		                                              formats);
-		DEBUG_ASSERT(result == VK_SUCCESS);
-
-		// NOTE: if impl. reports only 1 surface format and that is undefined
-		// it has no preferred format, so we choose BGRA8_UNORM
-		if (formats_count == 1 && formats[0].format == VK_FORMAT_UNDEFINED)
-			device.surface_format = VK_FORMAT_B8G8R8A8_UNORM;
-		else
-			device.surface_format = formats[0].format;
-
-		// TODO: does the above note affect the color space at all?
-		VkColorSpaceKHR surface_colorspace = formats[0].colorSpace;
-
-		VkSurfaceCapabilitiesKHR surface_capabilities;
-		result = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device.physical_device,
-		                                                   device.surface,
-		                                                   &surface_capabilities);
-		DEBUG_ASSERT(result == VK_SUCCESS);
-
-		// figure out the present mode for the swapchain
-		u32 present_modes_count;
-		result = vkGetPhysicalDeviceSurfacePresentModesKHR(device.physical_device,
-		                                                   device.surface,
-		                                                   &present_modes_count,
-		                                                   nullptr);
-		DEBUG_ASSERT(result == VK_SUCCESS);
-
-		VkPresentModeKHR *present_modes =
-			new VkPresentModeKHR[present_modes_count];
-		result = vkGetPhysicalDeviceSurfacePresentModesKHR(device.physical_device,
-		                                                   device.surface,
-		                                                   &present_modes_count,
-		                                                   present_modes);
-		DEBUG_ASSERT(result == VK_SUCCESS);
-
-		VkPresentModeKHR surface_present_mode = VK_PRESENT_MODE_FIFO_KHR;
-		for (u32 i = 0; i < present_modes_count; ++i) {
-			const VkPresentModeKHR &mode = present_modes[i];
-
-			if (settings.video.vsync && mode == VK_PRESENT_MODE_MAILBOX_KHR)
-			{
-				surface_present_mode = VK_PRESENT_MODE_MAILBOX_KHR;
-				break;
-			}
-
-			if (!settings.video.vsync && mode == VK_PRESENT_MODE_IMMEDIATE_KHR)
-			{
-				surface_present_mode = VK_PRESENT_MODE_IMMEDIATE_KHR;
-				break;
-			}
-		}
-
-		device.swapchain_extent = surface_capabilities.currentExtent;
-		if (device.swapchain_extent.width == (u32) (-1)) {
-			// TODO(grouse): clean up usage of window dimensions
-			DEBUG_ASSERT(settings.video.resolution.width  >= 0);
-			DEBUG_ASSERT(settings.video.resolution.height >= 0);
-
-			device.swapchain_extent.width =
-				(u32)settings.video.resolution.width;
-			device.swapchain_extent.height =
-				(u32)settings.video.resolution.height;
-		}
-
-		// TODO: determine the number of VkImages to use in the swapchain
-		u32 desired_swapchain_images = surface_capabilities.minImageCount + 1;
-
-		if (surface_capabilities.maxImageCount > 0)
-		{
-			desired_swapchain_images = MIN(desired_swapchain_images,
-			                               surface_capabilities.maxImageCount);
-		}
-
-		VkSwapchainCreateInfoKHR create_info = {};
-		create_info.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-		create_info.surface               = device.surface;
-		create_info.minImageCount         = desired_swapchain_images;
-		create_info.imageFormat           = device.surface_format;
-		create_info.imageColorSpace       = surface_colorspace;
-		create_info.imageExtent           = device.swapchain_extent;
-		create_info.imageArrayLayers      = 1;
-		create_info.imageUsage            = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-		create_info.imageSharingMode      = VK_SHARING_MODE_EXCLUSIVE;
-		create_info.queueFamilyIndexCount = 1;
-		create_info.pQueueFamilyIndices   = &device.queue_family_index;
-		create_info.preTransform          = surface_capabilities.currentTransform;
-		create_info.compositeAlpha        = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-		create_info.presentMode           = surface_present_mode;
-		create_info.clipped               = VK_TRUE;
-		create_info.oldSwapchain          = VK_NULL_HANDLE;
-
-		result = vkCreateSwapchainKHR(device.handle,
-		                              &create_info,
-		                              nullptr,
-		                              &device.swapchain);
-
-		DEBUG_ASSERT(result == VK_SUCCESS);
-
-		delete[] present_modes;
-		delete[] formats;
-	}
-
-	/**************************************************************************
-	 * Create Swapchain images and views
-	 *************************************************************************/
-	{
-		result = vkGetSwapchainImagesKHR(device.handle,
-		                                 device.swapchain,
-		                                 &device.swapchain_images_count,
-		                                 nullptr);
-		DEBUG_ASSERT(result == VK_SUCCESS);
-
-		device.swapchain_images = new VkImage[device.swapchain_images_count];
-		result = vkGetSwapchainImagesKHR(device.handle,
-		                                 device.swapchain,
-		                                 &device.swapchain_images_count,
-		                                 device.swapchain_images);
-		DEBUG_ASSERT(result == VK_SUCCESS);
-
-		device.swapchain_imageviews = new VkImageView[device.swapchain_images_count];
-
-		VkComponentMapping components = {};
-		components.r = VK_COMPONENT_SWIZZLE_R;
-		components.g = VK_COMPONENT_SWIZZLE_G;
-		components.b = VK_COMPONENT_SWIZZLE_B;
-		components.a = VK_COMPONENT_SWIZZLE_A;
-
-		VkImageSubresourceRange subresource_range = {};
-		subresource_range.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
-		subresource_range.baseMipLevel   = 0;
-		subresource_range.levelCount     = 1;
-		subresource_range.baseArrayLayer = 0;
-		subresource_range.layerCount     = 1;
-
-		VkImageViewCreateInfo create_info = {};
-		create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-		create_info.viewType         = VK_IMAGE_VIEW_TYPE_2D;
-		create_info.format           = device.surface_format;
-		create_info.components       = components;
-		create_info.subresourceRange = subresource_range;
-
-		for (i32 i = 0; i < (i32) device.swapchain_images_count; ++i)
-		{
-			create_info.image = device.swapchain_images[i];
-
-			result = vkCreateImageView(device.handle, &create_info, nullptr,
-			                           &device.swapchain_imageviews[i]);
-			DEBUG_ASSERT(result == VK_SUCCESS);
-		}
-	}
+	// NOTE(jesper): the swapchain is stuck in the VulkanDevice creation right
+	// now because we're still hardcoding the depth buffer creation, among other
+	// things, in the VulkanDevice, which requires the created swapchain.
+	// Really I think it mostly/only need the extent, but same difference
+	device.swapchain = create_swapchain(&device, surface, settings);
 
 	/**************************************************************************
 	 * Create VkCommandPool
@@ -1341,8 +1340,8 @@ VulkanDevice vulkan_create(Settings settings, PlatformState platform_state)
 	 *************************************************************************/
 	{
 		device.depth_image = create_image(&device, VK_FORMAT_D16_UNORM,
-		                           device.swapchain_extent.width,
-		                           device.swapchain_extent.height,
+		                           device.swapchain.extent.width,
+		                           device.swapchain.extent.height,
 		                           VK_IMAGE_TILING_OPTIMAL,
 		                           VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
 		                           (VkMemoryPropertyFlags)0,
@@ -1391,7 +1390,7 @@ VulkanDevice vulkan_create(Settings settings, PlatformState platform_state)
 			VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
 		VkAttachmentDescription color_attachment = {};
-		color_attachment.format         = device.surface_format;
+		color_attachment.format         = device.swapchain.format;
 		color_attachment.samples        = VK_SAMPLE_COUNT_1_BIT;
 		color_attachment.loadOp         = VK_ATTACHMENT_LOAD_OP_CLEAR;
 		color_attachment.storeOp        = VK_ATTACHMENT_STORE_OP_STORE;
@@ -1454,7 +1453,7 @@ VulkanDevice vulkan_create(Settings settings, PlatformState platform_state)
 	 * Create Framebuffers
 	 *************************************************************************/
 	{
-		device.framebuffers_count = (i32)device.swapchain_images_count;
+		device.framebuffers_count = (i32)device.swapchain.images_count;
 		device.framebuffers = (VkFramebuffer*) malloc(sizeof(VkFramebuffer) *
 		                                          device.framebuffers_count);
 
@@ -1462,15 +1461,15 @@ VulkanDevice vulkan_create(Settings settings, PlatformState platform_state)
 		create_info.sType           = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
 		create_info.renderPass      = device.renderpass;
 		create_info.attachmentCount = 2;
-		create_info.width           = device.swapchain_extent.width;
-		create_info.height          = device.swapchain_extent.height;
+		create_info.width           = device.swapchain.extent.width;
+		create_info.height          = device.swapchain.extent.height;
 		create_info.layers          = 1;
 
 		for (i32 i = 0; i < device.framebuffers_count; ++i)
 		{
 			VkImageView views[2] =
 			{
-				device.swapchain_imageviews[i],
+				device.swapchain.imageviews[i],
 				device.depth_imageview
 			};
 
@@ -1546,6 +1545,19 @@ void destroy(VulkanDevice *device, VulkanPipeline pipeline)
 
 }
 
+void destroy(VulkanDevice *device, VulkanSwapchain swapchain)
+{
+	for (i32 i = 0; i < (i32)device->swapchain.images_count; i++) {
+		vkDestroyImageView(device->handle, swapchain.imageviews[i], nullptr);
+	}
+
+	vkDestroySwapchainKHR(device->handle, swapchain.handle, nullptr);
+	vkDestroySurfaceKHR(device->instance, swapchain.surface, nullptr);
+
+	delete[] swapchain.imageviews;
+	delete[] swapchain.images;
+}
+
 void destroy(VulkanDevice *device, VulkanTexture texture)
 {
 	vkDestroyImageView(device->handle, texture.image_view, nullptr);
@@ -1572,8 +1584,6 @@ void destroy(VulkanDevice *device)
 
 	vkQueueWaitIdle(device->queue);
 
-
-
 	for (i32 i = 0; i < device->framebuffers_count; ++i) {
 		vkDestroyFramebuffer(device->handle, device->framebuffers[i], nullptr);
 	}
@@ -1596,20 +1606,12 @@ void destroy(VulkanDevice *device)
 	vkDestroySemaphore(device->handle, device->render_completed, nullptr);
 
 
-	for (i32 i = 0; i < (i32)device->swapchain_images_count; i++) {
-		vkDestroyImageView(device->handle, device->swapchain_imageviews[i], nullptr);
-		//vkDestroyImage(handle, swapchain_images[i], nullptr);
-	}
-
-
-	vkDestroySwapchainKHR(device->handle, device->swapchain, nullptr);
-
-	delete[] device->swapchain_imageviews;
-	delete[] device->swapchain_images;
+	// TODO(jesper): move out of here when the swapchain<->device dependency is
+	// fixed
+	destroy(device, device->swapchain);
 
 
 	vkDestroyDevice(device->handle,     nullptr);
-	vkDestroySurfaceKHR(device->instance, device->surface, nullptr);
 
 	DestroyDebugReportCallbackEXT(device->instance, device->debug_callback, nullptr);
 
@@ -1779,7 +1781,7 @@ u32 acquire_swapchain_image(VulkanDevice *device)
 	VkResult result;
 	u32 image_index;
 	result = vkAcquireNextImageKHR(device->handle,
-	                               device->swapchain,
+	                               device->swapchain.handle,
 	                               UINT64_MAX,
 	                               device->swapchain_image_available,
 	                               VK_NULL_HANDLE,
@@ -1833,7 +1835,7 @@ void present(VulkanDevice *device,
 		};
 
 		VkSwapchainKHR swapchains[] = {
-			device->swapchain
+			device->swapchain.handle
 		};
 
 		VkPresentInfoKHR present_info = {};
