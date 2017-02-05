@@ -1385,93 +1385,23 @@ VulkanDevice create_device(Settings *settings, PlatformState *platform)
 		DEBUG_ASSERT(result == VK_SUCCESS);
 	}
 
-
-	/**************************************************************************
-	 * Create Depth buffer
-	 *************************************************************************/
-	{
-		device.depth_image = create_image(&device, VK_FORMAT_D16_UNORM,
-		                           		  device.swapchain.extent.width,
-		                           		  device.swapchain.extent.height,
-		                           		  VK_IMAGE_TILING_OPTIMAL,
-		                           		  VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-		                           		  (VkMemoryPropertyFlags)0,
-		                           		  &device.depth_memory);
-
-		transition_image(&device,
-		                 device.depth_image,
-		                 VK_IMAGE_LAYOUT_PREINITIALIZED,
-		                 VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
-
-		// create image view
-		VkComponentMapping components = {};
-		components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
-		components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
-		components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
-		components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
-
-		VkImageSubresourceRange subresource_range = {};
-		subresource_range.aspectMask     = VK_IMAGE_ASPECT_DEPTH_BIT;
-		subresource_range.baseMipLevel   = 0;
-		subresource_range.levelCount     = 1;
-		subresource_range.baseArrayLayer = 0;
-		subresource_range.layerCount     = 1;
-
-		VkImageViewCreateInfo imageview_info = {};
-		imageview_info.sType            = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-		imageview_info.image            = device.depth_image;
-		imageview_info.viewType         = VK_IMAGE_VIEW_TYPE_2D;
-		imageview_info.format           = VK_FORMAT_D16_UNORM;
-		imageview_info.components       = components;
-		imageview_info.subresourceRange = subresource_range;
-
-		result = vkCreateImageView(device.handle,
-		                           &imageview_info,
-		                           nullptr,
-		                           &device.depth_imageview);
-		DEBUG_ASSERT(result == VK_SUCCESS);
-
-	}
-
 	/**************************************************************************
 	 * Create vkRenderPass
 	 *************************************************************************/
 	{
-		VkImageLayout depth_image_layout =
-			VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-		VkAttachmentDescription color_attachment = {};
-		color_attachment.format         = device.swapchain.format;
-		color_attachment.samples        = VK_SAMPLE_COUNT_1_BIT;
-		color_attachment.loadOp         = VK_ATTACHMENT_LOAD_OP_CLEAR;
-		color_attachment.storeOp        = VK_ATTACHMENT_STORE_OP_STORE;
-		color_attachment.stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-		color_attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-		color_attachment.initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
-		color_attachment.finalLayout    = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-
-		VkAttachmentDescription depth_stencil_attachment = {};
-		depth_stencil_attachment.format         = VK_FORMAT_D16_UNORM;
-		depth_stencil_attachment.samples        = VK_SAMPLE_COUNT_1_BIT;
-		depth_stencil_attachment.loadOp         = VK_ATTACHMENT_LOAD_OP_CLEAR;
-		depth_stencil_attachment.storeOp        = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-		depth_stencil_attachment.stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-		depth_stencil_attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-		depth_stencil_attachment.initialLayout  = depth_image_layout;
-		depth_stencil_attachment.finalLayout    = depth_image_layout;
-
-		VkAttachmentDescription attachment_descriptions[2] = {
-			color_attachment,
-			depth_stencil_attachment
-		};
+		std::array<VkAttachmentDescription, 1> attachment_descriptions = {};
+		attachment_descriptions[0].format         = device.swapchain.format;
+		attachment_descriptions[0].samples        = VK_SAMPLE_COUNT_1_BIT;
+		attachment_descriptions[0].loadOp         = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		attachment_descriptions[0].storeOp        = VK_ATTACHMENT_STORE_OP_STORE;
+		attachment_descriptions[0].stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		attachment_descriptions[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		attachment_descriptions[0].initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
+		attachment_descriptions[0].finalLayout    = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
 		VkAttachmentReference color_attachment_ref = {};
 		color_attachment_ref.attachment = 0;
-		color_attachment_ref.layout= VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-		VkAttachmentReference depth_attachment_ref = {};
-		depth_attachment_ref.attachment = 1;
-		depth_attachment_ref.layout     = depth_image_layout;
+		color_attachment_ref.layout     = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
 		VkSubpassDescription subpass_description = {};
 		subpass_description.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
@@ -1480,14 +1410,14 @@ VulkanDevice create_device(Settings *settings, PlatformState *platform)
 		subpass_description.colorAttachmentCount    = 1;
 		subpass_description.pColorAttachments       = &color_attachment_ref;
 		subpass_description.pResolveAttachments     = nullptr;
-		subpass_description.pDepthStencilAttachment = &depth_attachment_ref;
+		subpass_description.pDepthStencilAttachment = nullptr;
 		subpass_description.preserveAttachmentCount = 0;
 		subpass_description.pPreserveAttachments    = nullptr;
 
 		VkRenderPassCreateInfo create_info = {};
 		create_info.sType           = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-		create_info.attachmentCount = 2;
-		create_info.pAttachments    = attachment_descriptions;
+		create_info.attachmentCount = attachment_descriptions.size();
+		create_info.pAttachments    = attachment_descriptions.data();
 		create_info.subpassCount    = 1;
 		create_info.pSubpasses      = &subpass_description;
 		create_info.dependencyCount = 0;
@@ -1511,20 +1441,14 @@ VulkanDevice create_device(Settings *settings, PlatformState *platform)
 		VkFramebufferCreateInfo create_info = {};
 		create_info.sType           = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
 		create_info.renderPass      = device.renderpass;
-		create_info.attachmentCount = 2;
+		create_info.attachmentCount = 1;
 		create_info.width           = device.swapchain.extent.width;
 		create_info.height          = device.swapchain.extent.height;
 		create_info.layers          = 1;
 
 		for (i32 i = 0; i < device.framebuffers_count; ++i)
 		{
-			VkImageView views[2] =
-			{
-				device.swapchain.imageviews[i],
-				device.depth_imageview
-			};
-
-			create_info.pAttachments = views;
+			create_info.pAttachments = &device.swapchain.imageviews[i];
 
 			result = vkCreateFramebuffer(device.handle,
 			                             &create_info,
@@ -1633,11 +1557,6 @@ void destroy(VulkanDevice *device)
 
 
 	vkDestroyRenderPass(device->handle, device->renderpass, nullptr);
-
-
-	vkFreeMemory(device->handle, device->depth_memory, nullptr);
-	vkDestroyImageView(device->handle, device->depth_imageview, nullptr);
-	vkDestroyImage(device->handle, device->depth_image, nullptr);
 
 
 	vkFreeCommandBuffers(device->handle, device->command_pool, 1, &device->cmd_present);

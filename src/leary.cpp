@@ -156,9 +156,8 @@ void game_render(GameState *game)
 	result = vkBeginCommandBuffer(game->vulkan.cmd_present, &begin_info);
 	DEBUG_ASSERT(result == VK_SUCCESS);
 
-	VkClearValue clear_values[2];
+	std::array<VkClearValue, 1> clear_values = {};
 	clear_values[0].color        = { {1.0f, 0.0f, 0.0f, 0.0f} };
-	clear_values[1].depthStencil = { 1, 0 };
 
 	VkRenderPassBeginInfo render_info = {};
 	render_info.sType             = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -166,8 +165,8 @@ void game_render(GameState *game)
 	render_info.framebuffer       = game->vulkan.framebuffers[image_index];
 	render_info.renderArea.offset = { 0, 0 };
 	render_info.renderArea.extent = game->vulkan.swapchain.extent;
-	render_info.clearValueCount   = 2;
-	render_info.pClearValues      = clear_values;
+	render_info.clearValueCount   = clear_values.size();
+	render_info.pClearValues      = clear_values.data();
 
 	vkCmdBeginRenderPass(game->vulkan.cmd_present,
 		                 &render_info,
