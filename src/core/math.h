@@ -90,8 +90,8 @@ inline Matrix4f translate(Matrix4f mat, Vector3f v);
 inline Vector3f operator + (Vector3f lhs, Vector3f rhs);
 inline Vector3f operator + (Vector3f lhs, f32 rhs);
 inline Vector3f operator + (f32 lhs, Vector3f rhs);
-inline Vector3f operator += (Vector3f lhs, Vector3f rhs);
-inline Vector3f operator += (Vector3f lhs, f32 rhs);
+inline Vector3f& operator += (Vector3f &lhs, Vector3f rhs);
+inline Vector3f& operator += (Vector3f &lhs, f32 rhs);
 
 inline Vector3f operator - (Vector3f lhs, Vector3f rhs);
 inline Vector3f operator - (Vector3f lhs, f32 rhs);
@@ -109,8 +109,8 @@ inline Vector3f operator *= (Vector3f lhs, f32 rhs);
 inline Vector4f operator + (Vector4f lhs, Vector4f rhs);
 inline Vector4f operator + (Vector4f lhs, f32 rhs);
 inline Vector4f operator + (f32 lhs, Vector4f rhs);
-inline Vector4f operator += (Vector4f lhs, Vector4f rhs);
-inline Vector4f operator += (Vector4f lhs, f32 rhs);
+inline Vector4f& operator += (Vector4f &lhs, Vector4f rhs);
+inline Vector4f& operator += (Vector4f &lhs, f32 rhs);
 
 inline Vector4f operator - (Vector4f lhs, Vector4f rhs);
 inline Vector4f operator - (Vector4f lhs, f32 rhs);
@@ -192,14 +192,14 @@ inline Vector3f operator + (f32 lhs, Vector3f rhs)
 	return rhs + lhs;
 }
 
-inline Vector3f & operator += (Vector3f &lhs, Vector3f rhs)
+inline Vector3f& operator += (Vector3f &lhs, Vector3f rhs)
 {
 	lhs = lhs + rhs;
 	return lhs;
 
 }
 
-inline Vector3f & operator += (Vector3f &lhs, f32 rhs)
+inline Vector3f& operator += (Vector3f &lhs, f32 rhs)
 {
 	lhs = lhs + rhs;
 	return lhs;
@@ -288,19 +288,19 @@ inline Vector4f operator + (Vector4f lhs, f32 rhs)
 	return vec;
 }
 
-inline Vector4f operator + (f32 lhs, Vector4f rhs)
+inline Vector4f  operator + (f32 lhs, Vector4f rhs)
 {
 	return rhs + lhs;
 }
 
-inline Vector4f & operator += (Vector4f &lhs, Vector4f rhs)
+inline Vector4f& operator += (Vector4f &lhs, Vector4f rhs)
 {
 	lhs = lhs + rhs;
 	return lhs;
 
 }
 
-inline Vector4f & operator += (Vector4f &lhs, f32 rhs)
+inline Vector4f& operator += (Vector4f &lhs, f32 rhs)
 {
 	lhs = lhs + rhs;
 	return lhs;
