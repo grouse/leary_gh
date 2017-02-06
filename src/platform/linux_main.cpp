@@ -146,7 +146,7 @@ int main()
 		f32 dt = (f32)difference / 1000000000.0f;
 		DEBUG_ASSERT(difference >= 0);
 
-		DEBUG_LOGF(LogType::info, "frame time: %ld ns", difference);
+		//DEBUG_LOGF(LogType::info, "frame time: %ld ns", difference);
 
 		xcb_generic_event_t *event;
 		while ((event = xcb_poll_for_event(platform_state.window.xcb.connection)))
@@ -204,6 +204,18 @@ int main()
 					case 40: /* D */
 						key_states[38].just_pressed = key_states[38].pressed;
 						break;
+					case 113: /* LEFT */
+						key_states[114].just_pressed = key_states[114].pressed;
+						break;
+					case 111: /* UP */
+						key_states[116].just_pressed = key_states[116].pressed;
+						break;
+					case 114: /* RIGHT */
+						key_states[113].just_pressed = key_states[113].pressed;
+						break;
+					case 116: /* DOWN */
+						key_states[111].just_pressed = key_states[111].pressed;
+						break;
 					default: break;
 					}
 				}
@@ -249,6 +261,18 @@ int main()
 				case 40: /* D */
 					game_input(&game_state, InputAction_move_horizontal_end);
 					break;
+				case 113: /* LEFT */
+					game_input(&game_state, InputAction_move_player_horizontal_end);
+					break;
+				case 114: /* RIGHT */
+					game_input(&game_state, InputAction_move_player_horizontal_end);
+					break;
+				case 111: /* UP */
+					game_input(&game_state, InputAction_move_player_vertical_end);
+					break;
+				case 116: /* DOWN */
+					game_input(&game_state, InputAction_move_player_vertical_end);
+					break;
 				default: break;
 				}
 			}
@@ -270,7 +294,21 @@ int main()
 				case 40: /* D */
 					game_input(&game_state, InputAction_move_horizontal_start, 1.0f);
 					break;
-				default: break;
+				case 113: /* LEFT */
+					game_input(&game_state, InputAction_move_player_horizontal_start, -1.0f);
+					break;
+				case 114: /* RIGHT */
+					game_input(&game_state, InputAction_move_player_horizontal_start, 1.0f);
+					break;
+				case 111: /* UP */
+					game_input(&game_state, InputAction_move_player_vertical_start, -1.0f);
+					break;
+				case 116: /* DOWN */
+					game_input(&game_state, InputAction_move_player_vertical_start, 1.0f);
+					break;
+				default:
+					DEBUG_LOGF(LogType::info, "%d", i);
+					break;
 				}
 			}
 		}

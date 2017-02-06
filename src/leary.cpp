@@ -13,41 +13,42 @@
 #include "core/tokenizer.cpp"
 #include "core/serialize.cpp"
 
+enum InputAction {
+	InputAction_move_vertical_start,
+	InputAction_move_horizontal_start,
+	InputAction_move_vertical_end,
+	InputAction_move_horizontal_end,
+
+	InputAction_move_player_vertical_start,
+	InputAction_move_player_horizontal_start,
+	InputAction_move_player_vertical_end,
+	InputAction_move_player_horizontal_end
+};
+
 struct Camera {
 	Matrix4f view;
 	Matrix4f projection;
 };
 
 struct GameState {
-	VulkanDevice vulkan;
-	VulkanPipeline pipeline;
+	VulkanDevice        vulkan;
+	VulkanPipeline      pipeline;
 
-	VulkanTexture texture;
-	Camera camera;
-	Vector3f velocity = {};
-	VulkanUniformBuffer camera_buffer;
+	VulkanTexture       texture;
 
-	VulkanBuffer vertex_buffer;
+	i32                 num_objects;
+	VulkanBuffer        vertex_buffer;
+	Matrix4f            *positions;
+
+	VkCommandBuffer     *command_buffers;
+
+	Camera              camera;
+	VulkanUniformBuffer camera_ubo;
+
+	Vector3f            velocity = {};
+	Vector3f            player_velocity = {};
 };
 
-enum InputAction {
-	InputAction_move_vertical_start,
-	InputAction_move_horizontal_start,
-	InputAction_move_vertical_end,
-	InputAction_move_horizontal_end,
-};
-
-
-
-const f32 vertices[] = {
-	-16.0f,  -16.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0,  0.0f,
-	 16.0f,  -16.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f,
-	 16.0f,  16.0f,  0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f,
-
-	 16.0f,  16.0f,  0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f,
-	-16.0f,  16.0f,  0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f,
-	-16.0f, -16.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
-};
 
 void game_load_settings(Settings *settings)
 {
@@ -70,8 +71,8 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 	                               32, 32, VK_FORMAT_R32G32B32A32_SFLOAT,
 	                               pixels);
 
-	game->camera.view = Matrix4f::identity();
-	game->camera.view = translate(game->camera.view, Vector3f{0.0f, 0.0f, 0.0f});
+	game->camera.view  = Matrix4f::identity();
+	game->camera.view  = translate(game->camera.view, Vector3f{0.0f, 0.0f, 0.0f});
 
 	f32 left   = - (f32)settings->video.resolution.width / 2.0f;
 	f32 right  =   (f32)settings->video.resolution.width / 2.0f;
@@ -79,21 +80,51 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 	f32 top    =   (f32)settings->video.resolution.height / 2.0f;
 	game->camera.projection = Matrix4f::orthographic(left, right, top, bottom, 0.0f, 1.0f);
 
-	game->camera_buffer = create_uniform_buffer(&game->vulkan, sizeof(Camera));
-	update_uniform_data(&game->vulkan,
-	                    game->camera_buffer,
-	                    &game->camera,
-	                    sizeof(Camera));
+	game->camera_ubo = create_uniform_buffer(&game->vulkan, sizeof(Camera));
+	update_uniform_data(&game->vulkan, game->camera_ubo, &game->camera, 0, sizeof(Camera));
+
+	f32 vertices[] = {
+		-16.0f, -16.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f,  0.0f,
+		 16.0f, -16.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f,
+		 16.0f,  16.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f,
+		 16.0f,  16.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f,
+		-16.0f,  16.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f,
+		-16.0f, -16.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+	};
+
+	game->num_objects = 5;
+	game->positions  = (Matrix4f*) malloc(5 * sizeof(Matrix4f));
+	game->positions[0] = translate(Matrix4f::identity(), Vector3f{0.0f, 0.0f, 0.0f});
+	game->positions[1] = translate(Matrix4f::identity(), Vector3f{40.0f, 0.0f, 0.0f});
+	game->positions[2] = translate(Matrix4f::identity(), Vector3f{-40.0f, 0.0f, 0.0f});
+	game->positions[3] = translate(Matrix4f::identity(), Vector3f{0.0f, 40.0f, 0.0f});
+	game->positions[4] = translate(Matrix4f::identity(), Vector3f{0.0f, -40.0f, 0.0f});
+
+	VkResult result;
+
+	game->command_buffers = (VkCommandBuffer*) malloc(5 * sizeof(VkCommandBuffer));
+	VkCommandBufferAllocateInfo allocate_info = {};
+	allocate_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+	allocate_info.commandPool        = game->vulkan.command_pool;
+	allocate_info.level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+	allocate_info.commandBufferCount = game->num_objects;
+
+	result = vkAllocateCommandBuffers(game->vulkan.handle,
+	                                  &allocate_info,
+	                                  game->command_buffers);
+	DEBUG_ASSERT(result == VK_SUCCESS);
 
 	game->vertex_buffer = create_vertex_buffer(&game->vulkan,
 	                                           sizeof(vertices),
-	                                           (u8*)vertices);
+	                                           vertices);
+
+
 
 	game->pipeline = create_pipeline(&game->vulkan);
 	update_descriptor_sets(&game->vulkan,
 	                       game->pipeline,
 	                       game->texture,
-	                       game->camera_buffer);
+	                       game->camera_ubo);
 }
 
 void game_input(GameState *game, InputAction action, float axis)
@@ -104,6 +135,12 @@ void game_input(GameState *game, InputAction action, float axis)
 		break;
 	case InputAction_move_horizontal_start:
 		game->velocity.x += axis * 100.0f;
+		break;
+	case InputAction_move_player_vertical_start:
+		game->player_velocity.y += axis * 100.0f;
+		break;
+	case InputAction_move_player_horizontal_start:
+		game->player_velocity.x += axis * 100.0f;
 		break;
 	default: break;
 	}
@@ -118,14 +155,22 @@ void game_input(GameState *game, InputAction action)
 	case InputAction_move_horizontal_end:
 		game->velocity.x = 0.0f;
 		break;
+	case InputAction_move_player_vertical_end:
+		game->player_velocity.y = 0.0f;
+		break;
+	case InputAction_move_player_horizontal_end:
+		game->player_velocity.x = 0.0f;
+		break;
 	default: break;
 	}
 }
 
 void game_quit(Settings *settings, GameState *game)
 {
+	vkQueueWaitIdle(game->vulkan.queue);
+
 	destroy(&game->vulkan, game->vertex_buffer);
-	destroy(&game->vulkan, game->camera_buffer);
+	destroy(&game->vulkan, game->camera_ubo);
 	destroy(&game->vulkan, game->texture);
 	destroy(&game->vulkan, game->pipeline);
 	destroy(&game->vulkan);
@@ -141,20 +186,13 @@ void game_quit(Settings *settings, GameState *game)
 void game_update(GameState* game, f32 dt)
 {
 	game->camera.view = translate(game->camera.view, dt * game->velocity);
-	update_uniform_data(&game->vulkan, game->camera_buffer, &game->camera, sizeof(Camera));
+	game->positions[0] = translate(game->positions[0], dt * game->player_velocity);
+	update_uniform_data(&game->vulkan, game->camera_ubo, &game->camera, 0, sizeof(Camera));
 }
 
 void game_render(GameState *game)
 {
-	VkResult result;
 	u32 image_index = acquire_swapchain_image(&game->vulkan);
-
-	VkCommandBufferBeginInfo begin_info = {};
-	begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	begin_info.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
-
-	result = vkBeginCommandBuffer(game->vulkan.cmd_present, &begin_info);
-	DEBUG_ASSERT(result == VK_SUCCESS);
 
 	std::array<VkClearValue, 1> clear_values = {};
 	clear_values[0].color        = { {1.0f, 0.0f, 0.0f, 0.0f} };
@@ -168,32 +206,88 @@ void game_render(GameState *game)
 	render_info.clearValueCount   = clear_values.size();
 	render_info.pClearValues      = clear_values.data();
 
-	vkCmdBeginRenderPass(game->vulkan.cmd_present,
-		                 &render_info,
-		                 VK_SUBPASS_CONTENTS_INLINE);
+	VkDeviceSize offsets[] = { 0 };
+	VkResult result;
 
-		vkCmdBindPipeline(game->vulkan.cmd_present,
-			              VK_PIPELINE_BIND_POINT_GRAPHICS,
-			              game->pipeline.handle);
+	VkCommandBufferBeginInfo begin_info = {};
+	begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	begin_info.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
 
-		VkDeviceSize offsets[] = { 0 };
-		vkCmdBindVertexBuffers(game->vulkan.cmd_present,
-			                   0,
-			                   1, &game->vertex_buffer.handle,
-			                   offsets);
-
-		vkCmdBindDescriptorSets(game->vulkan.cmd_present,
-			                    VK_PIPELINE_BIND_POINT_GRAPHICS,
-			                    game->pipeline.layout,
-			                    0,
-			                    1, &game->pipeline.descriptor_set,
-			                    0, nullptr);
-
-		vkCmdDraw(game->vulkan.cmd_present, 6, 1, 0, 0);
-	vkCmdEndRenderPass(game->vulkan.cmd_present);
-
-	result = vkEndCommandBuffer(game->vulkan.cmd_present);
+	VkCommandBuffer command = game->command_buffers[0];
+	result = vkBeginCommandBuffer(command, &begin_info);
 	DEBUG_ASSERT(result == VK_SUCCESS);
 
-	present(&game->vulkan, image_index, 1, &game->vulkan.cmd_present);
+	vkCmdBeginRenderPass(command, &render_info, VK_SUBPASS_CONTENTS_INLINE);
+
+	vkCmdBindPipeline(command,
+	                  VK_PIPELINE_BIND_POINT_GRAPHICS,
+	                  game->pipeline.handle);
+
+
+	vkCmdBindDescriptorSets(command,
+	                        VK_PIPELINE_BIND_POINT_GRAPHICS,
+	                        game->pipeline.layout,
+	                        0,
+	                        1, &game->pipeline.descriptor_set,
+	                        0, nullptr);
+
+
+	vkCmdBindVertexBuffers(command, 0, 1, &game->vertex_buffer.handle, offsets);
+
+	for (i32 i = 0; i < game->num_objects; i++) {
+		vkCmdPushConstants(command,
+		                   game->pipeline.layout,
+		                   VK_SHADER_STAGE_VERTEX_BIT,
+		                   0, sizeof(Matrix4f),
+		                   &game->positions[i]);
+		vkCmdDraw(command, 6, 1, 0, 0);
+	}
+
+	vkCmdEndRenderPass(command);
+
+	result = vkEndCommandBuffer(command);
+	DEBUG_ASSERT(result == VK_SUCCESS);
+
+	VkPipelineStageFlags wait_stages[] = {
+		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
+	};
+
+	VkSemaphore signal_semaphores[] = {
+		game->vulkan.render_completed
+	};
+
+	VkSubmitInfo present_submit_info = {};
+	present_submit_info.sType                = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	present_submit_info.waitSemaphoreCount   = 1;
+	present_submit_info.pWaitSemaphores      = &game->vulkan.swapchain_image_available;
+	present_submit_info.pWaitDstStageMask    = wait_stages;
+	present_submit_info.commandBufferCount   = 1;
+	present_submit_info.pCommandBuffers      = game->command_buffers;
+	present_submit_info.signalSemaphoreCount = 1;
+	present_submit_info.pSignalSemaphores    = signal_semaphores;
+
+	result = vkQueueSubmit(game->vulkan.queue, 1, &present_submit_info, VK_NULL_HANDLE);
+	DEBUG_ASSERT(result == VK_SUCCESS);
+
+
+	VkSemaphore wait_semaphores[] = {
+		game->vulkan.render_completed
+	};
+
+	VkSwapchainKHR swapchains[] = {
+		game->vulkan.swapchain.handle
+	};
+	VkPresentInfoKHR present_info = {};
+	present_info.sType              = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+	present_info.waitSemaphoreCount = 1;
+	present_info.pWaitSemaphores    = wait_semaphores;
+	present_info.swapchainCount     = 1;
+	present_info.pSwapchains        = swapchains;
+	present_info.pImageIndices      = &image_index;
+
+	result = vkQueuePresentKHR(game->vulkan.queue, &present_info);
+	DEBUG_ASSERT(result == VK_SUCCESS);
+
+	result = vkQueueWaitIdle(game->vulkan.queue);
+	DEBUG_ASSERT(result == VK_SUCCESS);
 }

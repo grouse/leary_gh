@@ -132,7 +132,7 @@ VulkanBuffer        create_buffer(VulkanDevice *device,
                                   VkBufferUsageFlags usage,
                                   VkMemoryPropertyFlags memory_flags);
 VulkanBuffer        create_vertex_buffer(VulkanDevice *device,
-                                         size_t size, u8* data);
+                                         size_t size, void *data);
 VulkanTexture       create_texture(VulkanDevice *device,
                                    u32 width, u32 height,
                                    VkFormat format,
@@ -173,7 +173,7 @@ void transition_image(VkCommandBuffer command,
 
 void update_uniform_data(VulkanDevice *device,
                          VulkanUniformBuffer ubo,
-                         void *data, size_t size);
+                         void *data, size_t offset, size_t size);
 void update_descriptor_sets(VulkanDevice *device,
                             VulkanPipeline pipeline,
                             VulkanTexture texture,
@@ -584,12 +584,17 @@ VulkanPipeline create_pipeline(VulkanDevice *device)
 	                                  &pipeline.descriptor_set);
 	DEBUG_ASSERT(result == VK_SUCCESS);
 
+	VkPushConstantRange push_constants = {};
+	push_constants.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+	push_constants.offset = 0;
+	push_constants.size = sizeof(Matrix4f);
+
 	VkPipelineLayoutCreateInfo layout_info = {};
 	layout_info.sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 	layout_info.setLayoutCount         = 1;
 	layout_info.pSetLayouts            = &pipeline.descriptor_layout;
-	layout_info.pushConstantRangeCount = 0;
-	layout_info.pPushConstantRanges    = nullptr;
+	layout_info.pushConstantRangeCount = 1;
+	layout_info.pPushConstantRanges    = &push_constants;
 
 	result = vkCreatePipelineLayout(device->handle,
 	                                &layout_info,
@@ -1399,16 +1404,16 @@ VulkanDevice create_device(Settings *settings, PlatformState *platform)
 		attachment_descriptions[0].initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
 		attachment_descriptions[0].finalLayout    = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
-		VkAttachmentReference color_attachment_ref = {};
-		color_attachment_ref.attachment = 0;
-		color_attachment_ref.layout     = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		std::array<VkAttachmentReference, 1> attachment_references = {};
+		attachment_references[0].attachment = 0;
+		attachment_references[0].layout     = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
 		VkSubpassDescription subpass_description = {};
 		subpass_description.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
 		subpass_description.inputAttachmentCount    = 0;
 		subpass_description.pInputAttachments       = nullptr;
-		subpass_description.colorAttachmentCount    = 1;
-		subpass_description.pColorAttachments       = &color_attachment_ref;
+		subpass_description.colorAttachmentCount    = attachment_references.size();
+		subpass_description.pColorAttachments       = attachment_references.data();
 		subpass_description.pResolveAttachments     = nullptr;
 		subpass_description.pDepthStencilAttachment = nullptr;
 		subpass_description.preserveAttachmentCount = 0;
@@ -1436,7 +1441,7 @@ VulkanDevice create_device(Settings *settings, PlatformState *platform)
 	{
 		device.framebuffers_count = (i32)device.swapchain.images_count;
 		device.framebuffers = (VkFramebuffer*) malloc(sizeof(VkFramebuffer) *
-		                                          	  device.framebuffers_count);
+		                                              device.framebuffers_count);
 
 		VkFramebufferCreateInfo create_info = {};
 		create_info.sType           = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
@@ -1548,8 +1553,6 @@ void destroy(VulkanDevice *device)
 	VkResult result;
 	VAR_UNUSED(result);
 
-	vkQueueWaitIdle(device->queue);
-
 	for (i32 i = 0; i < device->framebuffers_count; ++i) {
 		vkDestroyFramebuffer(device->handle, device->framebuffers[i], nullptr);
 	}
@@ -1627,8 +1630,10 @@ VulkanBuffer create_buffer(VulkanDevice *device,
 	return buffer;
 }
 
-VulkanBuffer create_vertex_buffer(VulkanDevice *device, size_t size, u8* data)
+VulkanBuffer create_vertex_buffer(VulkanDevice *device, size_t size, void *data)
 {
+	u8 *bytes = (u8*)data;
+
 	VulkanBuffer buffer = create_buffer(device,
 	                                    size,
 	                                    VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
@@ -1643,8 +1648,7 @@ VulkanBuffer create_vertex_buffer(VulkanDevice *device, size_t size, u8* data)
 		                              0, &memptr);
 		DEBUG_ASSERT(result == VK_SUCCESS);
 
-		memcpy(memptr, data, size);
-
+		memcpy(memptr, bytes, size);
 		vkUnmapMemory(device->handle, buffer.memory);
 	}
 
@@ -1671,13 +1675,12 @@ VulkanUniformBuffer create_uniform_buffer(VulkanDevice *device, size_t size)
 void update_uniform_data(VulkanDevice *device,
                          VulkanUniformBuffer ubo,
                          void *data,
-                         size_t size)
+                         size_t offset, size_t size)
 {
 	void *mapped;
 	vkMapMemory(device->handle,
 	            ubo.staging.memory,
-	            0,
-	            size,
+	            offset, size,
 	            0,
 	            &mapped);
 	memcpy(mapped, data, size);
