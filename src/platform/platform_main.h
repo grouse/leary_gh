@@ -38,6 +38,8 @@
 	#error "unsupported platform"
 #endif
 
+#include <cstring>
+
 #include "core/types.h"
 
 

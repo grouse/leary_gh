@@ -206,19 +206,19 @@ debug_callback_func(VkFlags flags,
 	// TODO(jesper): multiple flags can be set at the same time, I don't really
 	// have a way to express this in my current logging system so I let the log
 	// type be decided by a severity precedence
-	LogType log_type;
+	LogChannel channel;
 	if (flags & VK_DEBUG_REPORT_ERROR_BIT_EXT) {
-		log_type = LogType::error;
+		channel = Log_error;
 	} else if (flags & VK_DEBUG_REPORT_WARNING_BIT_EXT) {
-		log_type = LogType::warning;
+		channel = Log_warning;
 	} else if (flags & (VK_DEBUG_REPORT_DEBUG_BIT_EXT |
 	                    VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT))
 	{
-		log_type = LogType::info;
+		channel = Log_info;
 	} else {
 		// NOTE: this would only happen if they extend the report callback
 		// flags
-		log_type = LogType::info;
+		channel = Log_info;
 	}
 
 	const char *object_str;
@@ -314,9 +314,9 @@ debug_callback_func(VkFlags flags,
 		break;
 	}
 
-	DEBUG_LOGF(log_type, "[Vulkan:%s] [%s:%d] - %s",
-	           layer, object_str, message_code, message);
-	DEBUG_ASSERT(log_type != LogType::error);
+	DEBUG_LOG(channel, "[Vulkan:%s] [%s:%d] - %s",
+	          layer, object_str, message_code, message);
+	DEBUG_ASSERT(channel != Log_error);
 	return VK_FALSE;
 }
 
@@ -1293,20 +1293,16 @@ VulkanDevice create_device(Settings *settings, PlatformState *platform)
 			if (supports_present == VK_FALSE)
 				continue;
 
-			DEBUG_LOGF(LogType::info,
-			           "queueCount                 : %u",
-			           property.queueCount);
-			DEBUG_LOGF(LogType::info,
-			           "timestampValidBits         : %u",
-			           property.timestampValidBits);
-			DEBUG_LOGF(LogType::info,
-			           "minImageTransferGranualrity: (%u, %u, %u)",
-			           property.minImageTransferGranularity.depth,
-			           property.minImageTransferGranularity.height,
-			           property.minImageTransferGranularity.depth);
-			DEBUG_LOGF(LogType::info,
-			           "supportsPresent            : %d",
-			           static_cast<i32>(supports_present));
+			DEBUG_LOG("queueCount                 : %u",
+			          property.queueCount);
+			DEBUG_LOG("timestampValidBits         : %u",
+			          property.timestampValidBits);
+			DEBUG_LOG("minImageTransferGranualrity: (%u, %u, %u)",
+			          property.minImageTransferGranularity.depth,
+			          property.minImageTransferGranularity.height,
+			          property.minImageTransferGranularity.depth);
+			DEBUG_LOG("supportsPresent            : %d",
+			          static_cast<i32>(supports_present));
 
 			// we're just interested in getting a graphics queue going for
 			// now, so choose the first one

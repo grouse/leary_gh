@@ -307,7 +307,7 @@ int main()
 					game_input(&game_state, InputAction_move_player_vertical_start, 1.0f);
 					break;
 				default:
-					DEBUG_LOGF(LogType::info, "%d", i);
+					DEBUG_LOG(Log_info, "%d", i);
 					break;
 				}
 			}

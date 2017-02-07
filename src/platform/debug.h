@@ -25,112 +25,98 @@
 #ifndef LEARY_DEBUG_H
 #define LEARY_DEBUG_H
 
-#include <cstring>
-#include <cstdint>
-#include <cstdarg>
-
-#if defined(_WIN32)
-    #define DEBUG_FILENAME (strrchr(__FILE__, '\\') ? strrchr(__FILE__, '\\') + 1 : __FILE__)
-#else
-    #define DEBUG_FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
-#endif
-
-#define DEBUG_LOGF(type, format, ...)                                                              \
-	debug_printf(type, __FUNCTION__, __LINE__, DEBUG_FILENAME, format, __VA_ARGS__)
-
-#define DEBUG_LOG(type, msg)                                                                       \
-	debug_print(type, __FUNCTION__, __LINE__, DEBUG_FILENAME, msg)
-
-#define VAR_UNUSED(var) (void)(var)
+#include <stdio.h>
+#include <stdarg.h>
 
 #if defined(_MSC_VER)
 	#define DEBUG_BREAK()       __debugbreak()
+    #define DEBUG_FILENAME (strrchr(__FILE__, '\\') ? strrchr(__FILE__, '\\') + 1 : __FILE__)
 #else
 	#define DEBUG_BREAK()       asm("int $3")
+    #define DEBUG_FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 #endif
 
-#define DEBUG_ASSERT(condition) if (!(condition)) DEBUG_BREAK()
-#define DEBUG_UNIMPLEMENTED()   DEBUG_LOG(LogType::unimplemented, "fixme! stub");
+#define DEBUG_LOG(...)        debug_print(DEBUG_FILENAME, __LINE__, __FUNCTION__, __VA_ARGS__)
+#define DEBUG_UNIMPLEMENTED() DEBUG_LOG(Log_unimplemented, "fixme! stub");
 
-enum class LogType {
-	error,
-	warning,
-	info,
-	assert,
-	unimplemented
+#define DEBUG_ASSERT(condition) \
+	do { \
+		if (!(condition)) { \
+			DEBUG_LOG(Log_assert, "assertion failed: %s", #condition); \
+			DEBUG_BREAK(); \
+		} \
+	} while(0)
+
+
+#define VAR_UNUSED(var) (void)(var)
+
+enum LogChannel {
+	Log_error,
+	Log_warning,
+	Log_info,
+	Log_assert,
+	Log_unimplemented
 };
 
 #define DEBUG_BUFFER_SIZE (1024)
 
 void platform_debug_output(const char *msg);
 
-void debug_print(LogType    type,
-                 const char *func,
-                 uint32_t   line,
-                 const char *file,
-                 const char *msg);
-
-void debug_printf(LogType    type,
-                  const char *func,
-                  uint32_t   line,
-                  const char *file,
-                  const char *fmt, ...);
-
-#endif // LEARY_DEBUG_H
-
-#ifdef DEBUG_PRINT_IMPL
-void debug_print(LogType    type,
-                 const char *func,
-                 uint32_t   line,
-                 const char *file,
-                 const char *msg)
+const char *log_channel_string(LogChannel channel)
 {
-	const char *type_str;
-
-	switch (type) {
-	case LogType::info:
-		type_str = "info";
-		break;
-	case LogType::error:
-		type_str = "error";
-		break;
-	case LogType::warning:
-		type_str = "warning";
-		break;
-	case LogType::assert:
-		type_str = "assert";
-		break;
-	case LogType::unimplemented:
-		type_str = "unimplemented";
-		break;
-	default:
-		type_str = "";
-		break;
+	switch (channel) {
+	case Log_info:          return "info";
+	case Log_error:         return "error";
+	case Log_warning:       return "warning";
+	case Log_assert:        return "assert";
+	case Log_unimplemented: return "unimplemented";
+	default:                return "";
 	}
+}
 
-	// TODO(jesper): add log to file if enabled
+void debug_print(const char *file,
+                 u32 line,
+                 const char *function,
+                 LogChannel channel,
+                 const char *fmt, ...)
+{
+	const char *channel_str = log_channel_string(channel);
+
+	va_list args;
+	char message[DEBUG_BUFFER_SIZE];
 	char buffer[DEBUG_BUFFER_SIZE];
-	std::sprintf(buffer, "%s:%d: %s in %s: %s\n", file, line, type_str, func, msg);
+
+	va_start(args, fmt);
+	i32 result = vsnprintf(message, DEBUG_BUFFER_SIZE, fmt, args);
+	va_end(args);
+	DEBUG_ASSERT(result < DEBUG_BUFFER_SIZE);
+
+	result = snprintf(buffer, DEBUG_BUFFER_SIZE, "%s:%d: %s: [%s] %s",
+	                  file, line, channel_str, function, message);
+	DEBUG_ASSERT(result < DEBUG_BUFFER_SIZE);
 	platform_debug_output(buffer);
 }
 
-void debug_printf(LogType    type,
-                  const char *func,
-                  uint32_t   line,
-                  const char *file,
-                  const char *fmt, ...)
+void debug_print(const char *file,
+                 u32 line,
+                 const char *function,
+                 const char *fmt, ...)
 {
+	const char *channel_str = log_channel_string(Log_info);
+
 	va_list args;
+	char message[DEBUG_BUFFER_SIZE];
+	char buffer[DEBUG_BUFFER_SIZE];
+
 	va_start(args, fmt);
-
-	char msg[DEBUG_BUFFER_SIZE];
-	std::vsprintf(msg, fmt, args);
-
+	i32 result = vsnprintf(message, DEBUG_BUFFER_SIZE, fmt, args);
 	va_end(args);
+	DEBUG_ASSERT(result < DEBUG_BUFFER_SIZE);
 
-	debug_print(type, func, line, file, msg);
+	result = snprintf(buffer, DEBUG_BUFFER_SIZE, "%s:%d: %s: [%s] %s",
+	                  file, line, channel_str, function, message);
+	DEBUG_ASSERT(result < DEBUG_BUFFER_SIZE);
+	platform_debug_output(buffer);
 }
 
-#undef DEBUG_PRINT_IMPL
-#endif // DEBUG_PRINT_IMPL
-
+#endif // LEARY_DEBUG_H

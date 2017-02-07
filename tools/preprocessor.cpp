@@ -121,27 +121,27 @@ StructInfo parse_struct_type_info(Tokenizer tokenizer)
 	StructInfo struct_info = {};
 
 	Token token = next_token(tokenizer);
-	DEBUG_ASSERT(token.type == TokenType_identifier);
+	DEBUG_ASSERT(token.type == Token::identifier);
 
 	struct_info.name = string_duplicate(token.str, token.length);
 
 	do token = next_token(tokenizer);
-	while (token.type != TokenType_open_curly_brace);
+	while (token.type != Token::open_curly_brace);
 
 	Tokenizer tmp = tokenizer;
 	do {
 		next_token(tmp);
 
 		do token = next_token(tmp);
-		while (token.type != TokenType_identifier);
+		while (token.type != Token::identifier);
 
 		++struct_info.num_members;
 
 		do token = next_token(tmp);
-		while (token.type != TokenType_semicolon);
+		while (token.type != Token::semicolon);
 
 		token = peek_next_token(tmp);
-	} while (token.type == TokenType_identifier);
+	} while (token.type == Token::identifier);
 
 	struct_info.members = new TypeInfo[struct_info.num_members];
 	i32 index = 0;
@@ -150,7 +150,7 @@ StructInfo parse_struct_type_info(Tokenizer tokenizer)
 		VariableType member_type = variable_type(next_token(tokenizer));
 
 		do token = next_token(tokenizer);
-		while (token.type != TokenType_identifier);
+		while (token.type != Token::identifier);
 		char *member_name = string_duplicate(token.str, token.length);
 
 		struct_info.members[index].name = member_name;
@@ -158,10 +158,10 @@ StructInfo parse_struct_type_info(Tokenizer tokenizer)
 		++index;
 
 		do token = next_token(tokenizer);
-		while (token.type != TokenType_semicolon);
+		while (token.type != Token::semicolon);
 
 		token = peek_next_token(tokenizer);
-	} while (token.type == TokenType_identifier);
+	} while (token.type == Token::identifier);
 
 	return struct_info;
 }
@@ -271,7 +271,7 @@ int main(int argc, char **argv)
 		while (tokenizer.at[0]) {
 			Token token = next_token(tokenizer);
 
-			if (token.type != TokenType_eof) {
+			if (token.type != Token::eof) {
 				if (is_identifier(token, "INTROSPECT") &&
 				    is_identifier(next_token(tokenizer), "struct"))
 				{

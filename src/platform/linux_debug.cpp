@@ -22,13 +22,10 @@
  * 3. This notice may not be removed or altered from any source distribution.
 **/
 
-#define DEBUG_PRINT_IMPL
 #include "debug.h"
-
-#include <cstdio>
 
 void platform_debug_output(const char *msg)
 {
-	std::printf("%s", msg);
+	printf("%s\n", msg);
 }
 

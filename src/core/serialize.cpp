@@ -280,7 +280,7 @@ member_from_string(char **ptr,
 			                   child);
 		} break;
 		default:
-			DEBUG_LOGF(LogType::unimplemented, "unhandled case: %d", member->type);
+			DEBUG_LOG(Log_unimplemented, "unhandled case: %d", member->type);
 		}
 
 		do token = next_token(tokenizer);

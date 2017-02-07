@@ -14,26 +14,26 @@ struct Tokenizer {
 
 struct Token {
 	enum Type {
-		Token::open_curly_brace,
-		Token::close_curly_brace,
-		Token::open_paren,
-		Token::close_paren,
-		Token::less_than,
-		Token::greater_than,
-		Token::semicolon,
-		Token::colon,
-		Token::equals,
-		Token::asterisk,
-		Token::comma,
-		Token::period,
-		Token::ampersand,
-		Token::hash,
-		Token::forward_slash,
-		Token::double_quote,
-		Token::single_quote,
+		open_curly_brace,
+		close_curly_brace,
+		open_paren,
+		close_paren,
+		less_than,
+		greater_than,
+		semicolon,
+		colon,
+		equals,
+		asterisk,
+		comma,
+		period,
+		ampersand,
+		hash,
+		forward_slash,
+		double_quote,
+		single_quote,
 
-		Token::identifier,
-		Token::eof
+		identifier,
+		eof
 	} type;
 
 	int32_t length;
