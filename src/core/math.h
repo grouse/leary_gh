@@ -25,7 +25,7 @@
 #ifndef LEARY_MATH_H
 #define LEARY_MATH_H
 
-#include <cmath>
+#include <math.h>
 
 #define MIN(a, b) (a) < (b) ? (a) : (b)
 #define MAX(a, b) (a) > (b) ? (a) : (b)
@@ -55,9 +55,6 @@ struct Matrix4f {
 	                                    f32 top, f32 bottom,
 	                                    f32 near, f32 far)
 	{
-		VAR_UNUSED(near);
-		VAR_UNUSED(far);
-
 		Matrix4f result = Matrix4f::identity();
 		result.columns[0].x = 2.0f / (right - left);
 		result.columns[1].y = 2.0f / (top - bottom);

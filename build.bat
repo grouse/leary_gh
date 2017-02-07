@@ -19,16 +19,14 @@ if not exist %BUILD_DIR%\data\shaders mkdir %BUILD_DIR%\data\shaders
 
 SET INCLUDE_DIR=%INCLUDE_DIR% -I%VULKAN_LOCATION%\Include
 
-SET LIBS=User32.lib Shlwapi.lib Shell32.lib
-SET LIBS=%LIBS% %VULKAN_LOCATION%\Bin\vulkan-1.lib
+SET LIBS=User32.lib Shlwapi.lib Shell32.lib %VULKAN_LOCATION%\Bin\vulkan-1.lib
 
 PUSHD %BUILD_DIR%
 REM TODO(jesper): move this into a separate build script; we won't need to and
 REM don't want to rebuild all the assets every build, it'll become real slow
 REM real fast
-glslangValidator -V %ROOT%\data\shaders\triangle.frag -o %BUILD_DIR%\data\shaders\triangle_frag.spv
-glslangValidator -V %ROOT%\data\shaders\triangle.vert -o %BUILD_DIR%\data\shaders\triangle_vert.spv
+glslangValidator -V %ROOT%\src\render\shaders\triangle.frag -o %BUILD_DIR%\data\shaders\triangle_frag.spv
+glslangValidator -V %ROOT%\src\render\shaders\triangle.vert -o %BUILD_DIR%\data\shaders\triangle_vert.spv
 
-cl %FLAGS% %OPTIMIZED% %INCLUDE_DIR% %ROOT%\tools\preprocessor.cpp /link /SUBSYSTEM:CONSOLE
 cl %FLAGS% %UNOPTIMIZED% %INCLUDE_DIR% /Feleary.exe %ROOT%\src\platform/win32_main.cpp /link %LIBS% /SUBSYSTEM:WINDOWS
 POPD

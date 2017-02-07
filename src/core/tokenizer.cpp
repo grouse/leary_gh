@@ -11,31 +11,31 @@ struct Tokenizer {
 	char *at;
 };
 
-enum TokenType {
-	TokenType_open_curly_brace,
-	TokenType_close_curly_brace,
-	TokenType_open_paren,
-	TokenType_close_paren,
-	TokenType_less_than,
-	TokenType_greater_than,
-	TokenType_semicolon,
-	TokenType_colon,
-	TokenType_equals,
-	TokenType_asterisk,
-	TokenType_comma,
-	TokenType_period,
-	TokenType_ampersand,
-	TokenType_hash,
-	TokenType_forward_slash,
-	TokenType_double_quote,
-	TokenType_single_quote,
-
-	TokenType_identifier,
-	TokenType_eof
-};
 
 struct Token {
-	TokenType type;
+	enum Type {
+		Token::open_curly_brace,
+		Token::close_curly_brace,
+		Token::open_paren,
+		Token::close_paren,
+		Token::less_than,
+		Token::greater_than,
+		Token::semicolon,
+		Token::colon,
+		Token::equals,
+		Token::asterisk,
+		Token::comma,
+		Token::period,
+		Token::ampersand,
+		Token::hash,
+		Token::forward_slash,
+		Token::double_quote,
+		Token::single_quote,
+
+		Token::identifier,
+		Token::eof
+	} type;
+
 	int32_t length;
 	char *str;
 };
@@ -50,30 +50,30 @@ bool is_newline(char c)
 	return (c == '\n' || c == '\r');
 }
 
-TokenType get_token_type(char c)
+Token::Type get_token_type(char c)
 {
-	TokenType type;
+	Token::Type type;
 
 	switch (c) {
-	case '{':  type = TokenType_open_curly_brace;  break;
-	case '}':  type = TokenType_close_curly_brace; break;
-	case '(':  type = TokenType_open_paren;        break;
-	case ')':  type = TokenType_close_paren;       break;
-	case '<':  type = TokenType_greater_than;      break;
-	case '>':  type = TokenType_less_than;         break;
-	case ';':  type = TokenType_semicolon;         break;
-	case ':':  type = TokenType_colon;             break;
-	case '=':  type = TokenType_equals;            break;
-	case '*':  type = TokenType_asterisk;          break;
-	case ',':  type = TokenType_comma;             break;
-	case '.':  type = TokenType_period;            break;
-	case '&':  type = TokenType_ampersand;         break;
-	case '#':  type = TokenType_hash;              break;
-	case '/':  type = TokenType_forward_slash;     break;
-	case '"':  type = TokenType_double_quote;      break;
-	case '\'': type = TokenType_single_quote;      break;
-	case '\0': type = TokenType_eof;               break;
-	default:   type = TokenType_identifier;        break;
+	case '{':  type = Token::open_curly_brace;  break;
+	case '}':  type = Token::close_curly_brace; break;
+	case '(':  type = Token::open_paren;        break;
+	case ')':  type = Token::close_paren;       break;
+	case '<':  type = Token::greater_than;      break;
+	case '>':  type = Token::less_than;         break;
+	case ';':  type = Token::semicolon;         break;
+	case ':':  type = Token::colon;             break;
+	case '=':  type = Token::equals;            break;
+	case '*':  type = Token::asterisk;          break;
+	case ',':  type = Token::comma;             break;
+	case '.':  type = Token::period;            break;
+	case '&':  type = Token::ampersand;         break;
+	case '#':  type = Token::hash;              break;
+	case '/':  type = Token::forward_slash;     break;
+	case '"':  type = Token::double_quote;      break;
+	case '\'': type = Token::single_quote;      break;
+	case '\0': type = Token::eof;               break;
+	default:   type = Token::identifier;        break;
 	}
 
 	return type;
@@ -82,27 +82,27 @@ TokenType get_token_type(char c)
 Token next_token(Tokenizer &tokenizer)
 {
 	Token token = {};
-	token.type = TokenType_eof;
+	token.type = Token::eof;
 
 	while (tokenizer.at[0]) {
 		if (is_whitespace(tokenizer.at[0])) {
 			tokenizer.at++;
-		} else if (get_token_type(tokenizer.at[0]) == TokenType_forward_slash &&
-		           get_token_type(tokenizer.at[1]) == TokenType_forward_slash)
+		} else if (get_token_type(tokenizer.at[0]) == Token::forward_slash &&
+		           get_token_type(tokenizer.at[1]) == Token::forward_slash)
 		{
 			tokenizer.at += 2;
 
 			while (tokenizer.at[0] && !is_newline(tokenizer.at[0])) {
 				tokenizer.at++;
 			}
-		} else if (get_token_type(tokenizer.at[0]) == TokenType_forward_slash &&
-		           get_token_type(tokenizer.at[1]) == TokenType_asterisk)
+		} else if (get_token_type(tokenizer.at[0]) == Token::forward_slash &&
+		           get_token_type(tokenizer.at[1]) == Token::asterisk)
 		{
 			tokenizer.at += 2;
 
 			while (tokenizer.at[0] &&
-			       (get_token_type(tokenizer.at[0]) != TokenType_asterisk ||
-			        get_token_type(tokenizer.at[1]) != TokenType_forward_slash))
+			       (get_token_type(tokenizer.at[0]) != Token::asterisk ||
+			        get_token_type(tokenizer.at[1]) != Token::forward_slash))
 			{
 				tokenizer.at++;
 			}
@@ -115,10 +115,10 @@ Token next_token(Tokenizer &tokenizer)
 		token.type = get_token_type(tokenizer.at[0]);
 		token.str = tokenizer.at;
 
-		if (token.type == TokenType_identifier) {
+		if (token.type == Token::identifier) {
 			while (tokenizer.at[0]) {
 				if (is_whitespace(tokenizer.at[0]) ||
-				    get_token_type(tokenizer.at[0]) != TokenType_identifier)
+				    get_token_type(tokenizer.at[0]) != Token::identifier)
 				{
 					break;
 				}

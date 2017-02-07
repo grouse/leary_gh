@@ -203,7 +203,7 @@ void game_render(GameState *game)
 	render_info.framebuffer       = game->vulkan.framebuffers[image_index];
 	render_info.renderArea.offset = { 0, 0 };
 	render_info.renderArea.extent = game->vulkan.swapchain.extent;
-	render_info.clearValueCount   = clear_values.size();
+	render_info.clearValueCount   = (u32)clear_values.size();
 	render_info.pClearValues      = clear_values.data();
 
 	VkDeviceSize offsets[] = { 0 };

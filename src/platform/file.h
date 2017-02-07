@@ -47,7 +47,7 @@ enum GamePath {
 	GamePath_preferences
 };
 
-char *platform_path(GamePath path);
+char *platform_path(GamePath root);
 char *platform_resolve_path(const char *path);
 char *platform_resolve_path(GamePath root, const char *path);
 

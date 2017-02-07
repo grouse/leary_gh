@@ -25,8 +25,6 @@
 #define DEBUG_PRINT_IMPL
 #include "platform/debug.h"
 
-#include <Windows.h>
-
 void platform_debug_output(const char *msg)
 {
 	OutputDebugString(msg);

@@ -543,7 +543,7 @@ VulkanPipeline create_pipeline(VulkanDevice *device)
 
 	VkDescriptorSetLayoutCreateInfo descriptor_layout_info = {};
 	descriptor_layout_info.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-	descriptor_layout_info.bindingCount = bindings.size();
+	descriptor_layout_info.bindingCount = (u32)bindings.size();
 	descriptor_layout_info.pBindings    = bindings.data();
 
 	result = vkCreateDescriptorSetLayout(device->handle,
@@ -563,7 +563,7 @@ VulkanPipeline create_pipeline(VulkanDevice *device)
 
 	VkDescriptorPoolCreateInfo pool_info = {};
 	pool_info.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-	pool_info.poolSizeCount = pool_sizes.size();
+	pool_info.poolSizeCount = (u32)pool_sizes.size();
 	pool_info.pPoolSizes    = pool_sizes.data();
 	pool_info.maxSets       = 1;
 
@@ -635,9 +635,9 @@ VulkanPipeline create_pipeline(VulkanDevice *device)
 
 	VkPipelineVertexInputStateCreateInfo vertex_input_info = {};
 	vertex_input_info.sType                           = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-	vertex_input_info.vertexBindingDescriptionCount   = vertex_bindings.size();
+	vertex_input_info.vertexBindingDescriptionCount   = (u32)vertex_bindings.size();
 	vertex_input_info.pVertexBindingDescriptions      = vertex_bindings.data();
-	vertex_input_info.vertexAttributeDescriptionCount = vertex_descriptions.size();
+	vertex_input_info.vertexAttributeDescriptionCount = (u32)vertex_descriptions.size();
 	vertex_input_info.pVertexAttributeDescriptions    = vertex_descriptions.data();
 
 	VkPipelineInputAssemblyStateCreateInfo input_assembly_info = {};
@@ -737,7 +737,7 @@ VulkanPipeline create_pipeline(VulkanDevice *device)
 
 	VkGraphicsPipelineCreateInfo pipeline_info = {};
 	pipeline_info.sType               = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-	pipeline_info.stageCount          = shader_stages.size();
+	pipeline_info.stageCount          = (u32)shader_stages.size();
 	pipeline_info.pStages             = shader_stages.data();
 	pipeline_info.pVertexInputState   = &vertex_input_info;
 	pipeline_info.pInputAssemblyState = &input_assembly_info;
@@ -1412,7 +1412,7 @@ VulkanDevice create_device(Settings *settings, PlatformState *platform)
 		subpass_description.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
 		subpass_description.inputAttachmentCount    = 0;
 		subpass_description.pInputAttachments       = nullptr;
-		subpass_description.colorAttachmentCount    = attachment_references.size();
+		subpass_description.colorAttachmentCount    = (u32)attachment_references.size();
 		subpass_description.pColorAttachments       = attachment_references.data();
 		subpass_description.pResolveAttachments     = nullptr;
 		subpass_description.pDepthStencilAttachment = nullptr;
@@ -1421,7 +1421,7 @@ VulkanDevice create_device(Settings *settings, PlatformState *platform)
 
 		VkRenderPassCreateInfo create_info = {};
 		create_info.sType           = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-		create_info.attachmentCount = attachment_descriptions.size();
+		create_info.attachmentCount = (u32)attachment_descriptions.size();
 		create_info.pAttachments    = attachment_descriptions.data();
 		create_info.subpassCount    = 1;
 		create_info.pSubpasses      = &subpass_description;
@@ -1736,7 +1736,7 @@ void update_descriptor_sets(VulkanDevice *device,
 	descriptor_writes[1].pImageInfo      = &image_info;
 
 	vkUpdateDescriptorSets(device->handle,
-	                       descriptor_writes.size(), descriptor_writes.data(),
+	                       (u32)descriptor_writes.size(), descriptor_writes.data(),
 	                       0, nullptr);
 }
 

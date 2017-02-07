@@ -225,10 +225,10 @@ member_from_string(char **ptr,
 	tokenizer.at = *ptr;
 
 	Token token = next_token(tokenizer);
-	while (token.type != TokenType_eof &&
-	       token.type != TokenType_close_curly_brace)
+	while (token.type != Token::eof &&
+	       token.type != Token::close_curly_brace)
 	{
-		DEBUG_ASSERT(token.type == TokenType_identifier);
+		DEBUG_ASSERT(token.type == Token::identifier);
 		Token name = token;
 
 		StructMemberInfo *member = find_member(name.str, name.length,
@@ -236,7 +236,7 @@ member_from_string(char **ptr,
 		DEBUG_ASSERT(member != nullptr);
 
 		token = next_token(tokenizer);
-		DEBUG_ASSERT(token.type == TokenType_equals);
+		DEBUG_ASSERT(token.type == Token::equals);
 
 		switch (member->type) {
 		case VariableType_int32: {
@@ -261,7 +261,7 @@ member_from_string(char **ptr,
 		} break;
 		case VariableType_resolution: {
 			token = next_token(tokenizer);
-			DEBUG_ASSERT(token.type == TokenType_open_curly_brace);
+			DEBUG_ASSERT(token.type == Token::open_curly_brace);
 
 			void *child = ((u8*)out + member->offset);
 			member_from_string(&tokenizer.at, Resolution_members,
@@ -271,7 +271,7 @@ member_from_string(char **ptr,
 		} break;
 		case VariableType_video_settings: {
 			token = next_token(tokenizer);
-			DEBUG_ASSERT(token.type == TokenType_open_curly_brace);
+			DEBUG_ASSERT(token.type == Token::open_curly_brace);
 
 			void *child = ((u8*)out + member->offset);
 			member_from_string(&tokenizer.at, VideoSettings_members,
@@ -284,7 +284,7 @@ member_from_string(char **ptr,
 		}
 
 		do token = next_token(tokenizer);
-		while (token.type == TokenType_comma);
+		while (token.type == Token::comma);
 	}
 
 	*ptr = tokenizer.at;

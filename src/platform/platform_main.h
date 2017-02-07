@@ -29,6 +29,11 @@
 	#include <xcb/xcb.h>
 #elif defined(_WIN32)
 	#include <Windows.h>
+	#include <Shlobj.h>
+	#include <Shlwapi.h>
+
+	#undef near
+	#undef far
 #else
 	#error "unsupported platform"
 #endif
