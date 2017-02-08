@@ -116,6 +116,15 @@ struct VulkanDevice {
 };
 
 
+const char *vendor_string(u32 id)
+{
+	switch (id) {
+	case 0x10DE: return "NVIDIA";
+	case 0x1002: return "AMD";
+	case 0x163C: return "INTEL";
+	default: return "unknown";
+	}
+}
 
 PFN_vkCreateDebugReportCallbackEXT   CreateDebugReportCallbackEXT;
 PFN_vkDestroyDebugReportCallbackEXT  DestroyDebugReportCallbackEXT;
@@ -1111,28 +1120,45 @@ VulkanDevice create_device(Settings *settings, PlatformState *platform)
 		                                            nullptr);
 		DEBUG_ASSERT(result == VK_SUCCESS);
 
-		VkLayerProperties *supported_layers =
-			(VkLayerProperties*) malloc(sizeof(VkLayerProperties) *
-			                            supported_layers_count);
+		auto supported_layers = (VkLayerProperties*)malloc(sizeof(VkLayerProperties) *
+			                                               supported_layers_count);
 		result = vkEnumerateInstanceLayerProperties(&supported_layers_count,
 		                                            supported_layers);
 		DEBUG_ASSERT(result == VK_SUCCESS);
 
+		for (u32 i = 0; i < supported_layers_count; i++) {
+			DEBUG_LOG("VkLayerProperties[%u]", i);
+			DEBUG_LOG("  layerName            : %s",
+			          supported_layers[i].layerName);
+			DEBUG_LOG("  specVersion          : %u.%u.%u",
+			          VK_VERSION_MAJOR(supported_layers[i].specVersion),
+			          VK_VERSION_MINOR(supported_layers[i].specVersion),
+			          VK_VERSION_PATCH(supported_layers[i].specVersion));
+			DEBUG_LOG("  implementationVersion: %u",
+			          supported_layers[i].implementationVersion);
+			DEBUG_LOG("  description          : %s",
+			          supported_layers[i].description);
+		}
+
 		u32 supported_extensions_count = 0;
-		result =
-			vkEnumerateInstanceExtensionProperties(nullptr,
-			                                       &supported_extensions_count,
-			                                       nullptr);
+		result = vkEnumerateInstanceExtensionProperties(nullptr,
+		                                                &supported_extensions_count,
+		                                                nullptr);
 		DEBUG_ASSERT(result == VK_SUCCESS);
 
-		VkExtensionProperties *supported_extensions =
-			(VkExtensionProperties*) malloc(sizeof(VkExtensionProperties) *
-			                                supported_extensions_count);
-		result =
-			vkEnumerateInstanceExtensionProperties(nullptr,
-			                                       &supported_extensions_count,
-			                                       supported_extensions);
+		auto supported_extensions = (VkExtensionProperties*)malloc(sizeof(VkExtensionProperties) *
+			                                                       supported_extensions_count);
+		result = vkEnumerateInstanceExtensionProperties(nullptr,
+		                                                &supported_extensions_count,
+		                                                supported_extensions);
 		DEBUG_ASSERT(result == VK_SUCCESS);
+
+		for (u32 i = 0; i < supported_extensions_count; i++) {
+			DEBUG_LOG("vkExtensionProperties[%u]", i);
+			DEBUG_LOG("  extensionName: %s", supported_extensions[i].extensionName);
+			DEBUG_LOG("  specVersion  : %u", supported_extensions[i].specVersion);
+		}
+
 
 		// NOTE(jesper): we might want to store these in the device for future
 		// usage/debug information
@@ -1144,8 +1170,7 @@ VulkanDevice create_device(Settings *settings, PlatformState *platform)
 		char **enabled_extensions = (char**) malloc(sizeof(char*) *
 		                                            supported_extensions_count);
 
-		for (i32 i = 0; i < (i32)supported_layers_count; ++i)
-		{
+		for (i32 i = 0; i < (i32)supported_layers_count; ++i) {
 			VkLayerProperties &layer = supported_layers[i];
 
 			if (platform_vulkan_enable_instance_layer(layer) ||
@@ -1155,8 +1180,7 @@ VulkanDevice create_device(Settings *settings, PlatformState *platform)
 			}
 		}
 
-		for (i32 i = 0; i < (i32)supported_extensions_count; ++i)
-		{
+		for (i32 i = 0; i < (i32)supported_extensions_count; ++i) {
 			VkExtensionProperties &extension = supported_extensions[i];
 
 			if (platform_vulkan_enable_instance_extension(extension) ||
@@ -1173,7 +1197,7 @@ VulkanDevice create_device(Settings *settings, PlatformState *platform)
 		app_info.pApplicationName   = "leary";
 		app_info.applicationVersion = 1;
 		app_info.pEngineName        = "leary";
-		app_info.apiVersion         = VK_MAKE_VERSION(1, 0, 22);
+		app_info.apiVersion         = VK_MAKE_VERSION(1, 0, 39);
 
 		VkInstanceCreateInfo create_info = {};
 		create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
@@ -1241,16 +1265,49 @@ VulkanDevice create_device(Settings *settings, PlatformState *platform)
 		                                    &count, physical_devices);
 		DEBUG_ASSERT(result == VK_SUCCESS);
 
-		// TODO: choose device based on device type
-		// (discrete > integrated > etc)
-		device.physical_device = physical_devices[0];
+		bool found_device = false;
+		for (u32 i = 0; i < count; i++) {
+			VkPhysicalDeviceProperties properties;
+			vkGetPhysicalDeviceProperties(physical_devices[i], &properties);
+
+			DEBUG_LOG("VkPhysicalDeviceProperties[%u]", i);
+			DEBUG_LOG("  apiVersion    : %d.%d.%d",
+			          VK_VERSION_MAJOR(properties.apiVersion),
+			          VK_VERSION_MINOR(properties.apiVersion),
+			          VK_VERSION_PATCH(properties.apiVersion));
+			DEBUG_LOG("  driverVersion : %u", properties.driverVersion);
+			DEBUG_LOG("  vendorID      : 0x%X %s",
+			          properties.vendorID,
+			          vendor_string(properties.vendorID));
+			DEBUG_LOG("  deviceID      : 0x%X", properties.deviceID);
+			switch (properties.deviceType) {
+			case VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU:
+				DEBUG_LOG("  deviceType: Integrated GPU");
+				if (!found_device) {
+					device.physical_device = physical_devices[i];
+				}
+				break;
+			case VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU:
+				DEBUG_LOG("  deviceType    : Discrete GPU");
+				device.physical_device = physical_devices[i];
+				found_device = true;
+				break;
+			case VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU:
+				DEBUG_LOG("  deviceType    : Virtual GPU");
+				break;
+			case VK_PHYSICAL_DEVICE_TYPE_CPU:
+				DEBUG_LOG("  deviceType    : CPU");
+				break;
+			default:
+			case VK_PHYSICAL_DEVICE_TYPE_OTHER:
+				DEBUG_LOG("  deviceType    : Unknown");
+				break;
+			}
+			DEBUG_LOG("  deviceName    : %s", properties.deviceName);
+		}
 
 		vkGetPhysicalDeviceMemoryProperties(device.physical_device,
 		                                    &device.physical_memory_properties);
-
-		// NOTE: this works because VkPhysicalDevice is a handle to physical
-		// device, not an actual data type, so we're just deleting the array
-		// of handles
 		delete[] physical_devices;
 	}
 
@@ -1271,8 +1328,7 @@ VulkanDevice create_device(Settings *settings, PlatformState *platform)
 		                                         &queue_family_count,
 		                                         nullptr);
 
-		VkQueueFamilyProperties *queue_families =
-			new VkQueueFamilyProperties[queue_family_count];
+		auto queue_families = new VkQueueFamilyProperties[queue_family_count];
 		vkGetPhysicalDeviceQueueFamilyProperties(device.physical_device,
 		                                         &queue_family_count,
 		                                         queue_families);
@@ -1289,20 +1345,22 @@ VulkanDevice create_device(Settings *settings, PlatformState *platform)
 			                                              &supports_present);
 			DEBUG_ASSERT(result == VK_SUCCESS);
 
-			// if it doesn't we keep on searching
-			if (supports_present == VK_FALSE)
-				continue;
 
-			DEBUG_LOG("queueCount                 : %u",
+			DEBUG_LOG("VkQueueFamilyProperties[%u]", i);
+			DEBUG_LOG("  queueCount                 : %u",
 			          property.queueCount);
-			DEBUG_LOG("timestampValidBits         : %u",
+			DEBUG_LOG("  timestampValidBits         : %u",
 			          property.timestampValidBits);
-			DEBUG_LOG("minImageTransferGranualrity: (%u, %u, %u)",
+			DEBUG_LOG("  minImageTransferGranualrity: (%u, %u, %u)",
 			          property.minImageTransferGranularity.depth,
 			          property.minImageTransferGranularity.height,
 			          property.minImageTransferGranularity.depth);
-			DEBUG_LOG("supportsPresent            : %d",
-			          static_cast<i32>(supports_present));
+			DEBUG_LOG("  supportsPresent            : %d",
+			          (i32)supports_present);
+
+			// if it doesn't we keep on searching
+			if (supports_present == VK_FALSE)
+				continue;
 
 			// we're just interested in getting a graphics queue going for
 			// now, so choose the first one
