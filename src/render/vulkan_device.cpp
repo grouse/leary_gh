@@ -1217,41 +1217,6 @@ VulkanDevice create_device(Settings *settings, PlatformState *platform)
 		free(supported_extensions);
 	}
 
-
-	/**************************************************************************
-	 * Create debug callbacks
-	 *************************************************************************/
-	{
-
-		CreateDebugReportCallbackEXT =
-			(PFN_vkCreateDebugReportCallbackEXT)
-			vkGetInstanceProcAddr(device.instance,
-			                      "vkCreateDebugReportCallbackEXT");
-
-		DestroyDebugReportCallbackEXT =
-			(PFN_vkDestroyDebugReportCallbackEXT)
-			vkGetInstanceProcAddr(device.instance,
-			                      "vkDestroyDebugReportCallbackEXT");
-
-		VkDebugReportCallbackCreateInfoEXT create_info = {};
-		create_info.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CREATE_INFO_EXT;
-
-		create_info.flags = VK_DEBUG_REPORT_ERROR_BIT_EXT |
-		    VK_DEBUG_REPORT_WARNING_BIT_EXT |
-		    VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT |
-		    VK_DEBUG_REPORT_DEBUG_BIT_EXT;
-
-		create_info.pfnCallback = &debug_callback_func;
-
-		result = CreateDebugReportCallbackEXT(device.instance,
-		                                      &create_info,
-		                                      nullptr,
-		                                      &device.debug_callback);
-		DEBUG_ASSERT(result == VK_SUCCESS);
-	}
-
-
-
 	/**************************************************************************
 	 * Create and choose VkPhysicalDevice
 	 *************************************************************************/
@@ -1418,6 +1383,41 @@ VulkanDevice create_device(Settings *settings, PlatformState *platform)
 
 		delete[] queue_families;
 	}
+
+	/**************************************************************************
+	 * Create debug callbacks
+	 *************************************************************************/
+	{
+
+		CreateDebugReportCallbackEXT =
+			(PFN_vkCreateDebugReportCallbackEXT)
+			vkGetInstanceProcAddr(device.instance,
+			                      "vkCreateDebugReportCallbackEXT");
+
+		DestroyDebugReportCallbackEXT =
+			(PFN_vkDestroyDebugReportCallbackEXT)
+			vkGetInstanceProcAddr(device.instance,
+			                      "vkDestroyDebugReportCallbackEXT");
+
+		VkDebugReportCallbackCreateInfoEXT create_info = {};
+		create_info.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CREATE_INFO_EXT;
+
+		create_info.flags = VK_DEBUG_REPORT_ERROR_BIT_EXT |
+		    VK_DEBUG_REPORT_WARNING_BIT_EXT |
+		    VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT |
+		    VK_DEBUG_REPORT_DEBUG_BIT_EXT;
+
+		create_info.pfnCallback = &debug_callback_func;
+
+		result = CreateDebugReportCallbackEXT(device.instance,
+		                                      &create_info,
+		                                      nullptr,
+		                                      &device.debug_callback);
+		DEBUG_ASSERT(result == VK_SUCCESS);
+	}
+
+
+
 
 	/**************************************************************************
 	 * Create VkSwapchainKHR
