@@ -83,36 +83,39 @@ struct VulkanSwapchain {
 	u32            images_count;
 	VkImage        *images;
 	VkImageView    *imageviews;
+
+	VkSemaphore    available;
+};
+
+struct VulkanPhysicalDevice {
+	VkPhysicalDevice                 handle;
+	VkPhysicalDeviceProperties       properties;
+	VkPhysicalDeviceMemoryProperties memory;
+	VkPhysicalDeviceFeatures         features;
 };
 
 struct VulkanDevice {
-	VkDevice                         handle;
+	VkDevice                 handle;
 
-	VkInstance                       instance;
-	VkDebugReportCallbackEXT         debug_callback;
+	VkInstance               instance;
+	VkDebugReportCallbackEXT debug_callback;
 
-	VkQueue                          queue;
-	u32                              queue_family_index;
+	VkQueue                  queue;
+	u32                      queue_family_index;
 
-	VkPhysicalDevice                 physical_device;
-	VkPhysicalDeviceMemoryProperties physical_memory_properties;
 
-	VulkanSwapchain                  swapchain;
+	VulkanSwapchain          swapchain;
+	VulkanPhysicalDevice     physical_device;
 
-	VkSemaphore                      swapchain_image_available;
-	VkSemaphore                      render_completed;
+	VkSemaphore              render_completed;
 
-	VkCommandPool                    command_pool;
-	VkCommandBuffer                  cmd_present;
+	VkCommandPool            command_pool;
+	VkCommandBuffer          cmd_present;
 
-	VkImage                          depth_image;
-	VkImageView                      depth_imageview;
-	VkDeviceMemory                   depth_memory;
+	VkRenderPass             renderpass;
 
-	VkRenderPass                     renderpass;
-
-	i32                              framebuffers_count;
-	VkFramebuffer                    *framebuffers;
+	i32                      framebuffers_count;
+	VkFramebuffer            *framebuffers;
 };
 
 
@@ -122,78 +125,20 @@ const char *vendor_string(u32 id)
 	case 0x10DE: return "NVIDIA";
 	case 0x1002: return "AMD";
 	case 0x163C: return "INTEL";
-	default: return "unknown";
+	default:     return "unknown";
 	}
 }
 
 PFN_vkCreateDebugReportCallbackEXT   CreateDebugReportCallbackEXT;
 PFN_vkDestroyDebugReportCallbackEXT  DestroyDebugReportCallbackEXT;
 
+void copy_buffer(VulkanDevice *device, VkBuffer src, VkBuffer dst, VkDeviceSize size);
 
+VulkanShader create_shader(VulkanDevice *device, u32 *source, size_t size,
+                           VkShaderStageFlagBits stage);
+u32 find_memory_type(VulkanPhysicalDevice physical_device,
+                     u32 filter, VkMemoryPropertyFlags req_flags);
 
-VulkanDevice        create_device(Settings *settings, PlatformState *platform);
-VulkanSwapchain     create_swapchain(VulkanDevice *device,
-                                     VkSurfaceKHR surface,
-                                     Settings *settings);
-VulkanPipeline      create_pipeline(VulkanDevice *device);
-VulkanBuffer        create_buffer(VulkanDevice *device,
-                                  size_t size,
-                                  VkBufferUsageFlags usage,
-                                  VkMemoryPropertyFlags memory_flags);
-VulkanBuffer        create_vertex_buffer(VulkanDevice *device,
-                                         size_t size, void *data);
-VulkanTexture       create_texture(VulkanDevice *device,
-                                   u32 width, u32 height,
-                                   VkFormat format,
-                                   void *pixels);
-VulkanShader        create_shader(VulkanDevice *device,
-                                  u32 *source, size_t size,
-                                  VkShaderStageFlagBits stage);
-VulkanUniformBuffer create_uniform_buffer(VulkanDevice *device, size_t size);
-
-
-
-void destroy(VulkanDevice *device);
-void destroy(VulkanDevice *device, VulkanPipeline pipeline);
-void destroy(VulkanDevice *device, VulkanSwapchain swapchain);
-void destroy(VulkanDevice *device, VulkanTexture texture);
-void destroy(VulkanDevice *device, VulkanBuffer buffer);
-void destroy(VulkanDevice *device, VulkanUniformBuffer ubo);
-
-
-
-VkCommandBuffer begin_command_buffer(VulkanDevice *device);
-void            end_command_buffer(VulkanDevice *device,
-                                   VkCommandBuffer buffer);
-
-
-
-void copy_buffer(VulkanDevice *device,
-                 VkBuffer src, VkBuffer dst,
-                 VkDeviceSize size);
-void copy_image(VulkanDevice *device,
-                u32 width, u32 height,
-                VkImage src, VkImage dst);
-void transition_image(VkCommandBuffer command,
-                      VkImage image,
-                      VkImageLayout src, VkImageLayout dst);
-
-
-
-void update_uniform_data(VulkanDevice *device,
-                         VulkanUniformBuffer ubo,
-                         void *data, size_t offset, size_t size);
-void update_descriptor_sets(VulkanDevice *device,
-                            VulkanPipeline pipeline,
-                            VulkanTexture texture,
-                            VulkanUniformBuffer ubo);
-
-
-
-VulkanShader create_shader(VulkanDevice *device, u32 *source, size_t size, VkShaderStageFlagBits stage);
-u32 find_memory_type(VkPhysicalDevice physical_device,
-                     u32 filter,
-                     VkMemoryPropertyFlags req_flags);
 VkCommandBuffer begin_command_buffer(VulkanDevice *device);
 void end_command_buffer(VulkanDevice *device, VkCommandBuffer buffer);
 
@@ -330,6 +275,7 @@ debug_callback_func(VkFlags flags,
 }
 
 VulkanSwapchain create_swapchain(VulkanDevice *device,
+                                 VulkanPhysicalDevice *physical_device,
                                  VkSurfaceKHR surface,
                                  Settings *settings)
 
@@ -340,14 +286,14 @@ VulkanSwapchain create_swapchain(VulkanDevice *device,
 
 	// figure out the color space for the swapchain
 	u32 formats_count;
-	result = vkGetPhysicalDeviceSurfaceFormatsKHR(device->physical_device,
+	result = vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device->handle,
 	                                              swapchain.surface,
 	                                              &formats_count,
 	                                              nullptr);
 	DEBUG_ASSERT(result == VK_SUCCESS);
 
 	VkSurfaceFormatKHR *formats = new VkSurfaceFormatKHR[formats_count];
-	result = vkGetPhysicalDeviceSurfaceFormatsKHR(device->physical_device,
+	result = vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device->handle,
 	                                              swapchain.surface,
 	                                              &formats_count,
 	                                              formats);
@@ -365,21 +311,21 @@ VulkanSwapchain create_swapchain(VulkanDevice *device,
 	VkColorSpaceKHR surface_colorspace = formats[0].colorSpace;
 
 	VkSurfaceCapabilitiesKHR surface_capabilities;
-	result = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device->physical_device,
+	result = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device->handle,
 	                                                   swapchain.surface,
 	                                                   &surface_capabilities);
 	DEBUG_ASSERT(result == VK_SUCCESS);
 
 	// figure out the present mode for the swapchain
 	u32 present_modes_count;
-	result = vkGetPhysicalDeviceSurfacePresentModesKHR(device->physical_device,
+	result = vkGetPhysicalDeviceSurfacePresentModesKHR(physical_device->handle,
 	                                                   swapchain.surface,
 	                                                   &present_modes_count,
 	                                                   nullptr);
 	DEBUG_ASSERT(result == VK_SUCCESS);
 
 	auto present_modes = new VkPresentModeKHR[present_modes_count];
-	result = vkGetPhysicalDeviceSurfacePresentModesKHR(device->physical_device,
+	result = vkGetPhysicalDeviceSurfacePresentModesKHR(physical_device->handle,
 	                                                   swapchain.surface,
 	                                                   &present_modes_count,
 	                                                   present_modes);
@@ -1249,12 +1195,14 @@ VulkanDevice create_device(Settings *settings, PlatformState *platform)
 			case VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU:
 				DEBUG_LOG("  deviceType: Integrated GPU");
 				if (!found_device) {
-					device.physical_device = physical_devices[i];
+					device.physical_device.handle     = physical_devices[i];
+					device.physical_device.properties = properties;
 				}
 				break;
 			case VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU:
 				DEBUG_LOG("  deviceType    : Discrete GPU");
-				device.physical_device = physical_devices[i];
+				device.physical_device.handle     = physical_devices[i];
+				device.physical_device.properties = properties;
 				found_device = true;
 				break;
 			case VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU:
@@ -1271,8 +1219,11 @@ VulkanDevice create_device(Settings *settings, PlatformState *platform)
 			DEBUG_LOG("  deviceName    : %s", properties.deviceName);
 		}
 
-		vkGetPhysicalDeviceMemoryProperties(device.physical_device,
-		                                    &device.physical_memory_properties);
+		vkGetPhysicalDeviceMemoryProperties(device.physical_device.handle,
+		                                    &device.physical_device.memory);
+
+		vkGetPhysicalDeviceFeatures(device.physical_device.handle,
+		                            &device.physical_device.features);
 		delete[] physical_devices;
 	}
 
@@ -1289,12 +1240,12 @@ VulkanDevice create_device(Settings *settings, PlatformState *platform)
 	 *************************************************************************/
 	{
 		u32 queue_family_count;
-		vkGetPhysicalDeviceQueueFamilyProperties(device.physical_device,
+		vkGetPhysicalDeviceQueueFamilyProperties(device.physical_device.handle,
 		                                         &queue_family_count,
 		                                         nullptr);
 
 		auto queue_families = new VkQueueFamilyProperties[queue_family_count];
-		vkGetPhysicalDeviceQueueFamilyProperties(device.physical_device,
+		vkGetPhysicalDeviceQueueFamilyProperties(device.physical_device.handle,
 		                                         &queue_family_count,
 		                                         queue_families);
 
@@ -1304,7 +1255,7 @@ VulkanDevice create_device(Settings *settings, PlatformState *platform)
 
 			// figure out if the queue family supports present
 			VkBool32 supports_present = VK_FALSE;
-			result = vkGetPhysicalDeviceSurfaceSupportKHR(device.physical_device,
+			result = vkGetPhysicalDeviceSurfaceSupportKHR(device.physical_device.handle,
 			                                              device.queue_family_index,
 			                                              surface,
 			                                              &supports_present);
@@ -1351,12 +1302,6 @@ VulkanDevice create_device(Settings *settings, PlatformState *platform)
 		queue_info.queueCount       = 1;
 		queue_info.pQueuePriorities = &priority;
 
-		// TODO: look into VkPhysicalDeviceFeatures and how it relates to
-		// VkDeviceCreateInfo
-		VkPhysicalDeviceFeatures physical_device_features;
-		vkGetPhysicalDeviceFeatures(device.physical_device,
-		                            &physical_device_features);
-
 		// TODO: look into other extensions
 		const char *device_extensions[1] = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
 
@@ -1366,9 +1311,9 @@ VulkanDevice create_device(Settings *settings, PlatformState *platform)
 		device_info.pQueueCreateInfos       = &queue_info;
 		device_info.enabledExtensionCount   = 1;
 		device_info.ppEnabledExtensionNames = device_extensions;
-		device_info.pEnabledFeatures        = &physical_device_features;
+		device_info.pEnabledFeatures        = &device.physical_device.features;
 
-		result = vkCreateDevice(device.physical_device,
+		result = vkCreateDevice(device.physical_device.handle,
 		                        &device_info,
 		                        nullptr,
 		                        &device.handle);
@@ -1426,7 +1371,8 @@ VulkanDevice create_device(Settings *settings, PlatformState *platform)
 	// now because we're still hardcoding the depth buffer creation, among other
 	// things, in the VulkanDevice, which requires the created swapchain.
 	// Really I think it mostly/only need the extent, but same difference
-	device.swapchain = create_swapchain(&device, surface, settings);
+	device.swapchain = create_swapchain(&device, &device.physical_device,
+	                                    surface, settings);
 
 	/**************************************************************************
 	 * Create VkCommandPool
@@ -1523,7 +1469,7 @@ VulkanDevice create_device(Settings *settings, PlatformState *platform)
 	result = vkCreateSemaphore(device.handle,
 	                           &semaphore_info,
 	                           nullptr,
-	                           &device.swapchain_image_available);
+	                           &device.swapchain.available);
 	DEBUG_ASSERT(result == VK_SUCCESS);
 
 	result = vkCreateSemaphore(device.handle,
@@ -1620,7 +1566,7 @@ void destroy(VulkanDevice *device)
 	vkDestroyCommandPool(device->handle, device->command_pool, nullptr);
 
 
-	vkDestroySemaphore(device->handle, device->swapchain_image_available, nullptr);
+	vkDestroySemaphore(device->handle, device->swapchain.available, nullptr);
 	vkDestroySemaphore(device->handle, device->render_completed, nullptr);
 
 
@@ -1801,7 +1747,7 @@ u32 acquire_swapchain_image(VulkanDevice *device)
 	result = vkAcquireNextImageKHR(device->handle,
 	                               device->swapchain.handle,
 	                               UINT64_MAX,
-	                               device->swapchain_image_available,
+	                               device->swapchain.available,
 	                               VK_NULL_HANDLE,
 	                               &image_index);
 	DEBUG_ASSERT(result == VK_SUCCESS);
@@ -1821,7 +1767,7 @@ void present(VulkanDevice *device,
 	VkResult result;
 	{
 		VkSemaphore wait_semaphores[] = {
-			device->swapchain_image_available
+			device->swapchain.available
 		};
 
 		VkPipelineStageFlags wait_stages[] = {
@@ -1873,16 +1819,12 @@ void present(VulkanDevice *device,
 	DEBUG_ASSERT(result == VK_SUCCESS);
 }
 
-u32 find_memory_type(VkPhysicalDevice physical_device,
+u32 find_memory_type(VulkanPhysicalDevice physical_device,
                      u32 filter,
                      VkMemoryPropertyFlags req_flags)
 {
-	// TODO(jesper): do I need to query this or can I cache it?
-	VkPhysicalDeviceMemoryProperties properties;
-	vkGetPhysicalDeviceMemoryProperties(physical_device, &properties);
-
-	for (u32 i = 0; i < properties.memoryTypeCount; i++) {
-		VkMemoryPropertyFlags flags = properties.memoryTypes[i].propertyFlags;
+	for (u32 i = 0; i < physical_device.memory.memoryTypeCount; i++) {
+		auto flags = physical_device.memory.memoryTypes[i].propertyFlags;
 		if ((filter & (1 << i)) &&
 		    (flags & req_flags) == req_flags)
 		{

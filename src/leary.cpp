@@ -259,7 +259,7 @@ void game_render(GameState *game)
 	VkSubmitInfo present_submit_info = {};
 	present_submit_info.sType                = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 	present_submit_info.waitSemaphoreCount   = 1;
-	present_submit_info.pWaitSemaphores      = &game->vulkan.swapchain_image_available;
+	present_submit_info.pWaitSemaphores      = &game->vulkan.swapchain.available;
 	present_submit_info.pWaitDstStageMask    = wait_stages;
 	present_submit_info.commandBufferCount   = 1;
 	present_submit_info.pCommandBuffers      = game->command_buffers;
