@@ -149,24 +149,21 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 		stbtt_bakedchar data[96];
 
 		components.a = VK_COMPONENT_SWIZZLE_R;
-		components.r = VK_COMPONENT_SWIZZLE_R;
-		components.g = VK_COMPONENT_SWIZZLE_R;
-		components.b = VK_COMPONENT_SWIZZLE_R;
 
 		stbtt_BakeFontBitmap(font_data, 0, 32.0, bitmap, 512, 512, 32, 96, data);
 		game->font_texture = create_texture(&game->vulkan, 512, 512,
-		                                    VK_FORMAT_R8_UINT, bitmap, components);
+		                                    VK_FORMAT_R8_UNORM, bitmap, components);
 		f32 x = 0.0f, y = 0.0f;
 		stbtt_aligned_quad q;
 		stbtt_GetBakedQuad(data, 512, 512, 'H'-32, &x, &y, &q, 1);
 
 		f32 vertices[] = {
-			-16.0f, -16.0f, 0.0f, 0.0f,    0.00625f,
-			 16.0f, -16.0f, 0.0f, 0.0332f, 0.00625f,
-			 16.0f, 16.0f,  0.0f, 0.0332f, 0.1016f,
-			 16.0f, 16.0f,  0.0f, 0.0332f, 0.1016f,
-			-16.0f, 16.0f,  0.0f, 0.0f,    0.1016f,
-			-16.0f, -16.0f, 0.0f, 0.0f,    0.00625f
+			-16.0f, -16.0f, 0.0f, q.s0, q.t0,
+			 16.0f, -16.0f, 0.0f, q.s1, q.t0,
+			 16.0f, 16.0f,  0.0f, q.s1, q.t1,
+			 16.0f, 16.0f,  0.0f, q.s1, q.t1,
+			-16.0f, 16.0f,  0.0f, q.s0, q.t1,
+			-16.0f, -16.0f, 0.0f, q.s0, q.t0
 		};
 
 		game->font_vertices = create_vertex_buffer(&game->vulkan,

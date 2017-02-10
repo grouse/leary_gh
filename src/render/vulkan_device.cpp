@@ -578,7 +578,7 @@ VulkanPipeline create_font_pipeline(VulkanDevice *device)
 	vertex_descriptions[0].offset   = 0;
 
 	// texture coordinates
-	vertex_descriptions[1].location = 2;
+	vertex_descriptions[1].location = 1;
 	vertex_descriptions[1].binding  = 0;
 	vertex_descriptions[1].format   = VK_FORMAT_R32G32_SFLOAT;
 	vertex_descriptions[1].offset   = sizeof(f32) * 3;
@@ -1250,6 +1250,7 @@ VulkanTexture create_texture(VulkanDevice *device, u32 width, u32 height,
 	i32 num_channels      = 4;
 	i32 bytes_per_channel = 4;
 	switch (format) {
+	case VK_FORMAT_R8_UNORM:
 	case VK_FORMAT_R8_UINT:
 		num_channels = 1;
 		bytes_per_channel = 1;
