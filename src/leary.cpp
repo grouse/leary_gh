@@ -63,7 +63,7 @@ void game_load_settings(Settings *settings)
 {
 	VAR_UNUSED(settings);
 	char *settings_path = platform_resolve_path(GamePath_preferences, "settings.conf");
-	//SERIALIZE_LOAD_CONF(settings_path, Settings, settings);
+	SERIALIZE_LOAD_CONF(settings_path, Settings, settings);
 	free(settings_path);
 }
 
@@ -147,10 +147,9 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 
 		u8 bitmap[512*512];
 		stbtt_bakedchar data[96];
+		stbtt_BakeFontBitmap(font_data, 0, 32.0, bitmap, 512, 512, 32, 96, data);
 
 		components.a = VK_COMPONENT_SWIZZLE_R;
-
-		stbtt_BakeFontBitmap(font_data, 0, 32.0, bitmap, 512, 512, 32, 96, data);
 		game->font_texture = create_texture(&game->vulkan, 512, 512,
 		                                    VK_FORMAT_R8_UNORM, bitmap, components);
 		f32 x = 0.0f, y = 0.0f;
@@ -158,12 +157,12 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 		stbtt_GetBakedQuad(data, 512, 512, 'H'-32, &x, &y, &q, 1);
 
 		f32 vertices[] = {
-			-16.0f, -16.0f, 0.0f, q.s0, q.t0,
-			 16.0f, -16.0f, 0.0f, q.s1, q.t0,
-			 16.0f, 16.0f,  0.0f, q.s1, q.t1,
-			 16.0f, 16.0f,  0.0f, q.s1, q.t1,
-			-16.0f, 16.0f,  0.0f, q.s0, q.t1,
-			-16.0f, -16.0f, 0.0f, q.s0, q.t0
+			q.x0, q.y0, 0.0f, q.s0, q.t0,
+			q.x1, q.y0, 0.0f, q.s1, q.t0,
+			q.x1, q.y1, 0.0f, q.s1, q.t1,
+			q.x1, q.y1, 0.0f, q.s1, q.t1,
+			q.x0, q.y1, 0.0f, q.s0, q.t1,
+			q.x0, q.y1, 0.0f, q.s0, q.t0
 		};
 
 		game->font_vertices = create_vertex_buffer(&game->vulkan,
@@ -246,7 +245,7 @@ void game_quit(Settings *settings, GameState *game)
 
 
 	char *settings_path = platform_resolve_path(GamePath_preferences, "settings.conf");
-	//SERIALIZE_SAVE_CONF(settings_path, Settings, settings);
+	SERIALIZE_SAVE_CONF(settings_path, Settings, settings);
 	free(settings_path);
 
 	platform_quit();
