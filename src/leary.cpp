@@ -162,7 +162,7 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 			q.x1, q.y1, 0.0f, q.s1, q.t1,
 			q.x1, q.y1, 0.0f, q.s1, q.t1,
 			q.x0, q.y1, 0.0f, q.s0, q.t1,
-			q.x0, q.y1, 0.0f, q.s0, q.t0
+			q.x0, q.y0, 0.0f, q.s0, q.t0
 		};
 
 		game->font_vertices = create_vertex_buffer(&game->vulkan,
@@ -236,6 +236,10 @@ void game_quit(Settings *settings, GameState *game)
 {
 	VAR_UNUSED(settings);
 	vkQueueWaitIdle(game->vulkan.queue);
+
+	destroy(&game->vulkan, game->font_vertices);
+	destroy(&game->vulkan, game->font_texture);
+	destroy(&game->vulkan, game->font_pipeline);
 
 	destroy(&game->vulkan, game->vertex_buffer);
 	destroy(&game->vulkan, game->camera_ubo);
