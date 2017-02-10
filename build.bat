@@ -25,8 +25,8 @@ PUSHD %BUILD_DIR%
 REM TODO(jesper): move this into a separate build script; we won't need to and
 REM don't want to rebuild all the assets every build, it'll become real slow
 REM real fast
-glslangValidator -V %ROOT%\src\render\shaders\triangle.frag -o %BUILD_DIR%\data\shaders\triangle_frag.spv
-glslangValidator -V %ROOT%\src\render\shaders\triangle.vert -o %BUILD_DIR%\data\shaders\triangle_vert.spv
+glslangValidator -V %ROOT%\src\render\shaders\generic.frag -o %BUILD_DIR%\data\shaders\generic.frag.spv
+glslangValidator -V %ROOT%\src\render\shaders\generic.vert -o %BUILD_DIR%\data\shaders\generic.vert.spv
 
 cl %FLAGS% %UNOPTIMIZED% %INCLUDE_DIR% /Feleary.exe %ROOT%\src\platform/win32_main.cpp /link %LIBS% /SUBSYSTEM:WINDOWS
 POPD

@@ -13,6 +13,11 @@
 #include "core/tokenizer.cpp"
 #include "core/serialize.cpp"
 
+#define STB_TRUETYPE_IMPLEMENTATION
+#define STB_RECT_PACK_IMPLEMENTATION
+#include "external/stb/stb_rect_pack.h"
+#include "external/stb/stb_truetype.h"
+
 enum InputAction {
 	InputAction_move_vertical_start,
 	InputAction_move_horizontal_start,
@@ -47,13 +52,18 @@ struct GameState {
 
 	Vector3f            velocity = {};
 	Vector3f            player_velocity = {};
+
+	VulkanPipeline      font_pipeline;
+	VulkanBuffer        font_vertices;
+	VulkanTexture       font_texture;
 };
 
 
 void game_load_settings(Settings *settings)
 {
+	VAR_UNUSED(settings);
 	char *settings_path = platform_resolve_path(GamePath_preferences, "settings.conf");
-	SERIALIZE_LOAD_CONF(settings_path, Settings, settings);
+	//SERIALIZE_LOAD_CONF(settings_path, Settings, settings);
 	free(settings_path);
 }
 
@@ -67,9 +77,10 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 	pixels[31]    = { 0.0f, 1.0f, 0.0f, 1.0f };
 	pixels[1023]     = { 0.0f, 0.0f, 1.0f, 1.0f };
 
+	VkComponentMapping components = {};
 	game->texture = create_texture(&game->vulkan,
 	                               32, 32, VK_FORMAT_R32G32B32A32_SFLOAT,
-	                               pixels);
+	                               pixels, components);
 
 	game->camera.view  = Matrix4f::identity();
 	game->camera.view  = translate(game->camera.view, Vector3f{0.0f, 0.0f, 0.0f});
@@ -125,6 +136,66 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 	                       game->pipeline,
 	                       game->texture,
 	                       game->camera_ubo);
+
+
+	{
+		game->font_pipeline = create_font_pipeline(&game->vulkan);
+
+		size_t font_size;
+		char *font_path = platform_resolve_path(GamePath_data, "fonts/Roboto-Regular.ttf");
+		u8 *font_data = (u8*)platform_file_read(font_path, &font_size);
+
+		u8 bitmap[512*512];
+		stbtt_bakedchar data[96];
+
+		components.a = VK_COMPONENT_SWIZZLE_R;
+		components.r = VK_COMPONENT_SWIZZLE_R;
+		components.g = VK_COMPONENT_SWIZZLE_R;
+		components.b = VK_COMPONENT_SWIZZLE_R;
+
+		stbtt_BakeFontBitmap(font_data, 0, 32.0, bitmap, 512, 512, 32, 96, data);
+		game->font_texture = create_texture(&game->vulkan, 512, 512,
+		                                    VK_FORMAT_R8_UINT, bitmap, components);
+		f32 x = 0.0f, y = 0.0f;
+		stbtt_aligned_quad q;
+		stbtt_GetBakedQuad(data, 512, 512, 'H'-32, &x, &y, &q, 1);
+
+		f32 vertices[] = {
+			-16.0f, -16.0f, 0.0f, 0.0f,    0.00625f,
+			 16.0f, -16.0f, 0.0f, 0.0332f, 0.00625f,
+			 16.0f, 16.0f,  0.0f, 0.0332f, 0.1016f,
+			 16.0f, 16.0f,  0.0f, 0.0332f, 0.1016f,
+			-16.0f, 16.0f,  0.0f, 0.0f,    0.1016f,
+			-16.0f, -16.0f, 0.0f, 0.0f,    0.00625f
+		};
+
+		game->font_vertices = create_vertex_buffer(&game->vulkan,
+		                                           sizeof(vertices), vertices);
+
+		update_descriptor_sets(&game->vulkan,
+		                       game->font_pipeline,
+		                       game->font_texture,
+		                       game->camera_ubo);
+
+
+
+#if 0
+		stbtt_fontinfo font_info = {};
+		stbtt_InitFont(&font_info, font_data, 0);
+
+		f32 scale = stbtt_ScaleForPixelHeight(&font_info, 15);
+
+		i32 ascent = 0;
+		stbtt_GetFontVMetrics(&font_info, &ascent, 0, 0);
+		i32 baseline = (i32)(ascent * scale);
+
+		i32 left, top, right, bottom;
+		stbtt_GetCodepointBox(&font_info, 'J', &left, &top, &right, &bottom);
+		DEBUG_LOG("x, y: %f, %f", scale*left, scale*top);
+		DEBUG_LOG("x, y: %f, %f", scale*right, scale*bottom);
+#endif
+	}
+
 }
 
 void game_input(GameState *game, InputAction action, float axis)
@@ -167,6 +238,7 @@ void game_input(GameState *game, InputAction action)
 
 void game_quit(Settings *settings, GameState *game)
 {
+	VAR_UNUSED(settings);
 	vkQueueWaitIdle(game->vulkan.queue);
 
 	destroy(&game->vulkan, game->vertex_buffer);
@@ -177,7 +249,7 @@ void game_quit(Settings *settings, GameState *game)
 
 
 	char *settings_path = platform_resolve_path(GamePath_preferences, "settings.conf");
-	SERIALIZE_SAVE_CONF(settings_path, Settings, settings);
+	//SERIALIZE_SAVE_CONF(settings_path, Settings, settings);
 	free(settings_path);
 
 	platform_quit();
@@ -242,6 +314,23 @@ void game_render(GameState *game)
 		                   &game->positions[i]);
 		vkCmdDraw(command, 6, 1, 0, 0);
 	}
+
+	vkCmdBindPipeline(command,
+	                  VK_PIPELINE_BIND_POINT_GRAPHICS,
+	                  game->font_pipeline.handle);
+
+
+	vkCmdBindDescriptorSets(command,
+	                        VK_PIPELINE_BIND_POINT_GRAPHICS,
+	                        game->font_pipeline.layout,
+	                        0,
+	                        1, &game->font_pipeline.descriptor_set,
+	                        0, nullptr);
+
+
+	vkCmdBindVertexBuffers(command, 0, 1, &game->font_vertices.handle, offsets);
+	vkCmdDraw(command, 6, 1, 0, 0);
+
 
 	vkCmdEndRenderPass(command);
 

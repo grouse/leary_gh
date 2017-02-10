@@ -432,13 +432,294 @@ VulkanSwapchain create_swapchain(VulkanDevice *device,
 	return swapchain;
 }
 
+VulkanPipeline create_font_pipeline(VulkanDevice *device)
+{
+	VkResult result;
+	VulkanPipeline pipeline = {};
+
+	char *vertex_path   = platform_resolve_path(GamePath_shaders, "font.vert.spv");
+	char *fragment_path = platform_resolve_path(GamePath_shaders, "font.frag.spv");
+
+	size_t vertex_size;
+	void *vertex_source = platform_file_read(vertex_path, &vertex_size);
+	DEBUG_ASSERT(vertex_source != nullptr);
+	free(vertex_path);
+
+	size_t fragment_size;
+	void *fragment_source = platform_file_read(fragment_path, &fragment_size);
+	DEBUG_ASSERT(fragment_source != nullptr);
+	free(fragment_path);
+
+
+	pipeline.shaders[ShaderStage_vertex] =
+		create_shader(device,
+		              (u32*)vertex_source, vertex_size,
+		              VK_SHADER_STAGE_VERTEX_BIT);
+
+	pipeline.shaders[ShaderStage_fragment] =
+		create_shader(device,
+		              (u32*)fragment_source, fragment_size,
+		              VK_SHADER_STAGE_FRAGMENT_BIT);
+
+
+	VkSamplerCreateInfo sampler_info = {};
+	sampler_info.sType                   = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+	sampler_info.magFilter               = VK_FILTER_LINEAR;
+	sampler_info.minFilter               = VK_FILTER_LINEAR;
+	sampler_info.addressModeU            = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	sampler_info.addressModeV            = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	sampler_info.addressModeW            = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	sampler_info.borderColor             = VK_BORDER_COLOR_INT_OPAQUE_WHITE;
+	sampler_info.unnormalizedCoordinates = VK_FALSE;
+	sampler_info.compareEnable           = VK_FALSE;
+	sampler_info.compareOp               = VK_COMPARE_OP_ALWAYS;
+	sampler_info.mipmapMode              = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+
+	result = vkCreateSampler(device->handle,
+	                         &sampler_info,
+	                         nullptr,
+	                         &pipeline.texture_sampler);
+	DEBUG_ASSERT(result == VK_SUCCESS);
+
+	free(fragment_source);
+	free(vertex_source);
+
+	std::array<VkDescriptorSetLayoutBinding, 2> bindings = {};
+	// camera ubo
+	bindings[0].binding         = 0;
+	bindings[0].descriptorCount = 1;
+	bindings[0].descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	bindings[0].stageFlags      = VK_SHADER_STAGE_VERTEX_BIT;
+
+	// texture sampler
+	bindings[1].binding         = 1;
+	bindings[1].descriptorCount = 1;
+	bindings[1].descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	bindings[1].stageFlags      = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+	VkDescriptorSetLayoutCreateInfo descriptor_layout_info = {};
+	descriptor_layout_info.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+	descriptor_layout_info.bindingCount = (u32)bindings.size();
+	descriptor_layout_info.pBindings    = bindings.data();
+
+	result = vkCreateDescriptorSetLayout(device->handle,
+	                                     &descriptor_layout_info,
+	                                     nullptr,
+	                                     &pipeline.descriptor_layout);
+	DEBUG_ASSERT(result == VK_SUCCESS);
+
+	// NOTE(jesper): create a pool size descriptor for each type of
+	// descriptor this shader program uses
+	std::array<VkDescriptorPoolSize, 2> pool_sizes = {};
+	pool_sizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	pool_sizes[0].descriptorCount = 1;
+
+	pool_sizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	pool_sizes[1].descriptorCount = 1;
+
+	VkDescriptorPoolCreateInfo pool_info = {};
+	pool_info.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+	pool_info.poolSizeCount = (u32)pool_sizes.size();
+	pool_info.pPoolSizes    = pool_sizes.data();
+	pool_info.maxSets       = 1;
+
+	result = vkCreateDescriptorPool(device->handle,
+	                                &pool_info,
+	                                nullptr,
+	                                &pipeline.descriptor_pool);
+	DEBUG_ASSERT(result == VK_SUCCESS);
+
+	VkDescriptorSetAllocateInfo descriptor_alloc_info = {};
+	descriptor_alloc_info.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+	descriptor_alloc_info.descriptorPool     = pipeline.descriptor_pool;
+	descriptor_alloc_info.descriptorSetCount = 1;
+	descriptor_alloc_info.pSetLayouts        = &pipeline.descriptor_layout;
+
+	result = vkAllocateDescriptorSets(device->handle,
+	                                  &descriptor_alloc_info,
+	                                  &pipeline.descriptor_set);
+	DEBUG_ASSERT(result == VK_SUCCESS);
+
+	VkPushConstantRange push_constants = {};
+	push_constants.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+	push_constants.offset = 0;
+	push_constants.size = sizeof(Matrix4f);
+
+	VkPipelineLayoutCreateInfo layout_info = {};
+	layout_info.sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+	layout_info.setLayoutCount         = 1;
+	layout_info.pSetLayouts            = &pipeline.descriptor_layout;
+	layout_info.pushConstantRangeCount = 1;
+	layout_info.pPushConstantRanges    = &push_constants;
+
+	result = vkCreatePipelineLayout(device->handle,
+	                                &layout_info,
+	                                nullptr,
+	                                &pipeline.layout);
+	DEBUG_ASSERT(result == VK_SUCCESS);
+
+
+	// NOTE(jesper): this describes the number of vertex buffers we bind to
+	// the pipeline, so far we create 1 big vertex buffer containing both
+	// colour and vertices
+	std::array<VkVertexInputBindingDescription, 1> vertex_bindings = {};
+	vertex_bindings[0].binding   = 0;
+	vertex_bindings[0].stride    = sizeof(f32) * 5;
+	vertex_bindings[0].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+	// NOTE(jesper): we need one of these per vertex shader input. Because
+	// it's going to be unique per shader, probably an idea to put this into
+	// VulkanShader
+	std::array<VkVertexInputAttributeDescription, 2> vertex_descriptions = {};
+	// vertices
+	vertex_descriptions[0].location = 0;
+	vertex_descriptions[0].binding  = 0;
+	vertex_descriptions[0].format   = VK_FORMAT_R32G32B32_SFLOAT;
+	vertex_descriptions[0].offset   = 0;
+
+	// texture coordinates
+	vertex_descriptions[1].location = 2;
+	vertex_descriptions[1].binding  = 0;
+	vertex_descriptions[1].format   = VK_FORMAT_R32G32_SFLOAT;
+	vertex_descriptions[1].offset   = sizeof(f32) * 3;
+
+	VkPipelineVertexInputStateCreateInfo vertex_input_info = {};
+	vertex_input_info.sType                           = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+	vertex_input_info.vertexBindingDescriptionCount   = (u32)vertex_bindings.size();
+	vertex_input_info.pVertexBindingDescriptions      = vertex_bindings.data();
+	vertex_input_info.vertexAttributeDescriptionCount = (u32)vertex_descriptions.size();
+	vertex_input_info.pVertexAttributeDescriptions    = vertex_descriptions.data();
+
+	VkPipelineInputAssemblyStateCreateInfo input_assembly_info = {};
+	input_assembly_info.sType                  = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+	input_assembly_info.topology               = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+	input_assembly_info.primitiveRestartEnable = VK_FALSE;
+
+	VkViewport viewport = {};
+	viewport.x        = 0.0f;
+	viewport.y        = 0.0f;
+	viewport.width    = (f32) device->swapchain.extent.width;
+	viewport.height   = (f32) device->swapchain.extent.height;
+	viewport.minDepth = 0.0f;
+	viewport.maxDepth = 1.0f;
+
+	VkRect2D scissor = {};
+	scissor.offset = {0, 0};
+	scissor.extent = device->swapchain.extent;
+
+	VkPipelineViewportStateCreateInfo viewport_info = {};
+	viewport_info.sType         = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+	viewport_info.viewportCount = 1;
+	viewport_info.pViewports    = &viewport;
+	viewport_info.scissorCount  = 1;
+	viewport_info.pScissors     = &scissor;
+
+	VkPipelineRasterizationStateCreateInfo raster_info = {};
+	raster_info.sType                   = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+	raster_info.depthClampEnable        = VK_FALSE;
+	raster_info.rasterizerDiscardEnable = VK_FALSE;
+	raster_info.polygonMode             = VK_POLYGON_MODE_FILL;
+	raster_info.cullMode                = VK_CULL_MODE_BACK_BIT;
+	raster_info.frontFace               = VK_FRONT_FACE_CLOCKWISE;
+	raster_info.depthBiasEnable         = VK_FALSE;
+	raster_info.lineWidth               = 1.0;
+
+	VkPipelineColorBlendAttachmentState color_blend_attachment = {};
+	color_blend_attachment.blendEnable    = VK_FALSE;
+	color_blend_attachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT |
+	                                        VK_COLOR_COMPONENT_G_BIT |
+	                                        VK_COLOR_COMPONENT_B_BIT |
+	                                        VK_COLOR_COMPONENT_A_BIT;
+
+	VkPipelineColorBlendStateCreateInfo color_blend_info = {};
+	color_blend_info.sType             = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+	color_blend_info.logicOpEnable     = VK_FALSE;
+	color_blend_info.logicOp           = VK_LOGIC_OP_CLEAR;
+	color_blend_info.attachmentCount   = 1;
+	color_blend_info.pAttachments      = &color_blend_attachment;
+	color_blend_info.blendConstants[0] = 0.0f;
+	color_blend_info.blendConstants[1] = 0.0f;
+	color_blend_info.blendConstants[2] = 0.0f;
+	color_blend_info.blendConstants[3] = 0.0f;
+
+	VkStencilOpState stencil_state = {};
+	stencil_state.failOp      = VK_STENCIL_OP_KEEP;
+	stencil_state.passOp      = VK_STENCIL_OP_KEEP;
+	stencil_state.depthFailOp = VK_STENCIL_OP_KEEP;
+	stencil_state.compareOp   = VK_COMPARE_OP_ALWAYS;
+	stencil_state.compareMask = 0;
+	stencil_state.writeMask   = 0;
+	stencil_state.reference   = 0;
+
+	VkPipelineDepthStencilStateCreateInfo depth_stencil_info = {};
+	depth_stencil_info.sType                 = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+	depth_stencil_info.depthTestEnable       = VK_TRUE;
+	depth_stencil_info.depthWriteEnable      = VK_TRUE;
+	depth_stencil_info.depthCompareOp        = VK_COMPARE_OP_LESS_OR_EQUAL;
+	depth_stencil_info.depthBoundsTestEnable = VK_FALSE;
+	depth_stencil_info.stencilTestEnable     = VK_FALSE;
+	depth_stencil_info.front                 = stencil_state;
+	depth_stencil_info.back                  = stencil_state;
+	depth_stencil_info.minDepthBounds        = 0.0f;
+	depth_stencil_info.maxDepthBounds        = 0.0f;
+
+	VkPipelineMultisampleStateCreateInfo multisample_info = {};
+	multisample_info.sType                 = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+	multisample_info.rasterizationSamples  = VK_SAMPLE_COUNT_1_BIT;
+	multisample_info.sampleShadingEnable   = VK_FALSE;
+	multisample_info.minSampleShading      = 0;
+	multisample_info.pSampleMask           = nullptr;
+	multisample_info.alphaToCoverageEnable = VK_FALSE;
+	multisample_info.alphaToOneEnable      = VK_FALSE;
+
+	// NOTE(jesper): it seems like it'd be worth creating and caching this
+	// inside the VulkanShader objects
+	std::array<VkPipelineShaderStageCreateInfo, 2> shader_stages = {};
+	shader_stages[0].sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	shader_stages[0].stage  = pipeline.shaders[ShaderStage_vertex].stage;
+	shader_stages[0].module = pipeline.shaders[ShaderStage_vertex].module;
+	shader_stages[0].pName  = pipeline.shaders[ShaderStage_vertex].name;
+
+	shader_stages[1].sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	shader_stages[1].stage  = pipeline.shaders[ShaderStage_fragment].stage;
+	shader_stages[1].module = pipeline.shaders[ShaderStage_fragment].module;
+	shader_stages[1].pName  = pipeline.shaders[ShaderStage_fragment].name;
+
+	VkGraphicsPipelineCreateInfo pipeline_info = {};
+	pipeline_info.sType               = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+	pipeline_info.stageCount          = (u32)shader_stages.size();
+	pipeline_info.pStages             = shader_stages.data();
+	pipeline_info.pVertexInputState   = &vertex_input_info;
+	pipeline_info.pInputAssemblyState = &input_assembly_info;
+	pipeline_info.pViewportState      = &viewport_info;
+	pipeline_info.pRasterizationState = &raster_info;
+	pipeline_info.pMultisampleState   = &multisample_info;
+	pipeline_info.pDepthStencilState  = &depth_stencil_info;
+	pipeline_info.pColorBlendState    = &color_blend_info;
+	pipeline_info.layout              = pipeline.layout;
+	pipeline_info.renderPass          = device->renderpass;
+	pipeline_info.basePipelineHandle  = VK_NULL_HANDLE;
+	pipeline_info.basePipelineIndex   = -1;
+
+	result = vkCreateGraphicsPipelines(device->handle,
+	                                   VK_NULL_HANDLE,
+	                                   1,
+	                                   &pipeline_info,
+	                                   nullptr,
+	                                   &pipeline.handle);
+	DEBUG_ASSERT(result == VK_SUCCESS);
+	return pipeline;
+
+
+}
+
 VulkanPipeline create_pipeline(VulkanDevice *device)
 {
 	VkResult result;
 	VulkanPipeline pipeline = {};
 
-	char *vertex_path   = platform_resolve_path(GamePath_shaders, "triangle_vert.spv");
-	char *fragment_path = platform_resolve_path(GamePath_shaders, "triangle_frag.spv");
+	char *vertex_path   = platform_resolve_path(GamePath_shaders, "generic.vert.spv");
+	char *fragment_path = platform_resolve_path(GamePath_shaders, "generic.frag.spv");
 
 	size_t vertex_size;
 	void *vertex_source = platform_file_read(vertex_path, &vertex_size);
@@ -933,7 +1214,8 @@ VkImage create_image(VulkanDevice *device,
 }
 
 VulkanTexture create_texture(VulkanDevice *device, u32 width, u32 height,
-                             VkFormat format, void *pixels)
+                             VkFormat format, void *pixels,
+                             VkComponentMapping components)
 {
 	VkResult result;
 
@@ -964,18 +1246,33 @@ VulkanTexture create_texture(VulkanDevice *device, u32 width, u32 height,
 	void *data;
 	// TODO(jesper): hardcoded 1 byte per channel and 4 channels, lookup based
 	// on the receieved VkFormat
-	VkDeviceSize size = width * height * 4 * 4;
+
+	i32 num_channels      = 4;
+	i32 bytes_per_channel = 4;
+	switch (format) {
+	case VK_FORMAT_R8_UINT:
+		num_channels = 1;
+		bytes_per_channel = 1;
+		break;
+	default:
+		DEBUG_LOG("unhandled format in determining number of bytes per channel "
+		          "and number of channels");
+		break;
+	}
+
+	VkDeviceSize size = width * height * num_channels * bytes_per_channel;
 	vkMapMemory(device->handle, staging_memory, 0, size, 0, &data);
 
-	if (staging_image_layout.rowPitch == width * 4 * 4) {
+	u32 row_pitch = width * num_channels * bytes_per_channel;
+	if (staging_image_layout.rowPitch == row_pitch) {
 		memcpy(data, pixels, (size_t)size);
 	} else {
 		u8 *bytes = (u8*)data;
 		u8 *pixel_bytes = (u8*)pixels;
 		for (i32 y = 0; y < (i32)height; y++) {
-			memcpy(&bytes[y * 4 * staging_image_layout.rowPitch],
-			       &pixel_bytes[y * width * 4 * 4],
-			       width * 4 * 4);
+			memcpy(&bytes[y * num_channels * staging_image_layout.rowPitch],
+			       &pixel_bytes[y * width * num_channels * bytes_per_channel],
+			       width * num_channels * bytes_per_channel);
 		}
 	}
 
@@ -1013,6 +1310,7 @@ VulkanTexture create_texture(VulkanDevice *device, u32 width, u32 height,
 	view_info.subresourceRange.levelCount     = 1;
 	view_info.subresourceRange.baseArrayLayer = 0;
 	view_info.subresourceRange.layerCount     = 1;
+	view_info.components = components;
 
 	result = vkCreateImageView(device->handle, &view_info, nullptr,
 	                           &texture.image_view);
