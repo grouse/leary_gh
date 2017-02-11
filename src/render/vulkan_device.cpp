@@ -540,17 +540,10 @@ VulkanPipeline create_font_pipeline(VulkanDevice *device)
 	                                  &pipeline.descriptor_set);
 	DEBUG_ASSERT(result == VK_SUCCESS);
 
-	VkPushConstantRange push_constants = {};
-	push_constants.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-	push_constants.offset = 0;
-	push_constants.size = sizeof(Matrix4f);
-
 	VkPipelineLayoutCreateInfo layout_info = {};
 	layout_info.sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 	layout_info.setLayoutCount         = 1;
 	layout_info.pSetLayouts            = &pipeline.descriptor_layout;
-	layout_info.pushConstantRangeCount = 1;
-	layout_info.pPushConstantRanges    = &push_constants;
 
 	result = vkCreatePipelineLayout(device->handle,
 	                                &layout_info,
