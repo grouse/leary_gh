@@ -61,7 +61,7 @@ struct GameState {
 	VulkanPipeline      font_pipeline;
 	VulkanTexture       font_texture;
 
-	stbtt_bakedchar     baked_font[96];
+	stbtt_bakedchar     baked_font[256];
 	RenderedText        rendered_text;
 	RenderedText        debug_text;
 };
@@ -82,7 +82,7 @@ RenderedText render_font(GameState *game, float *x, float *y, const char *str)
 		char c = *str++;
 
 		stbtt_aligned_quad q = {};
-		stbtt_GetBakedQuad(game->baked_font, 512, 512, c-32, x, y, &q, 1);
+		stbtt_GetBakedQuad(game->baked_font, 1024, 1024, c, x, y, &q, 1);
 
 		vertices[offset++] = q.x0;
 		vertices[offset++] = q.y0;
@@ -215,12 +215,12 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 		                                        "fonts/Roboto-Regular.ttf");
 		u8 *font_data = (u8*)platform_file_read(font_path, &font_size);
 
-		u8 bitmap[512*512];
-		stbtt_BakeFontBitmap(font_data, 0, 32.0, bitmap, 512, 512, 32,
-		                     96, game->baked_font);
+		u8 bitmap[1024*1024];
+		stbtt_BakeFontBitmap(font_data, 0, 20.0, bitmap, 1024, 1024, 0,
+		                     256, game->baked_font);
 
 		components.a = VK_COMPONENT_SWIZZLE_R;
-		game->font_texture = create_texture(&game->vulkan, 512, 512,
+		game->font_texture = create_texture(&game->vulkan, 1024, 1024,
 		                                    VK_FORMAT_R8_UNORM, bitmap,
 		                                    components);
 
