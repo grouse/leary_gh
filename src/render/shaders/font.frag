@@ -11,9 +11,5 @@ layout(location = 0) out vec4 out_color;
 void main()
 {
 	float a = texture(texture_sampler, texture_coordinate).a;
-	if (a > 0.0) {
-		out_color = vec4(1.0) * a;
-	} else {
-		discard;
-	}
+	out_color = vec4(1.0) * a;
 }

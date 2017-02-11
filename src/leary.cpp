@@ -305,7 +305,7 @@ void game_update(GameState* game, f32 dt)
 	f32 dt_ms = dt * 1000.0f;
 	f32 fps   = 1000.0f / dt_ms;
 	sprintf(buffer, "frametime: %fms, %f fps", dt_ms, fps);
-	f32 x = -640.0f, y = -340.0f;
+	f32 x = -640.0f, y = -345.0f;
 	game->debug_text = render_font(game, &x, &y, buffer);
 
 
@@ -368,6 +368,7 @@ void game_render(GameState *game)
 		                   &game->positions[i]);
 		vkCmdDraw(command, 6, 1, 0, 0);
 	}
+
 
 	vkCmdBindPipeline(command,
 	                  VK_PIPELINE_BIND_POINT_GRAPHICS,
