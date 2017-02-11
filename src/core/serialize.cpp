@@ -143,7 +143,7 @@ member_to_string(StructMemberInfo &member,
 void
 serialize_save_conf(const char *path,
                    StructMemberInfo *members,
-                   size_t num_members,
+                   usize num_members,
                    void *ptr)
 {
 	if (!platform_file_exists(path) && !platform_file_create(path)) {
@@ -162,7 +162,7 @@ serialize_save_conf(const char *path,
 		StructMemberInfo &member = members[i];
 		i32 bytes = member_to_string(member, ptr, buffer, sizeof(buffer));
 
-		platform_file_write(file_handle, buffer, (size_t)bytes);
+		platform_file_write(file_handle, buffer, (usize)bytes);
 	}
 
 	platform_file_close(file_handle);
@@ -172,7 +172,7 @@ StructMemberInfo *
 find_member(char *name,
             i32 length,
             StructMemberInfo *members,
-            size_t num_members)
+            usize num_members)
 {
 	for (i32 i = 0; i < (i32)num_members; i++) {
 		if (strncmp(name, members[i].name, length) == 0) {
@@ -218,7 +218,7 @@ read_unsigned_integer(Token token)
 void
 member_from_string(char **ptr,
                    StructMemberInfo *members,
-                   size_t num_members,
+                   usize num_members,
                    void *out)
 {
 	Tokenizer tokenizer;
@@ -293,14 +293,14 @@ member_from_string(char **ptr,
 void
 serialize_load_conf(const char *path,
                     StructMemberInfo *members,
-                    size_t num_members,
+                    usize num_members,
                     void *out)
 {
 	if (!platform_file_exists(path)) {
 		return;
 	}
 
-	size_t size;
+	usize size;
 	char *file, *ptr;
 	file = ptr = platform_file_read(path, &size);
 	member_from_string(&ptr, members, num_members, out);

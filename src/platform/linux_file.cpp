@@ -208,15 +208,15 @@ void platform_file_close(void *file_handle)
 
 
 
-void platform_file_write(void *file_handle, void *buffer, size_t bytes)
+void platform_file_write(void *file_handle, void *buffer, usize bytes)
 {
 	i32 fd = (i32)(i64)file_handle;
-	ssize_t written = write(fd, buffer, bytes);
+	isize written = write(fd, buffer, bytes);
 	DEBUG_ASSERT(written >= 0);
-	DEBUG_ASSERT((size_t)written == bytes);
+	DEBUG_ASSERT((usize)written == bytes);
 }
 
-char* platform_file_read(const char *path, size_t *file_size)
+char* platform_file_read(const char *path, usize *file_size)
 {
 	struct stat st;
 	i32 result = stat(path, &st);
@@ -227,7 +227,7 @@ char* platform_file_read(const char *path, size_t *file_size)
 	i32 fd = open(path, O_RDONLY);
 	DEBUG_ASSERT(fd >= 0);
 
-	ssize_t bytes_read = read(fd, buffer, st.st_size);
+	isize bytes_read = read(fd, buffer, st.st_size);
 	DEBUG_ASSERT(bytes_read == st.st_size);
 	*file_size = bytes_read;
 

@@ -15,7 +15,7 @@ enum VariableType {
 struct StructMemberInfo {
 	VariableType type;
 	const char   *name;
-	size_t       offset;
+	usize        offset;
 };
 
 StructMemberInfo Resolution_members[] = {

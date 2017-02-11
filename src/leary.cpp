@@ -72,8 +72,8 @@ RenderedText render_font(GameState *game, float *x, float *y, const char *str)
 
 	i32 offset = 0;
 
-	size_t text_length = strlen(str);
-	size_t vertices_size = sizeof(f32)*30*text_length;
+	usize text_length = strlen(str);
+	usize vertices_size = sizeof(f32)*30*text_length;
 	f32 *vertices = (f32*)malloc(vertices_size);
 
 	text.vertex_count = text_length * 6;
@@ -210,7 +210,7 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 	{
 		game->font_pipeline = create_font_pipeline(&game->vulkan);
 
-		size_t font_size;
+		usize font_size;
 		char *font_path = platform_resolve_path(GamePath_data,
 		                                        "fonts/Roboto-Regular.ttf");
 		u8 *font_data = (u8*)platform_file_read(font_path, &font_size);

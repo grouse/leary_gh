@@ -58,7 +58,7 @@ bool  platform_file_create(const char *path);
 void* platform_file_open(const char *path, FileAccess access);
 void  platform_file_close(void *file_handle);
 
-void  platform_file_write(void *file_handle, void *buffer, size_t bytes);
-char *platform_file_read(const char* path, size_t *out_size);
+void  platform_file_write(void *file_handle, void *buffer, usize bytes);
+char *platform_file_read(const char* path, usize *out_size);
 
 #endif // LEARY_FILE_H

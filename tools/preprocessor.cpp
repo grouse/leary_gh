@@ -52,7 +52,7 @@ struct StructInfo {
 
 
 
-char *string_duplicate(char *src, size_t size)
+char *string_duplicate(char *src, usize size)
 {
 	char *result = (char*)malloc(size + 1);
 
@@ -234,7 +234,7 @@ int main(int argc, char **argv)
 	std::fprintf(output_file, "struct StructMemberInfo {\n");
 	std::fprintf(output_file, "\tVariableType type;\n");
 	std::fprintf(output_file, "\tconst char   *name;\n");
-	std::fprintf(output_file, "\tsize_t       offset;\n");
+	std::fprintf(output_file, "\tusize        offset;\n");
 	std::fprintf(output_file, "};\n\n");
 
 	const char *files[] = {
@@ -258,7 +258,7 @@ int main(int argc, char **argv)
 		while(*src) *dst++ = *src++;
 		*(dst+1) = '\0';
 
-		size_t size;
+		usize size;
 		char *file = platform_file_read(file_path, &size);
 
 		if (file == nullptr) {

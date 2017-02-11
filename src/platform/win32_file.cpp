@@ -203,7 +203,7 @@ void platform_file_close(void *file_handle)
 	CloseHandle((HANDLE)file_handle);
 }
 
-char* platform_file_read(const char *filename, size_t *size)
+char* platform_file_read(const char *filename, usize *size)
 {
 	char *buffer = nullptr;
 
@@ -219,10 +219,10 @@ char* platform_file_read(const char *filename, size_t *size)
 	if (GetFileSizeEx(file, &file_size)) {
 		// NOTE(jesper): ReadFile only works on 32 bit sizes
 		DEBUG_ASSERT(file_size.QuadPart <= 0xFFFFFFFF);
-		*size = (size_t) file_size.QuadPart;
+		*size = (usize) file_size.QuadPart;
 
 
-		buffer = (char*)malloc((size_t)file_size.QuadPart);
+		buffer = (char*)malloc((usize)file_size.QuadPart);
 
 		DWORD bytes_read;
 		if (!ReadFile(file, buffer, (u32)file_size.QuadPart, &bytes_read, 0)) {
@@ -236,7 +236,7 @@ char* platform_file_read(const char *filename, size_t *size)
 	return buffer;
 }
 
-void platform_file_write(void *file_handle, void *buffer, size_t bytes)
+void platform_file_write(void *file_handle, void *buffer, usize bytes)
 {
 	BOOL result;
 	VAR_UNUSED(result);

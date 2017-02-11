@@ -33,7 +33,7 @@
 #include "core/settings.h"
 
 struct VulkanBuffer {
-	size_t         size;
+	usize          size;
 	VkBuffer       handle;
 	VkDeviceMemory memory;
 };
@@ -134,7 +134,7 @@ PFN_vkDestroyDebugReportCallbackEXT  DestroyDebugReportCallbackEXT;
 
 void copy_buffer(VulkanDevice *device, VkBuffer src, VkBuffer dst, VkDeviceSize size);
 
-VulkanShader create_shader(VulkanDevice *device, u32 *source, size_t size,
+VulkanShader create_shader(VulkanDevice *device, u32 *source, usize size,
                            VkShaderStageFlagBits stage);
 u32 find_memory_type(VulkanPhysicalDevice physical_device,
                      u32 filter, VkMemoryPropertyFlags req_flags);
@@ -146,7 +146,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL
 debug_callback_func(VkFlags flags,
                     VkDebugReportObjectTypeEXT object_type,
                     u64 object,
-                    size_t location,
+                    usize location,
                     i32 message_code,
                     const char* layer,
                     const char* message,
@@ -440,12 +440,12 @@ VulkanPipeline create_font_pipeline(VulkanDevice *device)
 	char *vertex_path   = platform_resolve_path(GamePath_shaders, "font.vert.spv");
 	char *fragment_path = platform_resolve_path(GamePath_shaders, "font.frag.spv");
 
-	size_t vertex_size;
+	usize vertex_size;
 	void *vertex_source = platform_file_read(vertex_path, &vertex_size);
 	DEBUG_ASSERT(vertex_source != nullptr);
 	free(vertex_path);
 
-	size_t fragment_size;
+	usize fragment_size;
 	void *fragment_source = platform_file_read(fragment_path, &fragment_size);
 	DEBUG_ASSERT(fragment_source != nullptr);
 	free(fragment_path);
@@ -714,12 +714,12 @@ VulkanPipeline create_pipeline(VulkanDevice *device)
 	char *vertex_path   = platform_resolve_path(GamePath_shaders, "generic.vert.spv");
 	char *fragment_path = platform_resolve_path(GamePath_shaders, "generic.frag.spv");
 
-	size_t vertex_size;
+	usize vertex_size;
 	void *vertex_source = platform_file_read(vertex_path, &vertex_size);
 	DEBUG_ASSERT(vertex_source != nullptr);
 	free(vertex_path);
 
-	size_t fragment_size;
+	usize fragment_size;
 	void *fragment_source = platform_file_read(fragment_path, &fragment_size);
 	DEBUG_ASSERT(fragment_source != nullptr);
 	free(fragment_path);
@@ -1259,7 +1259,7 @@ VulkanTexture create_texture(VulkanDevice *device, u32 width, u32 height,
 
 	u32 row_pitch = width * num_channels * bytes_per_channel;
 	if (staging_image_layout.rowPitch == row_pitch) {
-		memcpy(data, pixels, (size_t)size);
+		memcpy(data, pixels, (usize)size);
 	} else {
 		u8 *bytes = (u8*)data;
 		u8 *pixel_bytes = (u8*)pixels;
@@ -1318,7 +1318,7 @@ VulkanTexture create_texture(VulkanDevice *device, u32 width, u32 height,
 
 VulkanShader create_shader(VulkanDevice *device,
                            u32 *source,
-                           size_t size,
+                           usize size,
                            VkShaderStageFlagBits stage)
 {
 	VkResult result;
@@ -1875,7 +1875,7 @@ void destroy(VulkanDevice *device)
 }
 
 VulkanBuffer create_buffer(VulkanDevice *device,
-                           size_t size,
+                           usize size,
                            VkBufferUsageFlags usage,
                            VkMemoryPropertyFlags memory_flags)
 {
@@ -1922,7 +1922,7 @@ VulkanBuffer create_buffer(VulkanDevice *device,
 	return buffer;
 }
 
-VulkanBuffer create_vertex_buffer(VulkanDevice *device, size_t size, void *data)
+VulkanBuffer create_vertex_buffer(VulkanDevice *device, usize size, void *data)
 {
 	u8 *bytes = (u8*)data;
 
@@ -1947,7 +1947,7 @@ VulkanBuffer create_vertex_buffer(VulkanDevice *device, size_t size, void *data)
 	return buffer;
 }
 
-VulkanUniformBuffer create_uniform_buffer(VulkanDevice *device, size_t size)
+VulkanUniformBuffer create_uniform_buffer(VulkanDevice *device, usize size)
 {
 	VulkanUniformBuffer ubo;
 	ubo.staging = create_buffer(device,
@@ -1967,7 +1967,7 @@ VulkanUniformBuffer create_uniform_buffer(VulkanDevice *device, size_t size)
 void update_uniform_data(VulkanDevice *device,
                          VulkanUniformBuffer ubo,
                          void *data,
-                         size_t offset, size_t size)
+                         usize offset, usize size)
 {
 	void *mapped;
 	vkMapMemory(device->handle,
