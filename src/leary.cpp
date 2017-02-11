@@ -55,8 +55,68 @@ struct GameState {
 
 	VulkanPipeline      font_pipeline;
 	VulkanBuffer        font_vertices;
+	i32                 font_vertices_count;
 	VulkanTexture       font_texture;
+
+	stbtt_bakedchar     baked_font[96];
 };
+
+void render_font(GameState *game, const char *text)
+{
+	i32 offset = 0;
+
+	size_t text_length = strlen(text);
+	size_t vertices_size = sizeof(f32)*30*text_length;
+	f32 *vertices = (f32*)malloc(vertices_size);
+
+	game->font_vertices_count = strlen(text) * 6;
+
+	f32 x = 0.0f, y = 0.0f;
+	while (*text) {
+		char c = *text++;
+
+		stbtt_aligned_quad q = {};
+		stbtt_GetBakedQuad(game->baked_font, 512, 512, c-32, &x, &y, &q, 1);
+
+		vertices[offset++] = q.x0;
+		vertices[offset++] = q.y0;
+		vertices[offset++] = 0.0f;
+		vertices[offset++] = q.s0;
+		vertices[offset++] = q.t0;
+
+		vertices[offset++] = q.x1;
+		vertices[offset++] = q.y0;
+		vertices[offset++] = 0.0f;
+		vertices[offset++] = q.s1;
+		vertices[offset++] = q.t0;
+
+		vertices[offset++] = q.x1;
+		vertices[offset++] = q.y1;
+		vertices[offset++] = 0.0f;
+		vertices[offset++] = q.s1;
+		vertices[offset++] = q.t1;
+
+		vertices[offset++] = q.x1;
+		vertices[offset++] = q.y1;
+		vertices[offset++] = 0.0f;
+		vertices[offset++] = q.s1;
+		vertices[offset++] = q.t1;
+
+		vertices[offset++] = q.x0;
+		vertices[offset++] = q.y1;
+		vertices[offset++] = 0.0f;
+		vertices[offset++] = q.s0;
+		vertices[offset++] = q.t1;
+
+		vertices[offset++] = q.x0;
+		vertices[offset++] = q.y0;
+		vertices[offset++] = 0.0f;
+		vertices[offset++] = q.s0;
+		vertices[offset++] = q.t0;
+	}
+
+	game->font_vertices = create_vertex_buffer(&game->vulkan, vertices_size, vertices);
+}
 
 
 void game_load_settings(Settings *settings)
@@ -146,32 +206,18 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 		u8 *font_data = (u8*)platform_file_read(font_path, &font_size);
 
 		u8 bitmap[512*512];
-		stbtt_bakedchar data[96];
-		stbtt_BakeFontBitmap(font_data, 0, 32.0, bitmap, 512, 512, 32, 96, data);
+		stbtt_BakeFontBitmap(font_data, 0, 32.0, bitmap, 512, 512, 32, 96, game->baked_font);
 
 		components.a = VK_COMPONENT_SWIZZLE_R;
 		game->font_texture = create_texture(&game->vulkan, 512, 512,
 		                                    VK_FORMAT_R8_UNORM, bitmap, components);
-		f32 x = 0.0f, y = 0.0f;
-		stbtt_aligned_quad q;
-		stbtt_GetBakedQuad(data, 512, 512, 'H'-32, &x, &y, &q, 1);
-
-		f32 vertices[] = {
-			q.x0, q.y0, 0.0f, q.s0, q.t0,
-			q.x1, q.y0, 0.0f, q.s1, q.t0,
-			q.x1, q.y1, 0.0f, q.s1, q.t1,
-			q.x1, q.y1, 0.0f, q.s1, q.t1,
-			q.x0, q.y1, 0.0f, q.s0, q.t1,
-			q.x0, q.y0, 0.0f, q.s0, q.t0
-		};
-
-		game->font_vertices = create_vertex_buffer(&game->vulkan,
-		                                           sizeof(vertices), vertices);
 
 		update_descriptor_sets(&game->vulkan,
 		                       game->font_pipeline,
 		                       game->font_texture,
 		                       game->camera_ubo);
+
+		render_font(game, "Hello, World!");
 
 
 
@@ -329,7 +375,7 @@ void game_render(GameState *game)
 
 
 	vkCmdBindVertexBuffers(command, 0, 1, &game->font_vertices.handle, offsets);
-	vkCmdDraw(command, 6, 1, 0, 0);
+	vkCmdDraw(command, game->font_vertices_count, 1, 0, 0);
 
 
 	vkCmdEndRenderPass(command);
