@@ -35,43 +35,6 @@ struct Camera {
 	Matrix4f projection;
 };
 
-struct ProfileTimers {
-	char **names;
-	u64  *cycles;
-	bool *open;
-	i32 index;
-	i32 max_index;
-};
-
-#define NUM_PROFILE_TIMERS (256)
-ProfileTimers g_profile_timers;
-ProfileTimers g_profile_timers_prev;
-
-i32 start_profile_timer (const char *name)
-{
-	i32 index = g_profile_timers.index++;
-	DEBUG_ASSERT(g_profile_timers.index < g_profile_timers.max_index);
-
-	// TODO(jesper): allocate large buffer and push string into it
-	g_profile_timers.names[index] = strdup(name);
-	g_profile_timers.cycles[index] = 0;
-	g_profile_timers.open[index] = true;
-
-	return index;
-}
-
-void end_profile_timer(i32 index, u64 cycles)
-{
-	g_profile_timers.cycles[index] += cycles;
-	g_profile_timers.open[index] = false;
-
-	for (i32 i = 0; i < index; i++) {
-		if (g_profile_timers.open[i] == true) {
-			g_profile_timers.cycles[i] -= cycles;
-		}
-	}
-}
-
 struct RenderedText {
 	VulkanBuffer buffer;
 	i32          vertex_count;
@@ -295,7 +258,7 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 
 void game_input(GameState *game, InputAction action, float axis)
 {
-	PROFILE_START(game_input);
+	PROFILE_FUNCTION();
 
 	switch (action) {
 	case InputAction_move_vertical_start:
@@ -313,11 +276,12 @@ void game_input(GameState *game, InputAction action, float axis)
 	default: break;
 	}
 
-	PROFILE_END(game_input);
 }
 
 void game_input(GameState *game, InputAction action)
 {
+	PROFILE_FUNCTION();
+
 	switch (action) {
 	case InputAction_move_vertical_end:
 		game->velocity.y = 0.0f;
@@ -412,7 +376,7 @@ void game_profile_collate(GameState* game, f32 dt)
 
 void game_update(GameState* game, f32 dt)
 {
-	PROFILE_START(game_update);
+	PROFILE_FUNCTION();
 
 	game_profile_collate(game, dt);
 
@@ -422,12 +386,11 @@ void game_update(GameState* game, f32 dt)
 	update_uniform_data(&game->vulkan, game->camera_ubo,
 	                    &game->camera, 0, sizeof(Camera));
 
-	PROFILE_END(game_update);
 }
 
 void game_render(GameState *game)
 {
-	PROFILE_START(game_render);
+	PROFILE_FUNCTION();
 
 	u32 image_index = acquire_swapchain_image(&game->vulkan);
 
@@ -552,8 +515,6 @@ void game_render(GameState *game)
 
 	result = vkQueueWaitIdle(game->vulkan.queue);
 	DEBUG_ASSERT(result == VK_SUCCESS);
-
-	PROFILE_END(game_render);
 }
 
 void game_update_and_render(GameState *game, f32 dt)

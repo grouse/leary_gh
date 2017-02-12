@@ -49,24 +49,6 @@
 
 #define VAR_UNUSED(var) (void)(var)
 
-#if defined(__linux__)
-#include <x86intrin.h>
-	inline u64 rdtscp()
-	{
-		u32 dummy;
-		u64 rdtscp = __rdtscp(&dummy);
-		return rdtscp;
-	}
-#endif
-
-#define PROFILE_START(name)\
-	u64 start_##name = rdtscp();\
-	i32 profile_timer_id_##name = start_profile_timer(#name)
-
-#define PROFILE_END(name)\
-	u64 end_##name = rdtscp();\
-	u64 difference_##name = end_##name - start_##name;\
-	end_profile_timer(profile_timer_id_##name, difference_##name)
 
 enum LogChannel {
 	Log_error,
@@ -136,5 +118,79 @@ void debug_print(const char *file,
 	DEBUG_ASSERT(result < DEBUG_BUFFER_SIZE);
 	platform_debug_output(buffer);
 }
+
+#if defined(__linux__)
+#include <x86intrin.h>
+	inline u64 rdtscp()
+	{
+		u32 dummy;
+		u64 rdtscp = __rdtscp(&dummy);
+		return rdtscp;
+	}
+#endif
+
+struct ProfileTimers {
+	char **names;
+	u64  *cycles;
+	bool *open;
+	i32 index;
+	i32 max_index;
+};
+
+#define NUM_PROFILE_TIMERS (256)
+ProfileTimers g_profile_timers;
+ProfileTimers g_profile_timers_prev;
+
+i32 start_profile_timer (const char *name)
+{
+	i32 index = g_profile_timers.index++;
+	DEBUG_ASSERT(g_profile_timers.index < g_profile_timers.max_index);
+
+	// TODO(jesper): allocate large buffer and push string into it
+	g_profile_timers.names[index] = strdup(name);
+	g_profile_timers.cycles[index] = 0;
+	g_profile_timers.open[index] = true;
+
+	return index;
+}
+
+void end_profile_timer(i32 index, u64 cycles)
+{
+	g_profile_timers.cycles[index] += cycles;
+	g_profile_timers.open[index] = false;
+
+	for (i32 i = 0; i < index; i++) {
+		if (g_profile_timers.open[i] == true) {
+			g_profile_timers.cycles[i] -= cycles;
+		}
+	}
+}
+
+#define PROFILE_START(name)\
+	u64 start_##name = rdtscp();\
+	i32 profile_timer_id_##name = start_profile_timer(#name)
+
+#define PROFILE_END(name)\
+	u64 end_##name = rdtscp();\
+	u64 difference_##name = end_##name - start_##name;\
+	end_profile_timer(profile_timer_id_##name, difference_##name)
+
+struct ProfileBlock {
+	i32 id;
+	u64 start_cycles;
+
+	ProfileBlock(const char *name) {
+		this->id = start_profile_timer(name);
+		this->start_cycles = rdtscp();
+	}
+
+	~ProfileBlock() {
+		u64 end_cycles = rdtscp();
+		end_profile_timer(this->id, end_cycles - start_cycles);
+	}
+};
+
+#define PROFILE_BLOCK(name) ProfileBlock profile_block_##name(#name)
+#define PROFILE_FUNCTION() ProfileBlock profile_block_##__FUNCTION__(__FUNCTION__)
 
 #endif // LEARY_DEBUG_H
