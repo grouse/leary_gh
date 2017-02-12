@@ -119,14 +119,12 @@ void debug_print(const char *file,
 	platform_debug_output(buffer);
 }
 
-#if defined(__linux__)
-#include <x86intrin.h>
-	inline u64 rdtscp()
-	{
-		u32 dummy;
-		u64 rdtscp = __rdtscp(&dummy);
-		return rdtscp;
-	}
+#if defined(_WIN32)
+	#include <intrin.h>
+	#define rdtsc() __rdtsc()
+#elif defined(__linux__)
+	#include <x86intrin.h>
+	#define rdtsc() __rdtsc()
 #endif
 
 struct ProfileTimers {
@@ -167,11 +165,11 @@ void end_profile_timer(i32 index, u64 cycles)
 }
 
 #define PROFILE_START(name)\
-	u64 start_##name = rdtscp();\
+	u64 start_##name = rdtsc();\
 	i32 profile_timer_id_##name = start_profile_timer(#name)
 
 #define PROFILE_END(name)\
-	u64 end_##name = rdtscp();\
+	u64 end_##name = rdtsc();\
 	u64 difference_##name = end_##name - start_##name;\
 	end_profile_timer(profile_timer_id_##name, difference_##name)
 
@@ -181,11 +179,11 @@ struct ProfileBlock {
 
 	ProfileBlock(const char *name) {
 		this->id = start_profile_timer(name);
-		this->start_cycles = rdtscp();
+		this->start_cycles = rdtsc();
 	}
 
 	~ProfileBlock() {
-		u64 end_cycles = rdtscp();
+		u64 end_cycles = rdtsc();
 		end_profile_timer(this->id, end_cycles - start_cycles);
 	}
 };
