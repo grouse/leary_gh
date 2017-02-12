@@ -59,11 +59,14 @@
 	}
 #endif
 
-#define PROFILE_START(name) u64 start_##name = rdtscp();
-#define PROFILE_END(name) \
+#define PROFILE_START(name)\
+	u64 start_##name = rdtscp();\
+	i32 profile_timer_id_##name = start_profile_timer(#name)
+
+#define PROFILE_END(name)\
 	u64 end_##name = rdtscp();\
 	u64 difference_##name = end_##name - start_##name;\
-	push_profile_timer(#name, difference_##name)
+	end_profile_timer(profile_timer_id_##name, difference_##name)
 
 enum LogChannel {
 	Log_error,

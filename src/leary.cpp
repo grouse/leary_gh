@@ -38,6 +38,7 @@ struct Camera {
 struct ProfileTimers {
 	char **names;
 	u64  *cycles;
+	bool *open;
 	i32 index;
 	i32 max_index;
 };
@@ -46,14 +47,29 @@ struct ProfileTimers {
 ProfileTimers g_profile_timers;
 ProfileTimers g_profile_timers_prev;
 
-void push_profile_timer(const char *name, u64 cycles)
+i32 start_profile_timer (const char *name)
 {
 	i32 index = g_profile_timers.index++;
 	DEBUG_ASSERT(g_profile_timers.index < g_profile_timers.max_index);
 
 	// TODO(jesper): allocate large buffer and push string into it
 	g_profile_timers.names[index] = strdup(name);
-	g_profile_timers.cycles[index] = cycles;
+	g_profile_timers.cycles[index] = 0;
+	g_profile_timers.open[index] = true;
+
+	return index;
+}
+
+void end_profile_timer(i32 index, u64 cycles)
+{
+	g_profile_timers.cycles[index] += cycles;
+	g_profile_timers.open[index] = false;
+
+	for (i32 i = 0; i < index; i++) {
+		if (g_profile_timers.open[i] == true) {
+			g_profile_timers.cycles[i] -= cycles;
+		}
+	}
 }
 
 struct RenderedText {
@@ -171,11 +187,13 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 	g_profile_timers.max_index = NUM_PROFILE_TIMERS;
 	g_profile_timers.names = (char**)malloc(sizeof(char*) * NUM_PROFILE_TIMERS);
 	g_profile_timers.cycles = (u64*)malloc(sizeof(u64) * NUM_PROFILE_TIMERS);
+	g_profile_timers.open = (bool*)malloc(sizeof(bool) * NUM_PROFILE_TIMERS);
 
 	g_profile_timers_prev = {};
 	g_profile_timers_prev.max_index = NUM_PROFILE_TIMERS;
 	g_profile_timers_prev.names = (char**)malloc(sizeof(char*) * NUM_PROFILE_TIMERS);
 	g_profile_timers_prev.cycles = (u64*)malloc(sizeof(u64) * NUM_PROFILE_TIMERS);
+	g_profile_timers_prev.open = (bool*)malloc(sizeof(bool) * NUM_PROFILE_TIMERS);
 
 	VAR_UNUSED(platform);
 	game->vulkan = create_device(settings, platform);
