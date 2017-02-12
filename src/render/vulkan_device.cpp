@@ -134,8 +134,9 @@ PFN_vkDestroyDebugReportCallbackEXT  DestroyDebugReportCallbackEXT;
 
 void copy_buffer(VulkanDevice *device, VkBuffer src, VkBuffer dst, VkDeviceSize size);
 
-VulkanShader create_shader(VulkanDevice *device, u32 *source, usize size,
-                           VkShaderStageFlagBits stage);
+VulkanShader create_shader(VulkanDevice *device,
+                           VkShaderStageFlagBits stage,
+                           const char *file);
 u32 find_memory_type(VulkanPhysicalDevice physical_device,
                      u32 filter, VkMemoryPropertyFlags req_flags);
 
@@ -432,35 +433,9 @@ VulkanSwapchain create_swapchain(VulkanDevice *device,
 	return swapchain;
 }
 
-VulkanPipeline create_font_pipeline(VulkanDevice *device)
+VkSampler create_sampler(VulkanDevice *device)
 {
-	VkResult result;
-	VulkanPipeline pipeline = {};
-
-	char *vertex_path   = platform_resolve_path(GamePath_shaders, "font.vert.spv");
-	char *fragment_path = platform_resolve_path(GamePath_shaders, "font.frag.spv");
-
-	usize vertex_size;
-	void *vertex_source = platform_file_read(vertex_path, &vertex_size);
-	DEBUG_ASSERT(vertex_source != nullptr);
-	free(vertex_path);
-
-	usize fragment_size;
-	void *fragment_source = platform_file_read(fragment_path, &fragment_size);
-	DEBUG_ASSERT(fragment_source != nullptr);
-	free(fragment_path);
-
-
-	pipeline.shaders[ShaderStage_vertex] =
-		create_shader(device,
-		              (u32*)vertex_source, vertex_size,
-		              VK_SHADER_STAGE_VERTEX_BIT);
-
-	pipeline.shaders[ShaderStage_fragment] =
-		create_shader(device,
-		              (u32*)fragment_source, fragment_size,
-		              VK_SHADER_STAGE_FRAGMENT_BIT);
-
+	VkSampler sampler;
 
 	VkSamplerCreateInfo sampler_info = {};
 	sampler_info.sType                   = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
@@ -475,14 +450,27 @@ VulkanPipeline create_font_pipeline(VulkanDevice *device)
 	sampler_info.compareOp               = VK_COMPARE_OP_ALWAYS;
 	sampler_info.mipmapMode              = VK_SAMPLER_MIPMAP_MODE_LINEAR;
 
-	result = vkCreateSampler(device->handle,
-	                         &sampler_info,
-	                         nullptr,
-	                         &pipeline.texture_sampler);
+	VkResult result = vkCreateSampler(device->handle,
+	                                  &sampler_info,
+	                                  nullptr,
+	                                  &sampler);
 	DEBUG_ASSERT(result == VK_SUCCESS);
 
-	free(fragment_source);
-	free(vertex_source);
+	return sampler;
+}
+
+VulkanPipeline create_font_pipeline(VulkanDevice *device)
+{
+	VkResult result;
+	VulkanPipeline pipeline = {};
+
+	pipeline.shaders[ShaderStage_vertex] =
+		create_shader(device, VK_SHADER_STAGE_VERTEX_BIT, "font.vert.spv");
+
+	pipeline.shaders[ShaderStage_fragment] =
+		create_shader(device, VK_SHADER_STAGE_FRAGMENT_BIT, "font.frag.spv");
+
+	pipeline.texture_sampler = create_sampler(device);
 
 	std::array<VkDescriptorSetLayoutBinding, 2> bindings = {};
 	// camera ubo
@@ -551,18 +539,11 @@ VulkanPipeline create_font_pipeline(VulkanDevice *device)
 	                                &pipeline.layout);
 	DEBUG_ASSERT(result == VK_SUCCESS);
 
-
-	// NOTE(jesper): this describes the number of vertex buffers we bind to
-	// the pipeline, so far we create 1 big vertex buffer containing both
-	// colour and vertices
 	std::array<VkVertexInputBindingDescription, 1> vertex_bindings = {};
 	vertex_bindings[0].binding   = 0;
 	vertex_bindings[0].stride    = sizeof(f32) * 5;
 	vertex_bindings[0].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
-	// NOTE(jesper): we need one of these per vertex shader input. Because
-	// it's going to be unique per shader, probably an idea to put this into
-	// VulkanShader
 	std::array<VkVertexInputAttributeDescription, 2> vertex_descriptions = {};
 	// vertices
 	vertex_descriptions[0].location = 0;
@@ -708,8 +689,6 @@ VulkanPipeline create_font_pipeline(VulkanDevice *device)
 	                                   &pipeline.handle);
 	DEBUG_ASSERT(result == VK_SUCCESS);
 	return pipeline;
-
-
 }
 
 VulkanPipeline create_pipeline(VulkanDevice *device)
@@ -717,51 +696,13 @@ VulkanPipeline create_pipeline(VulkanDevice *device)
 	VkResult result;
 	VulkanPipeline pipeline = {};
 
-	char *vertex_path   = platform_resolve_path(GamePath_shaders, "generic.vert.spv");
-	char *fragment_path = platform_resolve_path(GamePath_shaders, "generic.frag.spv");
-
-	usize vertex_size;
-	void *vertex_source = platform_file_read(vertex_path, &vertex_size);
-	DEBUG_ASSERT(vertex_source != nullptr);
-	free(vertex_path);
-
-	usize fragment_size;
-	void *fragment_source = platform_file_read(fragment_path, &fragment_size);
-	DEBUG_ASSERT(fragment_source != nullptr);
-	free(fragment_path);
-
 	pipeline.shaders[ShaderStage_vertex] =
-		create_shader(device,
-		              (u32*)vertex_source, vertex_size,
-		              VK_SHADER_STAGE_VERTEX_BIT);
+		create_shader(device, VK_SHADER_STAGE_VERTEX_BIT, "generic.vert.spv");
 
 	pipeline.shaders[ShaderStage_fragment] =
-		create_shader(device,
-		              (u32*)fragment_source, fragment_size,
-		              VK_SHADER_STAGE_FRAGMENT_BIT);
+		create_shader(device, VK_SHADER_STAGE_FRAGMENT_BIT, "generic.frag.spv");
 
-
-	VkSamplerCreateInfo sampler_info = {};
-	sampler_info.sType                   = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-	sampler_info.magFilter               = VK_FILTER_LINEAR;
-	sampler_info.minFilter               = VK_FILTER_LINEAR;
-	sampler_info.addressModeU            = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-	sampler_info.addressModeV            = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-	sampler_info.addressModeW            = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-	sampler_info.borderColor             = VK_BORDER_COLOR_INT_OPAQUE_WHITE;
-	sampler_info.unnormalizedCoordinates = VK_FALSE;
-	sampler_info.compareEnable           = VK_FALSE;
-	sampler_info.compareOp               = VK_COMPARE_OP_ALWAYS;
-	sampler_info.mipmapMode              = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-
-	result = vkCreateSampler(device->handle,
-	                         &sampler_info,
-	                         nullptr,
-	                         &pipeline.texture_sampler);
-	DEBUG_ASSERT(result == VK_SUCCESS);
-
-	free(fragment_source);
-	free(vertex_source);
+	pipeline.texture_sampler = create_sampler(device);
 
 	std::array<VkDescriptorSetLayoutBinding, 2> bindings = {};
 	// camera ubo
@@ -837,18 +778,11 @@ VulkanPipeline create_pipeline(VulkanDevice *device)
 	                                &pipeline.layout);
 	DEBUG_ASSERT(result == VK_SUCCESS);
 
-
-	// NOTE(jesper): this describes the number of vertex buffers we bind to
-	// the pipeline, so far we create 1 big vertex buffer containing both
-	// colour and vertices
 	std::array<VkVertexInputBindingDescription, 1> vertex_bindings = {};
 	vertex_bindings[0].binding   = 0;
 	vertex_bindings[0].stride    = sizeof(f32) * 9;
 	vertex_bindings[0].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
-	// NOTE(jesper): we need one of these per vertex shader input. Because
-	// it's going to be unique per shader, probably an idea to put this into
-	// VulkanShader
 	std::array<VkVertexInputAttributeDescription, 3> vertex_descriptions = {};
 	// vertices
 	vertex_descriptions[0].location = 0;
@@ -1323,12 +1257,17 @@ VulkanTexture create_texture(VulkanDevice *device, u32 width, u32 height,
 }
 
 VulkanShader create_shader(VulkanDevice *device,
-                           u32 *source,
-                           usize size,
-                           VkShaderStageFlagBits stage)
+                           VkShaderStageFlagBits stage,
+                           const char *file)
 {
-	VkResult result;
 
+	char *path = platform_resolve_path(GamePath_shaders, file);
+
+	usize size;
+	u32 *source = (u32*)platform_file_read(path, &size);
+	DEBUG_ASSERT(source != nullptr);
+
+	VkResult result;
 	VulkanShader shader = {};
 	// NOTE(jesper): this is the name of the entry point function in the shader,
 	// is it at all worth supporting other entry point names? maybe if we start
@@ -1343,6 +1282,9 @@ VulkanShader create_shader(VulkanDevice *device,
 
 	result = vkCreateShaderModule(device->handle, &info, nullptr, &shader.module);
 	DEBUG_ASSERT(result == VK_SUCCESS);
+
+	free(source);
+	free(path);
 
 	return shader;
 }
