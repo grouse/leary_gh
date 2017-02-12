@@ -148,14 +148,16 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 	// TODO(jesper): use one large buffer for the entire thing
 	g_profile_timers = {};
 	g_profile_timers.max_index = NUM_PROFILE_TIMERS;
-	g_profile_timers.names = (char**)malloc(sizeof(char*) * NUM_PROFILE_TIMERS);
+	g_profile_timers.names = (const char**)malloc(sizeof(char*) * NUM_PROFILE_TIMERS);
 	g_profile_timers.cycles = (u64*)malloc(sizeof(u64) * NUM_PROFILE_TIMERS);
+	g_profile_timers.cycles_last = (u64*)malloc(sizeof(u64) * NUM_PROFILE_TIMERS);
 	g_profile_timers.open = (bool*)malloc(sizeof(bool) * NUM_PROFILE_TIMERS);
 
 	g_profile_timers_prev = {};
 	g_profile_timers_prev.max_index = NUM_PROFILE_TIMERS;
-	g_profile_timers_prev.names = (char**)malloc(sizeof(char*) * NUM_PROFILE_TIMERS);
+	g_profile_timers_prev.names = (const char**)malloc(sizeof(char*) * NUM_PROFILE_TIMERS);
 	g_profile_timers_prev.cycles = (u64*)malloc(sizeof(u64) * NUM_PROFILE_TIMERS);
+	g_profile_timers_prev.cycles_last = (u64*)malloc(sizeof(u64) * NUM_PROFILE_TIMERS);
 	g_profile_timers_prev.open = (bool*)malloc(sizeof(bool) * NUM_PROFILE_TIMERS);
 
 	VAR_UNUSED(platform);
@@ -335,14 +337,17 @@ void game_profile_collate(GameState* game, f32 dt)
 	for (i32 i = 0; i < g_profile_timers_prev.index - 1; i++) {
 		for (i32 j = i+1; j < g_profile_timers_prev.index; j++) {
 			if (g_profile_timers_prev.cycles[j] > g_profile_timers_prev.cycles[i]) {
-				char *name_tmp = g_profile_timers_prev.names[j];
+				const char *name_tmp = g_profile_timers_prev.names[j];
 				u64 cycles_tmp = g_profile_timers_prev.cycles[j];
+				u64 cycles_last_tmp = g_profile_timers_prev.cycles_last[j];
 
 				g_profile_timers_prev.names[j] = g_profile_timers_prev.names[i];
 				g_profile_timers_prev.cycles[j] = g_profile_timers_prev.cycles[i];
+				g_profile_timers_prev.cycles_last[j] = g_profile_timers_prev.cycles_last[i];
 
 				g_profile_timers_prev.names[i] = name_tmp;
 				g_profile_timers_prev.cycles[i] = cycles_tmp;
+				g_profile_timers_prev.cycles_last[i] = cycles_last_tmp;
 			}
 		}
 	}
@@ -360,9 +365,10 @@ void game_profile_collate(GameState* game, f32 dt)
 	for (i32 i = 0; i < g_profile_timers_prev.index; i++) {
 		char buffer[1024];
 
-		snprintf(buffer, 1024, "%s: %" PRIu64 "cy\n",
+		snprintf(buffer, 1024, "%s: %" PRIu64 " cy (%" PRIu64 " cy)\n",
 		         g_profile_timers_prev.names[i],
-		         g_profile_timers_prev.cycles[i]);
+		         g_profile_timers_prev.cycles[i],
+		         g_profile_timers_prev.cycles_last[i]);
 
 		strcat(text_buffer, buffer);
 	}
@@ -525,5 +531,8 @@ void game_update_and_render(GameState *game, f32 dt)
 	ProfileTimers tmp      = g_profile_timers_prev;
 	g_profile_timers_prev  = g_profile_timers;
 	g_profile_timers       = tmp;
-	g_profile_timers.index = 0;
+
+	for (i32 i = 0; i < g_profile_timers.index; i++) {
+		g_profile_timers.cycles[i] = 0;
+	}
 }

@@ -128,8 +128,9 @@ void debug_print(const char *file,
 #endif
 
 struct ProfileTimers {
-	char **names;
+	const char **names;
 	u64  *cycles;
+	u64  *cycles_last;
 	bool *open;
 	i32 index;
 	i32 max_index;
@@ -141,25 +142,39 @@ ProfileTimers g_profile_timers_prev;
 
 i32 start_profile_timer (const char *name)
 {
+	for (i32 i = 0; i < g_profile_timers.index; i++) {
+		if (strcmp(name, g_profile_timers.names[i]) == 0) {
+			g_profile_timers.open[i] = true;
+			g_profile_timers.cycles_last[i] = 0;
+			return i;
+		}
+	}
+
 	i32 index = g_profile_timers.index++;
 	DEBUG_ASSERT(g_profile_timers.index < g_profile_timers.max_index);
 
-	// TODO(jesper): allocate large buffer and push string into it
-	g_profile_timers.names[index] = strdup(name);
-	g_profile_timers.cycles[index] = 0;
+	// NOTE(jesper): assume the passed in string won't be deallocated, I don't
+	// see a use case for these functions where name isn't a pointer to a string
+	// literal, so it'll be fine
+	g_profile_timers.names[index] = name;
 	g_profile_timers.open[index] = true;
+
+	DEBUG_LOG("new profile timer added: %d - %s", index, name);
 
 	return index;
 }
 
 void end_profile_timer(i32 index, u64 cycles)
 {
-	g_profile_timers.cycles[index] += cycles;
+	g_profile_timers.cycles[index]      += cycles;
+	g_profile_timers.cycles_last[index] += cycles;
+
 	g_profile_timers.open[index] = false;
 
-	for (i32 i = 0; i < index; i++) {
-		if (g_profile_timers.open[i] == true) {
+	for (i32 i = 0; i < g_profile_timers.index; i++) {
+		if (g_profile_timers.open[i] == true && i != index) {
 			g_profile_timers.cycles[i] -= cycles;
+			g_profile_timers.cycles_last[i] -= cycles;
 		}
 	}
 }
