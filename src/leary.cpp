@@ -343,13 +343,26 @@ void game_quit(Settings *settings, GameState *game)
 }
 
 
-void game_update(GameState* game, f32 dt)
+void game_profile_collate(GameState* game, f32 dt)
 {
-	PROFILE_START(game_update);
-
-	PROFILE_START(game_profile_report)
+	PROFILE_START(game_profile_collate);
 	if (game->debug_text.vertex_count > 0) {
 		destroy(&game->vulkan, game->debug_text.buffer);
+	}
+
+	for (i32 i = 0; i < g_profile_timers_prev.index - 1; i++) {
+		for (i32 j = i+1; j < g_profile_timers_prev.index; j++) {
+			if (g_profile_timers_prev.cycles[j] > g_profile_timers_prev.cycles[i]) {
+				char *name_tmp = g_profile_timers_prev.names[j];
+				u64 cycles_tmp = g_profile_timers_prev.cycles[j];
+
+				g_profile_timers_prev.names[j] = g_profile_timers_prev.names[i];
+				g_profile_timers_prev.cycles[j] = g_profile_timers_prev.cycles[i];
+
+				g_profile_timers_prev.names[i] = name_tmp;
+				g_profile_timers_prev.cycles[i] = cycles_tmp;
+			}
+		}
 	}
 
 	char *text_buffer = (char*)malloc(1024*1024);
@@ -375,7 +388,15 @@ void game_update(GameState* game, f32 dt)
 	f32 x = -640.0f, y = -345.0f;
 	game->debug_text = render_font(game, &x, &y, text_buffer);
 	free(text_buffer);
-	PROFILE_END(game_profile_report);
+
+	PROFILE_END(game_profile_collate);
+}
+
+void game_update(GameState* game, f32 dt)
+{
+	PROFILE_START(game_update);
+
+	game_profile_collate(game, dt);
 
 	game->camera.view = translate(game->camera.view, dt * game->velocity);
 	game->positions[0] = translate(game->positions[0],
