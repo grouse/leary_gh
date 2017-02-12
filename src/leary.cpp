@@ -35,6 +35,27 @@ struct Camera {
 	Matrix4f projection;
 };
 
+struct ProfileTimers {
+	char **names;
+	u64  *cycles;
+	i32 index;
+	i32 max_index;
+};
+
+#define NUM_PROFILE_TIMERS (256)
+ProfileTimers g_profile_timers;
+ProfileTimers g_profile_timers_prev;
+
+void push_profile_timer(const char *name, u64 cycles)
+{
+	i32 index = g_profile_timers.index++;
+	DEBUG_ASSERT(g_profile_timers.index < g_profile_timers.max_index);
+
+	// TODO(jesper): allocate large buffer and push string into it
+	g_profile_timers.names[index] = strdup(name);
+	g_profile_timers.cycles[index] = cycles;
+}
+
 struct RenderedText {
 	VulkanBuffer buffer;
 	i32          vertex_count;
@@ -73,13 +94,21 @@ RenderedText render_font(GameState *game, float *x, float *y, const char *str)
 	i32 offset = 0;
 
 	usize text_length = strlen(str);
+	if (text_length == 0) return text;
+
 	usize vertices_size = sizeof(f32)*30*text_length;
 	f32 *vertices = (f32*)malloc(vertices_size);
 
 	text.vertex_count = text_length * 6;
 
+	f32 original_x = *x;
 	while (*str) {
 		char c = *str++;
+		if (c == '\n') {
+			*y += 20;
+			*x = original_x;
+			continue;
+		}
 
 		stbtt_aligned_quad q = {};
 		stbtt_GetBakedQuad(game->baked_font, 1024, 1024, c, x, y, &q, 1);
@@ -137,6 +166,17 @@ void game_load_settings(Settings *settings)
 
 void game_init(Settings *settings, PlatformState *platform, GameState *game)
 {
+	// TODO(jesper): use one large buffer for the entire thing
+	g_profile_timers = {};
+	g_profile_timers.max_index = NUM_PROFILE_TIMERS;
+	g_profile_timers.names = (char**)malloc(sizeof(char*) * NUM_PROFILE_TIMERS);
+	g_profile_timers.cycles = (u64*)malloc(sizeof(u64) * NUM_PROFILE_TIMERS);
+
+	g_profile_timers_prev = {};
+	g_profile_timers_prev.max_index = NUM_PROFILE_TIMERS;
+	g_profile_timers_prev.names = (char**)malloc(sizeof(char*) * NUM_PROFILE_TIMERS);
+	g_profile_timers_prev.cycles = (u64*)malloc(sizeof(u64) * NUM_PROFILE_TIMERS);
+
 	VAR_UNUSED(platform);
 	game->vulkan = create_device(settings, platform);
 
@@ -237,6 +277,8 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 
 void game_input(GameState *game, InputAction action, float axis)
 {
+	PROFILE_START(game_input);
+
 	switch (action) {
 	case InputAction_move_vertical_start:
 		game->velocity.y += axis * 100.0f;
@@ -252,6 +294,8 @@ void game_input(GameState *game, InputAction action, float axis)
 		break;
 	default: break;
 	}
+
+	PROFILE_END(game_input);
 }
 
 void game_input(GameState *game, InputAction action)
@@ -298,26 +342,52 @@ void game_quit(Settings *settings, GameState *game)
 	platform_quit();
 }
 
+
 void game_update(GameState* game, f32 dt)
 {
-	destroy(&game->vulkan, game->debug_text.buffer);
-	char buffer[1024];
-	f32 dt_ms = dt * 1000.0f;
-	f32 fps   = 1000.0f / dt_ms;
-	sprintf(buffer, "frametime: %fms, %f fps", dt_ms, fps);
-	f32 x = -640.0f, y = -345.0f;
-	game->debug_text = render_font(game, &x, &y, buffer);
+	PROFILE_START(game_update);
 
+	if (game->debug_text.vertex_count > 0) {
+		destroy(&game->vulkan, game->debug_text.buffer);
+	}
+
+	char *text_buffer = (char*)malloc(1024*1024);
+	text_buffer[0] = '\0';
+
+	char frametime_buffer[1024];
+	f32 dt_ms = dt * 1000.0f;
+	snprintf(frametime_buffer, 1024, "frametime: %f ms, %f fps\n",
+	         dt_ms, 1000.0f / dt_ms);
+	strcat(text_buffer, frametime_buffer);
+
+
+	for (i32 i = 0; i < g_profile_timers_prev.index; i++) {
+		char buffer[1024];
+
+		snprintf(buffer, 1024, "%s: %" PRIu64 "cy\n",
+		         g_profile_timers_prev.names[i],
+		         g_profile_timers_prev.cycles[i]);
+
+		strcat(text_buffer, buffer);
+	}
+
+	f32 x = -640.0f, y = -345.0f;
+	game->debug_text = render_font(game, &x, &y, text_buffer);
+	free(text_buffer);
 
 	game->camera.view = translate(game->camera.view, dt * game->velocity);
 	game->positions[0] = translate(game->positions[0],
 	                               dt * game->player_velocity);
 	update_uniform_data(&game->vulkan, game->camera_ubo,
 	                    &game->camera, 0, sizeof(Camera));
+
+	PROFILE_END(game_update);
 }
 
 void game_render(GameState *game)
 {
+	PROFILE_START(game_render);
+
 	u32 image_index = acquire_swapchain_image(&game->vulkan);
 
 	std::array<VkClearValue, 1> clear_values = {};
@@ -387,9 +457,11 @@ void game_render(GameState *game)
 	                       offsets);
 	vkCmdDraw(command, game->rendered_text.vertex_count, 1, 0, 0);
 
-	vkCmdBindVertexBuffers(command, 0, 1, &game->debug_text.buffer.handle,
-	                       offsets);
-	vkCmdDraw(command, game->debug_text.vertex_count, 1, 0, 0);
+	if (game->debug_text.vertex_count > 0) {
+		vkCmdBindVertexBuffers(command, 0, 1,
+		                       &game->debug_text.buffer.handle, offsets);
+		vkCmdDraw(command, game->debug_text.vertex_count, 1, 0, 0);
+	}
 
 
 	vkCmdEndRenderPass(command);
@@ -439,4 +511,17 @@ void game_render(GameState *game)
 
 	result = vkQueueWaitIdle(game->vulkan.queue);
 	DEBUG_ASSERT(result == VK_SUCCESS);
+
+	PROFILE_END(game_render);
+}
+
+void game_update_and_render(GameState *game, f32 dt)
+{
+	game_update(game, dt);
+	game_render(game);
+
+	ProfileTimers tmp      = g_profile_timers_prev;
+	g_profile_timers_prev  = g_profile_timers;
+	g_profile_timers       = tmp;
+	g_profile_timers.index = 0;
 }

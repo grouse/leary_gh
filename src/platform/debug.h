@@ -28,7 +28,7 @@
 #include <stdio.h>
 #include <stdarg.h>
 
-#if defined(_MSC_VER)
+#if defined(_WIN32)
 	#define DEBUG_BREAK()       __debugbreak()
     #define DEBUG_FILENAME (strrchr(__FILE__, '\\') ? strrchr(__FILE__, '\\') + 1 : __FILE__)
 #else
@@ -47,8 +47,23 @@
 		} \
 	} while(0)
 
-
 #define VAR_UNUSED(var) (void)(var)
+
+#if defined(__linux__)
+#include <x86intrin.h>
+	inline u64 rdtscp()
+	{
+		u32 dummy;
+		u64 rdtscp = __rdtscp(&dummy);
+		return rdtscp;
+	}
+#endif
+
+#define PROFILE_START(name) u64 start_##name = rdtscp();
+#define PROFILE_END(name) \
+	u64 end_##name = rdtscp();\
+	u64 difference_##name = end_##name - start_##name;\
+	push_profile_timer(#name, difference_##name)
 
 enum LogChannel {
 	Log_error,

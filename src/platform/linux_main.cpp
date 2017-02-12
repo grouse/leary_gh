@@ -313,8 +313,7 @@ int main()
 			}
 		}
 
-		game_update(&game_state, dt);
-		game_render(&game_state);
+		game_update_and_render(&game_state, dt);
 	}
 
 	return 0;
