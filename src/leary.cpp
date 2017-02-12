@@ -347,6 +347,7 @@ void game_update(GameState* game, f32 dt)
 {
 	PROFILE_START(game_update);
 
+	PROFILE_START(game_profile_report)
 	if (game->debug_text.vertex_count > 0) {
 		destroy(&game->vulkan, game->debug_text.buffer);
 	}
@@ -374,6 +375,7 @@ void game_update(GameState* game, f32 dt)
 	f32 x = -640.0f, y = -345.0f;
 	game->debug_text = render_font(game, &x, &y, text_buffer);
 	free(text_buffer);
+	PROFILE_END(game_profile_report);
 
 	game->camera.view = translate(game->camera.view, dt * game->velocity);
 	game->positions[0] = translate(game->positions[0],
