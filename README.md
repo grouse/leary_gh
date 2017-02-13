@@ -17,6 +17,8 @@ solution (if I'm feeling crazy enough one day).
 * Vulkan drivers
 * Vulkan SDK (for validation layers)
 * glslang (for building SPIR-V shaders from glsl)
+* git-lfs (https://git-lfs.github.com/) (for binary asset files)
+--* This needs to be installed before the repository is cloned
 
 ## Building ##
 ### Windows ###
@@ -25,7 +27,7 @@ The project is developed on Windows using the MSVC compiler from Visual Studio
 
 1. Install appropriate graphics drivers that support Vulkan
 1. Install the Vulkan SDK (https://www.lunarg.com/vulkan-sdk) and create a new
-environment variable namedVULKAN_LOCATION and point it to the root of the SDK
+environment variable named VULKAN_LOCATION and point it to the root of the SDK
 installation
 1. Install glslang (https://github.com/KhronosGroup/glslang) and make its
 glslangValidator binary available in your PATH
