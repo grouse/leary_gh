@@ -83,9 +83,7 @@ RenderedText render_font(GameState *game, float x, float y, const char *str)
 
 	text.vertex_count = text_length * 6;
 
-	Matrix4f camera = game->ui_camera;
-	camera.columns[0].w = x;
-	camera.columns[1].w = y;
+	Matrix4f camera = translate(game->ui_camera, {x, y, 0.0f});
 
 	float tmp_x = 0.0f, tmp_y = 0.0f;
 

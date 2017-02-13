@@ -158,10 +158,9 @@ inline Vector3f cross(Vector3f lhs, Vector3f rhs)
 inline Matrix4f translate(Matrix4f m, Vector3f v)
 {
 	Matrix4f result = m;
-	result.columns[3] = m.columns[0] * v.x +
-	                    m.columns[1] * v.y +
-	                    m.columns[2] * v.z +
-	                    m.columns[3];
+	result.columns[3].x += v.x;
+	result.columns[3].y += v.y;
+	result.columns[3].z += v.z;
 	return result;
 }
 
@@ -174,17 +173,17 @@ inline Vector3f operator * (Matrix4f lhs, Vector3f rhs)
 	result.x = lhs.columns[0].x * rhs.x +
 	           lhs.columns[0].y * rhs.y +
 	           lhs.columns[0].z * rhs.z +
-	           lhs.columns[0].w;
+	           lhs.columns[3].x;
 
 	result.y = lhs.columns[1].x * rhs.x +
 	           lhs.columns[1].y * rhs.y +
 	           lhs.columns[1].z * rhs.z +
-	           lhs.columns[1].w;
+	           lhs.columns[3].y;
 
 	result.z = lhs.columns[2].x * rhs.x +
 	           lhs.columns[2].y * rhs.y +
 	           lhs.columns[2].z * rhs.z +
-	           lhs.columns[2].w;
+	           lhs.columns[3].z;
 
 	return result;
 }
