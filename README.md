@@ -23,7 +23,8 @@ solution (if I'm feeling crazy enough one day).
 ## Building ##
 ### Windows ###
 The project is developed on Windows using the MSVC compiler from Visual Studio
-2015.
+2015. The build script assumes that the Visual Studio binary paths are set in
+your user and/or shell environment.
 
 1. Install appropriate graphics drivers that support Vulkan
 1. Install the Vulkan SDK (https://www.lunarg.com/vulkan-sdk) and create a new
