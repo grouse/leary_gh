@@ -55,6 +55,8 @@ struct GameState {
 	Camera              camera;
 	VulkanUniformBuffer camera_ubo;
 
+	Matrix4f            ui_camera;
+
 	Vector3f            velocity = {};
 	Vector3f            player_velocity = {};
 
@@ -66,7 +68,7 @@ struct GameState {
 	RenderedText        debug_text;
 };
 
-RenderedText render_font(GameState *game, float *x, float *y, const char *str)
+RenderedText render_font(GameState *game, float x, float y, const char *str)
 {
 	RenderedText text = {};
 
@@ -80,50 +82,60 @@ RenderedText render_font(GameState *game, float *x, float *y, const char *str)
 
 	text.vertex_count = text_length * 6;
 
-	f32 original_x = *x;
+	Matrix4f camera = game->ui_camera;
+	camera.columns[0].w = x;
+	camera.columns[1].w = y;
+
+	float tmp_x = 0.0f, tmp_y = 0.0f;
+
 	while (*str) {
 		char c = *str++;
 		if (c == '\n') {
-			*y += 20;
-			*x = original_x;
+			tmp_y += 20.0f;
+			tmp_x  = 0.0f;
 			continue;
 		}
 
 		stbtt_aligned_quad q = {};
-		stbtt_GetBakedQuad(game->baked_font, 1024, 1024, c, x, y, &q, 1);
+		stbtt_GetBakedQuad(game->baked_font, 1024, 1024, c, &tmp_x, &tmp_y, &q, 1);
 
-		vertices[offset++] = q.x0;
-		vertices[offset++] = q.y0;
+		Vector3f tl = camera * Vector3f{q.x0, q.y0 + 15.0f, 0.0f};
+		Vector3f tr = camera * Vector3f{q.x1, q.y0 + 15.0f, 0.0f};
+		Vector3f br = camera * Vector3f{q.x1, q.y1 + 15.0f, 0.0f};
+		Vector3f bl = camera * Vector3f{q.x0, q.y1 + 15.0f, 0.0f};
+
+		vertices[offset++] = tl.x;
+		vertices[offset++] = tl.y;
 		vertices[offset++] = 0.0f;
 		vertices[offset++] = q.s0;
 		vertices[offset++] = q.t0;
 
-		vertices[offset++] = q.x1;
-		vertices[offset++] = q.y0;
+		vertices[offset++] = tr.x;
+		vertices[offset++] = tr.y;
 		vertices[offset++] = 0.0f;
 		vertices[offset++] = q.s1;
 		vertices[offset++] = q.t0;
 
-		vertices[offset++] = q.x1;
-		vertices[offset++] = q.y1;
+		vertices[offset++] = br.x;
+		vertices[offset++] = br.y;
 		vertices[offset++] = 0.0f;
 		vertices[offset++] = q.s1;
 		vertices[offset++] = q.t1;
 
-		vertices[offset++] = q.x1;
-		vertices[offset++] = q.y1;
+		vertices[offset++] = br.x;
+		vertices[offset++] = br.y;
 		vertices[offset++] = 0.0f;
 		vertices[offset++] = q.s1;
 		vertices[offset++] = q.t1;
 
-		vertices[offset++] = q.x0;
-		vertices[offset++] = q.y1;
+		vertices[offset++] = bl.x;
+		vertices[offset++] = bl.y;
 		vertices[offset++] = 0.0f;
 		vertices[offset++] = q.s0;
 		vertices[offset++] = q.t1;
 
-		vertices[offset++] = q.x0;
-		vertices[offset++] = q.y0;
+		vertices[offset++] = tl.x;
+		vertices[offset++] = tl.y;
 		vertices[offset++] = 0.0f;
 		vertices[offset++] = q.s0;
 		vertices[offset++] = q.t0;
@@ -231,6 +243,14 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 
 
 	{
+		Matrix4f ui_camera = Matrix4f::identity();
+		f32 width  = (f32)settings->video.resolution.width;
+		f32 height = (f32)settings->video.resolution.height;
+		ui_camera.columns[0].x = 2.0f / width;
+		ui_camera.columns[1].y = 2.0f / height;
+		ui_camera.columns[2].z = 1.0f;
+		game->ui_camera = ui_camera;
+
 		game->font_pipeline = create_font_pipeline(&game->vulkan);
 
 		usize font_size;
@@ -249,12 +269,10 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 
 		update_descriptor_sets(&game->vulkan,
 		                       game->font_pipeline,
-		                       game->font_texture,
-		                       game->camera_ubo);
+		                       game->font_texture);
 
-		f32 x = 0.0f, y = 0.0f;
-		game->rendered_text = render_font(game, &x, &y, "Hello, World!");
-		game->debug_text = render_font(game, &x, &y, "frame time:");
+		game->rendered_text = render_font(game, 0.0f, 0.0f, "Hello, World!");
+		game->debug_text = render_font(game, 0.0f, 0.0f, "frame time:");
 	}
 }
 
@@ -373,8 +391,7 @@ void game_profile_collate(GameState* game, f32 dt)
 		strcat(text_buffer, buffer);
 	}
 
-	f32 x = -640.0f, y = -345.0f;
-	game->debug_text = render_font(game, &x, &y, text_buffer);
+	game->debug_text = render_font(game, -1.0f, -1.0f, text_buffer);
 	free(text_buffer);
 
 	PROFILE_END(game_profile_collate);

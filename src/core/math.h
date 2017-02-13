@@ -77,11 +77,6 @@ inline f32    dot(Vector3f lhs, Vector3f rhs);
 inline Vector3f cross(Vector3f lhs, Vector3f rhs);
 
 /*******************************************************************************
- * Matrix4f function declarations
- ******************************************************************************/
-inline Matrix4f translate(Matrix4f mat, Vector3f v);
-
-/*******************************************************************************
  * Vector3f operator declarations
  ******************************************************************************/
 inline Vector3f operator + (Vector3f lhs, Vector3f rhs);
@@ -118,6 +113,17 @@ inline Vector4f operator -= (Vector4f lhs, f32 rhs);
 inline Vector4f operator * (Vector4f lhs, f32 rhs);
 inline Vector4f operator * (f32 lhs, Vector4f rhs);
 inline Vector4f operator *= (Vector4f lhs, f32 rhs);
+
+/*******************************************************************************
+ * Matrix4f function declarations
+ ******************************************************************************/
+inline Matrix4f translate(Matrix4f mat, Vector3f v);
+
+/*******************************************************************************
+ * Matrix4f operator declarations
+ ******************************************************************************/
+inline Vector3f operator * (Matrix4f lhs, Vector3f rhs);
+
 
 /*******************************************************************************
  * Vector3f function definitions
@@ -159,6 +165,29 @@ inline Matrix4f translate(Matrix4f m, Vector3f v)
 	return result;
 }
 
+/*******************************************************************************
+ * Matrix4f operator definitions
+ ******************************************************************************/
+inline Vector3f operator * (Matrix4f lhs, Vector3f rhs)
+{
+	Vector3f result = {};
+	result.x = lhs.columns[0].x * rhs.x +
+	           lhs.columns[0].y * rhs.y +
+	           lhs.columns[0].z * rhs.z +
+	           lhs.columns[0].w;
+
+	result.y = lhs.columns[1].x * rhs.x +
+	           lhs.columns[1].y * rhs.y +
+	           lhs.columns[1].z * rhs.z +
+	           lhs.columns[1].w;
+
+	result.z = lhs.columns[2].x * rhs.x +
+	           lhs.columns[2].y * rhs.y +
+	           lhs.columns[2].z * rhs.z +
+	           lhs.columns[2].w;
+
+	return result;
+}
 
 
 /*******************************************************************************

@@ -472,18 +472,12 @@ VulkanPipeline create_font_pipeline(VulkanDevice *device)
 
 	pipeline.texture_sampler = create_sampler(device);
 
-	std::array<VkDescriptorSetLayoutBinding, 2> bindings = {};
-	// camera ubo
-	bindings[0].binding         = 0;
-	bindings[0].descriptorCount = 1;
-	bindings[0].descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	bindings[0].stageFlags      = VK_SHADER_STAGE_VERTEX_BIT;
-
+	std::array<VkDescriptorSetLayoutBinding, 1> bindings = {};
 	// texture sampler
-	bindings[1].binding         = 1;
-	bindings[1].descriptorCount = 1;
-	bindings[1].descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	bindings[1].stageFlags      = VK_SHADER_STAGE_FRAGMENT_BIT;
+	bindings[0].binding         = 1;
+	bindings[0].descriptorCount = 1;
+	bindings[0].descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	bindings[0].stageFlags      = VK_SHADER_STAGE_FRAGMENT_BIT;
 
 	VkDescriptorSetLayoutCreateInfo descriptor_layout_info = {};
 	descriptor_layout_info.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -498,12 +492,9 @@ VulkanPipeline create_font_pipeline(VulkanDevice *device)
 
 	// NOTE(jesper): create a pool size descriptor for each type of
 	// descriptor this shader program uses
-	std::array<VkDescriptorPoolSize, 2> pool_sizes = {};
-	pool_sizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	std::array<VkDescriptorPoolSize, 1> pool_sizes = {};
+	pool_sizes[0].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 	pool_sizes[0].descriptorCount = 1;
-
-	pool_sizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	pool_sizes[1].descriptorCount = 1;
 
 	VkDescriptorPoolCreateInfo pool_info = {};
 	pool_info.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -1974,6 +1965,29 @@ void update_descriptor_sets(VulkanDevice *device,
 	descriptor_writes[1].descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 	descriptor_writes[1].descriptorCount = 1;
 	descriptor_writes[1].pImageInfo      = &image_info;
+
+	vkUpdateDescriptorSets(device->handle,
+	                       (u32)descriptor_writes.size(), descriptor_writes.data(),
+	                       0, nullptr);
+}
+
+void update_descriptor_sets(VulkanDevice *device,
+                            VulkanPipeline pipeline,
+                            VulkanTexture texture)
+{
+	VkDescriptorImageInfo image_info = {};
+	image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	image_info.imageView   = texture.image_view;
+	image_info.sampler     = pipeline.texture_sampler;
+
+	std::array<VkWriteDescriptorSet, 1> descriptor_writes = {};
+	descriptor_writes[0].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	descriptor_writes[0].dstSet          = pipeline.descriptor_set;
+	descriptor_writes[0].dstBinding      = 1;
+	descriptor_writes[0].dstArrayElement = 0;
+	descriptor_writes[0].descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	descriptor_writes[0].descriptorCount = 1;
+	descriptor_writes[0].pImageInfo      = &image_info;
 
 	vkUpdateDescriptorSets(device->handle,
 	                       (u32)descriptor_writes.size(), descriptor_writes.data(),
