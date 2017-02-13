@@ -75,6 +75,30 @@ window_proc(HWND   hwnd,
 	case WM_KEYUP:
 	{
 		switch (wparam) {
+		case VK_UP:
+			game_input(&game_state, InputAction_move_player_vertical_end);
+			break;
+		case VK_DOWN:
+			game_input(&game_state, InputAction_move_player_vertical_end);
+			break;
+		case VK_LEFT:
+			game_input(&game_state, InputAction_move_player_horizontal_end);
+			break;
+		case VK_RIGHT:
+			game_input(&game_state, InputAction_move_player_horizontal_end);
+			break;
+		case 0x57:
+			game_input(&game_state, InputAction_move_vertical_end);
+			break;
+		case 0x53:
+			game_input(&game_state, InputAction_move_vertical_end);
+			break;
+		case 0x41:
+			game_input(&game_state, InputAction_move_horizontal_end);
+			break;
+		case 0x44:
+			game_input(&game_state, InputAction_move_horizontal_end);
+			break;
 		default:
 			std::printf("unhandled key release event: %" PRIuPTR "\n", wparam);
 			break;
@@ -84,16 +108,42 @@ window_proc(HWND   hwnd,
 
 	case WM_KEYDOWN:
 	{
-		switch (wparam) {
-		case VK_ESCAPE:
-			game_quit(&settings, &game_state);
-			break;
+		if (!(lparam & (1 << 30))) {
+			switch (wparam) {
+			case VK_UP:
+				game_input(&game_state, InputAction_move_player_vertical_start, -1.0f);
+				break;
+			case VK_DOWN:
+				game_input(&game_state, InputAction_move_player_vertical_start, -1.0f);
+				break;
+			case VK_LEFT:
+				game_input(&game_state, InputAction_move_player_horizontal_start, -1.0f);
+				break;
+			case VK_RIGHT:
+				game_input(&game_state, InputAction_move_player_horizontal_start, 1.0f);
+				break;
+			case 0x57:
+				game_input(&game_state, InputAction_move_vertical_start, -1.0f);
+				break;
+			case 0x53:
+				game_input(&game_state, InputAction_move_vertical_start, -1.0f);
+				break;
+			case 0x41:
+				game_input(&game_state, InputAction_move_horizontal_start, -1.0f);
+				break;
+			case 0x44:
+				game_input(&game_state, InputAction_move_horizontal_start, 1.0f);
+				break;
+			case VK_ESCAPE:
+				game_quit(&settings, &game_state);
+				break;
 
-		default:
-			std::printf("unhandled key press event: %" PRIuPTR "\n", wparam);
+			default:
+				std::printf("unhandled key press event: %" PRIuPTR "\n", wparam);
+				break;
+			}
 			break;
 		}
-		break;
 	}
 
 	default:
@@ -144,8 +194,22 @@ WinMain(HINSTANCE instance,
 
 	game_init(&settings, &platform_state, &game_state);
 
+	LARGE_INTEGER frequency;
+	QueryPerformanceFrequency(&frequency);
+
+	LARGE_INTEGER last_time;
+	QueryPerformanceCounter(&last_time);
+
 	MSG msg;
 	while(true) {
+		LARGE_INTEGER current_time;
+		QueryPerformanceCounter(&current_time);
+		i64 elapsed = current_time.QuadPart - last_time.QuadPart;
+		last_time = current_time;
+
+		f32 dt = (f32)elapsed / frequency.QuadPart;
+
+
 		while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE)) {
 			TranslateMessage(&msg);
 			DispatchMessage(&msg);
@@ -156,7 +220,7 @@ WinMain(HINSTANCE instance,
 		}
 
 
-		game_update_and_render(&game_state, 0.0f);
+		game_update_and_render(&game_state, dt);
 	}
 
 	return 0;
