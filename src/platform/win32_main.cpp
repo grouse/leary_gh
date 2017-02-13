@@ -156,8 +156,7 @@ WinMain(HINSTANCE instance,
 		}
 
 
-		game_update(&game_state, 0.0f);
-		game_render(&game_state);
+		game_update_and_render(&game_state, 0.0f);
 	}
 
 	return 0;

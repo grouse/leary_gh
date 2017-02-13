@@ -3,7 +3,7 @@
 SET ROOT=%~dp0
 SET BUILD_DIR=%ROOT%\build
 
-SET INCLUDE_DIR=-I%ROOT%\src
+SET INCLUDE_DIR=-I%ROOT%\src -I%ROOT%
 SET WARNINGS=/W4 /wd4996 /wd4577 /wd4065
 SET DEFINITIONS=-DWIN32_LEAN_AND_MEAN -DNOMINMAX
 
@@ -27,6 +27,10 @@ REM don't want to rebuild all the assets every build, it'll become real slow
 REM real fast
 glslangValidator -V %ROOT%\src\render\shaders\generic.frag -o %BUILD_DIR%\data\shaders\generic.frag.spv
 glslangValidator -V %ROOT%\src\render\shaders\generic.vert -o %BUILD_DIR%\data\shaders\generic.vert.spv
+glslangValidator -V %ROOT%\src\render\shaders\font.frag -o %BUILD_DIR%\data\shaders\font.frag.spv
+glslangValidator -V %ROOT%\src\render\shaders\font.vert -o %BUILD_DIR%\data\shaders\font.vert.spv
+
+xcopy /i /y %ROOT%\assets\fonts %BUILD_DIR%\data\fonts
 
 cl %FLAGS% %UNOPTIMIZED% %INCLUDE_DIR% /Feleary.exe %ROOT%\src\platform/win32_main.cpp /link %LIBS% /SUBSYSTEM:WINDOWS
 POPD

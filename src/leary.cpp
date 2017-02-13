@@ -81,7 +81,7 @@ RenderedText render_font(GameState *game, float x, float y, const char *str)
 	usize vertices_size = sizeof(f32)*30*text_length;
 	f32 *vertices = (f32*)malloc(vertices_size);
 
-	text.vertex_count = text_length * 6;
+	text.vertex_count = (i32)(text_length * 6);
 
 	Matrix4f camera = translate(game->ui_camera, {x, y, 0.0f});
 
@@ -176,7 +176,7 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 	VAR_UNUSED(platform);
 	game->vulkan = create_device(settings, platform);
 
-	Vector4f pixels[32 * 32] = {};
+	Vector4f *pixels = new Vector4f[32*32];
 	pixels[0]     = { 1.0f, 0.0f, 0.0f, 1.0f };
 	pixels[31]    = { 0.0f, 1.0f, 0.0f, 1.0f };
 	pixels[1023]     = { 0.0f, 0.0f, 1.0f, 1.0f };
@@ -185,6 +185,7 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 	game->texture = create_texture(&game->vulkan,
 	                               32, 32, VK_FORMAT_R32G32B32A32_SFLOAT,
 	                               pixels, components);
+	delete[] pixels;
 
 	game->camera.view  = Matrix4f::identity();
 	game->camera.view  = translate(game->camera.view, Vector3f{0.0f, 0.0f, 0.0f});
@@ -259,7 +260,7 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 		                                        "fonts/Roboto-Regular.ttf");
 		u8 *font_data = (u8*)platform_file_read(font_path, &font_size);
 
-		u8 bitmap[1024*1024];
+		u8 *bitmap = new u8[1024*1024];
 		stbtt_BakeFontBitmap(font_data, 0, 20.0, bitmap, 1024, 1024, 0,
 		                     256, game->baked_font);
 

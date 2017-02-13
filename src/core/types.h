@@ -22,7 +22,12 @@ typedef uint32_t u32;
 typedef uint64_t u64;
 
 typedef size_t   usize;
+#if defined (_WIN32)
+#include <BaseTsd.h>
+typedef SSIZE_T isize;
+#else
 typedef ssize_t  isize;
+#endif
 
 typedef float    f32;
 typedef double   f64;
