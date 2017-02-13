@@ -28,5 +28,6 @@
 void platform_debug_output(const char *msg)
 {
 	OutputDebugString(msg);
+	OutputDebugString("\n");
 }
 
