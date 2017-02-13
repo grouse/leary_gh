@@ -18,7 +18,7 @@ solution (if I'm feeling crazy enough one day).
 * Vulkan SDK (for validation layers)
 * glslang (for building SPIR-V shaders from glsl)
 * git-lfs (https://git-lfs.github.com/) (for binary asset files)
---* This needs to be installed before the repository is cloned
+..* This needs to be installed before the repository is cloned
 
 ## Building ##
 ### Windows ###
