@@ -66,6 +66,7 @@ struct GameState {
 	stbtt_bakedchar     baked_font[256];
 	RenderedText        rendered_text;
 	RenderedText        debug_text;
+	char                *text_buffer;
 };
 
 RenderedText render_font(GameState *game, float x, float y, const char *str)
@@ -171,6 +172,8 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 	g_profile_timers_prev.cycles = (u64*)malloc(sizeof(u64) * NUM_PROFILE_TIMERS);
 	g_profile_timers_prev.cycles_last = (u64*)malloc(sizeof(u64) * NUM_PROFILE_TIMERS);
 	g_profile_timers_prev.open = (bool*)malloc(sizeof(bool) * NUM_PROFILE_TIMERS);
+
+	game->text_buffer = (char*)malloc(1024 * 1024);
 
 	VAR_UNUSED(platform);
 	game->vulkan = create_device(settings, platform);
@@ -370,14 +373,13 @@ void game_profile_collate(GameState* game, f32 dt)
 		}
 	}
 
-	char *text_buffer = (char*)malloc(1024*1024);
-	text_buffer[0] = '\0';
+	game->text_buffer[0] = '\0';
 
 	char frametime_buffer[1024];
 	f32 dt_ms = dt * 1000.0f;
 	snprintf(frametime_buffer, 1024, "frametime: %f ms, %f fps\n",
 	         dt_ms, 1000.0f / dt_ms);
-	strcat(text_buffer, frametime_buffer);
+	strcat(game->text_buffer, frametime_buffer);
 
 
 	for (i32 i = 0; i < g_profile_timers_prev.index; i++) {
@@ -388,11 +390,10 @@ void game_profile_collate(GameState* game, f32 dt)
 		         g_profile_timers_prev.cycles[i],
 		         g_profile_timers_prev.cycles_last[i]);
 
-		strcat(text_buffer, buffer);
+		strcat(game->text_buffer, buffer);
 	}
 
-	game->debug_text = render_font(game, -1.0f, -1.0f, text_buffer);
-	free(text_buffer);
+	game->debug_text = render_font(game, -1.0f, -1.0f, game->text_buffer);
 
 	PROFILE_END(game_profile_collate);
 }
