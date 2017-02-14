@@ -60,7 +60,7 @@ enum LogChannel {
 
 #define DEBUG_BUFFER_SIZE (1024)
 
-void platform_debug_output(const char *msg);
+void platform_debug_output(const char *msg, usize bytes);
 
 const char *log_channel_string(LogChannel channel)
 {
@@ -87,14 +87,14 @@ void debug_print(const char *file,
 	char buffer[DEBUG_BUFFER_SIZE];
 
 	va_start(args, fmt);
-	i32 result = vsnprintf(message, DEBUG_BUFFER_SIZE, fmt, args);
+	i32 bytes = vsnprintf(message, DEBUG_BUFFER_SIZE, fmt, args);
 	va_end(args);
-	DEBUG_ASSERT(result < DEBUG_BUFFER_SIZE);
+	DEBUG_ASSERT(bytes < DEBUG_BUFFER_SIZE);
 
-	result = snprintf(buffer, DEBUG_BUFFER_SIZE, "%s:%d: %s: [%s] %s",
+	bytes = snprintf(buffer, DEBUG_BUFFER_SIZE, "%s:%d: %s: [%s] %s\n",
 	                  file, line, channel_str, function, message);
-	DEBUG_ASSERT(result < DEBUG_BUFFER_SIZE);
-	platform_debug_output(buffer);
+	DEBUG_ASSERT(bytes < DEBUG_BUFFER_SIZE);
+	platform_debug_output(buffer, bytes);
 }
 
 void debug_print(const char *file,
@@ -109,14 +109,14 @@ void debug_print(const char *file,
 	char buffer[DEBUG_BUFFER_SIZE];
 
 	va_start(args, fmt);
-	i32 result = vsnprintf(message, DEBUG_BUFFER_SIZE, fmt, args);
+	i32 bytes = vsnprintf(message, DEBUG_BUFFER_SIZE, fmt, args);
 	va_end(args);
-	DEBUG_ASSERT(result < DEBUG_BUFFER_SIZE);
+	DEBUG_ASSERT(bytes < DEBUG_BUFFER_SIZE);
 
-	result = snprintf(buffer, DEBUG_BUFFER_SIZE, "%s:%d: %s: [%s] %s",
+	bytes = snprintf(buffer, DEBUG_BUFFER_SIZE, "%s:%d: %s: [%s] %s\n",
 	                  file, line, channel_str, function, message);
-	DEBUG_ASSERT(result < DEBUG_BUFFER_SIZE);
-	platform_debug_output(buffer);
+	DEBUG_ASSERT(bytes < DEBUG_BUFFER_SIZE);
+	platform_debug_output(buffer, bytes);
 }
 
 #if defined(_WIN32)

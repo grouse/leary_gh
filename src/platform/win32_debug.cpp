@@ -25,9 +25,8 @@
 #define DEBUG_PRINT_IMPL
 #include "platform/debug.h"
 
-void platform_debug_output(const char *msg)
+void platform_debug_output(const char *msg, usize)
 {
 	OutputDebugString(msg);
-	OutputDebugString("\n");
 }
 

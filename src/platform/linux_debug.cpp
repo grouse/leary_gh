@@ -23,9 +23,11 @@
 **/
 
 #include "debug.h"
+#include <unistd.h>
 
-void platform_debug_output(const char *msg)
+void platform_debug_output(const char *msg, usize bytes)
 {
-	printf("%s\n", msg);
+	PROFILE_FUNCTION();
+	write(1, msg, bytes);
 }
 
