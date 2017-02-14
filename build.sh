@@ -7,7 +7,7 @@ mkdir -p build/data/shaders
 
 FLAGS="-std=c++11 -g"
 
-NOWARNINGS="-Wno-int-to-void-pointer-cast"
+NOWARNINGS="-Wno-int-to-void-pointer-cast -Wno-nested-anon-types"
 WARNINGS="-Wall -Wextra -Wpedantic $NOWARNINGS"
 
 INCLUDE_DIR="-I$ROOT/src -I$ROOT"

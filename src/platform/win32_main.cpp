@@ -167,7 +167,7 @@ WinMain(HINSTANCE instance,
 
 	game_load_settings(&settings);
 
-	platform_state.window.win32.hinstance = instance;
+	platform_state.win32.hinstance = instance;
 
 	WNDCLASS wc = {};
 	wc.lpfnWndProc   = window_proc;
@@ -176,19 +176,19 @@ WinMain(HINSTANCE instance,
 
 	RegisterClass(&wc);
 
-	platform_state.window.win32.hwnd = CreateWindow("leary",
-	                                                "leary",
-	                                                WS_TILED | WS_VISIBLE,
-	                                                0,
-	                                                0,
-	                                                settings.video.resolution.width,
-	                                                settings.video.resolution.height,
-	                                                nullptr,
-	                                                nullptr,
-	                                                instance,
-	                                                nullptr);
+	platform_state.win32.hwnd = CreateWindow("leary",
+	                                         "leary",
+	                                         WS_TILED | WS_VISIBLE,
+	                                         0,
+	                                         0,
+	                                         settings.video.resolution.width,
+	                                         settings.video.resolution.height,
+	                                         nullptr,
+	                                         nullptr,
+	                                         instance,
+	                                         nullptr);
 
-	if (platform_state.window.win32.hwnd == nullptr) {
+	if (platform_state.win32.hwnd == nullptr) {
 		platform_quit();
 	}
 

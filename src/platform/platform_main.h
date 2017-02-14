@@ -62,7 +62,7 @@ struct PlatformState {
 #else
 	#error "unsupported platform"
 #endif
-	} window;
+	};
 };
 
 void platform_quit();

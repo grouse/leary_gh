@@ -53,8 +53,8 @@ struct KeyState {
 
 void platform_quit()
 {
-	xcb_destroy_window(platform_state.window.xcb.connection,
-	                   platform_state.window.xcb.window);
+	xcb_destroy_window(platform_state.xcb.connection,
+	                   platform_state.xcb.window);
 	exit(EXIT_SUCCESS);
 }
 
@@ -82,12 +82,12 @@ int main()
 
 	game_load_settings(&settings);
 
-	platform_state.window.xcb.connection = xcb_connect(nullptr, nullptr);
+	platform_state.xcb.connection = xcb_connect(nullptr, nullptr);
 
-	const xcb_setup_t *setup  = xcb_get_setup(platform_state.window.xcb.connection);
+	const xcb_setup_t *setup  = xcb_get_setup(platform_state.xcb.connection);
 	xcb_screen_t      *screen = xcb_setup_roots_iterator(setup).data;
 
-	platform_state.window.xcb.window = xcb_generate_id(platform_state.window.xcb.connection);
+	platform_state.xcb.window = xcb_generate_id(platform_state.xcb.connection);
 
 	u32 mask     = XCB_CW_EVENT_MASK;
 	u32 values[] = {
@@ -96,9 +96,9 @@ int main()
 		XCB_EVENT_MASK_KEY_RELEASE
 	};
 
-	xcb_create_window(platform_state.window.xcb.connection,
+	xcb_create_window(platform_state.xcb.connection,
 	                  XCB_COPY_FROM_PARENT,
-	                  platform_state.window.xcb.window,
+	                  platform_state.xcb.window,
 	                  screen->root,
 	                  0, 0,
 	                  settings.video.resolution.width,
@@ -110,27 +110,27 @@ int main()
 	                  values);
 
 
-	auto wm_protocols_cookie     = xcb_intern_atom(platform_state.window.xcb.connection,
+	auto wm_protocols_cookie     = xcb_intern_atom(platform_state.xcb.connection,
 	                                               0, 12, "WM_PROTOCOLS");
-	auto wm_delete_window_cookie = xcb_intern_atom(platform_state.window.xcb.connection,
+	auto wm_delete_window_cookie = xcb_intern_atom(platform_state.xcb.connection,
 	                                               0, 16, "WM_DELETE_WINDOW");
 
-	auto wm_protocols_reply      = xcb_intern_atom_reply(platform_state.window.xcb.connection,
+	auto wm_protocols_reply      = xcb_intern_atom_reply(platform_state.xcb.connection,
 	                                                     wm_protocols_cookie, 0);
-	auto wm_delete_window_reply  = xcb_intern_atom_reply(platform_state.window.xcb.connection,
+	auto wm_delete_window_reply  = xcb_intern_atom_reply(platform_state.xcb.connection,
 	                                                     wm_delete_window_cookie, 0);
 
-	xcb_change_property(platform_state.window.xcb.connection,
+	xcb_change_property(platform_state.xcb.connection,
 	                    XCB_PROP_MODE_REPLACE,
-	                    platform_state.window.xcb.window,
+	                    platform_state.xcb.window,
 	                    wm_protocols_reply->atom,
 	                    4,
 	                    32,
 	                    1,
 	                    &wm_delete_window_reply->atom);
 
-	xcb_map_window(platform_state.window.xcb.connection, platform_state.window.xcb.window);
-	xcb_flush(platform_state.window.xcb.connection);
+	xcb_map_window(platform_state.xcb.connection, platform_state.xcb.window);
+	xcb_flush(platform_state.xcb.connection);
 
 	KeyState key_states[255] = {};
 
@@ -149,7 +149,7 @@ int main()
 		//DEBUG_LOGF(LogType::info, "frame time: %ld ns", difference);
 
 		xcb_generic_event_t *event;
-		while ((event = xcb_poll_for_event(platform_state.window.xcb.connection)))
+		while ((event = xcb_poll_for_event(platform_state.xcb.connection)))
 		{
 			switch (event->response_type & ~0x80) {
 			case XCB_CLIENT_MESSAGE:
@@ -172,8 +172,8 @@ int main()
 				// NOTE(grouse): getting the keymap for every key press event is likely a horrible
 				// performance penalty, look into either fixing the timestamp method or caching the
 				// keymap.
-				auto keymap_cookie = xcb_query_keymap(platform_state.window.xcb.connection);
-				auto keymap = xcb_query_keymap_reply(platform_state.window.xcb.connection, keymap_cookie, nullptr);
+				auto keymap_cookie = xcb_query_keymap(platform_state.xcb.connection);
+				auto keymap = xcb_query_keymap_reply(platform_state.xcb.connection, keymap_cookie, nullptr);
 
 				if (keymap->keys[key_index] & (1 << (key->detail % 8)))
 					break;

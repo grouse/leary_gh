@@ -33,8 +33,8 @@ vulkan_create_surface(VkInstance instance,
 		VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
 		nullptr,
 		0,
-		platform_state.window.win32.hinstance,
-		platform_state.window.win32.hwnd
+		platform_state.win32.hinstance,
+		platform_state.win32.hwnd
 	};
 
 	return vkCreateWin32SurfaceKHR(instance, &create_info, nullptr, surface);

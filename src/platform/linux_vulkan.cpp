@@ -35,8 +35,8 @@ vulkan_create_surface(VkInstance instance,
 	info.sType = VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR;
 	info.pNext = nullptr;
 	info.flags = 0;
-	info.connection = platform_state.window.xcb.connection;
-	info.window     = platform_state.window.xcb.window;
+	info.connection = platform_state.xcb.connection;
+	info.window     = platform_state.xcb.window;
 
 	return vkCreateXcbSurfaceKHR(instance, &info, nullptr, surface);
 }
