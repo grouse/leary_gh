@@ -372,24 +372,24 @@ void game_profile_collate(GameState* game, f32 dt)
 		}
 	}
 
-	game->text_buffer[0] = '\0';
+	isize buffer_size = 1024*1024;
+	char *buffer = game->text_buffer;
+	buffer[0] = '\0';
 
-	char frametime_buffer[1024];
 	f32 dt_ms = dt * 1000.0f;
-	snprintf(frametime_buffer, 1024, "frametime: %f ms, %f fps\n",
-	         dt_ms, 1000.0f / dt_ms);
-	strcat(game->text_buffer, frametime_buffer);
+	i32 bytes = snprintf(buffer, buffer_size, "frametime: %f ms, %f fps\n",
+	                     dt_ms, 1000.0f / dt_ms);
+	buffer += bytes;
+	buffer_size -= bytes;
 
 
 	for (i32 i = 0; i < g_profile_timers_prev.index; i++) {
-		char buffer[1024];
-
-		snprintf(buffer, 1024, "%s: %" PRIu64 " cy (%" PRIu64 " cy)\n",
-		         g_profile_timers_prev.names[i],
-		         g_profile_timers_prev.cycles[i],
-		         g_profile_timers_prev.cycles_last[i]);
-
-		strcat(game->text_buffer, buffer);
+		bytes = snprintf(buffer, buffer_size, "%s: %" PRIu64 " cy (%" PRIu64 " cy)\n",
+		                 g_profile_timers_prev.names[i],
+		                 g_profile_timers_prev.cycles[i],
+		                 g_profile_timers_prev.cycles_last[i]);
+		buffer += bytes;
+		buffer_size -= bytes;
 	}
 
 	game->debug_text = render_font(game, -1.0f, -1.0f, game->text_buffer);
