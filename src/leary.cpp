@@ -349,7 +349,7 @@ void game_quit(Settings *settings, GameState *game)
 
 void game_profile_collate(GameState* game, f32 dt)
 {
-	PROFILE_START(game_profile_collate);
+	PROFILE_FUNCTION();
 	if (game->debug_text.vertex_count > 0) {
 		destroy(&game->vulkan, game->debug_text.buffer);
 	}
@@ -393,8 +393,6 @@ void game_profile_collate(GameState* game, f32 dt)
 	}
 
 	game->debug_text = render_font(game, -1.0f, -1.0f, game->text_buffer);
-
-	PROFILE_END(game_profile_collate);
 }
 
 void game_update(GameState* game, f32 dt)
