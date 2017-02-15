@@ -124,7 +124,7 @@ const char *vendor_string(u32 id)
 	switch (id) {
 	case 0x10DE: return "NVIDIA";
 	case 0x1002: return "AMD";
-	case 0x163C: return "INTEL";
+	case 0x8086: return "INTEL";
 	default:     return "unknown";
 	}
 }
