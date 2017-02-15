@@ -71,7 +71,7 @@ char *platform_path(GamePath root)
 			path = (char*)malloc(total_length);
 			strncpy(path, buffer, length);
 			strcat(path, "data/");
-			path[length-1] = '\0';
+			path[total_length - 1] = '\0';
 		}
 	} break;
 	case GamePath_shaders: {
