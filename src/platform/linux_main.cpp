@@ -27,8 +27,6 @@
 
 #include <time.h>
 
-#include <xcb/xcb.h>
-
 #include "platform_main.h"
 
 #include "linux_debug.cpp"
@@ -128,6 +126,15 @@ int main()
 	                    32,
 	                    1,
 	                    &wm_delete_window_reply->atom);
+
+	xcb_change_property(platform_state.xcb.connection,
+	                    XCB_PROP_MODE_REPLACE,
+	                    platform_state.xcb.window,
+	                    XCB_ATOM_WM_NAME,
+	                    XCB_ATOM_STRING,
+	                    8,
+	                    strlen("leary"),
+	                    "leary");
 
 	xcb_map_window(platform_state.xcb.connection, platform_state.xcb.window);
 	xcb_flush(platform_state.xcb.connection);
