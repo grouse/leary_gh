@@ -32,6 +32,12 @@
 #include "core/math.h"
 #include "core/settings.h"
 
+enum ShaderStage {
+	ShaderStage_vertex,
+	ShaderStage_fragment,
+	ShaderStage_max
+};
+
 struct VulkanBuffer {
 	usize          size;
 	VkBuffer       handle;
@@ -56,12 +62,6 @@ struct VulkanShader {
 	VkShaderModule        module;
 	VkShaderStageFlagBits stage;
 	const char            *name;
-};
-
-enum ShaderStage {
-	ShaderStage_vertex,
-	ShaderStage_fragment,
-	ShaderStage_max
 };
 
 struct VulkanPipeline {
@@ -119,29 +119,8 @@ struct VulkanDevice {
 };
 
 
-const char *vendor_string(u32 id)
-{
-	switch (id) {
-	case 0x10DE: return "NVIDIA";
-	case 0x1002: return "AMD";
-	case 0x8086: return "INTEL";
-	default:     return "unknown";
-	}
-}
-
 PFN_vkCreateDebugReportCallbackEXT   CreateDebugReportCallbackEXT;
 PFN_vkDestroyDebugReportCallbackEXT  DestroyDebugReportCallbackEXT;
-
-void copy_buffer(VulkanDevice *device, VkBuffer src, VkBuffer dst, VkDeviceSize size);
-
-VulkanShader create_shader(VulkanDevice *device,
-                           VkShaderStageFlagBits stage,
-                           const char *file);
-u32 find_memory_type(VulkanPhysicalDevice physical_device,
-                     u32 filter, VkMemoryPropertyFlags req_flags);
-
-VkCommandBuffer begin_command_buffer(VulkanDevice *device);
-void end_command_buffer(VulkanDevice *device, VkCommandBuffer buffer);
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL
 debug_callback_func(VkFlags flags,
@@ -273,6 +252,79 @@ debug_callback_func(VkFlags flags,
 	          layer, object_str, message_code, message);
 	DEBUG_ASSERT(channel != Log_error);
 	return VK_FALSE;
+}
+
+const char *vendor_string(u32 id)
+{
+	switch (id) {
+	case 0x10DE: return "NVIDIA";
+	case 0x1002: return "AMD";
+	case 0x8086: return "INTEL";
+	default:     return "unknown";
+	}
+}
+
+u32 find_memory_type(VulkanPhysicalDevice physical_device, u32 filter,
+                     VkMemoryPropertyFlags req_flags)
+{
+	for (u32 i = 0; i < physical_device.memory.memoryTypeCount; i++) {
+		auto flags = physical_device.memory.memoryTypes[i].propertyFlags;
+		if ((filter & (1 << i)) &&
+		    (flags & req_flags) == req_flags)
+		{
+			return i;
+		}
+	}
+
+	return UINT32_MAX;
+}
+
+VkCommandBuffer begin_command_buffer(VulkanDevice *device)
+{
+	// TODO(jesper): don't allocate command buffers on demand; allocate a big
+	// pool of them in the device init and keep a freelist if unused ones, or
+	// ring buffer, or something
+	VkCommandBufferAllocateInfo allocate_info = {};
+	allocate_info.sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+	allocate_info.commandPool        = device->command_pool;
+	allocate_info.level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+	allocate_info.commandBufferCount = 1;
+
+	VkCommandBuffer buffer;
+	VkResult result = vkAllocateCommandBuffers(device->handle, &allocate_info, &buffer);
+	DEBUG_ASSERT(result == VK_SUCCESS);
+
+	VkCommandBufferBeginInfo begin_info = {};
+	begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+	result = vkBeginCommandBuffer(buffer, &begin_info);
+	DEBUG_ASSERT(result == VK_SUCCESS);
+
+	return buffer;
+}
+
+void end_command_buffer(VulkanDevice *device, VkCommandBuffer buffer)
+{
+	VkResult result = vkEndCommandBuffer(buffer);
+	DEBUG_ASSERT(result == VK_SUCCESS);
+
+	VkSubmitInfo info = {};
+	info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	info.commandBufferCount = 1;
+	info.pCommandBuffers = &buffer;
+
+	// TODO(jesper): we just submit to the graphics queue right now, good enough
+	// for the forseable future but eventually there'll be compute
+	// TODO(jesper): look into pooling up ready-to-submit command buffers and
+	// submit them in a big batch, might be faster?
+	vkQueueSubmit(device->queue, 1, &info, VK_NULL_HANDLE);
+	// TODO(jesper): this seems like a bad idea, a better idea is probably to be
+	// using semaphores and barriers, or let the caller decide whether it needs
+	// to wait for everything to finish
+	vkQueueWaitIdle(device->queue);
+
+	vkFreeCommandBuffers(device->handle, device->command_pool, 1, &buffer);
 }
 
 VulkanSwapchain create_swapchain(VulkanDevice *device,
@@ -457,6 +509,39 @@ VkSampler create_sampler(VulkanDevice *device)
 	DEBUG_ASSERT(result == VK_SUCCESS);
 
 	return sampler;
+}
+
+VulkanShader create_shader(VulkanDevice *device,
+                           VkShaderStageFlagBits stage,
+                           const char *file)
+{
+
+	char *path = platform_resolve_path(GamePath_shaders, file);
+
+	usize size;
+	u32 *source = (u32*)platform_file_read(path, &size);
+	DEBUG_ASSERT(source != nullptr);
+
+	VkResult result;
+	VulkanShader shader = {};
+	// NOTE(jesper): this is the name of the entry point function in the shader,
+	// is it at all worth supporting other entry point names? maybe if we start
+	// using HLSL
+	shader.name         = "main";
+	shader.stage        = stage;
+
+	VkShaderModuleCreateInfo info = {};
+	info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+	info.codeSize = size;
+	info.pCode = source;
+
+	result = vkCreateShaderModule(device->handle, &info, nullptr, &shader.module);
+	DEBUG_ASSERT(result == VK_SUCCESS);
+
+	free(source);
+	free(path);
+
+	return shader;
 }
 
 VulkanPipeline create_font_pipeline(VulkanDevice *device)
@@ -1038,54 +1123,6 @@ void transition_image(VulkanDevice *device,
 	end_command_buffer(device, command);
 }
 
-VkCommandBuffer begin_command_buffer(VulkanDevice *device)
-{
-	// TODO(jesper): don't allocate command buffers on demand; allocate a big
-	// pool of them in the device init and keep a freelist if unused ones, or
-	// ring buffer, or something
-	VkCommandBufferAllocateInfo allocate_info = {};
-	allocate_info.sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-	allocate_info.commandPool        = device->command_pool;
-	allocate_info.level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-	allocate_info.commandBufferCount = 1;
-
-	VkCommandBuffer buffer;
-	VkResult result = vkAllocateCommandBuffers(device->handle, &allocate_info, &buffer);
-	DEBUG_ASSERT(result == VK_SUCCESS);
-
-	VkCommandBufferBeginInfo begin_info = {};
-	begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-
-	result = vkBeginCommandBuffer(buffer, &begin_info);
-	DEBUG_ASSERT(result == VK_SUCCESS);
-
-	return buffer;
-}
-
-void end_command_buffer(VulkanDevice *device, VkCommandBuffer buffer)
-{
-	VkResult result = vkEndCommandBuffer(buffer);
-	DEBUG_ASSERT(result == VK_SUCCESS);
-
-	VkSubmitInfo info = {};
-	info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-	info.commandBufferCount = 1;
-	info.pCommandBuffers = &buffer;
-
-	// TODO(jesper): we just submit to the graphics queue right now, good enough
-	// for the forseable future but eventually there'll be compute
-	// TODO(jesper): look into pooling up ready-to-submit command buffers and
-	// submit them in a big batch, might be faster?
-	vkQueueSubmit(device->queue, 1, &info, VK_NULL_HANDLE);
-	// TODO(jesper): this seems like a bad idea, a better idea is probably to be
-	// using semaphores and barriers, or let the caller decide whether it needs
-	// to wait for everything to finish
-	vkQueueWaitIdle(device->queue);
-
-	vkFreeCommandBuffers(device->handle, device->command_pool, 1, &buffer);
-}
-
 VkImage create_image(VulkanDevice *device,
                      VkFormat format,
                      u32 width,
@@ -1247,38 +1284,6 @@ VulkanTexture create_texture(VulkanDevice *device, u32 width, u32 height,
 	return texture;
 }
 
-VulkanShader create_shader(VulkanDevice *device,
-                           VkShaderStageFlagBits stage,
-                           const char *file)
-{
-
-	char *path = platform_resolve_path(GamePath_shaders, file);
-
-	usize size;
-	u32 *source = (u32*)platform_file_read(path, &size);
-	DEBUG_ASSERT(source != nullptr);
-
-	VkResult result;
-	VulkanShader shader = {};
-	// NOTE(jesper): this is the name of the entry point function in the shader,
-	// is it at all worth supporting other entry point names? maybe if we start
-	// using HLSL
-	shader.name         = "main";
-	shader.stage        = stage;
-
-	VkShaderModuleCreateInfo info = {};
-	info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-	info.codeSize = size;
-	info.pCode = source;
-
-	result = vkCreateShaderModule(device->handle, &info, nullptr, &shader.module);
-	DEBUG_ASSERT(result == VK_SUCCESS);
-
-	free(source);
-	free(path);
-
-	return shader;
-}
 
 VulkanDevice create_device(Settings *settings, PlatformState *platform)
 {
@@ -1900,6 +1905,20 @@ VulkanUniformBuffer create_uniform_buffer(VulkanDevice *device, usize size)
 	return ubo;
 }
 
+void copy_buffer(VulkanDevice *device, VkBuffer src, VkBuffer dst, VkDeviceSize size)
+{
+	VkCommandBuffer command = begin_command_buffer(device);
+
+	VkBufferCopy region = {};
+	region.srcOffset    = 0;
+	region.dstOffset    = 0;
+	region.size         = size;
+
+	vkCmdCopyBuffer(command, src, dst, 1, &region);
+
+	end_command_buffer(device, command);
+}
+
 void update_uniform_data(VulkanDevice *device,
                          VulkanUniformBuffer ubo,
                          void *data,
@@ -1915,20 +1934,6 @@ void update_uniform_data(VulkanDevice *device,
 	vkUnmapMemory(device->handle, ubo.staging.memory);
 
 	copy_buffer(device, ubo.staging.handle, ubo.buffer.handle, size);
-}
-
-void copy_buffer(VulkanDevice *device, VkBuffer src, VkBuffer dst, VkDeviceSize size)
-{
-	VkCommandBuffer command = begin_command_buffer(device);
-
-	VkBufferCopy region = {};
-	region.srcOffset    = 0;
-	region.dstOffset    = 0;
-	region.size         = size;
-
-	vkCmdCopyBuffer(command, src, dst, 1, &region);
-
-	end_command_buffer(device, command);
 }
 
 void update_descriptor_sets(VulkanDevice *device,
@@ -2005,83 +2010,3 @@ u32 acquire_swapchain_image(VulkanDevice *device)
 	return image_index;
 }
 
-void present(VulkanDevice *device,
-             u32 image_index,
-             i32 command_buffers_count,
-             VkCommandBuffer *command_buffers)
-{
-	// TODO(jesper): the various semaphores to wait and signal have to be
-	// dynamic based on what has happened in the draw call. Not sure yet whether
-	// to leave the responsibility of figuring these out to the user-space and
-	// have it pass in the semaphores and pipeline stages to wait for or whether
-	// to record this automatically in the device somehow
-	VkResult result;
-	{
-		VkSemaphore wait_semaphores[] = {
-			device->swapchain.available
-		};
-
-		VkPipelineStageFlags wait_stages[] = {
-			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
-		};
-
-		VkSemaphore signal_semaphores[] = {
-			device->render_completed
-		};
-
-		VkSubmitInfo submit_info = {};
-		submit_info.sType                = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-		submit_info.waitSemaphoreCount   = 1;
-		submit_info.pWaitSemaphores      = wait_semaphores;
-		submit_info.pWaitDstStageMask    = wait_stages;
-		submit_info.commandBufferCount   = command_buffers_count;
-		submit_info.pCommandBuffers      = command_buffers;
-		submit_info.signalSemaphoreCount = 1;
-		submit_info.pSignalSemaphores    = signal_semaphores;
-
-		// TODO(jesper): split graphics and present queue
-		result = vkQueueSubmit(device->queue, 1, &submit_info, VK_NULL_HANDLE);
-		DEBUG_ASSERT(result == VK_SUCCESS);
-	}
-
-	{
-		VkSemaphore wait_semaphores[] = {
-			device->render_completed
-		};
-
-		VkSwapchainKHR swapchains[] = {
-			device->swapchain.handle
-		};
-
-		VkPresentInfoKHR present_info = {};
-		present_info.sType              = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-		present_info.waitSemaphoreCount = 1;
-		present_info.pWaitSemaphores    = wait_semaphores;
-		present_info.swapchainCount     = 1;
-		present_info.pSwapchains        = swapchains;
-		present_info.pImageIndices      = &image_index;
-
-		// TODO(jesper): split graphics and present queue
-		result = vkQueuePresentKHR(device->queue, &present_info);
-		DEBUG_ASSERT(result == VK_SUCCESS);
-	}
-
-	result = vkQueueWaitIdle(device->queue);
-	DEBUG_ASSERT(result == VK_SUCCESS);
-}
-
-u32 find_memory_type(VulkanPhysicalDevice physical_device,
-                     u32 filter,
-                     VkMemoryPropertyFlags req_flags)
-{
-	for (u32 i = 0; i < physical_device.memory.memoryTypeCount; i++) {
-		auto flags = physical_device.memory.memoryTypes[i].propertyFlags;
-		if ((filter & (1 << i)) &&
-		    (flags & req_flags) == req_flags)
-		{
-			return i;
-		}
-	}
-
-	return UINT32_MAX;
-}
