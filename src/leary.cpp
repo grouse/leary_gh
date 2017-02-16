@@ -321,7 +321,7 @@ void game_input(GameState *game, InputAction action)
 	}
 }
 
-void game_quit(Settings *settings, GameState *game)
+void game_quit(GameState *game, Settings *settings)
 {
 	VAR_UNUSED(settings);
 	vkQueueWaitIdle(game->vulkan.queue);

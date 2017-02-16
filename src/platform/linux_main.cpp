@@ -51,8 +51,6 @@ struct KeyState {
 
 void platform_quit()
 {
-	xcb_destroy_window(platform_state.xcb.connection,
-	                   platform_state.xcb.window);
 	exit(EXIT_SUCCESS);
 }
 
@@ -80,71 +78,29 @@ int main()
 
 	game_load_settings(&settings);
 
-	platform_state.xcb.connection = xcb_connect(nullptr, nullptr);
+	Display *display = XOpenDisplay(nullptr);
+	i32 screen       = DefaultScreen(display);
+	Window window    = XCreateSimpleWindow(display, DefaultRootWindow(display),
+	                                       0, 0,
+	                                       settings.video.resolution.width,
+	                                       settings.video.resolution.height,
+	                                       2, BlackPixel(display, screen),
+	                                       BlackPixel(display, screen));
 
-	const xcb_setup_t *setup  = xcb_get_setup(platform_state.xcb.connection);
-	xcb_screen_t      *screen = xcb_setup_roots_iterator(setup).data;
+	XSelectInput(display, window,
+	             KeyPressMask | KeyReleaseMask | StructureNotifyMask);
+	XMapWindow(display, window);
 
-	platform_state.xcb.window = xcb_generate_id(platform_state.xcb.connection);
+	Atom WM_DELETE_WINDOW = XInternAtom(display, "WM_DELETE_WINDOW", false);
+	XSetWMProtocols(display, window, &WM_DELETE_WINDOW, 1);
 
-	u32 mask     = XCB_CW_EVENT_MASK;
-	u32 values[] = {
-		XCB_EVENT_MASK_POINTER_MOTION |
-		XCB_EVENT_MASK_KEY_PRESS      |
-		XCB_EVENT_MASK_KEY_RELEASE
-	};
-
-	xcb_create_window(platform_state.xcb.connection,
-	                  XCB_COPY_FROM_PARENT,
-	                  platform_state.xcb.window,
-	                  screen->root,
-	                  0, 0,
-	                  settings.video.resolution.width,
-	                  settings.video.resolution.height,
-	                  0,
-	                  XCB_WINDOW_CLASS_INPUT_OUTPUT,
-	                  screen->root_visual,
-	                  mask,
-	                  values);
-
-
-	auto wm_protocols_cookie     = xcb_intern_atom(platform_state.xcb.connection,
-	                                               0, 12, "WM_PROTOCOLS");
-	auto wm_delete_window_cookie = xcb_intern_atom(platform_state.xcb.connection,
-	                                               0, 16, "WM_DELETE_WINDOW");
-
-	auto wm_protocols_reply      = xcb_intern_atom_reply(platform_state.xcb.connection,
-	                                                     wm_protocols_cookie, 0);
-	auto wm_delete_window_reply  = xcb_intern_atom_reply(platform_state.xcb.connection,
-	                                                     wm_delete_window_cookie, 0);
-
-	xcb_change_property(platform_state.xcb.connection,
-	                    XCB_PROP_MODE_REPLACE,
-	                    platform_state.xcb.window,
-	                    wm_protocols_reply->atom,
-	                    4,
-	                    32,
-	                    1,
-	                    &wm_delete_window_reply->atom);
-
-	xcb_change_property(platform_state.xcb.connection,
-	                    XCB_PROP_MODE_REPLACE,
-	                    platform_state.xcb.window,
-	                    XCB_ATOM_WM_NAME,
-	                    XCB_ATOM_STRING,
-	                    8,
-	                    strlen("leary"),
-	                    "leary");
-
-	xcb_map_window(platform_state.xcb.connection, platform_state.xcb.window);
-	xcb_flush(platform_state.xcb.connection);
-
-	KeyState key_states[255] = {};
+	platform_state.x11.window  = window;
+	platform_state.x11.display = display;
 
 	game_init(&settings, &platform_state, &game_state);
 
+	XEvent event;
 	timespec last_time = get_time();
-
 	while (true)
 	{
 		timespec current_time = get_time();
@@ -154,171 +110,65 @@ int main()
 		DEBUG_ASSERT(difference >= 0);
 
 		//DEBUG_LOGF(LogType::info, "frame time: %ld ns", difference);
-
-		xcb_generic_event_t *event;
-		while ((event = xcb_poll_for_event(platform_state.xcb.connection)))
-		{
-			switch (event->response_type & ~0x80) {
-			case XCB_CLIENT_MESSAGE:
-			{
-				auto message = (xcb_client_message_event_t*)event;
-
-				if (message->data.data32[0] == wm_delete_window_reply->atom)
-					game_quit(&settings, &game_state);
-
-				break;
-			}
-			case XCB_KEY_RELEASE:
-			{
-				auto key = (xcb_key_release_event_t*)event;
-				u8 key_index = key->detail / 8;
-
-				// check if the release event is a repeat event by checking its pressed state.
-				// NOTE(grouse): doing this with a keymap because the usual Xlib method of peeking
-				// the timestamp of the next event seems to be unreliable.
-				// NOTE(grouse): getting the keymap for every key press event is likely a horrible
-				// performance penalty, look into either fixing the timestamp method or caching the
-				// keymap.
-				auto keymap_cookie = xcb_query_keymap(platform_state.xcb.connection);
-				auto keymap = xcb_query_keymap_reply(platform_state.xcb.connection, keymap_cookie, nullptr);
-
-				if (keymap->keys[key_index] & (1 << (key->detail % 8)))
+		//
+		while (XPending(platform_state.x11.display) > 0) {
+			XNextEvent(platform_state.x11.display, &event);
+			switch (event.type) {
+			case KeyPress: {
+				switch (event.xkey.keycode) {
+				case 9:
+					game_quit(&game_state, &settings);
 					break;
-
-				key_states[key->detail].released = true;
-				if (key_states[key->detail].pressed) {
-					key_states[key->detail].just_released = true;
-					key_states[key->detail].just_pressed  = false;
-					key_states[key->detail].pressed       = false;
-				}
-
-				// NOTE(jesper): when we release one of the movement keys, set
-				// the opposing movement key's just_pressed state to whether
-				// it's currenty being pressed down
-				// This is to achieve the behaviour of pressing A then D =
-				// nothing, followed by A then D then -D = A, etc
-				if (key_states[key->detail].just_released) {
-					switch (key->detail) {
-					case 25: /* W */
-						key_states[39].just_pressed = key_states[39].pressed;
-						break;
-					case 38: /* A */
-						key_states[40].just_pressed = key_states[40].pressed;
-						break;
-					case 39: /* S */
-						key_states[25].just_pressed = key_states[25].pressed;
-						break;
-					case 40: /* D */
-						key_states[38].just_pressed = key_states[38].pressed;
-						break;
-					case 113: /* LEFT */
-						key_states[114].just_pressed = key_states[114].pressed;
-						break;
-					case 111: /* UP */
-						key_states[116].just_pressed = key_states[116].pressed;
-						break;
-					case 114: /* RIGHT */
-						key_states[113].just_pressed = key_states[113].pressed;
-						break;
-					case 116: /* DOWN */
-						key_states[111].just_pressed = key_states[111].pressed;
-						break;
-					default: break;
-					}
-				}
-
-				break;
-			}
-			case XCB_KEY_PRESS:
-			{
-				auto key = (xcb_key_press_event_t*)event;
-
-				key_states[key->detail].pressed = true;
-				if (key_states[key->detail].released) {
-					key_states[key->detail].just_pressed  = true;
-					key_states[key->detail].just_released = false;
-					key_states[key->detail].released      = false;
-				}
-
-				break;
-			}
-			default: break;
-			}
-		}
-
-		// HACK(jesper): loop through the released events first, this is so that
-		// we can be sure any movement input caused by e.g. releasing A gets to
-		// the game before we then tell it that D was pressed
-		for (i32 i = 0; i < 255; i++) {
-			if (key_states[i].just_released) {
-				key_states[i].just_released = false;
-				switch (i) {
-				case 9: /* ESC */
-					game_quit(&settings, &game_state);
-					break;
-				case 25: /* W */
-					game_input(&game_state, InputAction_move_vertical_end);
-					break;
-				case 38: /* A */
-					game_input(&game_state, InputAction_move_horizontal_end);
-					break;
-				case 39: /* S */
-					game_input(&game_state, InputAction_move_vertical_end);
-					break;
-				case 40: /* D */
-					game_input(&game_state, InputAction_move_horizontal_end);
-					break;
-				case 113: /* LEFT */
-					game_input(&game_state, InputAction_move_player_horizontal_end);
-					break;
-				case 114: /* RIGHT */
-					game_input(&game_state, InputAction_move_player_horizontal_end);
-					break;
-				case 111: /* UP */
-					game_input(&game_state, InputAction_move_player_vertical_end);
-					break;
-				case 116: /* DOWN */
-					game_input(&game_state, InputAction_move_player_vertical_end);
-					break;
-				default: break;
-				}
-			}
-		}
-
-		for (i32 i = 0; i < 255; i++) {
-			if (key_states[i].just_pressed) {
-				key_states[i].just_pressed = false;
-				switch (i) {
-				case 25: /* W */
+				case 25:
 					game_input(&game_state, InputAction_move_vertical_start, -1.0f);
 					break;
-				case 38: /* A */
-					game_input(&game_state, InputAction_move_horizontal_start, -1.0f);
-					break;
-				case 39: /* S */
+				case 39:
 					game_input(&game_state, InputAction_move_vertical_start, 1.0f);
 					break;
-				case 40: /* D */
+				case 38:
+					game_input(&game_state, InputAction_move_horizontal_start, -1.0f);
+					break;
+				case 40:
 					game_input(&game_state, InputAction_move_horizontal_start, 1.0f);
 					break;
-				case 113: /* LEFT */
-					game_input(&game_state, InputAction_move_player_horizontal_start, -1.0f);
-					break;
-				case 114: /* RIGHT */
-					game_input(&game_state, InputAction_move_player_horizontal_start, 1.0f);
-					break;
-				case 111: /* UP */
-					game_input(&game_state, InputAction_move_player_vertical_start, -1.0f);
-					break;
-				case 116: /* DOWN */
-					game_input(&game_state, InputAction_move_player_vertical_start, 1.0f);
-					break;
 				default:
-					DEBUG_LOG(Log_info, "%d", i);
+					DEBUG_LOG("unhandled key press: %d", event.xkey.keycode);
 					break;
 				}
+			} break;
+			case KeyRelease: {
+				switch (event.xkey.keycode) {
+				case 9:
+					game_quit(&game_state, &settings);
+					break;
+				case 25:
+					game_input(&game_state, InputAction_move_vertical_end);
+					break;
+				case 39:
+					game_input(&game_state, InputAction_move_vertical_end);
+					break;
+				case 38:
+					game_input(&game_state, InputAction_move_horizontal_end);
+					break;
+				case 40:
+					game_input(&game_state, InputAction_move_horizontal_end);
+					break;
+				default:
+					DEBUG_LOG("unhandled key release: %d", event.xkey.keycode);
+					break;
+				}
+			} break;
+			case ClientMessage: {
+				if ((Atom)event.xclient.data.l[0] == WM_DELETE_WINDOW) {
+					game_quit(&game_state, &settings);
+				}
+			} break;
+			default: {
+				DEBUG_LOG("unhandled event type: %d", event.type);
+			} break;
 			}
 		}
+
 
 		game_update_and_render(&game_state, dt);
 	}

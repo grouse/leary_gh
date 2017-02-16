@@ -26,7 +26,7 @@
 #define LEARY_PLATFORM_MAIN_H
 
 #if defined(__linux__)
-	#include <xcb/xcb.h>
+	#include <X11/Xlib.h>
 #elif defined(_WIN32)
 	#include <Windows.h>
 	#include <Shlobj.h>
@@ -50,9 +50,9 @@ struct PlatformState {
 #if defined(__linux__)
 		struct
 		{
-			xcb_window_t     window;
-			xcb_connection_t *connection;
-		} xcb;
+			Window  window;
+			Display *display;
+		} x11;
 #elif defined(_WIN32)
 		struct
 		{

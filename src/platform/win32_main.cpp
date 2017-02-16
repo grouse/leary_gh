@@ -135,7 +135,7 @@ window_proc(HWND   hwnd,
 				game_input(&game_state, InputAction_move_horizontal_start, 1.0f);
 				break;
 			case VK_ESCAPE:
-				game_quit(&settings, &game_state);
+				game_quit(&game_state, &settings);
 				break;
 
 			default:

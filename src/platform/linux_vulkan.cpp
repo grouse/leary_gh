@@ -24,27 +24,29 @@
 
 #include "platform_vulkan.h"
 
-#include <xcb/xcb.h>
-
 VkResult
 vulkan_create_surface(VkInstance instance,
                       VkSurfaceKHR *surface,
                       PlatformState platform_state)
 {
-	VkXcbSurfaceCreateInfoKHR info = {};
-	info.sType = VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR;
-	info.pNext = nullptr;
-	info.flags = 0;
-	info.connection = platform_state.xcb.connection;
-	info.window     = platform_state.xcb.window;
+	VkXlibSurfaceCreateInfoKHR info = {};
+	info.sType  = VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR;
+	info.pNext  = nullptr;
+	info.flags  = 0;
+	info.dpy    = platform_state.x11.display;
+	info.window = platform_state.x11.window;
 
-	return vkCreateXcbSurfaceKHR(instance, &info, nullptr, surface);
+	return vkCreateXlibSurfaceKHR(instance, &info, nullptr, surface);
 }
 
 bool
 platform_vulkan_enable_instance_extension(VkExtensionProperties &extension)
 {
-	return strcmp(extension.extensionName, VK_KHR_XCB_SURFACE_EXTENSION_NAME) == 0;
+	bool enable = false;
+	if (strcmp(extension.extensionName, VK_KHR_XLIB_SURFACE_EXTENSION_NAME) == 0) {
+		enable = true;
+	}
+	return enable;
 }
 
 bool
