@@ -71,7 +71,7 @@ window_proc(HWND   hwnd,
 	case WM_KEYDOWN: {
 		InputEvent event;
 		event.type = InputType_key_press;
-		event.key.code = lparam & 0x00000F00;
+		event.key.code = (lparam >> 16) & 0xFF;
 		event.key.repeated = lparam & 0x40000000;
 
 		game_input(&game_state, &settings, event);
