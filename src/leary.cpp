@@ -30,6 +30,29 @@ enum InputAction {
 	InputAction_move_player_horizontal_end
 };
 
+enum InputType {
+	InputType_key_release,
+	InputType_key_press
+};
+
+enum InputKey {
+	InputKey_esc = 9,
+	InputKey_w   = 25,
+	InputKey_a   = 38,
+	InputKey_s   = 39,
+	InputKey_d   = 40
+};
+
+struct InputEvent {
+	InputType type;
+	union {
+		struct {
+			i32 code;
+			bool repeated;
+		} key;
+	};
+};
+
 struct Camera {
 	Matrix4f view;
 	Matrix4f projection;
@@ -278,49 +301,6 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 	}
 }
 
-void game_input(GameState *game, InputAction action, float axis)
-{
-	PROFILE_FUNCTION();
-
-	switch (action) {
-	case InputAction_move_vertical_start:
-		game->velocity.y += axis * 100.0f;
-		break;
-	case InputAction_move_horizontal_start:
-		game->velocity.x += axis * 100.0f;
-		break;
-	case InputAction_move_player_vertical_start:
-		game->player_velocity.y += axis * 100.0f;
-		break;
-	case InputAction_move_player_horizontal_start:
-		game->player_velocity.x += axis * 100.0f;
-		break;
-	default: break;
-	}
-
-}
-
-void game_input(GameState *game, InputAction action)
-{
-	PROFILE_FUNCTION();
-
-	switch (action) {
-	case InputAction_move_vertical_end:
-		game->velocity.y = 0.0f;
-		break;
-	case InputAction_move_horizontal_end:
-		game->velocity.x = 0.0f;
-		break;
-	case InputAction_move_player_vertical_end:
-		game->player_velocity.y = 0.0f;
-		break;
-	case InputAction_move_player_horizontal_end:
-		game->player_velocity.x = 0.0f;
-		break;
-	default: break;
-	}
-}
-
 void game_quit(GameState *game, Settings *settings)
 {
 	VAR_UNUSED(settings);
@@ -346,6 +326,51 @@ void game_quit(GameState *game, Settings *settings)
 	platform_quit();
 }
 
+void game_input(GameState *game, Settings *settings, InputEvent event)
+{
+	switch (event.type) {
+	case InputType_key_press: {
+		switch (event.key.code) {
+		case InputKey_esc:
+			game_quit(game, settings);
+			break;
+		case InputKey_w:
+			game->velocity.y = -100.0f;
+			break;
+		case InputKey_s:
+			game->velocity.y = 100.0f;
+			break;
+		case InputKey_a:
+			game->velocity.x = -100.0f;
+			break;
+		case InputKey_d:
+			game->velocity.x = 100.0f;
+			break;
+		default:
+			DEBUG_LOG("unhandled key press: %d", event.key.code);
+			break;
+		}
+	} break;
+	case InputType_key_release: {
+		switch (event.key.code) {
+		case InputKey_w:
+		case InputKey_s:
+			game->velocity.y = 0.0f;
+			break;
+		case InputKey_a:
+		case InputKey_d:
+			game->velocity.x = 0.0f;
+			break;
+		default:
+			DEBUG_LOG("unhandled key release: %d", event.key.code);
+			break;
+		}
+	} break;
+	default:
+		DEBUG_LOG("unhandled input type: %d", event.type);
+		break;
+	}
+}
 
 void game_profile_collate(GameState* game, f32 dt)
 {

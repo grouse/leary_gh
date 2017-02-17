@@ -60,92 +60,30 @@ window_proc(HWND   hwnd,
 	case WM_DESTROY:
 		PostQuitMessage(0);
 		return 0;
-
-	case WM_PAINT:
-	{
+	case WM_PAINT: {
 		PAINTSTRUCT ps;
 		HDC hdc = BeginPaint(hwnd, &ps);
 
 		FillRect(hdc, &ps.rcPaint, (HBRUSH) (COLOR_WINDOW+1));
 
 		EndPaint(hwnd, &ps);
-		break;
-	}
+	} break;
+	case WM_KEYDOWN: {
+		InputEvent event;
+		event.type = InputType_key_press;
+		event.key.code = lparam & 0x00000F00;
+		event.key.repeated = lparam & 0x40000000;
 
-	case WM_KEYUP:
-	{
-		switch (wparam) {
-		case VK_UP:
-			game_input(&game_state, InputAction_move_player_vertical_end);
-			break;
-		case VK_DOWN:
-			game_input(&game_state, InputAction_move_player_vertical_end);
-			break;
-		case VK_LEFT:
-			game_input(&game_state, InputAction_move_player_horizontal_end);
-			break;
-		case VK_RIGHT:
-			game_input(&game_state, InputAction_move_player_horizontal_end);
-			break;
-		case 0x57:
-			game_input(&game_state, InputAction_move_vertical_end);
-			break;
-		case 0x53:
-			game_input(&game_state, InputAction_move_vertical_end);
-			break;
-		case 0x41:
-			game_input(&game_state, InputAction_move_horizontal_end);
-			break;
-		case 0x44:
-			game_input(&game_state, InputAction_move_horizontal_end);
-			break;
-		default:
-			std::printf("unhandled key release event: %" PRIuPTR "\n", wparam);
-			break;
-		}
-		break;
-	}
+		game_input(&game_state, &settings, event);
+	} break;
+	case WM_KEYUP: {
+		InputEvent event;
+		event.type = InputType_key_press;
+		event.key.code = lparam & 0x00000F00;
+		event.key.repeated = lparam & 0x40000000;
 
-	case WM_KEYDOWN:
-	{
-		if (!(lparam & (1 << 30))) {
-			switch (wparam) {
-			case VK_UP:
-				game_input(&game_state, InputAction_move_player_vertical_start, -1.0f);
-				break;
-			case VK_DOWN:
-				game_input(&game_state, InputAction_move_player_vertical_start, -1.0f);
-				break;
-			case VK_LEFT:
-				game_input(&game_state, InputAction_move_player_horizontal_start, -1.0f);
-				break;
-			case VK_RIGHT:
-				game_input(&game_state, InputAction_move_player_horizontal_start, 1.0f);
-				break;
-			case 0x57:
-				game_input(&game_state, InputAction_move_vertical_start, -1.0f);
-				break;
-			case 0x53:
-				game_input(&game_state, InputAction_move_vertical_start, -1.0f);
-				break;
-			case 0x41:
-				game_input(&game_state, InputAction_move_horizontal_start, -1.0f);
-				break;
-			case 0x44:
-				game_input(&game_state, InputAction_move_horizontal_start, 1.0f);
-				break;
-			case VK_ESCAPE:
-				game_quit(&game_state, &settings);
-				break;
-
-			default:
-				std::printf("unhandled key press event: %" PRIuPTR "\n", wparam);
-				break;
-			}
-			break;
-		}
-	}
-
+		game_input(&game_state, &settings, event);
+	} break;
 	default:
 		std::printf("unhandled event: %d\n", message);
 		return DefWindowProc(hwnd, message, wparam, lparam);

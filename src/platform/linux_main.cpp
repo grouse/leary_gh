@@ -99,7 +99,7 @@ int main()
 
 	game_init(&settings, &platform_state, &game_state);
 
-	XEvent event;
+	XEvent xevent;
 	timespec last_time = get_time();
 	while (true)
 	{
@@ -112,59 +112,45 @@ int main()
 		//DEBUG_LOGF(LogType::info, "frame time: %ld ns", difference);
 		//
 		while (XPending(platform_state.x11.display) > 0) {
-			XNextEvent(platform_state.x11.display, &event);
-			switch (event.type) {
+			XNextEvent(platform_state.x11.display, &xevent);
+			switch (xevent.type) {
 			case KeyPress: {
-				switch (event.xkey.keycode) {
-				case 9:
-					game_quit(&game_state, &settings);
-					break;
-				case 25:
-					game_input(&game_state, InputAction_move_vertical_start, -1.0f);
-					break;
-				case 39:
-					game_input(&game_state, InputAction_move_vertical_start, 1.0f);
-					break;
-				case 38:
-					game_input(&game_state, InputAction_move_horizontal_start, -1.0f);
-					break;
-				case 40:
-					game_input(&game_state, InputAction_move_horizontal_start, 1.0f);
-					break;
-				default:
-					DEBUG_LOG("unhandled key press: %d", event.xkey.keycode);
-					break;
-				}
+				InputEvent event;
+				event.type = InputType_key_press;
+				event.key.code = xevent.xkey.keycode;
+				event.key.repeated = false;
+
+				game_input(&game_state, &settings, event);
 			} break;
 			case KeyRelease: {
-				switch (event.xkey.keycode) {
-				case 9:
-					game_quit(&game_state, &settings);
-					break;
-				case 25:
-					game_input(&game_state, InputAction_move_vertical_end);
-					break;
-				case 39:
-					game_input(&game_state, InputAction_move_vertical_end);
-					break;
-				case 38:
-					game_input(&game_state, InputAction_move_horizontal_end);
-					break;
-				case 40:
-					game_input(&game_state, InputAction_move_horizontal_end);
-					break;
-				default:
-					DEBUG_LOG("unhandled key release: %d", event.xkey.keycode);
-					break;
+				InputEvent event;
+				event.type = InputType_key_release;
+				event.key.code = xevent.xkey.keycode;
+				event.key.repeated = false;
+
+				if (XEventsQueued(platform_state.x11.display,
+				                  QueuedAfterReading))
+				{
+					XEvent next;
+					XPeekEvent(platform_state.x11.display, &next);
+
+					if (next.type == KeyPress &&
+					    next.xkey.time == xevent.xkey.time &&
+					    next.xkey.keycode == xevent.xkey.keycode)
+					{
+						event.key.repeated = true;
+					}
 				}
+
+				game_input(&game_state, &settings, event);
 			} break;
 			case ClientMessage: {
-				if ((Atom)event.xclient.data.l[0] == WM_DELETE_WINDOW) {
+				if ((Atom)xevent.xclient.data.l[0] == WM_DELETE_WINDOW) {
 					game_quit(&game_state, &settings);
 				}
 			} break;
 			default: {
-				DEBUG_LOG("unhandled event type: %d", event.type);
+				DEBUG_LOG("unhandled xevent type: %d", xevent.type);
 			} break;
 			}
 		}
