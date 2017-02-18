@@ -27,6 +27,7 @@
 
 #if defined(__linux__)
 	#include <X11/Xlib.h>
+	#include <X11/XKBlib.h>
 #elif defined(_WIN32)
 	#include <Windows.h>
 	#include <Shlobj.h>
@@ -50,8 +51,9 @@ struct PlatformState {
 #if defined(__linux__)
 		struct
 		{
-			Window  window;
-			Display *display;
+			Window     window;
+			Display    *display;
+    		XkbDescPtr xkb;
 		} x11;
 #elif defined(_WIN32)
 		struct

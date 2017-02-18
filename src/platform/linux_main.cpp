@@ -32,6 +32,7 @@
 #include "linux_debug.cpp"
 #include "linux_vulkan.cpp"
 #include "linux_file.cpp"
+#include "linux_input.cpp"
 
 #include "leary.cpp"
 
@@ -70,6 +71,28 @@ i64 get_time_difference(timespec start, timespec end)
 	return difference;
 }
 
+VirtualKey keycode_to_virtual(PlatformState *platform, KeyCode code)
+{
+	// NOTE(jesper): PERFORMANCE: is this slow? profile and consider cache. I
+	// believe there are events we can listen to for when the map become out of
+	// date because of switched keyboard layouts
+	KeySym sym = XkbKeycodeToKeysym(platform->x11.display, code, 0, 0);
+
+	// NOTE(jesper): I don't know how this can happen, but we only want one
+	// version of each key. I'm thinking maybe caps lock causes this?
+	if (sym >= 0x0061 && sym <= 0x007a) {
+		sym -= 0x0061 - 0x0041;
+	}
+
+	// NOTE(jesper): rudimentary assert for this, there are holes in the enum,
+	// warrants further investigation. Especially for non-latin keyboards
+	// NOTE(jesper): I think the best way to go about this is to generate an
+	// array containing all the enum values using meta programming that we can
+	// then binary search and see whether the enum contains the keysym
+	DEBUG_ASSERT(sym < VirtualKey_max);
+	return (VirtualKey)sym;
+}
+
 int main()
 {
 	platform_state = {};
@@ -94,8 +117,18 @@ int main()
 	Atom WM_DELETE_WINDOW = XInternAtom(display, "WM_DELETE_WINDOW", false);
 	XSetWMProtocols(display, window, &WM_DELETE_WINDOW, 1);
 
+
+	XkbDescPtr xkb = nullptr;
+	i32 xkb_major = XkbMajorVersion;
+	i32 xkb_minor = XkbMinorVersion;
+
+	if (XkbQueryExtension(display, NULL, NULL, NULL, &xkb_major, &xkb_minor)) {
+		xkb = XkbGetMap(display, XkbAllClientInfoMask, XkbUseCoreKbd);
+	}
+
 	platform_state.x11.window  = window;
 	platform_state.x11.display = display;
+	platform_state.x11.xkb     = xkb;
 
 	game_init(&settings, &platform_state, &game_state);
 
@@ -117,7 +150,8 @@ int main()
 			case KeyPress: {
 				InputEvent event;
 				event.type = InputType_key_press;
-				event.key.code = xevent.xkey.keycode;
+				event.key.vkey = keycode_to_virtual(&platform_state,
+				                                    xevent.xkey.keycode);
 				event.key.repeated = false;
 
 				game_input(&game_state, &settings, event);
@@ -125,7 +159,8 @@ int main()
 			case KeyRelease: {
 				InputEvent event;
 				event.type = InputType_key_release;
-				event.key.code = xevent.xkey.keycode;
+				event.key.vkey = keycode_to_virtual(&platform_state,
+				                                    xevent.xkey.keycode);
 				event.key.repeated = false;
 
 				if (XEventsQueued(platform_state.x11.display,

@@ -30,29 +30,6 @@ enum InputAction {
 	InputAction_move_player_horizontal_end
 };
 
-enum InputType {
-	InputType_key_release,
-	InputType_key_press
-};
-
-enum InputKey {
-	InputKey_esc = 9,
-	InputKey_w   = 25,
-	InputKey_a   = 38,
-	InputKey_s   = 39,
-	InputKey_d   = 40
-};
-
-struct InputEvent {
-	InputType type;
-	union {
-		struct {
-			i32 code;
-			bool repeated;
-		} key;
-	};
-};
-
 struct Camera {
 	Matrix4f view;
 	Matrix4f projection;
@@ -330,39 +307,39 @@ void game_input(GameState *game, Settings *settings, InputEvent event)
 {
 	switch (event.type) {
 	case InputType_key_press: {
-		switch (event.key.code) {
-		case InputKey_esc:
+		switch (event.key.vkey) {
+		case VirtualKey_escape:
 			game_quit(game, settings);
 			break;
-		case InputKey_w:
+		case VirtualKey_W:
 			game->velocity.y = -100.0f;
 			break;
-		case InputKey_s:
+		case VirtualKey_S:
 			game->velocity.y = 100.0f;
 			break;
-		case InputKey_a:
+		case VirtualKey_A:
 			game->velocity.x = -100.0f;
 			break;
-		case InputKey_d:
+		case VirtualKey_D:
 			game->velocity.x = 100.0f;
 			break;
 		default:
-			DEBUG_LOG("unhandled key press: %d", event.key.code);
+			DEBUG_LOG("unhandled key press: %d", event.key.vkey);
 			break;
 		}
 	} break;
 	case InputType_key_release: {
-		switch (event.key.code) {
-		case InputKey_w:
-		case InputKey_s:
+		switch (event.key.vkey) {
+		case VirtualKey_W:
+		case VirtualKey_S:
 			game->velocity.y = 0.0f;
 			break;
-		case InputKey_a:
-		case InputKey_d:
+		case VirtualKey_A:
+		case VirtualKey_D:
 			game->velocity.x = 0.0f;
 			break;
 		default:
-			DEBUG_LOG("unhandled key release: %d", event.key.code);
+			DEBUG_LOG("unhandled key release: %d", event.key.vkey);
 			break;
 		}
 	} break;
