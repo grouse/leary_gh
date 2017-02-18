@@ -53,7 +53,7 @@ struct PlatformState {
 		{
 			Window     window;
 			Display    *display;
-    		XkbDescPtr xkb;
+			XkbDescPtr xkb;
 		} x11;
 #elif defined(_WIN32)
 		struct

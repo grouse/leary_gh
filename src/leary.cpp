@@ -67,6 +67,8 @@ struct GameState {
 	RenderedText        rendered_text;
 	RenderedText        debug_text;
 	char                *text_buffer;
+
+	i32 *key_state;
 };
 
 RenderedText render_font(GameState *game, float x, float y, const char *str)
@@ -276,6 +278,14 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 		game->rendered_text = render_font(game, 0.0f, 0.0f, "Hello, World!");
 		game->debug_text = render_font(game, 0.0f, 0.0f, "frame time:");
 	}
+
+	// TODO(jesper): this is such massive overkill that I didn't consider. It
+	// turns out the win32 model for virtual keys (max 255 keys) is way more
+	// sane. Need to look into doing the equivalent for Linux and adjust
+	game->key_state = (i32*)malloc(sizeof(i32) * 0xFFFF);
+	for (i32 i = 0; i < 0xFFFF; i++) {
+		game->key_state[i] = InputType_key_release;
+	}
 }
 
 void game_quit(GameState *game, Settings *settings)
@@ -307,6 +317,8 @@ void game_input(GameState *game, Settings *settings, InputEvent event)
 {
 	switch (event.type) {
 	case InputType_key_press: {
+		game->key_state[event.key.vkey] = InputType_key_press;
+
 		switch (event.key.vkey) {
 		case VirtualKey_escape:
 			game_quit(game, settings);
@@ -329,14 +341,52 @@ void game_input(GameState *game, Settings *settings, InputEvent event)
 		}
 	} break;
 	case InputType_key_release: {
+		game->key_state[event.key.vkey] = InputType_key_release;
+
 		switch (event.key.vkey) {
 		case VirtualKey_W:
+			game->velocity.y = 0.0f;
+			if (game->key_state[VirtualKey_S] == InputType_key_press) {
+				InputEvent e;
+				e.type         = InputType_key_press;
+				e.key.vkey     = VirtualKey_S;
+				e.key.repeated = false;
+
+				game_input(game, settings, e);
+			}
+			break;
 		case VirtualKey_S:
 			game->velocity.y = 0.0f;
+			if (game->key_state[VirtualKey_W] == InputType_key_press) {
+				InputEvent e;
+				e.type         = InputType_key_press;
+				e.key.vkey     = VirtualKey_W;
+				e.key.repeated = false;
+
+				game_input(game, settings, e);
+			}
 			break;
 		case VirtualKey_A:
+			game->velocity.x = 0.0f;
+			if (game->key_state[VirtualKey_D] == InputType_key_press) {
+				InputEvent e;
+				e.type         = InputType_key_press;
+				e.key.vkey     = VirtualKey_D;
+				e.key.repeated = false;
+
+				game_input(game, settings, e);
+			}
+			break;
 		case VirtualKey_D:
 			game->velocity.x = 0.0f;
+			if (game->key_state[VirtualKey_A] == InputType_key_press) {
+				InputEvent e;
+				e.type         = InputType_key_press;
+				e.key.vkey     = VirtualKey_A;
+				e.key.repeated = false;
+
+				game_input(game, settings, e);
+			}
 			break;
 		default:
 			DEBUG_LOG("unhandled key release: %d", event.key.vkey);

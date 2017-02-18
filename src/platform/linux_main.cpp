@@ -89,7 +89,7 @@ VirtualKey keycode_to_virtual(PlatformState *platform, KeyCode code)
 	// NOTE(jesper): I think the best way to go about this is to generate an
 	// array containing all the enum values using meta programming that we can
 	// then binary search and see whether the enum contains the keysym
-	DEBUG_ASSERT(sym < VirtualKey_max);
+	//DEBUG_ASSERT(sym < VirtualKey_max);
 	return (VirtualKey)sym;
 }
 

@@ -225,7 +225,6 @@ enum VirtualKey {
 	VirtualKey_F33            = 0xffde,
 	VirtualKey_F34            = 0xffdf,
 	VirtualKey_F35            = 0xffe0,
-	VirtualKey_max
 };
 
 enum InputType {
