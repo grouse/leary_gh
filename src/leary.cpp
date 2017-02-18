@@ -279,11 +279,8 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 		game->debug_text = render_font(game, 0.0f, 0.0f, "frame time:");
 	}
 
-	// TODO(jesper): this is such massive overkill that I didn't consider. It
-	// turns out the win32 model for virtual keys (max 255 keys) is way more
-	// sane. Need to look into doing the equivalent for Linux and adjust
-	game->key_state = (i32*)malloc(sizeof(i32) * 0xFFFF);
-	for (i32 i = 0; i < 0xFFFF; i++) {
+	game->key_state = (i32*)malloc(sizeof(i32) * 0xFF);
+	for (i32 i = 0; i < 0xFF; i++) {
 		game->key_state[i] = InputType_key_release;
 	}
 }
@@ -389,7 +386,7 @@ void game_input(GameState *game, Settings *settings, InputEvent event)
 			}
 			break;
 		default:
-			DEBUG_LOG("unhandled key release: %d", event.key.vkey);
+			//DEBUG_LOG("unhandled key release: %d", event.key.vkey);
 			break;
 		}
 	} break;
