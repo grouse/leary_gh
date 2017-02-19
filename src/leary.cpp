@@ -40,6 +40,12 @@ struct RenderedText {
 	i32          vertex_count;
 };
 
+struct RenderObject {
+	VulkanBuffer vertices;
+	VulkanBuffer indices;
+	i32          vertex_count;
+};
+
 struct GameState {
 	VulkanDevice        vulkan;
 	VulkanPipeline      pipeline;
@@ -47,8 +53,7 @@ struct GameState {
 	VulkanTexture       texture;
 
 	i32                 num_objects;
-	VulkanBuffer        vertex_buffer;
-	VulkanBuffer        index_buffer;
+	RenderObject        object;
 	Matrix4f            *positions;
 
 	VkCommandBuffer     *command_buffers;
@@ -261,14 +266,16 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 		 16.0f,  16.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f,
 		-16.0f,  16.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f,
 	};
-	game->vertex_buffer = create_vertex_buffer(&game->vulkan,
-	                                           sizeof(vertices),
-	                                           vertices);
 	u16 indices[] = {
 		0, 1, 2, 2, 3, 0
 	};
-	game->index_buffer = create_index_buffer(&game->vulkan,
-	                                         indices, sizeof(indices));
+
+	game->object.vertices = create_vertex_buffer(&game->vulkan,
+	                                             sizeof(vertices),
+	                                             vertices);
+	game->object.indices = create_index_buffer(&game->vulkan,
+	                                           indices, sizeof(indices));
+	game->object.vertex_count = sizeof(indices) / sizeof(indices[0]);
 
 	game->pipeline = create_pipeline(&game->vulkan);
 	update_descriptor_sets(&game->vulkan,
@@ -326,8 +333,8 @@ void game_quit(GameState *game, Settings *settings)
 	destroy(&game->vulkan, game->font_texture);
 	destroy(&game->vulkan, game->font_pipeline);
 
-	destroy(&game->vulkan, game->vertex_buffer);
-	destroy(&game->vulkan, game->index_buffer);
+	destroy(&game->vulkan, game->object.vertices);
+	destroy(&game->vulkan, game->object.indices);
 	destroy(&game->vulkan, game->camera_ubo);
 	destroy(&game->vulkan, game->texture);
 	destroy(&game->vulkan, game->pipeline);
@@ -533,8 +540,8 @@ void game_render(GameState *game)
 	                        1, &game->pipeline.descriptor_set,
 	                        0, nullptr);
 
-	vkCmdBindVertexBuffers(command, 0, 1, &game->vertex_buffer.handle, offsets);
-	vkCmdBindIndexBuffer(command, game->index_buffer.handle,
+	vkCmdBindVertexBuffers(command, 0, 1, &game->object.vertices.handle, offsets);
+	vkCmdBindIndexBuffer(command, game->object.indices.handle,
 	                     0, VK_INDEX_TYPE_UINT16);
 
 	for (i32 i = 0; i < game->num_objects; i++) {
@@ -543,7 +550,7 @@ void game_render(GameState *game)
 		                   VK_SHADER_STAGE_VERTEX_BIT,
 		                   0, sizeof(Matrix4f),
 		                   &game->positions[i]);
-		vkCmdDrawIndexed(command, 6, 1, 0, 0, 0);
+		vkCmdDrawIndexed(command, game->object.vertex_count, 1, 0, 0, 0);
 	}
 
 
@@ -616,8 +623,10 @@ void game_render(GameState *game)
 	result = vkQueuePresentKHR(game->vulkan.queue, &present_info);
 	DEBUG_ASSERT(result == VK_SUCCESS);
 
+	PROFILE_START(vulkan_swap);
 	result = vkQueueWaitIdle(game->vulkan.queue);
 	DEBUG_ASSERT(result == VK_SUCCESS);
+	PROFILE_END(vulkan_swap);
 }
 
 void game_update_and_render(GameState *game, f32 dt)
