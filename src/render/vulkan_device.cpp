@@ -915,7 +915,8 @@ VulkanPipeline create_pipeline(VulkanDevice *device)
 	raster_info.rasterizerDiscardEnable = VK_FALSE;
 	raster_info.polygonMode             = VK_POLYGON_MODE_FILL;
 	raster_info.cullMode                = VK_CULL_MODE_BACK_BIT;
-	raster_info.frontFace               = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+	// TODO(jesper): look into this
+	raster_info.frontFace               = VK_FRONT_FACE_CLOCKWISE;
 	raster_info.depthBiasEnable         = VK_FALSE;
 	raster_info.lineWidth               = 1.0;
 
@@ -1875,6 +1876,44 @@ VulkanBuffer create_vertex_buffer(VulkanDevice *device, usize size, void *data)
 	return buffer;
 }
 
+void copy_buffer(VulkanDevice *device, VkBuffer src, VkBuffer dst, VkDeviceSize size)
+{
+	VkCommandBuffer command = begin_command_buffer(device);
+
+	VkBufferCopy region = {};
+	region.srcOffset    = 0;
+	region.dstOffset    = 0;
+	region.size         = size;
+
+	vkCmdCopyBuffer(command, src, dst, 1, &region);
+
+	end_command_buffer(device, command);
+}
+
+VulkanBuffer create_index_buffer(VulkanDevice *device,
+                                 u16 *indices, usize size)
+{
+	VulkanBuffer staging = create_buffer(device, size,
+	                                     VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+	                                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+	                                     VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+	void *data;
+	vkMapMemory(device->handle, staging.memory, 0, size, 0, &data);
+	memcpy(data, indices, size);
+	vkUnmapMemory(device->handle, staging.memory);
+
+	VulkanBuffer ib = create_buffer(device, size,
+	                                VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+	                                VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+	                                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	copy_buffer(device, staging.handle, ib.handle, size);
+
+	destroy(device, staging);
+
+	return ib;
+}
+
 VulkanUniformBuffer create_uniform_buffer(VulkanDevice *device, usize size)
 {
 	VulkanUniformBuffer ubo;
@@ -1892,19 +1931,6 @@ VulkanUniformBuffer create_uniform_buffer(VulkanDevice *device, usize size)
 	return ubo;
 }
 
-void copy_buffer(VulkanDevice *device, VkBuffer src, VkBuffer dst, VkDeviceSize size)
-{
-	VkCommandBuffer command = begin_command_buffer(device);
-
-	VkBufferCopy region = {};
-	region.srcOffset    = 0;
-	region.dstOffset    = 0;
-	region.size         = size;
-
-	vkCmdCopyBuffer(command, src, dst, 1, &region);
-
-	end_command_buffer(device, command);
-}
 
 void update_uniform_data(VulkanDevice *device,
                          VulkanUniformBuffer ubo,
