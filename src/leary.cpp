@@ -107,37 +107,37 @@ RenderedText render_font(GameState *game, float x, float y, const char *str)
 
 		vertices[offset++] = tl.x;
 		vertices[offset++] = tl.y;
-		vertices[offset++] = 0.0f;
+		vertices[offset++] = 0.2f;
 		vertices[offset++] = q.s0;
 		vertices[offset++] = q.t0;
 
 		vertices[offset++] = tr.x;
 		vertices[offset++] = tr.y;
-		vertices[offset++] = 0.0f;
+		vertices[offset++] = 0.2f;
 		vertices[offset++] = q.s1;
 		vertices[offset++] = q.t0;
 
 		vertices[offset++] = br.x;
 		vertices[offset++] = br.y;
-		vertices[offset++] = 0.0f;
+		vertices[offset++] = 0.2f;
 		vertices[offset++] = q.s1;
 		vertices[offset++] = q.t1;
 
 		vertices[offset++] = br.x;
 		vertices[offset++] = br.y;
-		vertices[offset++] = 0.0f;
+		vertices[offset++] = 0.2f;
 		vertices[offset++] = q.s1;
 		vertices[offset++] = q.t1;
 
 		vertices[offset++] = bl.x;
 		vertices[offset++] = bl.y;
-		vertices[offset++] = 0.0f;
+		vertices[offset++] = 0.2f;
 		vertices[offset++] = q.s0;
 		vertices[offset++] = q.t1;
 
 		vertices[offset++] = tl.x;
 		vertices[offset++] = tl.y;
-		vertices[offset++] = 0.0f;
+		vertices[offset++] = 0.2f;
 		vertices[offset++] = q.s0;
 		vertices[offset++] = q.t0;
 	}
@@ -189,26 +189,55 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 	                               pixels, components);
 	delete[] pixels;
 
-	game->camera.view  = Matrix4f::identity();
-	game->camera.view  = translate(game->camera.view, Vector3f{0.0f, 0.0f, 0.0f});
+	Matrix4f view   = Matrix4f::identity();
+#if 1
+	Vector3f origin = {0.0f, 0.0f, 0.0f};
+	Vector3f eye    = {2.0f, 2.0f, 2.0f};
+	Vector3f up     = {0.0f, 1.0f, 0.0f};
 
+	Vector3f f = normalise(origin - eye);
+	Vector3f s = normalise(cross(f, up));
+	Vector3f u = cross(s, f);
+
+	view.columns[0].x = s.x;
+	view.columns[1].x = s.y;
+	view.columns[2].x = s.z;
+	view.columns[0].y = u.x;
+	view.columns[1].y = u.y;
+	view.columns[2].y = u.z;
+	view.columns[0].z = -f.x;
+	view.columns[1].z = -f.y;
+	view.columns[2].z = -f.z;
+	view.columns[3].x = -dot(s, eye);
+	view.columns[3].y = -dot(u, eye);
+	view.columns[3].z =  dot(f, eye);
+#endif
+
+	game->camera.view = view;
+
+#if 0
 	f32 left   = - (f32)settings->video.resolution.width / 2.0f;
 	f32 right  =   (f32)settings->video.resolution.width / 2.0f;
 	f32 bottom = - (f32)settings->video.resolution.height / 2.0f;
 	f32 top    =   (f32)settings->video.resolution.height / 2.0f;
 	game->camera.projection = Matrix4f::orthographic(left, right, top, bottom, 0.0f, 1.0f);
+#else
+	f32 width = (f32)settings->video.resolution.width;
+	f32 height = (f32)settings->video.resolution.height;
+	game->camera.projection = Matrix4f::perspective(0.785398, width / height, 0.1f, 10.0f);
+#endif
 
 	game->camera_ubo = create_uniform_buffer(&game->vulkan, sizeof(Camera));
 	update_uniform_data(&game->vulkan, game->camera_ubo,
 	                    &game->camera, 0, sizeof(Camera));
 
 	f32 vertices[] = {
-		-16.0f, -16.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f,  0.0f,
-		 16.0f, -16.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f,
-		 16.0f,  16.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f,
-		 16.0f,  16.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f,
-		-16.0f,  16.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f,
-		-16.0f, -16.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+		-16.0f, -16.0f, 1.1f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f,  0.0f,
+		 16.0f, -16.0f, 1.1f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f,
+		 16.0f,  16.0f, 1.1f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f,
+		 16.0f,  16.0f, 1.1f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f,
+		-16.0f,  16.0f, 1.1f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f,
+		-16.0f, -16.0f, 1.1f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
 	};
 
 	game->num_objects = 5;
@@ -321,10 +350,10 @@ void game_input(GameState *game, Settings *settings, InputEvent event)
 			game_quit(game, settings);
 			break;
 		case VirtualKey_W:
-			game->velocity.y = -100.0f;
+			game->velocity.z = -0.7f;
 			break;
 		case VirtualKey_S:
-			game->velocity.y = 100.0f;
+			game->velocity.z = 0.7f;
 			break;
 		case VirtualKey_A:
 			game->velocity.x = -100.0f;
@@ -342,7 +371,7 @@ void game_input(GameState *game, Settings *settings, InputEvent event)
 
 		switch (event.key.vkey) {
 		case VirtualKey_W:
-			game->velocity.y = 0.0f;
+			game->velocity.z = 0.0f;
 			if (game->key_state[VirtualKey_S] == InputType_key_press) {
 				InputEvent e;
 				e.type         = InputType_key_press;
@@ -353,7 +382,7 @@ void game_input(GameState *game, Settings *settings, InputEvent event)
 			}
 			break;
 		case VirtualKey_S:
-			game->velocity.y = 0.0f;
+			game->velocity.z = 0.0f;
 			if (game->key_state[VirtualKey_W] == InputType_key_press) {
 				InputEvent e;
 				e.type         = InputType_key_press;

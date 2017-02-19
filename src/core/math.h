@@ -67,6 +67,20 @@ struct Matrix4f {
 
 		return result;
 	}
+
+	static inline Matrix4f perspective(f32 vfov, f32 aspect, f32 near, f32 far)
+	{
+		Matrix4f result = {};
+
+		f32 tan_hvfov = tan(vfov / 2.0f);
+		result.columns[0].x = 1.0f / (aspect * tan_hvfov);
+		result.columns[1].y = -1.0f / (tan_hvfov);
+		result.columns[2].z = far / (near - far);
+		result.columns[2].w = - 1.0f;
+		result.columns[3].z = -(far * near) / (far - near);
+
+		return result;
+	}
 };
 
 /*******************************************************************************
@@ -75,6 +89,7 @@ struct Matrix4f {
 inline f32    length(Vector3f vec);
 inline f32    dot(Vector3f lhs, Vector3f rhs);
 inline Vector3f cross(Vector3f lhs, Vector3f rhs);
+inline Vector3f normalise(Vector3f v);
 
 /*******************************************************************************
  * Vector3f operator declarations
@@ -150,6 +165,18 @@ inline Vector3f cross(Vector3f lhs, Vector3f rhs)
 	vec.z = lhs.x * rhs.y - lhs.y * rhs.x;
 
 	return vec;
+}
+
+inline Vector3f normalise(Vector3f v)
+{
+	f32 l = length(v);
+
+	Vector3f result;
+	result.x = v.x / l;
+	result.y = v.y / l;
+	result.z = v.z / l;
+
+	return result;
 }
 
 /******************************************************************************

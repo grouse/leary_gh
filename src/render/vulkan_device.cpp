@@ -915,7 +915,7 @@ VulkanPipeline create_pipeline(VulkanDevice *device)
 	raster_info.rasterizerDiscardEnable = VK_FALSE;
 	raster_info.polygonMode             = VK_POLYGON_MODE_FILL;
 	raster_info.cullMode                = VK_CULL_MODE_BACK_BIT;
-	raster_info.frontFace               = VK_FRONT_FACE_CLOCKWISE;
+	raster_info.frontFace               = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 	raster_info.depthBiasEnable         = VK_FALSE;
 	raster_info.lineWidth               = 1.0;
 
@@ -937,26 +937,13 @@ VulkanPipeline create_pipeline(VulkanDevice *device)
 	color_blend_info.blendConstants[2] = 0.0f;
 	color_blend_info.blendConstants[3] = 0.0f;
 
-	VkStencilOpState stencil_state = {};
-	stencil_state.failOp      = VK_STENCIL_OP_KEEP;
-	stencil_state.passOp      = VK_STENCIL_OP_KEEP;
-	stencil_state.depthFailOp = VK_STENCIL_OP_KEEP;
-	stencil_state.compareOp   = VK_COMPARE_OP_ALWAYS;
-	stencil_state.compareMask = 0;
-	stencil_state.writeMask   = 0;
-	stencil_state.reference   = 0;
-
 	VkPipelineDepthStencilStateCreateInfo depth_stencil_info = {};
 	depth_stencil_info.sType                 = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
 	depth_stencil_info.depthTestEnable       = VK_TRUE;
 	depth_stencil_info.depthWriteEnable      = VK_TRUE;
-	depth_stencil_info.depthCompareOp        = VK_COMPARE_OP_LESS_OR_EQUAL;
+	depth_stencil_info.depthCompareOp        = VK_COMPARE_OP_LESS;
 	depth_stencil_info.depthBoundsTestEnable = VK_FALSE;
 	depth_stencil_info.stencilTestEnable     = VK_FALSE;
-	depth_stencil_info.front                 = stencil_state;
-	depth_stencil_info.back                  = stencil_state;
-	depth_stencil_info.minDepthBounds        = 0.0f;
-	depth_stencil_info.maxDepthBounds        = 0.0f;
 
 	VkPipelineMultisampleStateCreateInfo multisample_info = {};
 	multisample_info.sType                 = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
