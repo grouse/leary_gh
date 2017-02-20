@@ -318,7 +318,7 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 		                       game->font_texture);
 
 		game->text_vertices.vertex_count = 0;
-		game->text_vertices.buffer = create_vertex_buffer(&game->vulkan, 1024*1024, nullptr);
+		game->text_vertices.buffer = create_vertex_buffer(&game->vulkan, 1024*1024);
 	}
 
 	game->key_state = (i32*)malloc(sizeof(i32) * 0xFF);

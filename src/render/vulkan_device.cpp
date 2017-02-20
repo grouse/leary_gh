@@ -1847,32 +1847,6 @@ VulkanBuffer create_buffer(VulkanDevice *device,
 
 	result = vkBindBufferMemory(device->handle, buffer.handle, buffer.memory, 0);
 	DEBUG_ASSERT(result == VK_SUCCESS);
-
-	return buffer;
-}
-
-VulkanBuffer create_vertex_buffer(VulkanDevice *device, usize size, void *data)
-{
-	u8 *bytes = (u8*)data;
-
-	VulkanBuffer buffer = create_buffer(device,
-	                                    size,
-	                                    VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-	                                    VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-
-	if (data != nullptr)
-	{
-		void* memptr;
-		VkResult result = vkMapMemory(device->handle,
-		                              buffer.memory,
-		                              0, VK_WHOLE_SIZE,
-		                              0, &memptr);
-		DEBUG_ASSERT(result == VK_SUCCESS);
-
-		memcpy(memptr, bytes, size);
-		vkUnmapMemory(device->handle, buffer.memory);
-	}
-
 	return buffer;
 }
 
@@ -1888,6 +1862,36 @@ void copy_buffer(VulkanDevice *device, VkBuffer src, VkBuffer dst, VkDeviceSize 
 	vkCmdCopyBuffer(command, src, dst, 1, &region);
 
 	end_command_buffer(device, command);
+}
+
+VulkanBuffer create_vertex_buffer(VulkanDevice *device, usize size, void *data)
+{
+	VulkanBuffer staging = create_buffer(device, size,
+	                                     VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+	                                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+	                                     VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+	void *mapped;
+	vkMapMemory(device->handle, staging.memory, 0, size, 0, &mapped);
+	memcpy(mapped, data, size);
+	vkUnmapMemory(device->handle, staging.memory);
+
+	VulkanBuffer vbo = create_buffer(device, size,
+	                                 VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+	                                 VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+	                                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	copy_buffer(device, staging.handle, vbo.handle, size);
+	destroy(device, staging);
+
+	return vbo;
+}
+
+VulkanBuffer create_vertex_buffer(VulkanDevice *device, usize size)
+{
+	VulkanBuffer vbo = create_buffer(device, size,
+	                                 VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+	                                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+	return vbo;
 }
 
 VulkanBuffer create_index_buffer(VulkanDevice *device,
