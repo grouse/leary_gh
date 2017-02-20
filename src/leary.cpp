@@ -70,26 +70,25 @@ struct GameState {
 	VulkanTexture       font_texture;
 
 	stbtt_bakedchar     baked_font[256];
-	RenderedText        rendered_text;
-	RenderedText        debug_text;
+
 	char                *text_buffer;
+	RenderedText        text_vertices;
 
 	i32 *key_state;
 };
 
-RenderedText render_font(GameState *game, float x, float y, const char *str)
+void render_font(GameState *game, RenderedText *text,
+                 const char *str, float x, float y)
 {
-	RenderedText text = {};
-
 	i32 offset = 0;
 
 	usize text_length = strlen(str);
-	if (text_length == 0) return text;
+	if (text_length == 0) return;
 
 	usize vertices_size = sizeof(f32)*30*text_length;
 	f32 *vertices = (f32*)malloc(vertices_size);
 
-	text.vertex_count = (i32)(text_length * 6);
+	text->vertex_count = (i32)(text_length * 6);
 
 	Matrix4f camera = translate(game->ui_camera, {x, y, 0.0f});
 
@@ -148,8 +147,13 @@ RenderedText render_font(GameState *game, float x, float y, const char *str)
 		vertices[offset++] = q.t0;
 	}
 
-	text.buffer = create_vertex_buffer(&game->vulkan, vertices_size, vertices);
-	return text;
+	void *mapped;
+	vkMapMemory(game->vulkan.handle, text->buffer.memory,
+	            0, VK_WHOLE_SIZE,
+	            0, &mapped);
+
+	memcpy(mapped, vertices, vertices_size);
+	vkUnmapMemory(game->vulkan.handle, text->buffer.memory);
 }
 
 
@@ -313,8 +317,8 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 		                       game->font_pipeline,
 		                       game->font_texture);
 
-		game->rendered_text = render_font(game, 0.0f, 0.0f, "Hello, World!");
-		game->debug_text = render_font(game, 0.0f, 0.0f, "frame time:");
+		game->text_vertices.vertex_count = 0;
+		game->text_vertices.buffer = create_vertex_buffer(&game->vulkan, 1024*1024, nullptr);
 	}
 
 	game->key_state = (i32*)malloc(sizeof(i32) * 0xFF);
@@ -328,8 +332,7 @@ void game_quit(GameState *game, Settings *settings)
 	VAR_UNUSED(settings);
 	vkQueueWaitIdle(game->vulkan.queue);
 
-	destroy(&game->vulkan, game->rendered_text.buffer);
-	destroy(&game->vulkan, game->debug_text.buffer);
+	destroy(&game->vulkan, game->text_vertices.buffer);
 	destroy(&game->vulkan, game->font_texture);
 	destroy(&game->vulkan, game->font_pipeline);
 
@@ -438,9 +441,6 @@ void game_input(GameState *game, Settings *settings, InputEvent event)
 void game_profile_collate(GameState* game, f32 dt)
 {
 	PROFILE_FUNCTION();
-	if (game->debug_text.vertex_count > 0) {
-		destroy(&game->vulkan, game->debug_text.buffer);
-	}
 
 	for (i32 i = 0; i < g_profile_timers_prev.index - 1; i++) {
 		for (i32 j = i+1; j < g_profile_timers_prev.index; j++) {
@@ -480,7 +480,7 @@ void game_profile_collate(GameState* game, f32 dt)
 		buffer_size -= bytes;
 	}
 
-	game->debug_text = render_font(game, -1.0f, -1.0f, game->text_buffer);
+	render_font(game, &game->text_vertices, game->text_buffer, -1.0f, -1.0f);
 }
 
 void game_update(GameState* game, f32 dt)
@@ -567,14 +567,11 @@ void game_render(GameState *game)
 	                        0, nullptr);
 
 
-	vkCmdBindVertexBuffers(command, 0, 1, &game->rendered_text.buffer.handle,
-	                       offsets);
-	vkCmdDraw(command, game->rendered_text.vertex_count, 1, 0, 0);
 
-	if (game->debug_text.vertex_count > 0) {
+	if (game->text_vertices.vertex_count > 0) {
 		vkCmdBindVertexBuffers(command, 0, 1,
-		                       &game->debug_text.buffer.handle, offsets);
-		vkCmdDraw(command, game->debug_text.vertex_count, 1, 0, 0);
+		                       &game->text_vertices.buffer.handle, offsets);
+		vkCmdDraw(command, game->text_vertices.vertex_count, 1, 0, 0);
 	}
 
 
