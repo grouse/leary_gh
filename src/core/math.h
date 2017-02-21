@@ -27,6 +27,8 @@
 
 #include <math.h>
 
+#define PI 3.1415942
+
 #define MIN(a, b) (a) < (b) ? (a) : (b)
 #define MAX(a, b) (a) > (b) ? (a) : (b)
 
@@ -75,13 +77,27 @@ struct Matrix4f {
 		f32 tan_hvfov = tan(vfov / 2.0f);
 		result.columns[0].x = 1.0f / (aspect * tan_hvfov);
 		result.columns[1].y = -1.0f / (tan_hvfov);
+		result.columns[2].w = -1.0f;
+
+#if 0
+		result.columns[2].z = -(far + near) / (far - near);
+		result.columns[3].z = -(2.0f * far * near) / (far - near);
+#else
 		result.columns[2].z = far / (near - far);
-		result.columns[2].w = - 1.0f;
 		result.columns[3].z = -(far * near) / (far - near);
+#endif
+
 
 		return result;
 	}
 };
+
+
+inline constexpr f32 radians(f32 degrees)
+{
+	return degrees * PI / 180;
+}
+
 
 /*******************************************************************************
  * Vector3f function declarations
@@ -133,6 +149,7 @@ inline Vector4f operator *= (Vector4f lhs, f32 rhs);
  * Matrix4f function declarations
  ******************************************************************************/
 inline Matrix4f translate(Matrix4f mat, Vector3f v);
+inline Matrix4f rotate(Matrix4f mat, f32 angle, Vector3f axis);
 
 /*******************************************************************************
  * Matrix4f operator declarations
@@ -188,6 +205,44 @@ inline Matrix4f translate(Matrix4f m, Vector3f v)
 	result.columns[3].x += v.x;
 	result.columns[3].y += v.y;
 	result.columns[3].z += v.z;
+	return result;
+}
+
+inline Matrix4f rotate(Matrix4f mat, f32 angle, Vector3f v)
+{
+	f32 c = cos(angle);
+	f32 s = sin(angle);
+
+	Vector3f axis = normalise(v);
+	Vector3f tmp = (1.0f - c) * axis;
+
+	Matrix4f rmat;
+	rmat.columns[0].x = c + tmp.x * axis.x;
+	rmat.columns[0].y = tmp.x * axis.y + s * axis.z;
+	rmat.columns[0].z = tmp.x * axis.z - s * axis.y;
+
+	rmat.columns[1].x = tmp.y * axis.x - s * axis.z;
+	rmat.columns[1].y = c + tmp.y * axis.y;
+	rmat.columns[1].z = tmp.y * axis.z + s * axis.x;
+
+	rmat.columns[2].x = tmp.z * axis.x + s * axis.y;
+	rmat.columns[2].y = tmp.z * axis.y - s * axis.x;
+	rmat.columns[2].z = c + tmp.z * axis.z;
+
+	Matrix4f result;
+	result.columns[0] = mat.columns[0] * rmat.columns[0].x +
+	                    mat.columns[1] * rmat.columns[0].y +
+	                    mat.columns[2] * rmat.columns[0].z;
+
+	result.columns[1] = mat.columns[0] * rmat.columns[1].x +
+	                    mat.columns[1] * rmat.columns[1].y +
+	                    mat.columns[2] * rmat.columns[1].z;
+
+	result.columns[2] = mat.columns[0] * rmat.columns[2].x +
+	                    mat.columns[1] * rmat.columns[2].y +
+	                    mat.columns[2] * rmat.columns[2].z;
+
+	result.columns[3] = mat.columns[3];
 	return result;
 }
 

@@ -669,8 +669,7 @@ VulkanPipeline create_font_pipeline(VulkanDevice *device)
 	raster_info.depthClampEnable        = VK_FALSE;
 	raster_info.rasterizerDiscardEnable = VK_FALSE;
 	raster_info.polygonMode             = VK_POLYGON_MODE_FILL;
-	raster_info.cullMode                = VK_CULL_MODE_BACK_BIT;
-	raster_info.frontFace               = VK_FRONT_FACE_CLOCKWISE;
+	raster_info.cullMode                = VK_CULL_MODE_NONE;
 	raster_info.depthBiasEnable         = VK_FALSE;
 	raster_info.lineWidth               = 1.0;
 
@@ -914,9 +913,7 @@ VulkanPipeline create_pipeline(VulkanDevice *device)
 	raster_info.depthClampEnable        = VK_FALSE;
 	raster_info.rasterizerDiscardEnable = VK_FALSE;
 	raster_info.polygonMode             = VK_POLYGON_MODE_FILL;
-	raster_info.cullMode                = VK_CULL_MODE_BACK_BIT;
-	// TODO(jesper): look into this
-	raster_info.frontFace               = VK_FRONT_FACE_CLOCKWISE;
+	raster_info.cullMode                = VK_CULL_MODE_NONE;
 	raster_info.depthBiasEnable         = VK_FALSE;
 	raster_info.lineWidth               = 1.0;
 
@@ -1367,7 +1364,7 @@ VulkanDevice create_device(Settings *settings, PlatformState *platform)
 		app_info.pApplicationName   = "leary";
 		app_info.applicationVersion = 1;
 		app_info.pEngineName        = "leary";
-		app_info.apiVersion         = VK_MAKE_VERSION(1, 0, 39);
+		app_info.apiVersion         = VK_MAKE_VERSION(1, 0, 37);
 
 		VkInstanceCreateInfo create_info = {};
 		create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;

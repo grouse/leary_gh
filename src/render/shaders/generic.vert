@@ -21,7 +21,7 @@ layout(location = 1) out vec2 frag_texture_coordinate;
 
 void main()
 {
-	gl_Position = camera.projection * camera.view * model.transform * vec4(position, 1.0);
+	gl_Position = camera.projection * camera.view * model.transform * vec4(position.xy, 0.0, 1.0);
 	frag_color = color;
 	frag_texture_coordinate = texture_coordinate;
 }
