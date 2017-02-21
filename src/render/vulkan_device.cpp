@@ -706,18 +706,6 @@ VulkanPipeline create_font_pipeline(VulkanDevice *device)
 	stencil_state.writeMask   = 0;
 	stencil_state.reference   = 0;
 
-	VkPipelineDepthStencilStateCreateInfo depth_stencil_info = {};
-	depth_stencil_info.sType                 = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-	depth_stencil_info.depthTestEnable       = VK_TRUE;
-	depth_stencil_info.depthWriteEnable      = VK_TRUE;
-	depth_stencil_info.depthCompareOp        = VK_COMPARE_OP_LESS_OR_EQUAL;
-	depth_stencil_info.depthBoundsTestEnable = VK_FALSE;
-	depth_stencil_info.stencilTestEnable     = VK_FALSE;
-	depth_stencil_info.front                 = stencil_state;
-	depth_stencil_info.back                  = stencil_state;
-	depth_stencil_info.minDepthBounds        = 0.0f;
-	depth_stencil_info.maxDepthBounds        = 0.0f;
-
 	VkPipelineMultisampleStateCreateInfo multisample_info = {};
 	multisample_info.sType                 = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
 	multisample_info.rasterizationSamples  = VK_SAMPLE_COUNT_1_BIT;
@@ -749,7 +737,6 @@ VulkanPipeline create_font_pipeline(VulkanDevice *device)
 	pipeline_info.pViewportState      = &viewport_info;
 	pipeline_info.pRasterizationState = &raster_info;
 	pipeline_info.pMultisampleState   = &multisample_info;
-	pipeline_info.pDepthStencilState  = &depth_stencil_info;
 	pipeline_info.pColorBlendState    = &color_blend_info;
 	pipeline_info.layout              = pipeline.layout;
 	pipeline_info.renderPass          = device->renderpass;
@@ -935,14 +922,6 @@ VulkanPipeline create_pipeline(VulkanDevice *device)
 	color_blend_info.blendConstants[2] = 0.0f;
 	color_blend_info.blendConstants[3] = 0.0f;
 
-	VkPipelineDepthStencilStateCreateInfo depth_stencil_info = {};
-	depth_stencil_info.sType                 = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-	depth_stencil_info.depthTestEnable       = VK_TRUE;
-	depth_stencil_info.depthWriteEnable      = VK_TRUE;
-	depth_stencil_info.depthCompareOp        = VK_COMPARE_OP_LESS;
-	depth_stencil_info.depthBoundsTestEnable = VK_FALSE;
-	depth_stencil_info.stencilTestEnable     = VK_FALSE;
-
 	VkPipelineMultisampleStateCreateInfo multisample_info = {};
 	multisample_info.sType                 = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
 	multisample_info.rasterizationSamples  = VK_SAMPLE_COUNT_1_BIT;
@@ -974,7 +953,6 @@ VulkanPipeline create_pipeline(VulkanDevice *device)
 	pipeline_info.pViewportState      = &viewport_info;
 	pipeline_info.pRasterizationState = &raster_info;
 	pipeline_info.pMultisampleState   = &multisample_info;
-	pipeline_info.pDepthStencilState  = &depth_stencil_info;
 	pipeline_info.pColorBlendState    = &color_blend_info;
 	pipeline_info.layout              = pipeline.layout;
 	pipeline_info.renderPass          = device->renderpass;
@@ -1633,7 +1611,6 @@ VulkanDevice create_device(Settings *settings, PlatformState *platform)
 		subpass_description.colorAttachmentCount    = (u32)attachment_references.size();
 		subpass_description.pColorAttachments       = attachment_references.data();
 		subpass_description.pResolveAttachments     = nullptr;
-		subpass_description.pDepthStencilAttachment = nullptr;
 		subpass_description.preserveAttachmentCount = 0;
 		subpass_description.pPreserveAttachments    = nullptr;
 

@@ -201,7 +201,7 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 
 #if 1
 	Vector3f origin = {0.0f, 0.0f, 0.0f};
-	Vector3f eye    = {2.0f, 2.0f, 2.0f};
+	Vector3f eye    = {1.0f, 1.0f, -1.0f};
 	Vector3f up     = {0.0f, 0.0f, 1.0f};
 
 	Vector3f f = normalise(origin - eye);
@@ -254,7 +254,7 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 
 	game->num_objects = 5;
 	game->positions  = (Matrix4f*) malloc(5 * sizeof(Matrix4f));
-	game->positions[0] = rotate(Matrix4f{}, radians(45.0f), Vector3f{0.0f, 0.0f, 1.0f});
+	game->positions[0] = translate(Matrix4f::identity(), Vector3f{0.0f, 1.0f, 0.0f});
 
 	VkResult result;
 
@@ -495,7 +495,7 @@ void game_update(GameState* game, f32 dt)
 
 	game_profile_collate(game, dt);
 
-#if 0
+#if 1
 	game->camera.view = translate(game->camera.view, dt * game->velocity);
 	game->positions[0] = translate(game->positions[0],
 	                               dt * game->player_velocity);
