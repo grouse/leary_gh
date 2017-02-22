@@ -825,7 +825,7 @@ VulkanPipeline create_pipeline(VulkanDevice *device)
 	VkPushConstantRange push_constants = {};
 	push_constants.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 	push_constants.offset = 0;
-	push_constants.size = sizeof(Matrix4f);
+	push_constants.size = sizeof(Matrix4);
 
 	VkPipelineLayoutCreateInfo layout_info = {};
 	layout_info.sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;

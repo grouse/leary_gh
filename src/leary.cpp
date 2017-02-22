@@ -31,8 +31,8 @@ enum InputAction {
 };
 
 struct Camera {
-	Matrix4f view;
-	Matrix4f projection;
+	Matrix4 view;
+	Matrix4 projection;
 };
 
 struct RenderedText {
@@ -54,17 +54,17 @@ struct GameState {
 
 	i32                 num_objects;
 	RenderObject        object;
-	Matrix4f            *positions;
+	Matrix4            *positions;
 
 	VkCommandBuffer     *command_buffers;
 
 	Camera              camera;
 	VulkanUniformBuffer camera_ubo;
 
-	Matrix4f            ui_camera;
+	Matrix4            ui_camera;
 
-	Vector3f            velocity = {};
-	Vector3f            player_velocity = {};
+	Vector3            velocity = {};
+	Vector3            player_velocity = {};
 
 	VulkanPipeline      font_pipeline;
 	VulkanTexture       font_texture;
@@ -90,7 +90,7 @@ void render_font(GameState *game, RenderedText *text,
 
 	text->vertex_count = (i32)(text_length * 6);
 
-	Matrix4f camera = translate(game->ui_camera, {x, y, 0.0f});
+	Matrix4 camera = translate(game->ui_camera, {x, y, 0.0f});
 
 	float tmp_x = 0.0f, tmp_y = 0.0f;
 
@@ -105,10 +105,10 @@ void render_font(GameState *game, RenderedText *text,
 		stbtt_aligned_quad q = {};
 		stbtt_GetBakedQuad(game->baked_font, 1024, 1024, c, &tmp_x, &tmp_y, &q, 1);
 
-		Vector3f tl = camera * Vector3f{q.x0, q.y0 + 15.0f, 0.0f};
-		Vector3f tr = camera * Vector3f{q.x1, q.y0 + 15.0f, 0.0f};
-		Vector3f br = camera * Vector3f{q.x1, q.y1 + 15.0f, 0.0f};
-		Vector3f bl = camera * Vector3f{q.x0, q.y1 + 15.0f, 0.0f};
+		Vector3 tl = camera * Vector3{q.x0, q.y0 + 15.0f, 0.0f};
+		Vector3 tr = camera * Vector3{q.x1, q.y0 + 15.0f, 0.0f};
+		Vector3 br = camera * Vector3{q.x1, q.y1 + 15.0f, 0.0f};
+		Vector3 bl = camera * Vector3{q.x0, q.y1 + 15.0f, 0.0f};
 
 		vertices[offset++] = tl.x;
 		vertices[offset++] = tl.y;
@@ -188,10 +188,10 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 	VAR_UNUSED(platform);
 	game->vulkan = create_device(settings, platform);
 
-	Vector4f *pixels = new Vector4f[32*32];
-	pixels[0]     = { 1.0f, 0.0f, 0.0f, 1.0f };
-	pixels[31]    = { 0.0f, 1.0f, 0.0f, 1.0f };
-	pixels[1023]     = { 0.0f, 0.0f, 1.0f, 1.0f };
+	Vector4 *pixels = new Vector4[32*32];
+	pixels[0]    = { 1.0f, 0.0f, 0.0f, 1.0f };
+	pixels[31]   = { 0.0f, 1.0f, 0.0f, 1.0f };
+	pixels[1023] = { 0.0f, 0.0f, 1.0f, 1.0f };
 
 	VkComponentMapping components = {};
 	game->texture = create_texture(&game->vulkan,
@@ -199,52 +199,21 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 	                               pixels, components);
 	delete[] pixels;
 
-#if 1
-	Vector3f origin = {0.0f, 0.0f, 0.0f};
-	Vector3f eye    = {1.0f, 1.0f, -1.0f};
-	Vector3f up     = {0.0f, 0.0f, 1.0f};
-
-	Vector3f f = normalise(origin - eye);
-	Vector3f s = normalise(cross(f, up));
-	Vector3f u = cross(s, f);
-
-	Matrix4f view   = Matrix4f::identity();
-	view.columns[0].x = s.x;
-	view.columns[1].x = s.y;
-	view.columns[2].x = s.z;
-	view.columns[0].y = u.x;
-	view.columns[1].y = u.y;
-	view.columns[2].y = u.z;
-	view.columns[0].z = -f.x;
-	view.columns[1].z = -f.y;
-	view.columns[2].z = -f.z;
-	view.columns[3].x = -dot(s, eye);
-	view.columns[3].y = -dot(u, eye);
-	view.columns[3].z =  dot(f, eye);
-#else
-	Matrix4f view   = Matrix4f::identity();
-#endif
-
-	game->camera.view = view;
+	game->camera.view = look_at({0.0f, 0.0f, 1.0f}, {0.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f});
 
 #if 0
 	f32 left   = - (f32)settings->video.resolution.width / 2.0f;
 	f32 right  =   (f32)settings->video.resolution.width / 2.0f;
 	f32 bottom = - (f32)settings->video.resolution.height / 2.0f;
 	f32 top    =   (f32)settings->video.resolution.height / 2.0f;
-	game->camera.projection = Matrix4f::orthographic(left, right, top, bottom, 0.0f, 1.0f);
-#elseif 0
-	f32 width = (f32)settings->video.resolution.width;
-	f32 height = (f32)settings->video.resolution.height;
-	game->camera.projection = Matrix4f::perspective(0.785398, width / height, 0.1f, 10.0f);
+	game->camera.projection = Matrix4::orthographic(left, right, top, bottom, 0.0f, 1.0f);
 #else
 	f32 width = (f32)settings->video.resolution.width;
 	f32 height = (f32)settings->video.resolution.height;
 
 	f32 aspect = width / height;
 	f32 vfov   = radians(45.0f);
-	game->camera.projection = Matrix4f::perspective(vfov, aspect, 0.1f, 10.0f);
-
+	game->camera.projection = Matrix4::perspective(vfov, aspect, 0.1f, 10.0f);
 #endif
 
 	game->camera_ubo = create_uniform_buffer(&game->vulkan, sizeof(Camera));
@@ -253,8 +222,8 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 
 
 	game->num_objects = 5;
-	game->positions  = (Matrix4f*) malloc(5 * sizeof(Matrix4f));
-	game->positions[0] = translate(Matrix4f::identity(), Vector3f{0.0f, 1.0f, 0.0f});
+	game->positions  = (Matrix4*) malloc(5 * sizeof(Matrix4));
+	game->positions[0] = translate(Matrix4::identity(), {0.0f, 0.0f, -4.0f});
 
 	VkResult result;
 
@@ -271,7 +240,7 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 	DEBUG_ASSERT(result == VK_SUCCESS);
 
 	f32 vertices[] = {
-		-0.5f, -0.5f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f,  0.0f,
+		-0.5f, -0.5f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
 		 0.5f, -0.5f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f,
 		 0.5f,  0.5f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f,
 		-0.5f,  0.5f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f,
@@ -295,12 +264,12 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 
 
 	{
-		Matrix4f ui_camera = Matrix4f::identity();
+		Matrix4 ui_camera = Matrix4::identity();
 		f32 width  = (f32)settings->video.resolution.width;
 		f32 height = (f32)settings->video.resolution.height;
-		ui_camera.columns[0].x = 2.0f / width;
-		ui_camera.columns[1].y = 2.0f / height;
-		ui_camera.columns[2].z = 1.0f;
+		ui_camera[0].x = 2.0f / width;
+		ui_camera[1].y = 2.0f / height;
+		ui_camera[2].z = 1.0f;
 		game->ui_camera = ui_camera;
 
 		game->font_pipeline = create_font_pipeline(&game->vulkan);
@@ -369,10 +338,10 @@ void game_input(GameState *game, Settings *settings, InputEvent event)
 			game_quit(game, settings);
 			break;
 		case VirtualKey_W:
-			game->velocity.z = -0.7f;
+			game->velocity.z = -1.0f;
 			break;
 		case VirtualKey_S:
-			game->velocity.z = 0.7f;
+			game->velocity.z = 1.0f;
 			break;
 		case VirtualKey_A:
 			game->velocity.x = -1.0f;
@@ -495,14 +464,7 @@ void game_update(GameState* game, f32 dt)
 
 	game_profile_collate(game, dt);
 
-#if 1
-	game->camera.view = translate(game->camera.view, dt * game->velocity);
-	game->positions[0] = translate(game->positions[0],
-	                               dt * game->player_velocity);
-	update_uniform_data(&game->vulkan, game->camera_ubo,
-	                    &game->camera, 0, sizeof(Camera));
-#endif
-
+	game->positions[0] = translate(game->positions[0], dt * game->velocity);
 }
 
 void game_render(GameState *game)
@@ -557,13 +519,13 @@ void game_render(GameState *game)
 		vkCmdPushConstants(command,
 		                   game->pipeline.layout,
 		                   VK_SHADER_STAGE_VERTEX_BIT,
-		                   0, sizeof(Matrix4f),
+		                   0, sizeof(Matrix4),
 		                   &game->positions[i]);
 		vkCmdDrawIndexed(command, game->object.vertex_count, 1, 0, 0, 0);
 	}
 #else
 	vkCmdPushConstants(command, game->pipeline.layout, VK_SHADER_STAGE_VERTEX_BIT,
-	                   0, sizeof(Matrix4f), &game->positions[0]);
+	                   0, sizeof(Matrix4), &game->positions[0]);
 	vkCmdDrawIndexed(command, game->object.vertex_count, 1, 0, 0, 0);
 #endif
 
