@@ -15,6 +15,8 @@
 #include "core/types.h"
 #include "core/tokenizer.cpp"
 
+#define PROFILE_TIMERS_ENABLE 0
+
 #if defined(_WIN32)
 #include "platform/win32_debug.cpp"
 #include "platform/win32_file.cpp"
@@ -30,6 +32,8 @@ enum VariableType {
 	VariableType_uint32,
 	VariableType_int16,
 	VariableType_uint16,
+
+	VariableType_f32,
 
 	VariableType_resolution,
 	VariableType_video_settings,
@@ -49,8 +53,6 @@ struct StructInfo {
 	i32  num_members;
 	TypeInfo *members;
 };
-
-
 
 char *string_duplicate(char *src, usize size)
 {
@@ -85,9 +87,11 @@ VariableType variable_type(Token token)
 	{
 		result = VariableType_int16;
 	} else if (is_identifier(token, "uint16_t") ||
-	          is_identifier(token, "u16"))
+	           is_identifier(token, "u16"))
 	{
 		result = VariableType_uint16;
+	} else if (is_identifier(token, "f32")) {
+		result = VariableType_f32;
 	} else if (is_identifier(token, "Resolution")) {
 		result = VariableType_resolution;
 	} else if (is_identifier(token, "VideoSettings")) {
@@ -107,6 +111,8 @@ const char *variable_type_str(VariableType type)
 	CASE_RETURN_ENUM_STR(VariableType_uint32);
 	CASE_RETURN_ENUM_STR(VariableType_int16);
 	CASE_RETURN_ENUM_STR(VariableType_uint16);
+
+	CASE_RETURN_ENUM_STR(VariableType_f32);
 
 	CASE_RETURN_ENUM_STR(VariableType_resolution);
 	CASE_RETURN_ENUM_STR(VariableType_video_settings);
@@ -137,8 +143,12 @@ StructInfo parse_struct_type_info(Tokenizer tokenizer)
 
 		++struct_info.num_members;
 
-		do token = next_token(tmp);
-		while (token.type != Token::semicolon);
+		do {
+			token = next_token(tmp);
+			if (token.type == Token::comma) {
+				++struct_info.num_members;
+			}
+		} while (token.type != Token::semicolon);
 
 		token = peek_next_token(tmp);
 	} while (token.type == Token::identifier);
@@ -157,8 +167,17 @@ StructInfo parse_struct_type_info(Tokenizer tokenizer)
 		struct_info.members[index].type = member_type;
 		++index;
 
-		do token = next_token(tokenizer);
-		while (token.type != Token::semicolon);
+		do {
+			token = next_token(tokenizer);
+			if (token.type == Token::comma) {
+				token = next_token(tokenizer);
+
+				member_name = string_duplicate(token.str, token.length);
+				struct_info.members[index].name = member_name;
+				struct_info.members[index].type = member_type;
+				++index;
+			}
+		} while (token.type != Token::semicolon);
 
 		token = peek_next_token(tokenizer);
 	} while (token.type == Token::identifier);
@@ -238,7 +257,8 @@ int main(int argc, char **argv)
 	std::fprintf(output_file, "};\n\n");
 
 	const char *files[] = {
-		FILE_SEP "core" FILE_SEP "settings.h"
+		FILE_SEP "core" FILE_SEP "settings.h",
+		FILE_SEP "core" FILE_SEP "math.h"
 	};
 
 	std::vector<StructInfo> struct_infos;
@@ -256,7 +276,7 @@ int main(int argc, char **argv)
 
 		src = files[i];
 		while(*src) *dst++ = *src++;
-		*(dst+1) = '\0';
+		*(dst) = '\0';
 
 		usize size;
 		char *file = platform_file_read(file_path, &size);

@@ -87,14 +87,14 @@ void debug_print(const char *file,
 	char buffer[DEBUG_BUFFER_SIZE];
 
 	va_start(args, fmt);
-	i32 bytes = vsnprintf(message, DEBUG_BUFFER_SIZE, fmt, args);
+	i32 length = vsnprintf(message, DEBUG_BUFFER_SIZE, fmt, args);
 	va_end(args);
-	DEBUG_ASSERT(bytes < DEBUG_BUFFER_SIZE);
+	DEBUG_ASSERT(length < DEBUG_BUFFER_SIZE);
 
-	bytes = snprintf(buffer, DEBUG_BUFFER_SIZE, "%s:%d: %s: [%s] %s\n",
+	length = snprintf(buffer, DEBUG_BUFFER_SIZE, "%s:%d: %s: [%s] %s",
 	                  file, line, channel_str, function, message);
-	DEBUG_ASSERT(bytes < DEBUG_BUFFER_SIZE);
-	platform_debug_output(buffer, bytes);
+	DEBUG_ASSERT(length < DEBUG_BUFFER_SIZE);
+	platform_debug_output(buffer, length);
 }
 
 void debug_print(const char *file,
@@ -109,15 +109,21 @@ void debug_print(const char *file,
 	char buffer[DEBUG_BUFFER_SIZE];
 
 	va_start(args, fmt);
-	i32 bytes = vsnprintf(message, DEBUG_BUFFER_SIZE, fmt, args);
+	i32 length = vsnprintf(message, DEBUG_BUFFER_SIZE, fmt, args);
 	va_end(args);
-	DEBUG_ASSERT(bytes < DEBUG_BUFFER_SIZE);
+	DEBUG_ASSERT(length < DEBUG_BUFFER_SIZE);
 
-	bytes = snprintf(buffer, DEBUG_BUFFER_SIZE, "%s:%d: %s: [%s] %s\n",
+	length = snprintf(buffer, DEBUG_BUFFER_SIZE, "%s:%d: %s: [%s] %s",
 	                  file, line, channel_str, function, message);
-	DEBUG_ASSERT(bytes < DEBUG_BUFFER_SIZE);
-	platform_debug_output(buffer, bytes);
+	DEBUG_ASSERT(length< DEBUG_BUFFER_SIZE);
+	platform_debug_output(buffer, length);
 }
+
+#ifndef PROFILE_TIMERS_ENABLE
+#define PROFILE_TIMERS_ENABLE 1
+#endif
+
+#if PROFILE_TIMERS_ENABLE
 
 #if defined(_WIN32)
 	#include <intrin.h>
@@ -179,15 +185,6 @@ void end_profile_timer(i32 index, u64 cycles)
 	}
 }
 
-#define PROFILE_START(name)\
-	u64 start_##name = rdtsc();\
-	i32 profile_timer_id_##name = start_profile_timer(#name)
-
-#define PROFILE_END(name)\
-	u64 end_##name = rdtsc();\
-	u64 difference_##name = end_##name - start_##name;\
-	end_profile_timer(profile_timer_id_##name, difference_##name)
-
 struct ProfileBlock {
 	i32 id;
 	u64 start_cycles;
@@ -203,7 +200,29 @@ struct ProfileBlock {
 	}
 };
 
+#define PROFILE_START(name)\
+	u64 start_##name = rdtsc();\
+	i32 profile_timer_id_##name = start_profile_timer(#name)
+
+#define PROFILE_END(name)\
+	u64 end_##name = rdtsc();\
+	u64 difference_##name = end_##name - start_##name;\
+	end_profile_timer(profile_timer_id_##name, difference_##name)
+
 #define PROFILE_BLOCK(name) ProfileBlock profile_block_##name(#name)
 #define PROFILE_FUNCTION() ProfileBlock profile_block_##__FUNCTION__(__FUNCTION__)
+
+#else // PROFILE_TIMERS_ENABLE
+
+#define start_profile_timer(...)
+#define end_profile_timer(...)
+
+#define PROFILE_START(...)
+#define PROFILE_END(...)
+
+#define PROFILE_BLOCK(...)
+#define PROFILE_FUNCTION(...)
+
+#endif // PROFILE_TIMERS_ENABLE
 
 #endif // LEARY_DEBUG_H

@@ -27,10 +27,6 @@
 
 #include <cstdint>
 
-#ifndef INTROSPECT
-#define INTROSPECT
-#endif
-
 struct PlatformState;
 
 INTROSPECT struct Resolution

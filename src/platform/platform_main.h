@@ -43,6 +43,17 @@
 
 #include "core/types.h"
 
+#if defined(_WIN32)
+	#include <intrin.h>
+	#define rdtsc() __rdtsc()
+#elif defined(__linux__)
+	#include <x86intrin.h>
+	#define rdtsc() __rdtsc()
+#endif
+
+#ifndef INTROSPECT
+#define INTROSPECT
+#endif
 
 // NOTE: this is a union so that we can support multiple different windowing systems on the same
 // platform, e.g. Wayland and X11 on Linux.

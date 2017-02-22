@@ -32,11 +32,11 @@
 #define MIN(a, b) (a) < (b) ? (a) : (b)
 #define MAX(a, b) (a) > (b) ? (a) : (b)
 
-struct Vector3 {
+INTROSPECT struct Vector3 {
 	f32 x, y, z;
 };
 
-struct Vector4 {
+INTROSPECT struct Vector4 {
 	f32 x, y, z, w;
 };
 

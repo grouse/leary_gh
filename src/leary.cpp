@@ -199,7 +199,8 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 	                               pixels, components);
 	delete[] pixels;
 
-	game->camera.view = look_at({0.0f, 0.0f, 1.0f}, {0.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f});
+	//game->camera.view = look_at({0.0f, 0.0f, 1.0f}, {0.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f});
+	game->camera.view = Matrix4::identity();
 
 #if 0
 	f32 left   = - (f32)settings->video.resolution.width / 2.0f;
