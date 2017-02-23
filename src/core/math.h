@@ -144,6 +144,9 @@ inline Vector4& operator *= (Vector4 &lhs, f32      rhs);
  ******************************************************************************/
 inline Matrix4 translate(Matrix4 mat, Vector3 v);
 inline Matrix4 rotate(Matrix4 mat, f32 angle, Vector3 axis);
+inline Matrix4 rotate_x(Matrix4 mat, f32 angle);
+inline Matrix4 rotate_y(Matrix4 mat, f32 angle);
+inline Matrix4 rotate_z(Matrix4 mat, f32 angle);
 inline Matrix4 look_at(Vector3 eye, Vector3 origin, Vector3 up);
 
 /*******************************************************************************
@@ -224,6 +227,24 @@ inline Matrix4 rotate(Matrix4 mat, f32 angle, Vector3 v)
 	result[2] = mat[0] * rmat[2].x + mat[1] * rmat[2].y + mat[2] * rmat[2].z;
 	result[3] = mat[3];
 	return result;
+}
+
+inline Matrix4 rotate_x(Matrix4 mat, f32 angle)
+{
+	// TODO(jesper): optimise these as the axis is known
+	return rotate(mat, angle, {1.0f, 0.0f, 0.0f});
+}
+
+inline Matrix4 rotate_y(Matrix4 mat, f32 angle)
+{
+	// TODO(jesper): optimise these as the axis is known
+	return rotate(mat, angle, {0.0f, 1.0f, 0.0f});
+}
+
+inline Matrix4 rotate_z(Matrix4 mat, f32 angle)
+{
+	// TODO(jesper): optimise these as the axis is known
+	return rotate(mat, angle, {0.0f, 0.0f, 1.0f});
 }
 
 inline Matrix4 look_at(Vector3 eye, Vector3 origin, Vector3 up)

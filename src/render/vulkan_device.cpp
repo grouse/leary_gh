@@ -1840,6 +1840,7 @@ void copy_buffer(VulkanDevice *device, VkBuffer src, VkBuffer dst, VkDeviceSize 
 
 VulkanBuffer create_vertex_buffer(VulkanDevice *device, usize size, void *data)
 {
+#if 0 // upload to staging buffer then copy to device local
 	VulkanBuffer staging = create_buffer(device, size,
 	                                     VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
 	                                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
@@ -1856,6 +1857,15 @@ VulkanBuffer create_vertex_buffer(VulkanDevice *device, usize size, void *data)
 	                                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 	copy_buffer(device, staging.handle, vbo.handle, size);
 	destroy(device, staging);
+#else
+	VulkanBuffer vbo = create_buffer(device, size,
+	                                 VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+	                                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+	void *mapped;
+	vkMapMemory(device->handle, vbo.memory, 0, size, 0, &mapped);
+	memcpy(mapped, data, size);
+	vkUnmapMemory(device->handle, vbo.memory);
+#endif
 
 	return vbo;
 }

@@ -91,7 +91,7 @@ void debug_print(const char *file,
 	va_end(args);
 	DEBUG_ASSERT(length < DEBUG_BUFFER_SIZE);
 
-	length = snprintf(buffer, DEBUG_BUFFER_SIZE, "%s:%d: %s: [%s] %s",
+	length = snprintf(buffer, DEBUG_BUFFER_SIZE, "%s:%d: %s: [%s] %s\n",
 	                  file, line, channel_str, function, message);
 	DEBUG_ASSERT(length < DEBUG_BUFFER_SIZE);
 	platform_debug_output(buffer, length);
@@ -113,7 +113,7 @@ void debug_print(const char *file,
 	va_end(args);
 	DEBUG_ASSERT(length < DEBUG_BUFFER_SIZE);
 
-	length = snprintf(buffer, DEBUG_BUFFER_SIZE, "%s:%d: %s: [%s] %s",
+	length = snprintf(buffer, DEBUG_BUFFER_SIZE, "%s:%d: %s: [%s] %s\n",
 	                  file, line, channel_str, function, message);
 	DEBUG_ASSERT(length< DEBUG_BUFFER_SIZE);
 	platform_debug_output(buffer, length);

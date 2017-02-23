@@ -224,7 +224,9 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 
 	game->num_objects = 5;
 	game->positions  = (Matrix4*) malloc(5 * sizeof(Matrix4));
-	game->positions[0] = translate(Matrix4::identity(), {0.0f, 0.0f, -4.0f});
+
+	Matrix4 position = rotate_z(Matrix4::identity(), radians(30.0f));
+	game->positions[0] = translate(position, {0.0f, 0.0f, -4.0f});
 
 	VkResult result;
 
@@ -466,6 +468,9 @@ void game_update(GameState* game, f32 dt)
 	game_profile_collate(game, dt);
 
 	game->positions[0] = translate(game->positions[0], dt * game->velocity);
+	game->positions[0] = rotate_x(game->positions[0], dt * 1.0f);
+	game->positions[0] = rotate_y(game->positions[0], dt * 1.0f);
+	game->positions[0] = rotate_z(game->positions[0], dt * 1.0f);
 }
 
 void game_render(GameState *game)
