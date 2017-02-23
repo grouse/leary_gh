@@ -143,10 +143,10 @@ inline Vector4& operator *= (Vector4 &lhs, f32      rhs);
  * Matrix4 function declarations
  ******************************************************************************/
 inline Matrix4 translate(Matrix4 mat, Vector3 v);
-inline Matrix4 rotate(Matrix4 mat, f32 angle, Vector3 axis);
-inline Matrix4 rotate_x(Matrix4 mat, f32 angle);
-inline Matrix4 rotate_y(Matrix4 mat, f32 angle);
-inline Matrix4 rotate_z(Matrix4 mat, f32 angle);
+inline Matrix4 rotate(Matrix4 m, f32 theta, Vector3 axis);
+inline Matrix4 rotate_x(Matrix4 m, f32 theta);
+inline Matrix4 rotate_y(Matrix4 m, f32 theta);
+inline Matrix4 rotate_z(Matrix4 m, f32 theta);
 inline Matrix4 look_at(Vector3 eye, Vector3 origin, Vector3 up);
 
 /*******************************************************************************
@@ -200,32 +200,31 @@ inline Matrix4 translate(Matrix4 m, Vector3 v)
 	return result;
 }
 
-inline Matrix4 rotate(Matrix4 mat, f32 angle, Vector3 v)
+inline Matrix4 rotate(Matrix4 m, f32 theta, Vector3 axis)
 {
-	f32 c = cos(angle);
-	f32 s = sin(angle);
+	f32 c = cos(theta);
+	f32 s = sin(theta);
 
-	Vector3 axis = normalise(v);
 	Vector3 tmp = (1.0f - c) * axis;
 
-	Matrix4 rmat;
-	rmat[0].x = c + tmp.x * axis.x;
-	rmat[0].y = tmp.x * axis.y + s * axis.z;
-	rmat[0].z = tmp.x * axis.z - s * axis.y;
+	Matrix4 r;
+	r[0].x = c + tmp.x * axis.x;
+	r[0].y = tmp.x * axis.y + s * axis.z;
+	r[0].z = tmp.x * axis.z - s * axis.y;
 
-	rmat[1].x = tmp.y * axis.x - s * axis.z;
-	rmat[1].y = c + tmp.y * axis.y;
-	rmat[1].z = tmp.y * axis.z + s * axis.x;
+	r[1].x = tmp.y * axis.x - s * axis.z;
+	r[1].y = c + tmp.y * axis.y;
+	r[1].z = tmp.y * axis.z + s * axis.x;
 
-	rmat[2].x = tmp.z * axis.x + s * axis.y;
-	rmat[2].y = tmp.z * axis.y - s * axis.x;
-	rmat[2].z = c + tmp.z * axis.z;
+	r[2].x = tmp.z * axis.x + s * axis.y;
+	r[2].y = tmp.z * axis.y - s * axis.x;
+	r[2].z = c + tmp.z * axis.z;
 
 	Matrix4 result;
-	result[0] = mat[0] * rmat[0].x + mat[1] * rmat[0].y + mat[2] * rmat[0].z;
-	result[1] = mat[0] * rmat[1].x + mat[1] * rmat[1].y + mat[2] * rmat[1].z;
-	result[2] = mat[0] * rmat[2].x + mat[1] * rmat[2].y + mat[2] * rmat[2].z;
-	result[3] = mat[3];
+	result[0] = m[0] * r[0].x + m[1] * r[0].y + m[2] * r[0].z;
+	result[1] = m[0] * r[1].x + m[1] * r[1].y + m[2] * r[1].z;
+	result[2] = m[0] * r[2].x + m[1] * r[2].y + m[2] * r[2].z;
+	result[3] = m[3];
 	return result;
 }
 
