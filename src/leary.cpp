@@ -225,8 +225,7 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 	game->num_objects = 5;
 	game->positions  = (Matrix4*) malloc(5 * sizeof(Matrix4));
 
-	Matrix4 position = rotate_z(Matrix4::identity(), radians(30.0f));
-	game->positions[0] = translate(position, {0.0f, 0.0f, -4.0f});
+	game->positions[0] = translate(Matrix4::identity(), {0.0f, 0.0f, -4.0f});
 
 	VkResult result;
 

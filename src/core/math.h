@@ -229,22 +229,83 @@ inline Matrix4 rotate(Matrix4 mat, f32 angle, Vector3 v)
 	return result;
 }
 
-inline Matrix4 rotate_x(Matrix4 mat, f32 angle)
+inline Matrix4 rotate_x(Matrix4 m, f32 theta)
 {
-	// TODO(jesper): optimise these as the axis is known
-	return rotate(mat, angle, {1.0f, 0.0f, 0.0f});
+	f32 c = cos(theta);
+	f32 s = sin(theta);
+
+	Matrix4 r;
+	r[0].x = 1;
+	r[0].y = 0;
+	r[0].z = 0;
+
+	r[1].x = 0;
+	r[1].y = c;
+	r[1].z = s;
+
+	r[2].x = 0;
+	r[2].y = -s;
+	r[2].z = c;
+
+	Matrix4 result;
+	result[0] = m[0] * r[0].x;
+	result[1] = m[1] * r[1].y + m[2] * r[1].z;
+	result[2] = m[1] * r[2].y + m[2] * r[2].z;
+	result[3] = m[3];
+	return result;
 }
 
-inline Matrix4 rotate_y(Matrix4 mat, f32 angle)
+inline Matrix4 rotate_y(Matrix4 m, f32 theta)
 {
-	// TODO(jesper): optimise these as the axis is known
-	return rotate(mat, angle, {0.0f, 1.0f, 0.0f});
+	f32 c = cos(theta);
+	f32 s = sin(theta);
+
+	Matrix4 r;
+	r[0].x = c;
+	r[0].y = 0;
+	r[0].z = s;
+
+	r[1].x = 0;
+	r[1].y = 1;
+	r[1].z = 0;
+
+	r[2].x = -s;
+	r[2].y = 0;
+	r[2].z = c;
+
+	Matrix4 result;
+	result[0] = m[0] * r[0].x + m[2] * r[0].z;
+	result[1] = m[1] * r[1].y;
+	result[2] = m[0] * r[2].x + m[2] * r[2].z;
+	result[3] = m[3];
+	return result;
 }
 
-inline Matrix4 rotate_z(Matrix4 mat, f32 angle)
+inline Matrix4 rotate_z(Matrix4 m, f32 theta)
 {
-	// TODO(jesper): optimise these as the axis is known
-	return rotate(mat, angle, {0.0f, 0.0f, 1.0f});
+	f32 c = cos(theta);
+	f32 s = sin(theta);
+
+	Matrix4 r;
+	r[0].x = c;
+	r[0].y = s;
+	r[0].z = 0;
+
+	r[1].x = -s;
+	r[1].y = c;
+	r[1].z = 0;
+
+	r[2].x = 0;
+	r[2].y = 0;
+	r[2].z = 1;
+
+	Matrix4 result;
+	result[0] = m[0] * r[0].x + m[1] * r[0].y;
+	result[1] = m[0] * r[1].x + m[1] * r[1].y;
+	result[2] = m[2] * r[2].z;
+	result[3] = m[3];
+
+	return result;
 }
 
 inline Matrix4 look_at(Vector3 eye, Vector3 origin, Vector3 up)
