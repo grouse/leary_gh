@@ -1417,7 +1417,11 @@ VulkanDevice create_device(Settings *settings, PlatformState *platform)
 			          VK_VERSION_MAJOR(properties.apiVersion),
 			          VK_VERSION_MINOR(properties.apiVersion),
 			          VK_VERSION_PATCH(properties.apiVersion));
-			DEBUG_LOG("  driverVersion : %u", properties.driverVersion);
+			// NOTE(jesper): only confirmed to be accurate, by experimentation,
+			// on nvidia
+			DEBUG_LOG("  driverVersion : %u.%u",
+			          (properties.driverVersion >> 22),
+			          (properties.driverVersion >> 14) & 0xFF);
 			DEBUG_LOG("  vendorID      : 0x%X %s",
 			          properties.vendorID,
 			          vendor_string(properties.vendorID));

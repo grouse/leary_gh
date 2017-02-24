@@ -457,7 +457,7 @@ void game_update(GameState* game, f32 dt)
 	game->positions[0] = translate(game->positions[0], dt * game->velocity);
 	game->positions[0] = rotate_x(game->positions[0], dt * 1.0f);
 	game->positions[0] = rotate_y(game->positions[0], dt * 1.0f);
-	game->positions[0] = rotate_z(game->positions[0], dt * 1.0f);
+	//game->positions[0] = rotate_z(game->positions[0], dt * 1.0f);
 }
 
 void game_render(GameState *game)
