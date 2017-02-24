@@ -48,9 +48,16 @@ struct RenderObject {
 
 struct GameState {
 	VulkanDevice        vulkan;
-	VulkanPipeline      pipeline;
 
-	VulkanTexture       texture;
+	struct {
+		VulkanPipeline generic;
+		VulkanPipeline font;
+	} pipelines;
+
+	struct {
+		VulkanTexture generic;
+		VulkanTexture font;
+	} textures;
 
 	i32                 num_objects;
 	RenderObject        object;
@@ -65,9 +72,6 @@ struct GameState {
 
 	Vector3            velocity = {};
 	Vector3            player_velocity = {};
-
-	VulkanPipeline      font_pipeline;
-	VulkanTexture       font_texture;
 
 	stbtt_bakedchar     baked_font[256];
 
@@ -159,9 +163,7 @@ void render_font(GameState *game, RenderedText *text,
 
 void game_load_settings(Settings *settings)
 {
-	VAR_UNUSED(settings);
-	char *settings_path = platform_resolve_path(GamePath_preferences,
-	                                            "settings.conf");
+	char *settings_path = platform_resolve_path(GamePath_preferences, "settings.conf");
 	SERIALIZE_LOAD_CONF(settings_path, Settings, settings);
 	free(settings_path);
 }
@@ -194,9 +196,9 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 	pixels[1023] = { 0.0f, 0.0f, 1.0f, 1.0f };
 
 	VkComponentMapping components = {};
-	game->texture = create_texture(&game->vulkan,
-	                               32, 32, VK_FORMAT_R32G32B32A32_SFLOAT,
-	                               pixels, components);
+	game->textures.generic = create_texture(&game->vulkan,
+	                                        32, 32, VK_FORMAT_R32G32B32A32_SFLOAT,
+	                                        pixels, components);
 	delete[] pixels;
 
 	//game->camera.view = look_at({0.0f, 0.0f, 1.0f}, {0.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f});
@@ -258,10 +260,10 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 	                                           indices, sizeof(indices));
 	game->object.vertex_count = sizeof(indices) / sizeof(indices[0]);
 
-	game->pipeline = create_pipeline(&game->vulkan);
+	game->pipelines.generic = create_pipeline(&game->vulkan);
 	update_descriptor_sets(&game->vulkan,
-	                       game->pipeline,
-	                       game->texture,
+	                       game->pipelines.generic,
+	                       game->textures.generic,
 	                       game->camera_ubo);
 
 
@@ -274,7 +276,7 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 		ui_camera[2].z = 1.0f;
 		game->ui_camera = ui_camera;
 
-		game->font_pipeline = create_font_pipeline(&game->vulkan);
+		game->pipelines.font = create_font_pipeline(&game->vulkan);
 
 		usize font_size;
 		char *font_path = platform_resolve_path(GamePath_data,
@@ -286,13 +288,13 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 		                     256, game->baked_font);
 
 		components.a = VK_COMPONENT_SWIZZLE_R;
-		game->font_texture = create_texture(&game->vulkan, 1024, 1024,
+		game->textures.font = create_texture(&game->vulkan, 1024, 1024,
 		                                    VK_FORMAT_R8_UNORM, bitmap,
 		                                    components);
 
 		update_descriptor_sets(&game->vulkan,
-		                       game->font_pipeline,
-		                       game->font_texture);
+		                       game->pipelines.font,
+		                       game->textures.font);
 
 		game->text_vertices.vertex_count = 0;
 		game->text_vertices.buffer = create_vertex_buffer(&game->vulkan, 1024*1024);
@@ -310,22 +312,20 @@ void game_quit(GameState *game, Settings *settings)
 	vkQueueWaitIdle(game->vulkan.queue);
 
 	destroy(&game->vulkan, game->text_vertices.buffer);
-	destroy(&game->vulkan, game->font_texture);
-	destroy(&game->vulkan, game->font_pipeline);
+
+	destroy(&game->vulkan, game->textures.generic);
+	destroy(&game->vulkan, game->textures.font);
+
+	destroy(&game->vulkan, game->pipelines.generic);
+	destroy(&game->vulkan, game->pipelines.font);
 
 	destroy(&game->vulkan, game->object.vertices);
 	destroy(&game->vulkan, game->object.indices);
 	destroy(&game->vulkan, game->camera_ubo);
-	destroy(&game->vulkan, game->texture);
-	destroy(&game->vulkan, game->pipeline);
 	destroy(&game->vulkan);
 
-
-	char *settings_path = platform_resolve_path(GamePath_preferences,
-	                                            "settings.conf");
+	char *settings_path = platform_resolve_path(GamePath_preferences, "settings.conf");
 	SERIALIZE_SAVE_CONF(settings_path, Settings, settings);
-	free(settings_path);
-
 	platform_quit();
 }
 
@@ -505,14 +505,14 @@ void game_render(GameState *game)
 
 	vkCmdBindPipeline(command,
 	                  VK_PIPELINE_BIND_POINT_GRAPHICS,
-	                  game->pipeline.handle);
+	                  game->pipelines.generic.handle);
 
 
 	vkCmdBindDescriptorSets(command,
 	                        VK_PIPELINE_BIND_POINT_GRAPHICS,
-	                        game->pipeline.layout,
+	                        game->pipelines.generic.layout,
 	                        0,
-	                        1, &game->pipeline.descriptor_set,
+	                        1, &game->pipelines.generic.descriptor_set,
 	                        0, nullptr);
 
 	vkCmdBindVertexBuffers(command, 0, 1, &game->object.vertices.handle, offsets);
@@ -522,14 +522,14 @@ void game_render(GameState *game)
 #if 0
 	for (i32 i = 0; i < game->num_objects; i++) {
 		vkCmdPushConstants(command,
-		                   game->pipeline.layout,
+		                   game->pipelines.generic.layout,
 		                   VK_SHADER_STAGE_VERTEX_BIT,
 		                   0, sizeof(Matrix4),
 		                   &game->positions[i]);
 		vkCmdDrawIndexed(command, game->object.vertex_count, 1, 0, 0, 0);
 	}
 #else
-	vkCmdPushConstants(command, game->pipeline.layout, VK_SHADER_STAGE_VERTEX_BIT,
+	vkCmdPushConstants(command, game->pipelines.generic.layout, VK_SHADER_STAGE_VERTEX_BIT,
 	                   0, sizeof(Matrix4), &game->positions[0]);
 	vkCmdDrawIndexed(command, game->object.vertex_count, 1, 0, 0, 0);
 #endif
@@ -537,14 +537,14 @@ void game_render(GameState *game)
 
 	vkCmdBindPipeline(command,
 	                  VK_PIPELINE_BIND_POINT_GRAPHICS,
-	                  game->font_pipeline.handle);
+	                  game->pipelines.font.handle);
 
 
 	vkCmdBindDescriptorSets(command,
 	                        VK_PIPELINE_BIND_POINT_GRAPHICS,
-	                        game->font_pipeline.layout,
+	                        game->pipelines.font.layout,
 	                        0,
-	                        1, &game->font_pipeline.descriptor_set,
+	                        1, &game->pipelines.font.descriptor_set,
 	                        0, nullptr);
 
 
