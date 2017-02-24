@@ -18,18 +18,6 @@
 #include "external/stb/stb_rect_pack.h"
 #include "external/stb/stb_truetype.h"
 
-enum InputAction {
-	InputAction_move_vertical_start,
-	InputAction_move_horizontal_start,
-	InputAction_move_vertical_end,
-	InputAction_move_horizontal_end,
-
-	InputAction_move_player_vertical_start,
-	InputAction_move_player_horizontal_start,
-	InputAction_move_player_vertical_end,
-	InputAction_move_player_horizontal_end
-};
-
 struct Camera {
 	Matrix4 view;
 	Matrix4 projection;
