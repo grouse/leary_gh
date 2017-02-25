@@ -104,6 +104,8 @@ inline Vector3 normalise (Vector3 v);
 /*******************************************************************************
  * Vector3 operator declarations
  ******************************************************************************/
+inline Vector3  operator - (Vector3 v);
+
 inline Vector3  operator +  (Vector3 lhs,  Vector3 rhs);
 inline Vector3  operator +  (Vector3 lhs,  f32      rhs);
 inline Vector3  operator +  (f32      lhs,  Vector3 rhs);
@@ -153,6 +155,7 @@ inline Matrix4 look_at(Vector3 eye, Vector3 origin, Vector3 up);
  * Matrix4 operator declarations
  ******************************************************************************/
 inline Vector3 operator * (Matrix4 lhs, Vector3 rhs);
+inline Matrix4 operator * (Matrix4 lhs, Matrix4 rhs);
 
 
 /*******************************************************************************
@@ -341,10 +344,40 @@ inline Vector3 operator * (Matrix4 lhs, Vector3 rhs)
 	return result;
 }
 
+inline Matrix4 operator * (Matrix4 lhs, Matrix4 rhs)
+{
+	Matrix4 result = {};
+	result[0].x = lhs[0].x * rhs[0].x + lhs[1].x * rhs[0].y + lhs[2].x * rhs[0].z + lhs[3].x * rhs[0].w;
+	result[0].y = lhs[0].y * rhs[0].x + lhs[1].y * rhs[0].y + lhs[2].y * rhs[0].z + lhs[3].y * rhs[0].w;
+	result[0].z = lhs[0].z * rhs[0].x + lhs[1].z * rhs[0].y + lhs[2].z * rhs[0].z + lhs[3].z * rhs[0].w;
+	result[0].w = lhs[0].w * rhs[0].x + lhs[1].w * rhs[0].y + lhs[2].w * rhs[0].z + lhs[3].w * rhs[0].w;
+
+	result[1].x = lhs[0].x * rhs[1].x + lhs[1].x * rhs[1].y + lhs[2].x * rhs[1].z + lhs[3].x * rhs[1].w;
+	result[1].y = lhs[0].y * rhs[1].x + lhs[1].y * rhs[1].y + lhs[2].y * rhs[1].z + lhs[3].y * rhs[1].w;
+	result[1].z = lhs[0].z * rhs[1].x + lhs[1].z * rhs[1].y + lhs[2].z * rhs[1].z + lhs[3].z * rhs[1].w;
+	result[1].w = lhs[0].w * rhs[1].x + lhs[1].w * rhs[1].y + lhs[2].w * rhs[1].z + lhs[3].w * rhs[1].w;
+
+	result[2].x = lhs[0].x * rhs[2].x + lhs[1].x * rhs[2].y + lhs[2].x * rhs[2].z + lhs[3].x * rhs[2].w;
+	result[2].y = lhs[0].y * rhs[2].x + lhs[1].y * rhs[2].y + lhs[2].y * rhs[2].z + lhs[3].y * rhs[2].w;
+	result[2].z = lhs[0].z * rhs[2].x + lhs[1].z * rhs[2].y + lhs[2].z * rhs[2].z + lhs[3].z * rhs[2].w;
+	result[2].w = lhs[0].w * rhs[2].x + lhs[1].w * rhs[2].y + lhs[2].w * rhs[2].z + lhs[3].w * rhs[2].w;
+
+	result[3].x = lhs[0].x * rhs[3].x + lhs[1].x * rhs[3].y + lhs[2].x * rhs[3].z + lhs[3].x * rhs[3].w;
+	result[3].y = lhs[0].y * rhs[3].x + lhs[1].y * rhs[3].y + lhs[2].y * rhs[3].z + lhs[3].y * rhs[3].w;
+	result[3].z = lhs[0].z * rhs[3].x + lhs[1].z * rhs[3].y + lhs[2].z * rhs[3].z + lhs[3].z * rhs[3].w;
+	result[3].w = lhs[0].w * rhs[3].x + lhs[1].w * rhs[3].y + lhs[2].w * rhs[3].z + lhs[3].w * rhs[3].w;
+	return result;
+}
+
 
 /*******************************************************************************
  * Vector3 operator definitions
  ******************************************************************************/
+inline Vector3  operator - (Vector3 v)
+{
+	return { -v.x, -v.y, -v.z };
+}
+
 inline Vector3 operator + (Vector3 lhs, Vector3 rhs)
 {
 	Vector3 vec;

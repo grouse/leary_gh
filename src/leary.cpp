@@ -54,14 +54,20 @@ struct GameState {
 	VkCommandBuffer     *command_buffers;
 
 	Camera              camera;
+	Vector3             camera_position = {};
 	VulkanUniformBuffer camera_ubo;
 
 	Matrix4            ui_camera;
 
 	Vector3 velocity = {};
-	f32 yaw_velocity     = 0.0f;
-	f32 pitch_velocity   = 0.0f;
-	f32 roll_velocity    = 0.0f;
+
+	f32 yaw_velocity   = 0.0f;
+	f32 pitch_velocity = 0.0f;
+	f32 roll_velocity  = 0.0f;
+
+	f32 yaw            = 0.0f;
+	f32 pitch          = 0.0f;
+	f32 roll           = 0.0f;
 
 	Vector3            player_velocity = {};
 
@@ -546,11 +552,26 @@ void game_update(GameState* game, f32 dt)
 	game->positions[0] = rotate_x(game->positions[0], dt * 1.0f);
 	//game->positions[0] = rotate_y(game->positions[0], dt * 1.0f);
 
-	game->camera.view = rotate_x(game->camera.view, dt * game->pitch_velocity);
-	game->camera.view = rotate_y(game->camera.view, dt * game->yaw_velocity);
-	game->camera.view = rotate_z(game->camera.view, dt * game->roll_velocity);
+	game->pitch += dt * game->pitch_velocity;
+	game->yaw   += dt * game->yaw_velocity;
+	game->roll  += dt * game->roll_velocity;
 
-	game->camera.view = translate(game->camera.view, dt * game->velocity);
+	Matrix4 pitch = rotate_x(Matrix4::identity(), game->pitch);
+	Matrix4 yaw   = rotate_y(Matrix4::identity(), game->yaw);
+	Matrix4 roll  = rotate_z(Matrix4::identity(), game->roll);
+
+	Matrix4 rotation = roll * pitch * yaw;
+
+	Matrix4 view = game->camera.view;
+
+	Vector3 forward = { view[0].z, view[1].z, view[2].z };
+	Vector3 strafe  = -Vector3{ view[0].x, view[1].x, view[2].x };
+
+	game->camera_position += dt * (game->velocity.z * forward +
+	                               game->velocity.x * strafe);
+	Matrix4 translation = translate(Matrix4::identity(), game->camera_position);
+
+	game->camera.view = rotation * translation;
 	update_uniform_data(&game->vulkan, game->camera_ubo,
 	                    &game->camera, 0, sizeof(game->camera));
 }
