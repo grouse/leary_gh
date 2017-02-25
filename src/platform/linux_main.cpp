@@ -89,7 +89,8 @@ int main()
 	                                       BlackPixel(display, screen));
 
 	XSelectInput(display, window,
-	             KeyPressMask | KeyReleaseMask | StructureNotifyMask);
+	             KeyPressMask | KeyReleaseMask | StructureNotifyMask |
+	             PointerMotionMask | EnterWindowMask);
 	XMapWindow(display, window);
 
 	Atom WM_DELETE_WINDOW = XInternAtom(display, "WM_DELETE_WINDOW", false);
@@ -109,6 +110,36 @@ int main()
 
 	game_init(&settings, &platform_state, &game_state);
 
+	i32 num_screens = XScreenCount(platform_state.x11.display);
+
+	i32 mouse_x = 0;
+	i32 mouse_y = 0;
+
+	for (i32 i = 0; i < num_screens; i++) {
+		Window root = XRootWindow(platform_state.x11.display, i);
+		Window child;
+
+		u32 mask;
+		i32 root_x, root_y, win_x, win_y;
+		bool result = XQueryPointer(platform_state.x11.display,
+		                            platform_state.x11.window,
+		                            &root, &child,
+		                            &root_x, &root_y,
+		                            &win_x, &win_y,
+		                            &mask);
+		if (result) {
+			mouse_x = win_x;
+			mouse_y = win_y;
+			break;
+		}
+	}
+
+#if 0 // IMPORTANT(jesper): hazard! don't use
+	XGrabPointer(platform_state.x11.display, platform_state.x11.window,
+	             true, PointerMotionMask, GrabModeSync, GrabModeSync,
+	             platform_state.x11.window, None, CurrentTime);
+#endif
+
 	XEvent xevent;
 	timespec last_time = get_time();
 	while (true) {
@@ -117,6 +148,17 @@ int main()
 		last_time = current_time;
 		f32 dt = (f32)difference / 1000000000.0f;
 		DEBUG_ASSERT(difference >= 0);
+
+		{ // HACK(jesper): reset mouse dx
+			InputEvent event;
+			event.type = InputType_mouse_move;
+			event.mouse.x = mouse_x;
+			event.mouse.y = mouse_y;
+			event.mouse.dx = 0;
+			event.mouse.dy = 0;
+
+			game_input(&game_state, &settings, event);
+		}
 
 		while (XPending(platform_state.x11.display) > 0) {
 			XNextEvent(platform_state.x11.display, &xevent);
@@ -150,6 +192,29 @@ int main()
 				}
 
 				game_input(&game_state, &settings, event);
+			} break;
+			case MotionNotify: {
+				InputEvent event;
+				event.type = InputType_mouse_move;
+				event.mouse.x = xevent.xmotion.x;
+				event.mouse.y = xevent.xmotion.y;
+
+				event.mouse.dx = xevent.xmotion.x - mouse_x;
+				event.mouse.dy = xevent.xmotion.y - mouse_y;
+
+				mouse_x = xevent.xmotion.x;
+				mouse_y = xevent.xmotion.y;
+
+				game_input(&game_state, &settings, event);
+			} break;
+			case EnterNotify: {
+				if (xevent.xcrossing.focus == true &&
+				    xevent.xcrossing.window == platform_state.x11.window &&
+				    xevent.xcrossing.display == platform_state.x11.display)
+				{
+					mouse_x = xevent.xcrossing.x;
+					mouse_y = xevent.xcrossing.y;
+				}
 			} break;
 			case ClientMessage: {
 				if ((Atom)xevent.xclient.data.l[0] == WM_DELETE_WINDOW) {

@@ -83,7 +83,8 @@ enum VirtualKey {
 
 enum InputType {
 	InputType_key_release,
-	InputType_key_press
+	InputType_key_press,
+	InputType_mouse_move
 };
 
 struct InputEvent {
@@ -93,6 +94,10 @@ struct InputEvent {
 			VirtualKey vkey;
 			bool repeated;
 		} key;
+		struct {
+			i32 dx, dy;
+			i32 x, y;
+		} mouse;
 	};
 };
 

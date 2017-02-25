@@ -491,6 +491,10 @@ void game_input(GameState *game, Settings *settings, InputEvent event)
 			break;
 		}
 	} break;
+	case InputType_mouse_move: {
+		game->yaw_velocity   = event.mouse.dx;
+		game->pitch_velocity = event.mouse.dy;
+	} break;
 	default:
 		DEBUG_LOG("unhandled input type: %d", event.type);
 		break;
