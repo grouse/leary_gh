@@ -58,7 +58,11 @@ struct GameState {
 
 	Matrix4            ui_camera;
 
-	Vector3            velocity = {};
+	Vector3 velocity = {};
+	f32 yaw_velocity     = 0.0f;
+	f32 pitch_velocity   = 0.0f;
+	f32 roll_velocity    = 0.0f;
+
 	Vector3            player_velocity = {};
 
 	stbtt_bakedchar     baked_font[256];
@@ -328,16 +332,34 @@ void game_input(GameState *game, Settings *settings, InputEvent event)
 			game_quit(game, settings);
 			break;
 		case VirtualKey_W:
-			game->velocity.z = -1.0f;
+			game->velocity.z = 1.0f;
 			break;
 		case VirtualKey_S:
-			game->velocity.z = 1.0f;
+			game->velocity.z = -1.0f;
 			break;
 		case VirtualKey_A:
 			game->velocity.x = -1.0f;
 			break;
 		case VirtualKey_D:
 			game->velocity.x = 1.0f;
+			break;
+		case VirtualKey_Q:
+			game->yaw_velocity = 1.0f;
+			break;
+		case VirtualKey_E:
+			game->yaw_velocity = -1.0f;
+			break;
+		case VirtualKey_R:
+			game->pitch_velocity = 1.0f;
+			break;
+		case VirtualKey_F:
+			game->pitch_velocity = -1.0f;
+			break;
+		case VirtualKey_T:
+			game->roll_velocity = 1.0f;
+			break;
+		case VirtualKey_G:
+			game->roll_velocity = -1.0f;
 			break;
 		default:
 			DEBUG_LOG("unhandled key press: %d", event.key.vkey);
@@ -387,6 +409,72 @@ void game_input(GameState *game, Settings *settings, InputEvent event)
 				InputEvent e;
 				e.type         = InputType_key_press;
 				e.key.vkey     = VirtualKey_A;
+				e.key.repeated = false;
+
+				game_input(game, settings, e);
+			}
+			break;
+		case VirtualKey_Q:
+			game->yaw_velocity = 0.0f;
+			if (game->key_state[VirtualKey_E] == InputType_key_press) {
+				InputEvent e;
+				e.type         = InputType_key_press;
+				e.key.vkey     = VirtualKey_E;
+				e.key.repeated = false;
+
+				game_input(game, settings, e);
+			}
+			break;
+		case VirtualKey_E:
+			game->yaw_velocity = 0.0f;
+			if (game->key_state[VirtualKey_Q] == InputType_key_press) {
+				InputEvent e;
+				e.type         = InputType_key_press;
+				e.key.vkey     = VirtualKey_Q;
+				e.key.repeated = false;
+
+				game_input(game, settings, e);
+			}
+			break;
+		case VirtualKey_R:
+			game->pitch_velocity = 0.0f;
+			if (game->key_state[VirtualKey_F] == InputType_key_press) {
+				InputEvent e;
+				e.type         = InputType_key_press;
+				e.key.vkey     = VirtualKey_F;
+				e.key.repeated = false;
+
+				game_input(game, settings, e);
+			}
+			break;
+		case VirtualKey_F:
+			game->pitch_velocity = 0.0f;
+			if (game->key_state[VirtualKey_R] == InputType_key_press) {
+				InputEvent e;
+				e.type         = InputType_key_press;
+				e.key.vkey     = VirtualKey_R;
+				e.key.repeated = false;
+
+				game_input(game, settings, e);
+			}
+			break;
+		case VirtualKey_T:
+			game->roll_velocity = 0.0f;
+			if (game->key_state[VirtualKey_G] == InputType_key_press) {
+				InputEvent e;
+				e.type         = InputType_key_press;
+				e.key.vkey     = VirtualKey_G;
+				e.key.repeated = false;
+
+				game_input(game, settings, e);
+			}
+			break;
+		case VirtualKey_G:
+			game->roll_velocity = 0.0f;
+			if (game->key_state[VirtualKey_T] == InputType_key_press) {
+				InputEvent e;
+				e.type         = InputType_key_press;
+				e.key.vkey     = VirtualKey_T;
 				e.key.repeated = false;
 
 				game_input(game, settings, e);
@@ -454,10 +542,17 @@ void game_update(GameState* game, f32 dt)
 
 	game_profile_collate(game, dt);
 
-	game->positions[0] = translate(game->positions[0], dt * game->velocity);
+	game->positions[0] = translate(game->positions[0], dt * game->player_velocity);
 	game->positions[0] = rotate_x(game->positions[0], dt * 1.0f);
-	game->positions[0] = rotate_y(game->positions[0], dt * 1.0f);
-	//game->positions[0] = rotate_z(game->positions[0], dt * 1.0f);
+	//game->positions[0] = rotate_y(game->positions[0], dt * 1.0f);
+
+	game->camera.view = rotate_x(game->camera.view, dt * game->pitch_velocity);
+	game->camera.view = rotate_y(game->camera.view, dt * game->yaw_velocity);
+	game->camera.view = rotate_z(game->camera.view, dt * game->roll_velocity);
+
+	game->camera.view = translate(game->camera.view, dt * game->velocity);
+	update_uniform_data(&game->vulkan, game->camera_ubo,
+	                    &game->camera, 0, sizeof(game->camera));
 }
 
 void game_render(GameState *game)
