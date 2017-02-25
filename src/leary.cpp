@@ -216,8 +216,10 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 #endif
 
 	game->fp_camera.ubo = create_uniform_buffer(&game->vulkan, sizeof(Matrix4));
+
+	Matrix4 view_projection = game->fp_camera.projection * game->fp_camera.view;
 	update_uniform_data(&game->vulkan, game->fp_camera.ubo,
-	                    &game->fp_camera.view, 0, sizeof(Matrix4));
+	                    &view_projection, 0, sizeof(view_projection));
 
 
 	game->num_objects = 5;
