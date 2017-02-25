@@ -19,8 +19,12 @@
 #include "external/stb/stb_truetype.h"
 
 struct Camera {
-	Matrix4 view;
-	Matrix4 projection;
+	Matrix4             view;
+	Matrix4             projection;
+	VulkanUniformBuffer ubo;
+
+	Vector3             position;
+	f32                 yaw, pitch, roll;
 };
 
 struct RenderedText {
@@ -47,17 +51,15 @@ struct GameState {
 		VulkanTexture font;
 	} textures;
 
+	Camera fp_camera;
+	Camera ui_camera;
+
 	i32                 num_objects;
 	RenderObject        object;
 	Matrix4            *positions;
 
 	VkCommandBuffer     *command_buffers;
 
-	Camera              camera;
-	Vector3             camera_position = {};
-	VulkanUniformBuffer camera_ubo;
-
-	Matrix4            ui_camera;
 
 	Vector3 velocity = {};
 
@@ -65,11 +67,7 @@ struct GameState {
 	f32 pitch_velocity = 0.0f;
 	f32 roll_velocity  = 0.0f;
 
-	f32 yaw            = 0.0f;
-	f32 pitch          = 0.0f;
-	f32 roll           = 0.0f;
-
-	Vector3            player_velocity = {};
+	Vector3             player_velocity = {};
 
 	stbtt_bakedchar     baked_font[256];
 
@@ -92,7 +90,7 @@ void render_font(GameState *game, RenderedText *text,
 
 	text->vertex_count = (i32)(text_length * 6);
 
-	Matrix4 camera = translate(game->ui_camera, {x, y, 0.0f});
+	Matrix4 camera = translate(game->ui_camera.view, {x, y, 0.0f});
 
 	float tmp_x = 0.0f, tmp_y = 0.0f;
 
@@ -200,7 +198,7 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 	delete[] pixels;
 
 	//game->camera.view = look_at({0.0f, 0.0f, 1.0f}, {0.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f});
-	game->camera.view = Matrix4::identity();
+	game->fp_camera.view = Matrix4::identity();
 
 #if 0
 	f32 left   = - (f32)settings->video.resolution.width / 2.0f;
@@ -214,12 +212,12 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 
 	f32 aspect = width / height;
 	f32 vfov   = radians(45.0f);
-	game->camera.projection = Matrix4::perspective(vfov, aspect, 0.1f, 10.0f);
+	game->fp_camera.projection = Matrix4::perspective(vfov, aspect, 0.1f, 10.0f);
 #endif
 
-	game->camera_ubo = create_uniform_buffer(&game->vulkan, sizeof(Camera));
-	update_uniform_data(&game->vulkan, game->camera_ubo,
-	                    &game->camera, 0, sizeof(Camera));
+	game->fp_camera.ubo = create_uniform_buffer(&game->vulkan, sizeof(Matrix4));
+	update_uniform_data(&game->vulkan, game->fp_camera.ubo,
+	                    &game->fp_camera.view, 0, sizeof(Matrix4));
 
 
 	game->num_objects = 5;
@@ -262,17 +260,17 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 	update_descriptor_sets(&game->vulkan,
 	                       game->pipelines.generic,
 	                       game->textures.generic,
-	                       game->camera_ubo);
+	                       game->fp_camera.ubo);
 
 
 	{
-		Matrix4 ui_camera = Matrix4::identity();
+		Matrix4 view = Matrix4::identity();
 		f32 width  = (f32)settings->video.resolution.width;
 		f32 height = (f32)settings->video.resolution.height;
-		ui_camera[0].x = 2.0f / width;
-		ui_camera[1].y = 2.0f / height;
-		ui_camera[2].z = 1.0f;
-		game->ui_camera = ui_camera;
+		view[0].x = 2.0f / width;
+		view[1].y = 2.0f / height;
+		view[2].z = 1.0f;
+		game->ui_camera.view = view;
 
 		game->pipelines.font = create_font_pipeline(&game->vulkan);
 
@@ -319,7 +317,7 @@ void game_quit(GameState *game, Settings *settings)
 
 	destroy(&game->vulkan, game->object.vertices);
 	destroy(&game->vulkan, game->object.indices);
-	destroy(&game->vulkan, game->camera_ubo);
+	destroy(&game->vulkan, game->fp_camera.ubo);
 	destroy(&game->vulkan);
 
 	char *settings_path = platform_resolve_path(GamePath_preferences, "settings.conf");
@@ -556,28 +554,30 @@ void game_update(GameState* game, f32 dt)
 	game->positions[0] = rotate_x(game->positions[0], dt * 1.0f);
 	//game->positions[0] = rotate_y(game->positions[0], dt * 1.0f);
 
-	game->pitch += dt * game->pitch_velocity;
-	game->yaw   += dt * game->yaw_velocity;
-	game->roll  += dt * game->roll_velocity;
+	game->fp_camera.pitch += dt * game->pitch_velocity;
+	game->fp_camera.yaw   += dt * game->yaw_velocity;
+	game->fp_camera.roll  += dt * game->roll_velocity;
 
-	Matrix4 pitch = rotate_x(Matrix4::identity(), game->pitch);
-	Matrix4 yaw   = rotate_y(Matrix4::identity(), game->yaw);
-	Matrix4 roll  = rotate_z(Matrix4::identity(), game->roll);
+	Matrix4 pitch = rotate_x(Matrix4::identity(), game->fp_camera.pitch);
+	Matrix4 yaw   = rotate_y(Matrix4::identity(), game->fp_camera.yaw);
+	Matrix4 roll  = rotate_z(Matrix4::identity(), game->fp_camera.roll);
 
 	Matrix4 rotation = roll * pitch * yaw;
 
-	Matrix4 view = game->camera.view;
+	Matrix4 view = game->fp_camera.view;
 
 	Vector3 forward = { view[0].z, view[1].z, view[2].z };
 	Vector3 strafe  = -Vector3{ view[0].x, view[1].x, view[2].x };
 
-	game->camera_position += dt * (game->velocity.z * forward +
-	                               game->velocity.x * strafe);
-	Matrix4 translation = translate(Matrix4::identity(), game->camera_position);
+	game->fp_camera.position += dt * (game->velocity.z * forward +
+	                                  game->velocity.x * strafe);
+	Matrix4 translation = translate(Matrix4::identity(), game->fp_camera.position);
 
-	game->camera.view = rotation * translation;
-	update_uniform_data(&game->vulkan, game->camera_ubo,
-	                    &game->camera, 0, sizeof(game->camera));
+	game->fp_camera.view = rotation * translation;
+
+	Matrix4 view_projection = game->fp_camera.projection * game->fp_camera.view;
+	update_uniform_data(&game->vulkan, game->fp_camera.ubo,
+	                    &view_projection, 0, sizeof(view_projection));
 }
 
 void game_render(GameState *game)
