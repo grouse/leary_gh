@@ -332,6 +332,10 @@ void game_input(GameState *game, PlatformState *platform, Settings *settings,
 {
 	switch (event.type) {
 	case InputType_key_press: {
+		if (event.key.repeated) {
+			break;
+		}
+
 		game->key_state[event.key.vkey] = InputType_key_press;
 
 		switch (event.key.vkey) {
@@ -339,34 +343,20 @@ void game_input(GameState *game, PlatformState *platform, Settings *settings,
 			game_quit(game, platform, settings);
 			break;
 		case VirtualKey_W:
-			game->velocity.z = 1.0f;
+			// TODO(jesper): tweak movement speed when we have a sense of scale
+			game->velocity.z = 3.0f;
 			break;
 		case VirtualKey_S:
-			game->velocity.z = -1.0f;
+			// TODO(jesper): tweak movement speed when we have a sense of scale
+			game->velocity.z = -3.0f;
 			break;
 		case VirtualKey_A:
-			game->velocity.x = -1.0f;
+			// TODO(jesper): tweak movement speed when we have a sense of scale
+			game->velocity.x = -3.0f;
 			break;
 		case VirtualKey_D:
-			game->velocity.x = 1.0f;
-			break;
-		case VirtualKey_Q:
-			game->yaw_velocity = 1.0f;
-			break;
-		case VirtualKey_E:
-			game->yaw_velocity = -1.0f;
-			break;
-		case VirtualKey_R:
-			game->pitch_velocity = 1.0f;
-			break;
-		case VirtualKey_F:
-			game->pitch_velocity = -1.0f;
-			break;
-		case VirtualKey_T:
-			game->roll_velocity = 1.0f;
-			break;
-		case VirtualKey_G:
-			game->roll_velocity = -1.0f;
+			// TODO(jesper): tweak movement speed when we have a sense of scale
+			game->velocity.x = 3.0f;
 			break;
 		case VirtualKey_C:
 			platform_toggle_raw_mouse(platform);
@@ -377,6 +367,12 @@ void game_input(GameState *game, PlatformState *platform, Settings *settings,
 		}
 	} break;
 	case InputType_key_release: {
+		if (event.key.repeated) {
+			break;
+		}
+
+		DEBUG_LOG("released");
+
 		game->key_state[event.key.vkey] = InputType_key_release;
 
 		switch (event.key.vkey) {
@@ -424,80 +420,15 @@ void game_input(GameState *game, PlatformState *platform, Settings *settings,
 				game_input(game, platform, settings, e);
 			}
 			break;
-		case VirtualKey_Q:
-			game->yaw_velocity = 0.0f;
-			if (game->key_state[VirtualKey_E] == InputType_key_press) {
-				InputEvent e;
-				e.type         = InputType_key_press;
-				e.key.vkey     = VirtualKey_E;
-				e.key.repeated = false;
-
-				game_input(game, platform, settings, e);
-			}
-			break;
-		case VirtualKey_E:
-			game->yaw_velocity = 0.0f;
-			if (game->key_state[VirtualKey_Q] == InputType_key_press) {
-				InputEvent e;
-				e.type         = InputType_key_press;
-				e.key.vkey     = VirtualKey_Q;
-				e.key.repeated = false;
-
-				game_input(game, platform, settings, e);
-			}
-			break;
-		case VirtualKey_R:
-			game->pitch_velocity = 0.0f;
-			if (game->key_state[VirtualKey_F] == InputType_key_press) {
-				InputEvent e;
-				e.type         = InputType_key_press;
-				e.key.vkey     = VirtualKey_F;
-				e.key.repeated = false;
-
-				game_input(game, platform, settings, e);
-			}
-			break;
-		case VirtualKey_F:
-			game->pitch_velocity = 0.0f;
-			if (game->key_state[VirtualKey_R] == InputType_key_press) {
-				InputEvent e;
-				e.type         = InputType_key_press;
-				e.key.vkey     = VirtualKey_R;
-				e.key.repeated = false;
-
-				game_input(game, platform, settings, e);
-			}
-			break;
-		case VirtualKey_T:
-			game->roll_velocity = 0.0f;
-			if (game->key_state[VirtualKey_G] == InputType_key_press) {
-				InputEvent e;
-				e.type         = InputType_key_press;
-				e.key.vkey     = VirtualKey_G;
-				e.key.repeated = false;
-
-				game_input(game, platform, settings, e);
-			}
-			break;
-		case VirtualKey_G:
-			game->roll_velocity = 0.0f;
-			if (game->key_state[VirtualKey_T] == InputType_key_press) {
-				InputEvent e;
-				e.type         = InputType_key_press;
-				e.key.vkey     = VirtualKey_T;
-				e.key.repeated = false;
-
-				game_input(game, platform, settings, e);
-			}
-			break;
 		default:
 			//DEBUG_LOG("unhandled key release: %d", event.key.vkey);
 			break;
 		}
 	} break;
 	case InputType_mouse_move: {
-		game->yaw_velocity   = event.mouse.dx;
-		game->pitch_velocity = event.mouse.dy;
+		// TODO(jesper): move mouse sensitivity into settings
+		game->yaw_velocity   = -2.5f * event.mouse.dx;
+		game->pitch_velocity = -2.5f * event.mouse.dy;
 	} break;
 	default:
 		DEBUG_LOG("unhandled input type: %d", event.type);
@@ -553,7 +484,6 @@ void game_profile_collate(GameState* game, f32 dt)
 void game_update(GameState* game, f32 dt)
 {
 	PROFILE_FUNCTION();
-
 	game_profile_collate(game, dt);
 
 	game->positions[0] = translate(game->positions[0], dt * game->player_velocity);

@@ -153,12 +153,7 @@ int main()
 		Cursor cursor = XCreatePixmapCursor(platform_state.x11.display,
 		                                    csr, csr, &xcolor, &xcolor, 1, 1);
 		platform_state.x11.hidden_cursor = cursor;
-
-
-
 	}
-
-
 
 	game_init(&settings, &platform_state, &game_state);
 
@@ -243,6 +238,10 @@ int main()
 				game_input(&game_state, &platform_state, &settings, event);
 			} break;
 			case MotionNotify: {
+				if (platform_state.raw_mouse) {
+					break;
+				}
+
 				InputEvent event;
 				event.type = InputType_mouse_move;
 				event.mouse.x = xevent.xmotion.x;
