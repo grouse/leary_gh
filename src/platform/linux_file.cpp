@@ -125,21 +125,27 @@ char *platform_resolve_path(GamePath root, const char *path)
 	char *resolved = nullptr;
 
 	switch (root) {
-	case GamePath_data:
-		resolved = (char*)malloc(data_path_length + strlen(path));
+	case GamePath_data: {
+		usize length = data_path_length + strlen(path) + 1;
+		resolved = (char*)malloc(length);
 		strcpy(resolved, data_path);
 		strcat(resolved, path);
-		break;
-	case GamePath_shaders:
-		resolved = (char*)malloc(shaders_path_length + strlen(path));
+		resolved[length] = '\0';
+	} break;
+	case GamePath_shaders: {
+		usize length = shaders_path_length + strlen(path) + 1;
+		resolved = (char*)malloc(length);
 		strcpy(resolved, shaders_path);
 		strcat(resolved, path);
-		break;
-	case GamePath_preferences:
-		resolved = (char*)malloc(preferences_path_length + strlen(path));
+		resolved[length] = '\0';
+	} break;
+	case GamePath_preferences: {
+		usize length = preferences_path_length + strlen(path) + 1;
+		resolved = (char*)malloc(length);
 		strcpy(resolved, preferences_path);
 		strcat(resolved, path);
-		break;
+		resolved[length] = '\0';
+	} break;
 	default:
 		DEBUG_ASSERT(false);
 		break;
