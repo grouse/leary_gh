@@ -427,8 +427,8 @@ void game_input(GameState *game, PlatformState *platform, Settings *settings,
 	} break;
 	case InputType_mouse_move: {
 		// TODO(jesper): move mouse sensitivity into settings
-		game->yaw_velocity   = -2.5f * event.mouse.dx;
-		game->pitch_velocity = -2.5f * event.mouse.dy;
+		game->fp_camera.yaw   += -0.001f * event.mouse.dx;
+		game->fp_camera.pitch += -0.001f * event.mouse.dy;
 	} break;
 	default:
 		DEBUG_LOG("unhandled input type: %d", event.type);

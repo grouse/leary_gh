@@ -181,7 +181,6 @@ int main()
 		}
 	}
 
-
 	XEvent xevent;
 
 	timespec last_time = get_time();
