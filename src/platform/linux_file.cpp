@@ -49,7 +49,7 @@ char *platform_path(GamePath root)
 			} else {
 				path = (char*)malloc(length);
 				strcpy(path, data_env);
-				path[length-1] = '\0';
+				path[length] = '\0';
 			}
 		} else {
 			char linkname[64];
@@ -71,7 +71,7 @@ char *platform_path(GamePath root)
 			path = (char*)malloc(total_length);
 			strncpy(path, buffer, length);
 			strcat(path, "data/");
-			path[total_length - 1] = '\0';
+			path[total_length] = '\0';
 		}
 	} break;
 	case GamePath_shaders: {
@@ -80,7 +80,7 @@ char *platform_path(GamePath root)
 		path = (char*)malloc(length);
 		strcpy(path, data_path);
 		strcat(path, "shaders/");
-		path[length-1] = '\0';
+		path[length] = '\0';
 	} break;
 	case GamePath_preferences: {
 		char *local_share = getenv("XDG_DATA_HOME");
@@ -89,14 +89,14 @@ char *platform_path(GamePath root)
 			path = (char*)malloc(length);
 			strcpy(path, local_share);
 			strcat(path, "leary/");
-			path[length-1] = '\0';
+			path[length] = '\0';
 		} else {
 			struct passwd *pw = getpwuid(getuid());
 			u64 length = strlen(pw->pw_dir) + strlen("/.local/share/leary/") + 1;
 			path = (char*)malloc(length);
 			strcpy(path, pw->pw_dir);
 			strcat(path, "/.local/share/leary/");
-			path[length-1] = '\0';
+			path[length] = '\0';
 		}
 	} break;
 	default:
