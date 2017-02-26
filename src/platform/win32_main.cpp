@@ -40,9 +40,9 @@
 #include "leary.cpp"
 
 namespace {
-	Settings      settings;
-	PlatformState platform_state;
-	GameState     game_state;
+	Settings      settings = {};
+	PlatformState platform_state = {};
+	GameState     game_state = {};
 }
 
 void platform_quit(PlatformState *)
@@ -50,8 +50,36 @@ void platform_quit(PlatformState *)
 	_exit(EXIT_SUCCESS);
 }
 
-void platform_toggle_raw_mouse(PlatformState *)
+void platform_toggle_raw_mouse(PlatformState *state)
 {
+	state->raw_mouse = !state->raw_mouse;
+	DEBUG_LOG("toggle raw mouse: %d", state->raw_mouse);
+
+	if (state->raw_mouse) {
+		RAWINPUTDEVICE rid[1];
+		rid[0].usUsagePage = 0x01;
+		rid[0].usUsage = 0x02;
+		rid[0].dwFlags = RIDEV_NOLEGACY;
+		rid[0].hwndTarget = 0;
+
+		if (RegisterRawInputDevices(rid, 1, sizeof(rid[0])) == false) {
+			DEBUG_ASSERT(false);
+		}
+
+		while(ShowCursor(false) > 0) {}
+	} else {
+		RAWINPUTDEVICE rid[1];
+		rid[0].usUsagePage = 0x01;
+		rid[0].usUsage = 0x02;
+		rid[0].dwFlags = RIDEV_REMOVE;
+		rid[0].hwndTarget = 0;
+
+		if (RegisterRawInputDevices(rid, 1, sizeof(rid[0])) == false) {
+			DEBUG_ASSERT(false);
+		}
+
+		while(ShowCursor(true) > 0) {}
+	}
 }
 
 struct MouseState {
@@ -96,6 +124,10 @@ window_proc(HWND   hwnd,
 		game_input(&game_state, &platform_state, &settings, event);
 	} break;
 	case WM_MOUSEMOVE: {
+		if (platform_state.raw_mouse) {
+			break;
+		}
+
 		i32 x = lparam & 0xffff;
 		i32 y = (lparam >> 16) & 0xffff;
 
@@ -113,6 +145,53 @@ window_proc(HWND   hwnd,
 
 		game_input(&game_state, &platform_state, &settings, event);
 	} break;
+	case WM_INPUT: {
+		u32 size;
+		GetRawInputData((HRAWINPUT)lparam, RID_INPUT, NULL,
+		                &size, sizeof(RAWINPUTHEADER));
+
+		u8 *data = new u8[size];
+		GetRawInputData((HRAWINPUT)lparam, RID_INPUT, data,
+		                &size, sizeof(RAWINPUTHEADER));
+
+		RAWINPUT *raw = (RAWINPUT*)data;
+
+		switch (raw->header.dwType) {
+		case RIM_TYPEMOUSE: {
+			if (!platform_state.raw_mouse) {
+				break;
+			}
+
+			if (raw->data.mouse.usFlags == MOUSE_MOVE_RELATIVE) {
+				mouse_state.dx = (f32)raw->data.mouse.lLastX;
+				mouse_state.dy = (f32)raw->data.mouse.lLastY;
+				mouse_state.x  += (f32)raw->data.mouse.lLastX;
+				mouse_state.y  += (f32)raw->data.mouse.lLastY;
+			} else if (raw->data.mouse.usFlags & MOUSE_MOVE_ABSOLUTE) {
+				mouse_state.dx = (f32)raw->data.mouse.lLastX - mouse_state.x;
+				mouse_state.dy = (f32)raw->data.mouse.lLastY - mouse_state.y;
+				mouse_state.x  = (f32)raw->data.mouse.lLastX;
+				mouse_state.y  = (f32)raw->data.mouse.lLastY;
+			} else {
+				DEBUG_LOG(Log_error, "unsupported flags");
+				DEBUG_ASSERT(false);
+			}
+
+			InputEvent event;
+			event.type = InputType_mouse_move;
+			event.mouse.dx = mouse_state.dx;
+			event.mouse.dy = mouse_state.dy;
+			event.mouse.x  = mouse_state.x;
+			event.mouse.y  = mouse_state.y;
+
+			game_input(&game_state, &platform_state, &settings, event);
+		} break;
+		default:
+			DEBUG_LOG("unhandled raw input device type: %d",
+			          raw->header.dwType);
+			break;
+		}
+	} break;
 	default:
 		std::printf("unhandled event: %d\n", message);
 		return DefWindowProc(hwnd, message, wparam, lparam);
@@ -128,10 +207,6 @@ WinMain(HINSTANCE instance,
         LPSTR     /*cmd_line*/,
         int       /*cmd_show*/)
 {
-	platform_state = {};
-	game_state = {};
-	settings = {};
-
 	game_load_settings(&settings);
 
 	platform_state.win32.hinstance = instance;
@@ -158,6 +233,7 @@ WinMain(HINSTANCE instance,
 	if (platform_state.win32.hwnd == nullptr) {
 		platform_quit(&platform_state);
 	}
+
 
 	game_init(&settings, &platform_state, &game_state);
 
