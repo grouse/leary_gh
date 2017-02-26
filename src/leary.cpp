@@ -304,7 +304,7 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 	}
 }
 
-void game_quit(GameState *game, Settings *settings)
+void game_quit(GameState *game, PlatformState *platform, Settings *settings)
 {
 	VAR_UNUSED(settings);
 	vkQueueWaitIdle(game->vulkan.queue);
@@ -324,7 +324,7 @@ void game_quit(GameState *game, Settings *settings)
 
 	char *settings_path = platform_resolve_path(GamePath_preferences, "settings.conf");
 	SERIALIZE_SAVE_CONF(settings_path, Settings, settings);
-	platform_quit();
+	platform_quit(platform);
 }
 
 void game_input(GameState *game, PlatformState *platform, Settings *settings,
@@ -336,7 +336,7 @@ void game_input(GameState *game, PlatformState *platform, Settings *settings,
 
 		switch (event.key.vkey) {
 		case VirtualKey_escape:
-			game_quit(game, settings);
+			game_quit(game, platform, settings);
 			break;
 		case VirtualKey_W:
 			game->velocity.z = 1.0f;

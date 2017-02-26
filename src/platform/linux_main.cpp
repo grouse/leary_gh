@@ -45,10 +45,25 @@ namespace  {
 void platform_toggle_raw_mouse(PlatformState *state) {
 	state->raw_mouse = !state->raw_mouse;
 	DEBUG_LOG("raw mouse mode set to: %d", state->raw_mouse);
+
+	if (state->raw_mouse) {
+		XGrabPointer(platform_state.x11.display,
+		             platform_state.x11.window,
+		             false,
+		             (KeyPressMask | KeyReleaseMask) & 0,
+		             GrabModeAsync,
+		             GrabModeAsync,
+		             None,
+		             platform_state.x11.hidden_cursor,
+		             CurrentTime);
+	} else {
+		XUngrabPointer(platform_state.x11.display, CurrentTime);
+	}
 }
 
-void platform_quit()
+void platform_quit(PlatformState *state)
 {
+	XUngrabPointer(state->x11.display, CurrentTime);
 	exit(EXIT_SUCCESS);
 }
 
@@ -85,6 +100,9 @@ int main()
 	             KeyPressMask | KeyReleaseMask | StructureNotifyMask |
 	             PointerMotionMask | EnterWindowMask);
 	XMapWindow(display, window);
+
+	platform_state.x11.window  = window;
+	platform_state.x11.display = display;
 
 	Atom WM_DELETE_WINDOW = XInternAtom(display, "WM_DELETE_WINDOW", false);
 	XSetWMProtocols(display, window, &WM_DELETE_WINDOW, 1);
@@ -125,8 +143,22 @@ int main()
 		XFlush(display);
 	}
 
-	platform_state.x11.window  = window;
-	platform_state.x11.display = display;
+	{ // create hidden cursor used when raw mouse is enabled
+		XColor xcolor;
+		char csr_bits[] = { 0x00 };
+
+		Pixmap csr = XCreateBitmapFromData(platform_state.x11.display,
+		                                   platform_state.x11.window,
+		                                   csr_bits, 1, 1);
+		Cursor cursor = XCreatePixmapCursor(platform_state.x11.display,
+		                                    csr, csr, &xcolor, &xcolor, 1, 1);
+		platform_state.x11.hidden_cursor = cursor;
+
+
+
+	}
+
+
 
 	game_init(&settings, &platform_state, &game_state);
 
@@ -154,11 +186,6 @@ int main()
 		}
 	}
 
-#if 0 // IMPORTANT(jesper): hazard! don't use
-	XGrabPointer(platform_state.x11.display, platform_state.x11.window,
-	             true, PointerMotionMask, GrabModeSync, GrabModeSync,
-	             platform_state.x11.window, None, CurrentTime);
-#endif
 
 	XEvent xevent;
 
@@ -240,7 +267,7 @@ int main()
 			} break;
 			case ClientMessage: {
 				if ((Atom)xevent.xclient.data.l[0] == WM_DELETE_WINDOW) {
-					game_quit(&game_state, &settings);
+					game_quit(&game_state, &platform_state, &settings);
 				}
 			} break;
 			case GenericEvent: {

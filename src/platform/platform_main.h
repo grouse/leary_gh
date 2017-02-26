@@ -69,6 +69,7 @@ struct PlatformState {
 			Display    *display;
 			XkbDescPtr xkb;
 			i32        xi2_opcode;
+			Cursor     hidden_cursor;
 		} x11;
 #elif defined(_WIN32)
 		struct
@@ -83,6 +84,6 @@ struct PlatformState {
 };
 
 void platform_toggle_raw_mouse(PlatformState *state);
-void platform_quit();
+void platform_quit(PlatformState *state);
 
 #endif // LEARY_PLATFORM_MAIN_H
