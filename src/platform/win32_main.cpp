@@ -54,12 +54,19 @@ void platform_toggle_raw_mouse(PlatformState *)
 {
 }
 
+struct MouseState {
+	f32 x, y;
+	f32 dx, dy;
+};
+
 LRESULT CALLBACK
 window_proc(HWND   hwnd,
 	        UINT   message,
 	        WPARAM wparam,
 	        LPARAM lparam)
 {
+	static MouseState mouse_state = {};
+
 	switch (message) {
 	case WM_DESTROY:
 		PostQuitMessage(0);
@@ -85,6 +92,24 @@ window_proc(HWND   hwnd,
 		event.type = InputType_key_release;
 		event.key.vkey = (VirtualKey)wparam;
 		event.key.repeated = lparam & 0x40000000;
+
+		game_input(&game_state, &platform_state, &settings, event);
+	} break;
+	case WM_MOUSEMOVE: {
+		i32 x = lparam & 0xffff;
+		i32 y = (lparam >> 16) & 0xffff;
+
+		mouse_state.dx = (f32)(x - mouse_state.x);
+		mouse_state.dy = (f32)(y - mouse_state.y);
+		mouse_state.x  = (f32)x;
+		mouse_state.y  = (f32)y;
+
+		InputEvent event;
+		event.type = InputType_mouse_move;
+		event.mouse.x  = mouse_state.x;
+		event.mouse.y  = mouse_state.y;
+		event.mouse.dx = mouse_state.dx;
+		event.mouse.dy = mouse_state.dy;
 
 		game_input(&game_state, &platform_state, &settings, event);
 	} break;
