@@ -28,6 +28,7 @@
 #if defined(__linux__)
 	#include <X11/Xlib.h>
 	#include <X11/XKBlib.h>
+	#include <X11/extensions/XInput2.h>
 #elif defined(_WIN32)
 	#include <Windows.h>
 	#include <Shlobj.h>
@@ -58,6 +59,8 @@
 // NOTE: this is a union so that we can support multiple different windowing systems on the same
 // platform, e.g. Wayland and X11 on Linux.
 struct PlatformState {
+	bool raw_mouse = false;
+
 	union {
 #if defined(__linux__)
 		struct
@@ -65,6 +68,7 @@ struct PlatformState {
 			Window     window;
 			Display    *display;
 			XkbDescPtr xkb;
+			i32        xi2_opcode;
 		} x11;
 #elif defined(_WIN32)
 		struct
@@ -78,6 +82,7 @@ struct PlatformState {
 	};
 };
 
+void platform_toggle_raw_mouse(PlatformState *state);
 void platform_quit();
 
 #endif // LEARY_PLATFORM_MAIN_H

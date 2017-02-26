@@ -95,8 +95,8 @@ struct InputEvent {
 			bool repeated;
 		} key;
 		struct {
-			i32 dx, dy;
-			i32 x, y;
+			f32 dx, dy;
+			f32 x, y;
 		} mouse;
 	};
 };

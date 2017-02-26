@@ -327,7 +327,8 @@ void game_quit(GameState *game, Settings *settings)
 	platform_quit();
 }
 
-void game_input(GameState *game, Settings *settings, InputEvent event)
+void game_input(GameState *game, PlatformState *platform, Settings *settings,
+                InputEvent event)
 {
 	switch (event.type) {
 	case InputType_key_press: {
@@ -367,6 +368,9 @@ void game_input(GameState *game, Settings *settings, InputEvent event)
 		case VirtualKey_G:
 			game->roll_velocity = -1.0f;
 			break;
+		case VirtualKey_C:
+			platform_toggle_raw_mouse(platform);
+			break;
 		default:
 			DEBUG_LOG("unhandled key press: %d", event.key.vkey);
 			break;
@@ -384,7 +388,7 @@ void game_input(GameState *game, Settings *settings, InputEvent event)
 				e.key.vkey     = VirtualKey_S;
 				e.key.repeated = false;
 
-				game_input(game, settings, e);
+				game_input(game, platform, settings, e);
 			}
 			break;
 		case VirtualKey_S:
@@ -395,7 +399,7 @@ void game_input(GameState *game, Settings *settings, InputEvent event)
 				e.key.vkey     = VirtualKey_W;
 				e.key.repeated = false;
 
-				game_input(game, settings, e);
+				game_input(game, platform, settings, e);
 			}
 			break;
 		case VirtualKey_A:
@@ -406,7 +410,7 @@ void game_input(GameState *game, Settings *settings, InputEvent event)
 				e.key.vkey     = VirtualKey_D;
 				e.key.repeated = false;
 
-				game_input(game, settings, e);
+				game_input(game, platform, settings, e);
 			}
 			break;
 		case VirtualKey_D:
@@ -417,7 +421,7 @@ void game_input(GameState *game, Settings *settings, InputEvent event)
 				e.key.vkey     = VirtualKey_A;
 				e.key.repeated = false;
 
-				game_input(game, settings, e);
+				game_input(game, platform, settings, e);
 			}
 			break;
 		case VirtualKey_Q:
@@ -428,7 +432,7 @@ void game_input(GameState *game, Settings *settings, InputEvent event)
 				e.key.vkey     = VirtualKey_E;
 				e.key.repeated = false;
 
-				game_input(game, settings, e);
+				game_input(game, platform, settings, e);
 			}
 			break;
 		case VirtualKey_E:
@@ -439,7 +443,7 @@ void game_input(GameState *game, Settings *settings, InputEvent event)
 				e.key.vkey     = VirtualKey_Q;
 				e.key.repeated = false;
 
-				game_input(game, settings, e);
+				game_input(game, platform, settings, e);
 			}
 			break;
 		case VirtualKey_R:
@@ -450,7 +454,7 @@ void game_input(GameState *game, Settings *settings, InputEvent event)
 				e.key.vkey     = VirtualKey_F;
 				e.key.repeated = false;
 
-				game_input(game, settings, e);
+				game_input(game, platform, settings, e);
 			}
 			break;
 		case VirtualKey_F:
@@ -461,7 +465,7 @@ void game_input(GameState *game, Settings *settings, InputEvent event)
 				e.key.vkey     = VirtualKey_R;
 				e.key.repeated = false;
 
-				game_input(game, settings, e);
+				game_input(game, platform, settings, e);
 			}
 			break;
 		case VirtualKey_T:
@@ -472,7 +476,7 @@ void game_input(GameState *game, Settings *settings, InputEvent event)
 				e.key.vkey     = VirtualKey_G;
 				e.key.repeated = false;
 
-				game_input(game, settings, e);
+				game_input(game, platform, settings, e);
 			}
 			break;
 		case VirtualKey_G:
@@ -483,7 +487,7 @@ void game_input(GameState *game, Settings *settings, InputEvent event)
 				e.key.vkey     = VirtualKey_T;
 				e.key.repeated = false;
 
-				game_input(game, settings, e);
+				game_input(game, platform, settings, e);
 			}
 			break;
 		default:

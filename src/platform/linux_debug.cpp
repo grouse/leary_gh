@@ -27,7 +27,9 @@
 
 void platform_debug_output(const char *msg, usize bytes)
 {
-	PROFILE_FUNCTION();
+	// NOTE(jesper): removed for now until profile timer initialisation is moved
+	// earlier into the platform layer
+	// PROFILE_FUNCTION();
 	write(1, msg, bytes);
 }
 

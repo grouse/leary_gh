@@ -37,18 +37,15 @@
 #include "leary.cpp"
 
 namespace  {
-	Settings      settings;
-	PlatformState platform_state;
-	GameState     game_state;
+	Settings      settings       = {};
+	PlatformState platform_state = {};
+	GameState     game_state     = {};
 }
 
-struct KeyState {
-	bool just_pressed  = false;
-	bool pressed       = false;
-	bool just_released = false;
-	bool released      = true;
-};
-
+void platform_toggle_raw_mouse(PlatformState *state) {
+	state->raw_mouse = !state->raw_mouse;
+	DEBUG_LOG("raw mouse mode set to: %d", state->raw_mouse);
+}
 
 void platform_quit()
 {
@@ -73,10 +70,6 @@ i64 get_time_difference(timespec start, timespec end)
 
 int main()
 {
-	platform_state = {};
-	game_state     = {};
-	settings       = {};
-
 	game_load_settings(&settings);
 
 	Display *display = XOpenDisplay(nullptr);
@@ -96,17 +89,44 @@ int main()
 	Atom WM_DELETE_WINDOW = XInternAtom(display, "WM_DELETE_WINDOW", false);
 	XSetWMProtocols(display, window, &WM_DELETE_WINDOW, 1);
 
-	XkbDescPtr xkb = nullptr;
 	i32 xkb_major = XkbMajorVersion;
 	i32 xkb_minor = XkbMinorVersion;
 
 	if (XkbQueryExtension(display, NULL, NULL, NULL, &xkb_major, &xkb_minor)) {
-		xkb = XkbGetMap(display, XkbAllClientInfoMask, XkbUseCoreKbd);
+		platform_state.x11.xkb = XkbGetMap(display,
+		                                   XkbAllClientInfoMask,
+		                                   XkbUseCoreKbd);
+		DEBUG_LOG("Initialised XKB version %d.%d", xkb_major, xkb_minor);
+	}
+
+	{
+		i32 event, error;
+
+		if (!XQueryExtension(display, "XInputExtension",
+		                     &platform_state.x11.xi2_opcode,
+		                     &event, &error))
+		{
+			DEBUG_ASSERT(false && "XInput2 extension not found, this is required");
+			return 0;
+		}
+
+		u8 mask[3] = { 0, 0, 0 };
+
+		XIEventMask emask;
+		emask.deviceid = XIAllMasterDevices;
+		emask.mask_len = sizeof(mask);
+		emask.mask     = mask;
+
+		XISetMask(mask, XI_RawMotion);
+		XISetMask(mask, XI_RawButtonPress);
+		XISetMask(mask, XI_RawButtonRelease);
+
+		XISelectEvents(display, DefaultRootWindow(display), &emask, 1);
+		XFlush(display);
 	}
 
 	platform_state.x11.window  = window;
 	platform_state.x11.display = display;
-	platform_state.x11.xkb     = xkb;
 
 	game_init(&settings, &platform_state, &game_state);
 
@@ -141,6 +161,7 @@ int main()
 #endif
 
 	XEvent xevent;
+
 	timespec last_time = get_time();
 	while (true) {
 		timespec current_time = get_time();
@@ -157,11 +178,12 @@ int main()
 			event.mouse.dx = 0;
 			event.mouse.dy = 0;
 
-			game_input(&game_state, &settings, event);
+			game_input(&game_state, &platform_state, &settings, event);
 		}
 
 		while (XPending(platform_state.x11.display) > 0) {
 			XNextEvent(platform_state.x11.display, &xevent);
+
 			switch (xevent.type) {
 			case KeyPress: {
 				InputEvent event;
@@ -169,7 +191,7 @@ int main()
 				event.key.vkey = (VirtualKey)xevent.xkey.keycode;
 				event.key.repeated = false;
 
-				game_input(&game_state, &settings, event);
+				game_input(&game_state, &platform_state, &settings, event);
 			} break;
 			case KeyRelease: {
 				InputEvent event;
@@ -191,7 +213,7 @@ int main()
 					}
 				}
 
-				game_input(&game_state, &settings, event);
+				game_input(&game_state, &platform_state, &settings, event);
 			} break;
 			case MotionNotify: {
 				InputEvent event;
@@ -205,7 +227,7 @@ int main()
 				mouse_x = xevent.xmotion.x;
 				mouse_y = xevent.xmotion.y;
 
-				game_input(&game_state, &settings, event);
+				game_input(&game_state, &platform_state, &settings, event);
 			} break;
 			case EnterNotify: {
 				if (xevent.xcrossing.focus == true &&
@@ -219,6 +241,63 @@ int main()
 			case ClientMessage: {
 				if ((Atom)xevent.xclient.data.l[0] == WM_DELETE_WINDOW) {
 					game_quit(&game_state, &settings);
+				}
+			} break;
+			case GenericEvent: {
+				if (xevent.xcookie.extension == platform_state.x11.xi2_opcode &&
+				    XGetEventData(platform_state.x11.display, &xevent.xcookie))
+				{
+					switch (xevent.xcookie.evtype) {
+					case XI_RawMotion: {
+						if (!platform_state.raw_mouse) {
+							break;
+						}
+
+						static Time prev_time = 0;
+						static f64  prev_deltas[2];
+
+						XIRawEvent *revent = (XIRawEvent*)xevent.xcookie.data;
+
+						f64 deltas[2];
+
+						u8  *mask    = revent->valuators.mask;
+						i32 mask_len = revent->valuators.mask_len;
+						f64 *ivalues = revent->raw_values;
+
+						i32 top = MIN(mask_len * 8, 16);
+						for (i32 i = 0, j = 0; i < top && j < 2; i++,j++) {
+							if (XIMaskIsSet(mask, i)) {
+								deltas[j] = *ivalues++;
+							}
+						}
+
+						if (revent->time == prev_time &&
+						    deltas[0] == prev_deltas[0] &&
+						    deltas[1] == prev_deltas[1])
+						{
+							// NOTE(jesper): discard duplicate events,
+							// apparently can happen?
+							break;
+						}
+
+						prev_deltas[0] = deltas[0];
+						prev_deltas[1] = deltas[1];
+
+						InputEvent event = {};
+						event.type = InputType_mouse_move;
+						event.mouse.dx = deltas[0];
+						event.mouse.dy = deltas[1];
+
+						game_input(&game_state, &platform_state, &settings,
+						           event);
+					} break;
+					default:
+						DEBUG_LOG("unhandled xinput2 event: %d",
+						          xevent.xcookie.evtype);
+						break;
+					}
+				} else {
+					DEBUG_LOG("unhandled generic event");
 				}
 			} break;
 			default: {
