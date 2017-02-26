@@ -32,6 +32,7 @@
 #include "win32_debug.cpp"
 #include "win32_vulkan.cpp"
 #include "win32_file.cpp"
+#include "win32_input.cpp"
 
 // TODO(jesper): move this into its own translation unit. Eventually i want to be able to compile
 // the game into a .dll and load it dynamically in the platform layer, if feature is turned off,
@@ -44,11 +45,14 @@ namespace {
 	GameState     game_state;
 }
 
-void platform_quit()
+void platform_quit(PlatformState *)
 {
 	_exit(EXIT_SUCCESS);
 }
 
+void platform_toggle_raw_mouse(PlatformState *)
+{
+}
 
 LRESULT CALLBACK
 window_proc(HWND   hwnd,
@@ -71,18 +75,18 @@ window_proc(HWND   hwnd,
 	case WM_KEYDOWN: {
 		InputEvent event;
 		event.type = InputType_key_press;
-		event.key.code = (lparam >> 16) & 0xFF;
+		event.key.vkey = (VirtualKey)wparam;
 		event.key.repeated = lparam & 0x40000000;
 
-		game_input(&game_state, &settings, event);
+		game_input(&game_state, &platform_state, &settings, event);
 	} break;
 	case WM_KEYUP: {
 		InputEvent event;
-		event.type = InputType_key_press;
-		event.key.code = lparam & 0x00000F00;
+		event.type = InputType_key_release;
+		event.key.vkey = (VirtualKey)wparam;
 		event.key.repeated = lparam & 0x40000000;
 
-		game_input(&game_state, &settings, event);
+		game_input(&game_state, &platform_state, &settings, event);
 	} break;
 	default:
 		std::printf("unhandled event: %d\n", message);
@@ -127,7 +131,7 @@ WinMain(HINSTANCE instance,
 	                                         nullptr);
 
 	if (platform_state.win32.hwnd == nullptr) {
-		platform_quit();
+		platform_quit(&platform_state);
 	}
 
 	game_init(&settings, &platform_state, &game_state);
@@ -147,14 +151,13 @@ WinMain(HINSTANCE instance,
 
 		f32 dt = (f32)elapsed / frequency.QuadPart;
 
-
 		while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE)) {
 			TranslateMessage(&msg);
 			DispatchMessage(&msg);
 		}
 
 		if (msg.message == WM_QUIT) {
-			platform_quit();
+			game_quit(&game_state, &platform_state, &settings);
 		}
 
 

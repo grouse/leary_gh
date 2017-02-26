@@ -200,6 +200,8 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 	//game->camera.view = look_at({0.0f, 0.0f, 1.0f}, {0.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f});
 	game->fp_camera.view = Matrix4::identity();
 
+	f32 width = (f32)settings->video.resolution.width;
+	f32 height = (f32)settings->video.resolution.height;
 #if 0
 	f32 left   = - (f32)settings->video.resolution.width / 2.0f;
 	f32 right  =   (f32)settings->video.resolution.width / 2.0f;
@@ -207,9 +209,6 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 	f32 top    =   (f32)settings->video.resolution.height / 2.0f;
 	game->camera.projection = Matrix4::orthographic(left, right, top, bottom, 0.0f, 1.0f);
 #else
-	f32 width = (f32)settings->video.resolution.width;
-	f32 height = (f32)settings->video.resolution.height;
-
 	f32 aspect = width / height;
 	f32 vfov   = radians(45.0f);
 	game->fp_camera.projection = Matrix4::perspective(vfov, aspect, 0.1f, 10.0f);
@@ -267,8 +266,6 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 
 	{
 		Matrix4 view = Matrix4::identity();
-		f32 width  = (f32)settings->video.resolution.width;
-		f32 height = (f32)settings->video.resolution.height;
 		view[0].x = 2.0f / width;
 		view[1].y = 2.0f / height;
 		view[2].z = 1.0f;
