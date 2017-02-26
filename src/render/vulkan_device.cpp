@@ -1180,8 +1180,8 @@ VulkanTexture create_texture(VulkanDevice *device, u32 width, u32 height,
 		bytes_per_channel = 1;
 		break;
 	default:
-		DEBUG_LOG("unhandled format in determining number of bytes per channel "
-		          "and number of channels");
+		DEBUG_LOG(Log_warning, "unhandled format in determining number of bytes "
+		          "per channel and number of channels");
 		break;
 	}
 

@@ -147,6 +147,8 @@ serialize_save_conf(const char *path,
                    void *ptr)
 {
 	if (!platform_file_exists(path) && !platform_file_create(path)) {
+		DEBUG_LOG(Log_warning, "path does not exist or can't be created: %s",
+		          path);
 		DEBUG_ASSERT(false);
 		return;
 	}
@@ -297,6 +299,7 @@ serialize_load_conf(const char *path,
                     void *out)
 {
 	if (!platform_file_exists(path)) {
+		DEBUG_LOG(Log_warning, "path does not exist: %s", path);
 		return;
 	}
 

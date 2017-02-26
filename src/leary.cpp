@@ -371,8 +371,6 @@ void game_input(GameState *game, PlatformState *platform, Settings *settings,
 			break;
 		}
 
-		DEBUG_LOG("released");
-
 		game->key_state[event.key.vkey] = InputType_key_release;
 
 		switch (event.key.vkey) {
