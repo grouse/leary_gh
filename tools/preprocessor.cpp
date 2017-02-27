@@ -258,8 +258,8 @@ int main(int argc, char **argv)
 	std::fprintf(output_file, "};\n\n");
 
 	const char *files[] = {
-		FILE_SEP "core" FILE_SEP "settings.h",
-		FILE_SEP "core" FILE_SEP "math.h"
+		FILE_SEP "core" FILE_SEP "settings.cpp",
+		FILE_SEP "core" FILE_SEP "math.cpp"
 	};
 
 	std::vector<StructInfo> struct_infos;

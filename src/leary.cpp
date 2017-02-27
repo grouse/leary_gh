@@ -11,6 +11,7 @@
 #include "core/settings.cpp"
 #include "core/tokenizer.cpp"
 #include "core/profiling.cpp"
+#include "core/math.cpp"
 
 #include "render/vulkan_device.cpp"
 
