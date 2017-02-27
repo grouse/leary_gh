@@ -36,8 +36,6 @@
 
 #include <vulkan/vulkan.h>
 
-#include "platform_main.h"
-
 VkResult
 vulkan_create_surface(VkInstance instance,
                       VkSurfaceKHR *surface,

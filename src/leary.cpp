@@ -7,10 +7,13 @@
  */
 
 
-#include "render/vulkan_device.cpp"
 
 #include "core/settings.cpp"
 #include "core/tokenizer.cpp"
+#include "core/profiling.cpp"
+
+#include "render/vulkan_device.cpp"
+
 #include "core/serialize.cpp"
 
 #define STB_TRUETYPE_IMPLEMENTATION

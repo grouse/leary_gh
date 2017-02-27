@@ -22,15 +22,11 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include "file.h"
-
 #include <unistd.h>
 #include <linux/limits.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <pwd.h>
-
-#include "platform/platform_main.h"
 
 char *platform_path(GamePath root)
 {

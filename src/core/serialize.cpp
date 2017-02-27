@@ -8,8 +8,6 @@
 
 #include <inttypes.h>
 #include "generated/type_info.h"
-#include "platform/debug.h"
-#include "platform/file.h"
 
 #define SERIALIZE_SAVE_CONF(file, name, ptr)              \
 	serialize_save_conf(file, name ## _members,    \

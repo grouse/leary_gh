@@ -26,11 +26,7 @@
 #include <fstream>
 #include <array>
 
-#include "platform/debug.h"
-#include "platform/file.h"
-
 #include "core/math.h"
-#include "core/settings.h"
 
 enum ShaderStage {
 	ShaderStage_vertex,

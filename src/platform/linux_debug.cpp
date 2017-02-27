@@ -22,14 +22,64 @@
  * 3. This notice may not be removed or altered from any source distribution.
 **/
 
-#include "debug.h"
 #include <unistd.h>
 
-void platform_debug_output(const char *msg, usize bytes)
+#define DEBUG_BREAK() asm("int $3")
+#define DEBUG_FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
+
+#define DEBUG_ASSERT(condition) \
+	do { \
+		if (!(condition)) { \
+			DEBUG_LOG(Log_assert, "assertion failed: %s", #condition); \
+			DEBUG_BREAK(); \
+		} \
+	} while(0)
+
+#define VAR_UNUSED(var) (void)(var)
+
+#define DEBUG_BUFFER_SIZE (1024)
+
+void platform_debug_print(const char *file,
+                          u32 line,
+                          const char *function,
+                          LogChannel channel,
+                          const char *fmt, ...)
 {
-	// NOTE(jesper): removed for now until profile timer initialisation is moved
-	// earlier into the platform layer
-	// PROFILE_FUNCTION();
-	write(1, msg, bytes);
+	const char *channel_str = log_channel_string(channel);
+
+	va_list args;
+	char message[DEBUG_BUFFER_SIZE];
+	char buffer[DEBUG_BUFFER_SIZE];
+
+	va_start(args, fmt);
+	i32 length = vsnprintf(message, DEBUG_BUFFER_SIZE, fmt, args);
+	va_end(args);
+	DEBUG_ASSERT(length < DEBUG_BUFFER_SIZE);
+
+	length = snprintf(buffer, DEBUG_BUFFER_SIZE, "%s:%d: %s: [%s] %s\n",
+	                  file, line, channel_str, function, message);
+	DEBUG_ASSERT(length < DEBUG_BUFFER_SIZE);
+	write(1, message, length);
 }
 
+void platform_debug_print(const char *file,
+                          u32 line,
+                          const char *function,
+                          const char *fmt, ...)
+{
+	const char *channel_str = log_channel_string(Log_info);
+
+	va_list args;
+	char message[DEBUG_BUFFER_SIZE];
+	char buffer[DEBUG_BUFFER_SIZE];
+
+	va_start(args, fmt);
+	i32 length = vsnprintf(message, DEBUG_BUFFER_SIZE, fmt, args);
+	va_end(args);
+	DEBUG_ASSERT(length < DEBUG_BUFFER_SIZE);
+
+	length = snprintf(buffer, DEBUG_BUFFER_SIZE, "%s:%d: %s: [%s] %s\n",
+	                  file, line, channel_str, function, message);
+	DEBUG_ASSERT(length< DEBUG_BUFFER_SIZE);
+	write(1, message, length);
+}

@@ -27,7 +27,7 @@
 
 #include <time.h>
 
-#include "platform_main.h"
+#include "platform.h"
 
 #include "linux_debug.cpp"
 #include "linux_vulkan.cpp"

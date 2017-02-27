@@ -27,7 +27,7 @@
 #include <cinttypes>
 #include <cstdlib>
 
-#include "platform_main.h"
+#include "platform.h"
 
 #include "win32_debug.cpp"
 #include "win32_vulkan.cpp"

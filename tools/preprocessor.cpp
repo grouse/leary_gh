@@ -12,20 +12,21 @@
 #include <vector>
 #include <cstring>
 
-#include "core/types.h"
-#include "core/tokenizer.cpp"
-
 #define PROFILE_TIMERS_ENABLE 0
 
+#include "platform/platform.h"
+
 #if defined(_WIN32)
-#include "platform/win32_debug.cpp"
-#include "platform/win32_file.cpp"
+	#include "platform/win32_debug.cpp"
+	#include "platform/win32_file.cpp"
 #elif defined(__linux__)
-#include "platform/linux_debug.cpp"
-#include "platform/linux_file.cpp"
+	#include "platform/linux_debug.cpp"
+	#include "platform/linux_file.cpp"
 #else
-#error "unsupported platform"
+	#error "unsupported platform"
 #endif
+
+#include "core/tokenizer.cpp"
 
 enum VariableType {
 	VariableType_int32,

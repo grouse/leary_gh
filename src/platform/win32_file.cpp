@@ -22,11 +22,6 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include "file.h"
-
-#include "debug.h"
-#include "platform_main.h"
-
 char *platform_path(GamePath root)
 {
 	char *path = nullptr;
