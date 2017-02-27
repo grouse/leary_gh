@@ -56,6 +56,28 @@
 #define INTROSPECT
 #endif
 
+enum VirtualKey : i32;
+
+enum InputType {
+	InputType_key_release,
+	InputType_key_press,
+	InputType_mouse_move
+};
+
+struct InputEvent {
+	InputType type;
+	union {
+		struct {
+			VirtualKey vkey;
+			bool repeated;
+		} key;
+		struct {
+			f32 dx, dy;
+			f32 x, y;
+		} mouse;
+	};
+};
+
 // NOTE: this is a union so that we can support multiple different windowing systems on the same
 // platform, e.g. Wayland and X11 on Linux.
 struct PlatformState {

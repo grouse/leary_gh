@@ -6,7 +6,7 @@
  * Copyright (c) 2017 - all rights reserved
  */
 
-enum VirtualKey {
+enum VirtualKey : i32 {
 	VirtualKey_escape    = 9,
 	VirtualKey_F1        = 67,
 	VirtualKey_F2        = 68,
@@ -79,25 +79,5 @@ enum VirtualKey {
 	VirtualKey_rsuper    = 134,
 	VirtualKey_menu      = 135,
 	VirtualKey_rctrl     = 105
-};
-
-enum InputType {
-	InputType_key_release,
-	InputType_key_press,
-	InputType_mouse_move
-};
-
-struct InputEvent {
-	InputType type;
-	union {
-		struct {
-			VirtualKey vkey;
-			bool repeated;
-		} key;
-		struct {
-			f32 dx, dy;
-			f32 x, y;
-		} mouse;
-	};
 };
 
