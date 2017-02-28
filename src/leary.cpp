@@ -170,8 +170,6 @@ void game_load_settings(Settings *settings)
 
 void game_init(Settings *settings, PlatformState *platform, GameState *game)
 {
-	profile_init();
-
 	game->text_buffer = (char*)malloc(1024 * 1024);
 
 	VAR_UNUSED(platform);
@@ -614,10 +612,6 @@ void game_render(GameState *game)
 
 void game_update_and_render(GameState *game, f32 dt)
 {
-	profile_start_frame();
-
 	game_update(game, dt);
 	game_render(game);
-
-	profile_end_frame();
 }

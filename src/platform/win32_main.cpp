@@ -207,6 +207,7 @@ WinMain(HINSTANCE instance,
         LPSTR     /*cmd_line*/,
         int       /*cmd_show*/)
 {
+	profile_init();
 	game_load_settings(&settings);
 
 	platform_state.win32.hinstance = instance;
@@ -245,6 +246,8 @@ WinMain(HINSTANCE instance,
 
 	MSG msg;
 	while(true) {
+		profile_start_frame();
+
 		LARGE_INTEGER current_time;
 		QueryPerformanceCounter(&current_time);
 		i64 elapsed = current_time.QuadPart - last_time.QuadPart;
@@ -252,6 +255,7 @@ WinMain(HINSTANCE instance,
 
 		f32 dt = (f32)elapsed / frequency.QuadPart;
 
+		PROFILE_START(win32_input)
 		while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE)) {
 			TranslateMessage(&msg);
 			DispatchMessage(&msg);
@@ -260,9 +264,12 @@ WinMain(HINSTANCE instance,
 		if (msg.message == WM_QUIT) {
 			game_quit(&game_state, &platform_state, &settings);
 		}
+		PROFILE_END(win32_input);
 
 
 		game_update_and_render(&game_state, dt);
+
+		profile_end_frame();
 	}
 
 	return 0;

@@ -85,6 +85,7 @@ i64 get_time_difference(timespec start, timespec end)
 
 int main()
 {
+	profile_init();
 	game_load_settings(&settings);
 
 	Display *display = XOpenDisplay(nullptr);
@@ -185,22 +186,15 @@ int main()
 
 	timespec last_time = get_time();
 	while (true) {
+		profile_start_frame();
+
 		timespec current_time = get_time();
 		i64 difference = get_time_difference(last_time, current_time);
 		last_time = current_time;
 		f32 dt = (f32)difference / 1000000000.0f;
 		DEBUG_ASSERT(difference >= 0);
 
-		{ // HACK(jesper): reset mouse dx
-			InputEvent event;
-			event.type = InputType_mouse_move;
-			event.mouse.x = mouse_x;
-			event.mouse.y = mouse_y;
-			event.mouse.dx = 0;
-			event.mouse.dy = 0;
-
-			game_input(&game_state, &platform_state, &settings, event);
-		}
+		PROFILE_START(linux_input);
 
 		while (XPending(platform_state.x11.display) > 0) {
 			XNextEvent(platform_state.x11.display, &xevent);
@@ -331,8 +325,12 @@ int main()
 			}
 		}
 
+		PROFILE_END(linux_input);
+
 
 		game_update_and_render(&game_state, dt);
+
+		profile_end_frame();
 	}
 
 	return 0;
