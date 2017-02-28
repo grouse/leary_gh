@@ -170,20 +170,7 @@ void game_load_settings(Settings *settings)
 
 void game_init(Settings *settings, PlatformState *platform, GameState *game)
 {
-	// TODO(jesper): use one large buffer for the entire thing
-	g_profile_timers = {};
-	g_profile_timers.max_index = NUM_PROFILE_TIMERS;
-	g_profile_timers.names = (const char**)malloc(sizeof(char*) * NUM_PROFILE_TIMERS);
-	g_profile_timers.cycles = (u64*)malloc(sizeof(u64) * NUM_PROFILE_TIMERS);
-	g_profile_timers.cycles_last = (u64*)malloc(sizeof(u64) * NUM_PROFILE_TIMERS);
-	g_profile_timers.open = (bool*)malloc(sizeof(bool) * NUM_PROFILE_TIMERS);
-
-	g_profile_timers_prev = {};
-	g_profile_timers_prev.max_index = NUM_PROFILE_TIMERS;
-	g_profile_timers_prev.names = (const char**)malloc(sizeof(char*) * NUM_PROFILE_TIMERS);
-	g_profile_timers_prev.cycles = (u64*)malloc(sizeof(u64) * NUM_PROFILE_TIMERS);
-	g_profile_timers_prev.cycles_last = (u64*)malloc(sizeof(u64) * NUM_PROFILE_TIMERS);
-	g_profile_timers_prev.open = (bool*)malloc(sizeof(bool) * NUM_PROFILE_TIMERS);
+	profile_init();
 
 	game->text_buffer = (char*)malloc(1024 * 1024);
 
@@ -435,27 +422,9 @@ void game_input(GameState *game, PlatformState *platform, Settings *settings,
 	}
 }
 
-void game_profile_collate(GameState* game, f32 dt)
+void game_update(GameState* game, f32 dt)
 {
 	PROFILE_FUNCTION();
-
-	for (i32 i = 0; i < g_profile_timers_prev.index - 1; i++) {
-		for (i32 j = i+1; j < g_profile_timers_prev.index; j++) {
-			if (g_profile_timers_prev.cycles[j] > g_profile_timers_prev.cycles[i]) {
-				const char *name_tmp = g_profile_timers_prev.names[j];
-				u64 cycles_tmp = g_profile_timers_prev.cycles[j];
-				u64 cycles_last_tmp = g_profile_timers_prev.cycles_last[j];
-
-				g_profile_timers_prev.names[j] = g_profile_timers_prev.names[i];
-				g_profile_timers_prev.cycles[j] = g_profile_timers_prev.cycles[i];
-				g_profile_timers_prev.cycles_last[j] = g_profile_timers_prev.cycles_last[i];
-
-				g_profile_timers_prev.names[i] = name_tmp;
-				g_profile_timers_prev.cycles[i] = cycles_tmp;
-				g_profile_timers_prev.cycles_last[i] = cycles_last_tmp;
-			}
-		}
-	}
 
 	isize buffer_size = 1024*1024;
 	char *buffer = game->text_buffer;
@@ -478,12 +447,6 @@ void game_profile_collate(GameState* game, f32 dt)
 	}
 
 	render_font(game, &game->text_vertices, game->text_buffer, -1.0f, -1.0f);
-}
-
-void game_update(GameState* game, f32 dt)
-{
-	PROFILE_FUNCTION();
-	game_profile_collate(game, dt);
 
 	game->positions[0] = translate(game->positions[0], dt * game->player_velocity);
 	game->positions[0] = rotate_x(game->positions[0], dt * 1.0f);
@@ -636,8 +599,7 @@ void game_render(GameState *game)
 	VkPresentInfoKHR present_info = {};
 	present_info.sType              = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
 	present_info.waitSemaphoreCount = 1;
-	present_info.pWaitSemaphores    = wait_semaphores;
-	present_info.swapchainCount     = 1;
+	present_info.pWaitSemaphores    = wait_semaphores; present_info.swapchainCount     = 1;
 	present_info.pSwapchains        = swapchains;
 	present_info.pImageIndices      = &image_index;
 
@@ -652,14 +614,10 @@ void game_render(GameState *game)
 
 void game_update_and_render(GameState *game, f32 dt)
 {
+	profile_start_frame();
+
 	game_update(game, dt);
 	game_render(game);
 
-	ProfileTimers tmp      = g_profile_timers_prev;
-	g_profile_timers_prev  = g_profile_timers;
-	g_profile_timers       = tmp;
-
-	for (i32 i = 0; i < g_profile_timers.index; i++) {
-		g_profile_timers.cycles[i] = 0;
-	}
+	profile_end_frame();
 }
