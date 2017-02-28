@@ -59,7 +59,7 @@ void platform_debug_print(const char *file,
 	length = snprintf(buffer, DEBUG_BUFFER_SIZE, "%s:%d: %s: [%s] %s\n",
 	                  file, line, channel_str, function, message);
 	DEBUG_ASSERT(length < DEBUG_BUFFER_SIZE);
-	write(1, message, length);
+	write(1, buffer, length);
 }
 
 void platform_debug_print(const char *file,
@@ -80,6 +80,6 @@ void platform_debug_print(const char *file,
 
 	length = snprintf(buffer, DEBUG_BUFFER_SIZE, "%s:%d: %s: [%s] %s\n",
 	                  file, line, channel_str, function, message);
-	DEBUG_ASSERT(length< DEBUG_BUFFER_SIZE);
-	write(1, message, length);
+	DEBUG_ASSERT(length < DEBUG_BUFFER_SIZE);
+	write(1, buffer, length);
 }
