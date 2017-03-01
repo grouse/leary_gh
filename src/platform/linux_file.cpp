@@ -197,7 +197,7 @@ void* platform_file_open(const char *path, FileAccess access)
 		return nullptr;
 	}
 
-	return (void*)fd;
+	return (void*)(i64)fd;
 }
 
 void platform_file_close(void *file_handle)

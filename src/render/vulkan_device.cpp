@@ -691,15 +691,6 @@ VulkanPipeline create_font_pipeline(VulkanDevice *device)
 	color_blend_info.blendConstants[2] = 0.0f;
 	color_blend_info.blendConstants[3] = 0.0f;
 
-	VkStencilOpState stencil_state = {};
-	stencil_state.failOp      = VK_STENCIL_OP_KEEP;
-	stencil_state.passOp      = VK_STENCIL_OP_KEEP;
-	stencil_state.depthFailOp = VK_STENCIL_OP_KEEP;
-	stencil_state.compareOp   = VK_COMPARE_OP_ALWAYS;
-	stencil_state.compareMask = 0;
-	stencil_state.writeMask   = 0;
-	stencil_state.reference   = 0;
-
 	VkPipelineMultisampleStateCreateInfo multisample_info = {};
 	multisample_info.sType                 = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
 	multisample_info.rasterizationSamples  = VK_SAMPLE_COUNT_1_BIT;
