@@ -13,6 +13,10 @@
 #define MIN(a, b) (a) < (b) ? (a) : (b)
 #define MAX(a, b) (a) > (b) ? (a) : (b)
 
+INTROSPECT struct Vector2 {
+	f32 x, y;
+};
+
 INTROSPECT struct Vector3 {
 	f32 x, y, z;
 };

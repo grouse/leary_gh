@@ -33,6 +33,7 @@ struct Token {
 		single_quote,
 
 		identifier,
+		eol,
 		eof
 	} type;
 
@@ -73,6 +74,8 @@ Token::Type get_token_type(char c)
 	case '"':  type = Token::double_quote;      break;
 	case '\'': type = Token::single_quote;      break;
 	case '\0': type = Token::eof;               break;
+	case '\n': type = Token::eol;               break;
+	case '\r': type = Token::eol;               break;
 	default:   type = Token::identifier;        break;
 	}
 

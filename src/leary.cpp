@@ -12,6 +12,7 @@
 #include "core/tokenizer.cpp"
 #include "core/profiling.cpp"
 #include "core/math.cpp"
+#include "core/mesh.cpp"
 
 #include "render/vulkan_device.cpp"
 
@@ -171,6 +172,9 @@ void game_load_settings(Settings *settings)
 void game_init(Settings *settings, PlatformState *platform, GameState *game)
 {
 	game->text_buffer = (char*)malloc(1024 * 1024);
+
+	Mesh armoire = load_mesh_obj("armoire.obj");
+	VAR_UNUSED(armoire);
 
 	VAR_UNUSED(platform);
 	game->vulkan = create_device(settings, platform);

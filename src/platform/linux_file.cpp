@@ -78,6 +78,14 @@ char *platform_path(GamePath root)
 		strcat(path, "shaders/");
 		path[length] = '\0';
 	} break;
+	case GamePath_models: {
+		char *data_path = platform_path(GamePath_data);
+		u64 length = strlen(data_path) + strlen("models/") + 1;
+		path = (char*)malloc(length);
+		strcpy(path, data_path);
+		strcat(path, "models/");
+		path[length] = '\0';
+	} break;
 	case GamePath_preferences: {
 		char *local_share = getenv("XDG_DATA_HOME");
 		if (local_share) {
@@ -111,10 +119,12 @@ char *platform_resolve_path(const char *path)
 char *platform_resolve_path(GamePath root, const char *path)
 {
 	static const char *data_path        = platform_path(GamePath_data);
+	static const char *models_path      = platform_path(GamePath_models);
 	static const char *shaders_path     = platform_path(GamePath_shaders);
 	static const char *preferences_path = platform_path(GamePath_preferences);
 
 	static const u64 data_path_length        = strlen(data_path);
+	static const u64 models_path_length      = strlen(models_path);
 	static const u64 shaders_path_length     = strlen(shaders_path);
 	static const u64 preferences_path_length = strlen(preferences_path);
 
@@ -132,6 +142,13 @@ char *platform_resolve_path(GamePath root, const char *path)
 		usize length = shaders_path_length + strlen(path) + 1;
 		resolved = (char*)malloc(length);
 		strcpy(resolved, shaders_path);
+		strcat(resolved, path);
+		resolved[length] = '\0';
+	} break;
+	case GamePath_models: {
+		usize length = models_path_length + strlen(path) + 1;
+		resolved = (char*)malloc(length);
+		strcpy(resolved, models_path);
 		strcat(resolved, path);
 		resolved[length] = '\0';
 	} break;

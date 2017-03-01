@@ -31,6 +31,7 @@ glslangValidator -V $ROOT/src/render/shaders/font.vert -o $ROOT/build/data/shade
 glslangValidator -V $ROOT/src/render/shaders/font.frag -o $ROOT/build/data/shaders/font.frag.spv
 
 cp -R $ROOT/assets/fonts $ROOT/build/data/fonts
+cp -R $ROOT/assets/models $ROOT/build/data/models
 assets_end=`date +%s%N`
 
 leary_start=`date +%s%N`
