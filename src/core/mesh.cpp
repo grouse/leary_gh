@@ -27,10 +27,13 @@ Mesh load_mesh_obj(const char *filename)
 	Mesh mesh = {};
 
 	char *path = platform_resolve_path(GamePath_models, filename);
+	DEBUG_LOG("Loading mesh: %s", path);
 
 	usize size;
 	char *file = platform_file_read(path, &size);
 	char *end  = file + size;
+
+	DEBUG_LOG("-- file size: %llu bytes", size);
 
 	DEBUG_ASSERT(file != nullptr);
 
@@ -79,6 +82,11 @@ Mesh load_mesh_obj(const char *filename)
 	DEBUG_ASSERT(num_indices > 0);
 	DEBUG_ASSERT(num_normals > 0);
 	DEBUG_ASSERT(num_uvs > 0);
+
+	DEBUG_LOG("-- num_vertices: %d", num_vertices);
+	DEBUG_LOG("-- num_indices: %d", num_indices);
+	DEBUG_LOG("-- num_normals: %d", num_normals);
+	DEBUG_LOG("-- num_uvs: %d", num_uvs);
 
 	mesh.vertices = new Vertex[num_vertices];
 	mesh.vertices_count = num_vertices;
@@ -145,7 +153,12 @@ Mesh load_mesh_obj(const char *filename)
 			u32 in0, in1, in2;
 
 			sscanf(ptr, "%u/%u/%u %u/%u/%u %u/%u/%u",
-			       &iv0, &iv1, &iv2, &it0, &it1, &it2, &in0, &in1, &in2);
+			       &iv0, &it0, &in0, &iv1, &it1, &in1, &iv2, &it2, &in2);
+
+			// NOTE(jesper): objs are 1 indexed
+			iv0--; iv1--; iv2--;
+			it0--; it1--; it2--;
+			in0--; in1--; in2--;
 
 			mesh.indices[indices_index++] = iv0;
 			mesh.indices[indices_index++] = iv1;
@@ -167,8 +180,6 @@ Mesh load_mesh_obj(const char *filename)
 		while (ptr < end && is_newline(ptr[0]));
 	}
 
-	DEBUG_LOG("num vertices: %d", mesh.vertices_count);
-	DEBUG_LOG("num indices: %d", mesh.indices_count);
 
 	return mesh;
 }

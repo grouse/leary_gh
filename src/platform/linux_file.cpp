@@ -37,15 +37,14 @@ char *platform_path(GamePath root)
 		char *data_env = getenv("LEARY_DATA_ROOT");
 		if (data_env) {
 			u64 length = strlen(data_env) + 1;
-			if (data_env[length-1] != '/') {
+			if (data_env[length-2] != '/') {
 				path = (char*)malloc(length + 1);
 				strcpy(path, data_env);
 				path[length-1] = '/';
-				path[length] = '\0';
+				path[length]   = '\0';
 			} else {
 				path = (char*)malloc(length);
 				strcpy(path, data_env);
-				path[length] = '\0';
 			}
 		} else {
 			char linkname[64];
@@ -67,7 +66,6 @@ char *platform_path(GamePath root)
 			path = (char*)malloc(total_length);
 			strncpy(path, buffer, length);
 			strcat(path, "data/");
-			path[total_length] = '\0';
 		}
 	} break;
 	case GamePath_shaders: {
@@ -76,7 +74,6 @@ char *platform_path(GamePath root)
 		path = (char*)malloc(length);
 		strcpy(path, data_path);
 		strcat(path, "shaders/");
-		path[length] = '\0';
 	} break;
 	case GamePath_models: {
 		char *data_path = platform_path(GamePath_data);
@@ -84,7 +81,6 @@ char *platform_path(GamePath root)
 		path = (char*)malloc(length);
 		strcpy(path, data_path);
 		strcat(path, "models/");
-		path[length] = '\0';
 	} break;
 	case GamePath_preferences: {
 		char *local_share = getenv("XDG_DATA_HOME");
@@ -93,14 +89,12 @@ char *platform_path(GamePath root)
 			path = (char*)malloc(length);
 			strcpy(path, local_share);
 			strcat(path, "leary/");
-			path[length] = '\0';
 		} else {
 			struct passwd *pw = getpwuid(getuid());
 			u64 length = strlen(pw->pw_dir) + strlen("/.local/share/leary/") + 1;
 			path = (char*)malloc(length);
 			strcpy(path, pw->pw_dir);
 			strcat(path, "/.local/share/leary/");
-			path[length] = '\0';
 		}
 	} break;
 	default:
@@ -136,28 +130,24 @@ char *platform_resolve_path(GamePath root, const char *path)
 		resolved = (char*)malloc(length);
 		strcpy(resolved, data_path);
 		strcat(resolved, path);
-		resolved[length] = '\0';
 	} break;
 	case GamePath_shaders: {
 		usize length = shaders_path_length + strlen(path) + 1;
 		resolved = (char*)malloc(length);
 		strcpy(resolved, shaders_path);
 		strcat(resolved, path);
-		resolved[length] = '\0';
 	} break;
 	case GamePath_models: {
 		usize length = models_path_length + strlen(path) + 1;
 		resolved = (char*)malloc(length);
 		strcpy(resolved, models_path);
 		strcat(resolved, path);
-		resolved[length] = '\0';
 	} break;
 	case GamePath_preferences: {
 		usize length = preferences_path_length + strlen(path) + 1;
 		resolved = (char*)malloc(length);
 		strcpy(resolved, preferences_path);
 		strcat(resolved, path);
-		resolved[length] = '\0';
 	} break;
 	default:
 		DEBUG_ASSERT(false);

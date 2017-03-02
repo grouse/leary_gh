@@ -536,6 +536,7 @@ void game_render(GameState *game)
 
 	vkCmdBeginRenderPass(command, &render_info, VK_SUBPASS_CONTENTS_INLINE);
 
+#if 0
 	vkCmdBindPipeline(command,
 	                  VK_PIPELINE_BIND_POINT_GRAPHICS,
 	                  game->pipelines.generic.handle);
@@ -566,6 +567,7 @@ void game_render(GameState *game)
 	                   0, sizeof(Matrix4), &game->positions[0]);
 	vkCmdDrawIndexed(command, game->object.vertex_count, 1, 0, 0, 0);
 #endif
+#endif
 
 	vkCmdBindPipeline(command,
 	                  VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -579,7 +581,7 @@ void game_render(GameState *game)
 	                        0, nullptr);
 
 	vkCmdBindVertexBuffers(command, 0, 1, &game->mesh_vertices.handle, offsets);
-	vkCmdBindIndexBuffer(command, game->mesh_vertices.handle,
+	vkCmdBindIndexBuffer(command, game->mesh_indices.handle,
 	                     0, VK_INDEX_TYPE_UINT32);
 
 	vkCmdPushConstants(command, game->pipelines.generic.layout, VK_SHADER_STAGE_VERTEX_BIT,

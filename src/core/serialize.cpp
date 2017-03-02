@@ -217,12 +217,12 @@ read_unsigned_integer(Token token)
 
 void
 member_from_string(char **ptr,
+                   usize size,
                    StructMemberInfo *members,
                    usize num_members,
                    void *out)
 {
-	Tokenizer tokenizer;
-	tokenizer.at = *ptr;
+	Tokenizer tokenizer = make_tokenizer(*ptr, size);
 
 	Token token = next_token(tokenizer);
 	while (token.type != Token::eof &&
@@ -264,7 +264,8 @@ member_from_string(char **ptr,
 			DEBUG_ASSERT(token.type == Token::open_curly_brace);
 
 			void *child = ((u8*)out + member->offset);
-			member_from_string(&tokenizer.at, Resolution_members,
+			member_from_string(&tokenizer.at, tokenizer.end - tokenizer.at,
+			                   Resolution_members,
 			                   sizeof(Resolution_members) /
 			                   sizeof(StructMemberInfo),
 			                   child);
@@ -274,7 +275,8 @@ member_from_string(char **ptr,
 			DEBUG_ASSERT(token.type == Token::open_curly_brace);
 
 			void *child = ((u8*)out + member->offset);
-			member_from_string(&tokenizer.at, VideoSettings_members,
+			member_from_string(&tokenizer.at, tokenizer.end - tokenizer.at,
+			                   VideoSettings_members,
 			                   sizeof(VideoSettings_members) /
 			                   sizeof(StructMemberInfo),
 			                   child);
@@ -304,7 +306,7 @@ serialize_load_conf(const char *path,
 	usize size;
 	char *file, *ptr;
 	file = ptr = platform_file_read(path, &size);
-	member_from_string(&ptr, members, num_members, out);
+	member_from_string(&ptr, size, members, num_members, out);
 	free(file);
 }
 

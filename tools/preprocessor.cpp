@@ -286,10 +286,9 @@ int main(int argc, char **argv)
 			return 0;
 		}
 
-		Tokenizer tokenizer;
-		tokenizer.at = file;
+		Tokenizer tokenizer = make_tokenizer(file, size);
 
-		while (tokenizer.at[0]) {
+		while (tokenizer.at < tokenizer.end) {
 			Token token = next_token(tokenizer);
 
 			if (token.type != Token::eof) {

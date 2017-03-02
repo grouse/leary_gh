@@ -7,10 +7,11 @@
  */
 
 #include <cstring>
+
 struct Tokenizer {
 	char *at;
+	char *end;
 };
-
 
 struct Token {
 	enum Type {
@@ -40,6 +41,14 @@ struct Token {
 	int32_t length;
 	char *str;
 };
+
+Tokenizer make_tokenizer(char *ptr, usize end)
+{
+	Tokenizer t = {};
+	t.at  = ptr;
+	t.end = ptr + end;
+	return t;
+}
 
 bool is_whitespace(char c)
 {
@@ -87,7 +96,7 @@ Token next_token(Tokenizer &tokenizer)
 	Token token = {};
 	token.type = Token::eof;
 
-	while (tokenizer.at[0]) {
+	while (tokenizer.at < tokenizer.end) {
 		if (is_whitespace(tokenizer.at[0])) {
 			tokenizer.at++;
 		} else if (get_token_type(tokenizer.at[0]) == Token::forward_slash &&
@@ -114,12 +123,12 @@ Token next_token(Tokenizer &tokenizer)
 		}
 	}
 
-	if (tokenizer.at[0]) {
+	if (tokenizer.at < tokenizer.end) {
 		token.type = get_token_type(tokenizer.at[0]);
 		token.str = tokenizer.at;
 
 		if (token.type == Token::identifier) {
-			while (tokenizer.at[0]) {
+			while (tokenizer.at < tokenizer.end) {
 				if (is_whitespace(tokenizer.at[0]) ||
 				    get_token_type(tokenizer.at[0]) != Token::identifier)
 				{
