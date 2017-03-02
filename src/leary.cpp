@@ -173,7 +173,7 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 {
 	game->text_buffer = (char*)malloc(1024 * 1024);
 
-	Mesh armoire = load_mesh_obj("armoire.obj");
+	Mesh armoire = load_mesh_obj("cube.obj");
 	VAR_UNUSED(armoire);
 
 	VAR_UNUSED(platform);
