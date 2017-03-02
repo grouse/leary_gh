@@ -49,12 +49,17 @@ struct GameState {
 	struct {
 		VulkanPipeline generic;
 		VulkanPipeline font;
+		VulkanPipeline mesh;
 	} pipelines;
 
 	struct {
 		VulkanTexture generic;
 		VulkanTexture font;
 	} textures;
+
+	VulkanBuffer mesh_vertices;
+	VulkanBuffer mesh_indices;
+	i32 mesh_vertex_count;
 
 	Camera fp_camera;
 	Camera ui_camera;
@@ -173,9 +178,6 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 {
 	game->text_buffer = (char*)malloc(1024 * 1024);
 
-	Mesh armoire = load_mesh_obj("cube.obj");
-	VAR_UNUSED(armoire);
-
 	VAR_UNUSED(platform);
 	game->vulkan = create_device(settings, platform);
 
@@ -218,6 +220,7 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 	game->positions  = (Matrix4*) malloc(5 * sizeof(Matrix4));
 
 	game->positions[0] = translate(Matrix4::identity(), {0.0f, 0.0f, -4.0f});
+	game->positions[1] = translate(Matrix4::identity(), {3.0f, 0.0f, -4.0f});
 
 	VkResult result;
 
@@ -239,7 +242,8 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 		 0.5f,  0.5f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f,
 		-0.5f,  0.5f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f,
 	};
-	u16 indices[] = {
+
+	u32 indices[] = {
 		0, 1, 2, 2, 3, 0
 	};
 
@@ -256,6 +260,22 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 	                       game->textures.generic,
 	                       game->fp_camera.ubo);
 
+	{
+		Mesh cube = load_mesh_obj("cube.obj");
+
+		game->mesh_vertices = create_vertex_buffer(&game->vulkan,
+		                                           cube.vertices_count * sizeof(cube.vertices[0]),
+		                                           cube.vertices);
+		game->mesh_indices = create_index_buffer(&game->vulkan,
+		                                         cube.indices,
+		                                         cube.indices_count * sizeof(cube.indices[0]));
+		game->mesh_vertex_count = cube.indices_count;
+
+		game->pipelines.mesh = create_mesh_pipeline(&game->vulkan);
+		update_descriptor_sets(&game->vulkan,
+		                       game->pipelines.mesh,
+		                       game->fp_camera.ubo);
+	}
 
 	{
 		Matrix4 view = Matrix4::identity();
@@ -306,9 +326,14 @@ void game_quit(GameState *game, PlatformState *platform, Settings *settings)
 
 	destroy(&game->vulkan, game->pipelines.generic);
 	destroy(&game->vulkan, game->pipelines.font);
+	destroy(&game->vulkan, game->pipelines.mesh);
 
 	destroy(&game->vulkan, game->object.vertices);
 	destroy(&game->vulkan, game->object.indices);
+
+	destroy(&game->vulkan, game->mesh_vertices);
+	destroy(&game->vulkan, game->mesh_indices);
+
 	destroy(&game->vulkan, game->fp_camera.ubo);
 	destroy(&game->vulkan);
 
@@ -525,7 +550,7 @@ void game_render(GameState *game)
 
 	vkCmdBindVertexBuffers(command, 0, 1, &game->object.vertices.handle, offsets);
 	vkCmdBindIndexBuffer(command, game->object.indices.handle,
-	                     0, VK_INDEX_TYPE_UINT16);
+	                     0, VK_INDEX_TYPE_UINT32);
 
 #if 0
 	for (i32 i = 0; i < game->num_objects; i++) {
@@ -541,6 +566,25 @@ void game_render(GameState *game)
 	                   0, sizeof(Matrix4), &game->positions[0]);
 	vkCmdDrawIndexed(command, game->object.vertex_count, 1, 0, 0, 0);
 #endif
+
+	vkCmdBindPipeline(command,
+	                  VK_PIPELINE_BIND_POINT_GRAPHICS,
+	                  game->pipelines.mesh.handle);
+
+	vkCmdBindDescriptorSets(command,
+	                        VK_PIPELINE_BIND_POINT_GRAPHICS,
+	                        game->pipelines.mesh.layout,
+	                        0,
+	                        1, &game->pipelines.mesh.descriptor_set,
+	                        0, nullptr);
+
+	vkCmdBindVertexBuffers(command, 0, 1, &game->mesh_vertices.handle, offsets);
+	vkCmdBindIndexBuffer(command, game->mesh_vertices.handle,
+	                     0, VK_INDEX_TYPE_UINT32);
+
+	vkCmdPushConstants(command, game->pipelines.generic.layout, VK_SHADER_STAGE_VERTEX_BIT,
+	                   0, sizeof(Matrix4), &game->positions[1]);
+	vkCmdDrawIndexed(command, game->mesh_vertex_count, 1, 0, 0, 0);
 
 
 	vkCmdBindPipeline(command,

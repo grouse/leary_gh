@@ -18,7 +18,7 @@ struct Mesh {
 	Vertex *vertices;
 	i32    vertices_count;
 
-	i32    *indices;
+	u32    *indices;
 	i32    indices_count;
 };
 
@@ -34,45 +34,22 @@ Mesh load_mesh_obj(const char *filename)
 
 	DEBUG_ASSERT(file != nullptr);
 
-	std::vector<Vector3> vertices;
-	std::vector<Vector3> normals;
-	std::vector<Vector2> uvs;
-
-	i32 num_indices = 0;
-
-	bool has_normals = false;
-	bool has_uvs     = false;
+	i32 num_indices  = 0;
+	i32 num_vertices = 0;
+	i32 num_normals  = 0;
+	i32 num_uvs      = 0;
 
 	char *ptr = file;
 	while (ptr < end) {
 		// texture coordinates
 		if (ptr[0] == 'v' && ptr[1] == 't') {
-			has_uvs = true;
-
-			do ptr++;
-			while (ptr[0] == ' ');
-
-			Vector2 uv;
-			sscanf(ptr, "%f %f", &uv.x, &uv.y);
-			uvs.push_back(uv);
+			num_uvs++;
 		// normals
 		} else if (ptr[0] == 'v' && ptr[1] == 'n') {
-			has_normals = true;
-
-			do ptr++;
-			while (ptr[0] == ' ');
-
-			Vector3 n;
-			sscanf(ptr, "%f %f %f", &n.x, &n.y, &n.z);
-			normals.push_back(n);
+			num_normals++;
 		// vertices
 		} else if (ptr[0] == 'v') {
-			do ptr++;
-			while (ptr[0] == ' ');
-
-			Vector3 v;
-			sscanf(ptr, "%f %f %f", &v.x, &v.y, &v.z);
-			vertices.push_back(v);
+			num_vertices++;
 		// faces
 		} else if (ptr[0] == 'f') {
 			do ptr++;
@@ -98,17 +75,61 @@ Mesh load_mesh_obj(const char *filename)
 		while (ptr < end && is_newline(ptr[0]));
 	}
 
-	DEBUG_ASSERT(has_normals);
-	DEBUG_ASSERT(has_uvs);
+	DEBUG_ASSERT(num_vertices > 0);
+	DEBUG_ASSERT(num_indices > 0);
+	DEBUG_ASSERT(num_normals > 0);
+	DEBUG_ASSERT(num_uvs > 0);
 
-	mesh.vertices       = new Vertex[vertices.size()];
-	mesh.vertices_count = vertices.size();
+	mesh.vertices = new Vertex[num_vertices];
+	mesh.vertices_count = num_vertices;
 
-	for (i32 i = 0; i < (i32)vertices.size(); i++) {
-		mesh.vertices[i].vector = vertices[i];
+	mesh.indices  = new u32[num_indices];
+	mesh.indices_count = num_indices;
+
+	Vector3 *normals = new Vector3[num_normals];
+	Vector2 *uvs     = new Vector2[num_uvs];
+
+	i32 vertex_index = 0;
+	i32 normal_index = 0;
+	i32 uv_index     = 0;
+
+	ptr = file;
+	while (ptr < end) {
+		// texture coordinates
+		if (ptr[0] == 'v' && ptr[1] == 't') {
+			do ptr++;
+			while (ptr[0] == ' ');
+
+			Vector2 uv;
+			sscanf(ptr, "%f %f", &uv.x, &uv.y);
+			uvs[uv_index++] = uv;
+		// normals
+		} else if (ptr[0] == 'v' && ptr[1] == 'n') {
+			do ptr++;
+			while (ptr[0] == ' ');
+
+			Vector3 n;
+			sscanf(ptr, "%f %f %f", &n.x, &n.y, &n.z);
+			normals[normal_index++] = n;
+		// vertices
+		} else if (ptr[0] == 'v') {
+			do ptr++;
+			while (ptr[0] == ' ');
+
+			Vector3 v;
+			sscanf(ptr, "%f %f %f", &v.x, &v.y, &v.z);
+			mesh.vertices[vertex_index++].vector = v;
+		// faces
+		}
+
+		do ptr++;
+		while (ptr < end && !is_newline(ptr[0]));
+
+		do ptr++;
+		while (ptr < end && is_newline(ptr[0]));
 	}
 
-	mesh.indices        = new i32[num_indices];
+	mesh.indices        = new u32[num_indices];
 	mesh.indices_count  = num_indices;
 
 	i32 indices_index = 0;
@@ -119,22 +140,11 @@ Mesh load_mesh_obj(const char *filename)
 			do ptr++;
 			while (ptr[0] == ' ');
 
-			i32 num_dividers = 0;
-			char *face = ptr;
-			do {
-				if (*face++ == '/') {
-					num_dividers++;
-				}
-			} while (face < end && face[0] != '\n' && face[0] != '\r');
+			u32 iv0, iv1, iv2;
+			u32 it0, it1, it2;
+			u32 in0, in1, in2;
 
-			// NOTE(jesper): only supporting triangulated meshes
-			DEBUG_ASSERT(num_dividers == 6);
-
-			i32 iv0, iv1, iv2;
-			i32 it0, it1, it2;
-			i32 in0, in1, in2;
-
-			sscanf(ptr, "%d/%d/%d %d/%d/%d %d/%d/%d",
+			sscanf(ptr, "%u/%u/%u %u/%u/%u %u/%u/%u",
 			       &iv0, &iv1, &iv2, &it0, &it1, &it2, &in0, &in1, &in2);
 
 			mesh.indices[indices_index++] = iv0;

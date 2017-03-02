@@ -954,6 +954,211 @@ VulkanPipeline create_pipeline(VulkanDevice *device)
 	return pipeline;
 }
 
+VulkanPipeline create_mesh_pipeline(VulkanDevice *device)
+{
+	VkResult result;
+	VulkanPipeline pipeline = {};
+
+	pipeline.shaders[ShaderStage_vertex] =
+		create_shader(device, VK_SHADER_STAGE_VERTEX_BIT, "mesh.vert.spv");
+
+	pipeline.shaders[ShaderStage_fragment] =
+		create_shader(device, VK_SHADER_STAGE_FRAGMENT_BIT, "mesh.frag.spv");
+
+	std::array<VkDescriptorSetLayoutBinding, 1> bindings = {};
+	// camera ubo
+	bindings[0].binding         = 0;
+	bindings[0].descriptorCount = 1;
+	bindings[0].descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	bindings[0].stageFlags      = VK_SHADER_STAGE_VERTEX_BIT;
+
+	VkDescriptorSetLayoutCreateInfo descriptor_layout_info = {};
+	descriptor_layout_info.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+	descriptor_layout_info.bindingCount = (u32)bindings.size();
+	descriptor_layout_info.pBindings    = bindings.data();
+
+	result = vkCreateDescriptorSetLayout(device->handle,
+	                                     &descriptor_layout_info,
+	                                     nullptr,
+	                                     &pipeline.descriptor_layout);
+	DEBUG_ASSERT(result == VK_SUCCESS);
+
+	// NOTE(jesper): create a pool size descriptor for each type of
+	// descriptor this shader program uses
+	std::array<VkDescriptorPoolSize, 1> pool_sizes = {};
+	pool_sizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	pool_sizes[0].descriptorCount = 1;
+
+	VkDescriptorPoolCreateInfo pool_info = {};
+	pool_info.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+	pool_info.poolSizeCount = (u32)pool_sizes.size();
+	pool_info.pPoolSizes    = pool_sizes.data();
+	pool_info.maxSets       = 1;
+
+	result = vkCreateDescriptorPool(device->handle,
+	                                &pool_info,
+	                                nullptr,
+	                                &pipeline.descriptor_pool);
+	DEBUG_ASSERT(result == VK_SUCCESS);
+
+	VkDescriptorSetAllocateInfo descriptor_alloc_info = {};
+	descriptor_alloc_info.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+	descriptor_alloc_info.descriptorPool     = pipeline.descriptor_pool;
+	descriptor_alloc_info.descriptorSetCount = 1;
+	descriptor_alloc_info.pSetLayouts        = &pipeline.descriptor_layout;
+
+	result = vkAllocateDescriptorSets(device->handle,
+	                                  &descriptor_alloc_info,
+	                                  &pipeline.descriptor_set);
+	DEBUG_ASSERT(result == VK_SUCCESS);
+
+	VkPushConstantRange push_constants = {};
+	push_constants.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+	push_constants.offset = 0;
+	push_constants.size = sizeof(Matrix4);
+
+	VkPipelineLayoutCreateInfo layout_info = {};
+	layout_info.sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+	layout_info.setLayoutCount         = 1;
+	layout_info.pSetLayouts            = &pipeline.descriptor_layout;
+	layout_info.pushConstantRangeCount = 1;
+	layout_info.pPushConstantRanges    = &push_constants;
+
+	result = vkCreatePipelineLayout(device->handle,
+	                                &layout_info,
+	                                nullptr,
+	                                &pipeline.layout);
+	DEBUG_ASSERT(result == VK_SUCCESS);
+
+	std::array<VkVertexInputBindingDescription, 1> vertex_bindings = {};
+	vertex_bindings[0].binding   = 0;
+	vertex_bindings[0].stride    = sizeof(f32) * 9;
+	vertex_bindings[0].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+	std::array<VkVertexInputAttributeDescription, 3> vertex_descriptions = {};
+	// vertices
+	vertex_descriptions[0].location = 0;
+	vertex_descriptions[0].binding  = 0;
+	vertex_descriptions[0].format   = VK_FORMAT_R32G32B32_SFLOAT;
+	vertex_descriptions[0].offset   = 0;
+
+	// normals
+	vertex_descriptions[1].location = 1;
+	vertex_descriptions[1].binding  = 0;
+	vertex_descriptions[1].format   = VK_FORMAT_R32G32B32_SFLOAT;
+	vertex_descriptions[1].offset   = 0;
+
+	// uvs
+	vertex_descriptions[2].location = 2;
+	vertex_descriptions[2].binding  = 0;
+	vertex_descriptions[2].format   = VK_FORMAT_R32G32_SFLOAT;
+	vertex_descriptions[2].offset   = 0;
+
+	VkPipelineVertexInputStateCreateInfo vertex_input_info = {};
+	vertex_input_info.sType                           = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+	vertex_input_info.vertexBindingDescriptionCount   = (u32)vertex_bindings.size();
+	vertex_input_info.pVertexBindingDescriptions      = vertex_bindings.data();
+	vertex_input_info.vertexAttributeDescriptionCount = (u32)vertex_descriptions.size();
+	vertex_input_info.pVertexAttributeDescriptions    = vertex_descriptions.data();
+
+	VkPipelineInputAssemblyStateCreateInfo input_assembly_info = {};
+	input_assembly_info.sType                  = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+	input_assembly_info.topology               = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+	input_assembly_info.primitiveRestartEnable = VK_FALSE;
+
+	VkViewport viewport = {};
+	viewport.x        = 0.0f;
+	viewport.y        = 0.0f;
+	viewport.width    = (f32) device->swapchain.extent.width;
+	viewport.height   = (f32) device->swapchain.extent.height;
+	viewport.minDepth = 0.0f;
+	viewport.maxDepth = 1.0f;
+
+	VkRect2D scissor = {};
+	scissor.offset = {0, 0};
+	scissor.extent = device->swapchain.extent;
+
+	VkPipelineViewportStateCreateInfo viewport_info = {};
+	viewport_info.sType         = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+	viewport_info.viewportCount = 1;
+	viewport_info.pViewports    = &viewport;
+	viewport_info.scissorCount  = 1;
+	viewport_info.pScissors     = &scissor;
+
+	VkPipelineRasterizationStateCreateInfo raster_info = {};
+	raster_info.sType                   = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+	raster_info.depthClampEnable        = VK_FALSE;
+	raster_info.rasterizerDiscardEnable = VK_FALSE;
+	raster_info.polygonMode             = VK_POLYGON_MODE_FILL;
+	raster_info.cullMode                = VK_CULL_MODE_NONE;
+	raster_info.depthBiasEnable         = VK_FALSE;
+	raster_info.lineWidth               = 1.0;
+
+	VkPipelineColorBlendAttachmentState color_blend_attachment = {};
+	color_blend_attachment.blendEnable    = VK_FALSE;
+	color_blend_attachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT |
+	                                        VK_COLOR_COMPONENT_G_BIT |
+	                                        VK_COLOR_COMPONENT_B_BIT |
+	                                        VK_COLOR_COMPONENT_A_BIT;
+
+	VkPipelineColorBlendStateCreateInfo color_blend_info = {};
+	color_blend_info.sType             = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+	color_blend_info.logicOpEnable     = VK_FALSE;
+	color_blend_info.logicOp           = VK_LOGIC_OP_CLEAR;
+	color_blend_info.attachmentCount   = 1;
+	color_blend_info.pAttachments      = &color_blend_attachment;
+	color_blend_info.blendConstants[0] = 0.0f;
+	color_blend_info.blendConstants[1] = 0.0f;
+	color_blend_info.blendConstants[2] = 0.0f;
+	color_blend_info.blendConstants[3] = 0.0f;
+
+	VkPipelineMultisampleStateCreateInfo multisample_info = {};
+	multisample_info.sType                 = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+	multisample_info.rasterizationSamples  = VK_SAMPLE_COUNT_1_BIT;
+	multisample_info.sampleShadingEnable   = VK_FALSE;
+	multisample_info.minSampleShading      = 0;
+	multisample_info.pSampleMask           = nullptr;
+	multisample_info.alphaToCoverageEnable = VK_FALSE;
+	multisample_info.alphaToOneEnable      = VK_FALSE;
+
+	// NOTE(jesper): it seems like it'd be worth creating and caching this
+	// inside the VulkanShader objects
+	std::array<VkPipelineShaderStageCreateInfo, 2> shader_stages = {};
+	shader_stages[0].sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	shader_stages[0].stage  = pipeline.shaders[ShaderStage_vertex].stage;
+	shader_stages[0].module = pipeline.shaders[ShaderStage_vertex].module;
+	shader_stages[0].pName  = pipeline.shaders[ShaderStage_vertex].name;
+
+	shader_stages[1].sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	shader_stages[1].stage  = pipeline.shaders[ShaderStage_fragment].stage;
+	shader_stages[1].module = pipeline.shaders[ShaderStage_fragment].module;
+	shader_stages[1].pName  = pipeline.shaders[ShaderStage_fragment].name;
+
+	VkGraphicsPipelineCreateInfo pipeline_info = {};
+	pipeline_info.sType               = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+	pipeline_info.stageCount          = (u32)shader_stages.size();
+	pipeline_info.pStages             = shader_stages.data();
+	pipeline_info.pVertexInputState   = &vertex_input_info;
+	pipeline_info.pInputAssemblyState = &input_assembly_info;
+	pipeline_info.pViewportState      = &viewport_info;
+	pipeline_info.pRasterizationState = &raster_info;
+	pipeline_info.pMultisampleState   = &multisample_info;
+	pipeline_info.pColorBlendState    = &color_blend_info;
+	pipeline_info.layout              = pipeline.layout;
+	pipeline_info.renderPass          = device->renderpass;
+	pipeline_info.basePipelineHandle  = VK_NULL_HANDLE;
+	pipeline_info.basePipelineIndex   = -1;
+
+	result = vkCreateGraphicsPipelines(device->handle,
+	                                   VK_NULL_HANDLE,
+	                                   1,
+	                                   &pipeline_info,
+	                                   nullptr,
+	                                   &pipeline.handle);
+	DEBUG_ASSERT(result == VK_SUCCESS);
+	return pipeline;
+}
+
 void copy_image(VulkanDevice *device,
                 u32 width, u32 height,
                 VkImage src, VkImage dst)
@@ -1868,7 +2073,7 @@ VulkanBuffer create_vertex_buffer(VulkanDevice *device, usize size)
 }
 
 VulkanBuffer create_index_buffer(VulkanDevice *device,
-                                 u16 *indices, usize size)
+                                 u32 *indices, usize size)
 {
 	VulkanBuffer staging = create_buffer(device, size,
 	                                     VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
@@ -1957,6 +2162,29 @@ void update_descriptor_sets(VulkanDevice *device,
 	descriptor_writes[1].descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 	descriptor_writes[1].descriptorCount = 1;
 	descriptor_writes[1].pImageInfo      = &image_info;
+
+	vkUpdateDescriptorSets(device->handle,
+	                       (u32)descriptor_writes.size(), descriptor_writes.data(),
+	                       0, nullptr);
+}
+
+void update_descriptor_sets(VulkanDevice *device,
+                            VulkanPipeline pipeline,
+                            VulkanUniformBuffer ubo)
+{
+	VkDescriptorBufferInfo buffer_info = {};
+	buffer_info.buffer = ubo.buffer.handle;
+	buffer_info.offset = 0;
+	buffer_info.range  = ubo.buffer.size;
+
+	std::array<VkWriteDescriptorSet, 1> descriptor_writes = {};
+	descriptor_writes[0].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	descriptor_writes[0].dstSet          = pipeline.descriptor_set;
+	descriptor_writes[0].dstBinding      = 0;
+	descriptor_writes[0].dstArrayElement = 0;
+	descriptor_writes[0].descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	descriptor_writes[0].descriptorCount = 1;
+	descriptor_writes[0].pBufferInfo     = &buffer_info;
 
 	vkUpdateDescriptorSets(device->handle,
 	                       (u32)descriptor_writes.size(), descriptor_writes.data(),

@@ -30,6 +30,9 @@ glslangValidator -V $ROOT/src/render/shaders/generic.frag -o $ROOT/build/data/sh
 glslangValidator -V $ROOT/src/render/shaders/font.vert -o $ROOT/build/data/shaders/font.vert.spv
 glslangValidator -V $ROOT/src/render/shaders/font.frag -o $ROOT/build/data/shaders/font.frag.spv
 
+glslangValidator -V $ROOT/src/render/shaders/mesh.vert -o $ROOT/build/data/shaders/mesh.vert.spv
+glslangValidator -V $ROOT/src/render/shaders/mesh.frag -o $ROOT/build/data/shaders/mesh.frag.spv
+
 cp -R $ROOT/assets/fonts $ROOT/build/data/fonts
 cp -R $ROOT/assets/models $ROOT/build/data/models
 assets_end=`date +%s%N`
