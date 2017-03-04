@@ -58,7 +58,6 @@ struct GameState {
 	} textures;
 
 	VulkanBuffer mesh_vertices;
-	VulkanBuffer mesh_indices;
 	i32 mesh_vertex_count;
 
 	Camera fp_camera;
@@ -266,10 +265,7 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 		game->mesh_vertices = create_vertex_buffer(&game->vulkan,
 		                                           cube.vertices_count * sizeof(cube.vertices[0]),
 		                                           cube.vertices);
-		game->mesh_indices = create_index_buffer(&game->vulkan,
-		                                         cube.indices,
-		                                         cube.indices_count * sizeof(cube.indices[0]));
-		game->mesh_vertex_count = cube.indices_count;
+		game->mesh_vertex_count = cube.vertices_count;
 
 		game->pipelines.mesh = create_mesh_pipeline(&game->vulkan);
 		update_descriptor_sets(&game->vulkan,
@@ -332,7 +328,6 @@ void game_quit(GameState *game, PlatformState *platform, Settings *settings)
 	destroy(&game->vulkan, game->object.indices);
 
 	destroy(&game->vulkan, game->mesh_vertices);
-	destroy(&game->vulkan, game->mesh_indices);
 
 	destroy(&game->vulkan, game->fp_camera.ubo);
 	destroy(&game->vulkan);
@@ -581,12 +576,11 @@ void game_render(GameState *game)
 	                        0, nullptr);
 
 	vkCmdBindVertexBuffers(command, 0, 1, &game->mesh_vertices.handle, offsets);
-	vkCmdBindIndexBuffer(command, game->mesh_indices.handle,
-	                     0, VK_INDEX_TYPE_UINT32);
 
 	vkCmdPushConstants(command, game->pipelines.generic.layout, VK_SHADER_STAGE_VERTEX_BIT,
 	                   0, sizeof(Matrix4), &game->positions[1]);
-	vkCmdDrawIndexed(command, game->mesh_vertex_count, 1, 0, 0, 0);
+
+	vkCmdDraw(command, game->mesh_vertex_count, 1, 0, 0);
 
 
 	vkCmdBindPipeline(command,

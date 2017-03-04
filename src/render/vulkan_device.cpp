@@ -1032,7 +1032,7 @@ VulkanPipeline create_mesh_pipeline(VulkanDevice *device)
 
 	std::array<VkVertexInputBindingDescription, 1> vertex_bindings = {};
 	vertex_bindings[0].binding   = 0;
-	vertex_bindings[0].stride    = sizeof(f32) * 9;
+	vertex_bindings[0].stride    = sizeof(f32) * (3 + 3 + 2);
 	vertex_bindings[0].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
 	std::array<VkVertexInputAttributeDescription, 3> vertex_descriptions = {};
@@ -1046,13 +1046,13 @@ VulkanPipeline create_mesh_pipeline(VulkanDevice *device)
 	vertex_descriptions[1].location = 1;
 	vertex_descriptions[1].binding  = 0;
 	vertex_descriptions[1].format   = VK_FORMAT_R32G32B32_SFLOAT;
-	vertex_descriptions[1].offset   = 0;
+	vertex_descriptions[1].offset   = sizeof(f32) * 3;
 
 	// uvs
 	vertex_descriptions[2].location = 2;
 	vertex_descriptions[2].binding  = 0;
 	vertex_descriptions[2].format   = VK_FORMAT_R32G32_SFLOAT;
-	vertex_descriptions[2].offset   = 0;
+	vertex_descriptions[2].offset   = sizeof(f32) * (3 + 3);
 
 	VkPipelineVertexInputStateCreateInfo vertex_input_info = {};
 	vertex_input_info.sType                           = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
