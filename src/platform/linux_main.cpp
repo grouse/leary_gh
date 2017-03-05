@@ -47,17 +47,26 @@ void platform_toggle_raw_mouse(PlatformState *state) {
 	DEBUG_LOG("raw mouse mode set to: %d", state->raw_mouse);
 
 	if (state->raw_mouse) {
-		XGrabPointer(platform_state.x11.display,
-		             platform_state.x11.window,
+		XGrabPointer(state->x11.display, state->x11.window,
 		             false,
 		             (KeyPressMask | KeyReleaseMask) & 0,
-		             GrabModeAsync,
-		             GrabModeAsync,
+		             GrabModeAsync, GrabModeAsync,
 		             None,
-		             platform_state.x11.hidden_cursor,
+		             state->x11.hidden_cursor,
 		             CurrentTime);
 	} else {
-		XUngrabPointer(platform_state.x11.display, CurrentTime);
+		XUngrabPointer(state->x11.display, CurrentTime);
+	}
+
+	XFlush(state->x11.display);
+}
+
+void platform_set_raw_mouse(PlatformState *state, bool enable)
+{
+	if ((enable && !state->raw_mouse) ||
+	    (!enable && state->raw_mouse))
+	{
+		platform_toggle_raw_mouse(state);
 	}
 }
 

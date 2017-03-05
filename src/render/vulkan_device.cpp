@@ -8,7 +8,6 @@
  * This software is provided 'as-is', without any express or implied
  * warranty. In no event will the authors be held liable for any damages
  * arising from the use of this software.
- *
  * Permission is granted to anyone to use this software for any purpose,
  * including commercial applications, and to alter it and redistribute it
  * freely, subject to the following restrictions:
@@ -78,6 +77,11 @@ struct VulkanSwapchain {
 	VkImage        *images;
 	VkImageView    *imageviews;
 
+	VkFormat       depth_format;
+	VkImage        depth_image;
+	VkImageView    depth_imageview;
+	VkDeviceMemory depth_memory;
+
 	VkSemaphore    available;
 };
 
@@ -111,6 +115,16 @@ struct VulkanDevice {
 	i32                      framebuffers_count;
 	VkFramebuffer            *framebuffers;
 };
+
+void transition_image(VkCommandBuffer command,
+                      VkImage image, VkFormat format,
+                      VkImageLayout src,
+                      VkImageLayout dst);
+
+void transition_image(VulkanDevice *device,
+                      VkImage image, VkFormat format,
+                      VkImageLayout src,
+                      VkImageLayout dst);
 
 
 PFN_vkCreateDebugReportCallbackEXT   CreateDebugReportCallbackEXT;
@@ -273,6 +287,34 @@ u32 find_memory_type(VulkanPhysicalDevice physical_device, u32 filter,
 	return UINT32_MAX;
 }
 
+VkFormat find_depth_format(VulkanPhysicalDevice *device)
+{
+	std::array<VkFormat, 3> depth_formats = {{
+		VK_FORMAT_D32_SFLOAT,
+		VK_FORMAT_D32_SFLOAT_S8_UINT,
+		VK_FORMAT_D24_UNORM_S8_UINT
+	}};
+
+	VkFormatFeatureFlags flags = VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT;
+
+	for (VkFormat &format : depth_formats) {
+		VkFormatProperties properties;
+		vkGetPhysicalDeviceFormatProperties(device->handle, format, &properties);
+
+		if ((properties.optimalTilingFeatures & flags) == flags) {
+			return format;
+		}
+	}
+
+	return VK_FORMAT_UNDEFINED;
+}
+
+bool has_stencil(VkFormat format)
+{
+	return format == VK_FORMAT_D32_SFLOAT_S8_UINT ||
+	       format == VK_FORMAT_D24_UNORM_S8_UINT;
+}
+
 VkCommandBuffer begin_command_buffer(VulkanDevice *device)
 {
 	// TODO(jesper): don't allocate command buffers on demand; allocate a big
@@ -319,6 +361,147 @@ void end_command_buffer(VulkanDevice *device, VkCommandBuffer buffer)
 	vkQueueWaitIdle(device->queue);
 
 	vkFreeCommandBuffers(device->handle, device->command_pool, 1, &buffer);
+}
+
+void transition_image(VkCommandBuffer command,
+                      VkImage image, VkFormat format,
+                      VkImageLayout src,
+                      VkImageLayout dst)
+{
+	VkImageAspectFlags aspect_mask = 0;
+	switch (dst) {
+	case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
+		aspect_mask |= VK_IMAGE_ASPECT_DEPTH_BIT;
+
+		if (has_stencil(format)) {
+			aspect_mask |= VK_IMAGE_ASPECT_STENCIL_BIT;
+		}
+
+		break;
+	default:
+		aspect_mask |= VK_IMAGE_ASPECT_COLOR_BIT;
+		break;
+	}
+
+	VkImageMemoryBarrier barrier = {};
+	barrier.sType                           = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+	barrier.oldLayout                       = src;
+	barrier.newLayout                       = dst;
+	barrier.srcQueueFamilyIndex             = VK_QUEUE_FAMILY_IGNORED;
+	barrier.dstQueueFamilyIndex             = VK_QUEUE_FAMILY_IGNORED;
+	barrier.image                           = image;
+	barrier.subresourceRange.aspectMask     = aspect_mask;
+	// TODO(jesper): support mip layers
+	barrier.subresourceRange.baseMipLevel   = 0;
+	barrier.subresourceRange.levelCount     = 1;
+	barrier.subresourceRange.baseArrayLayer = 0;
+	barrier.subresourceRange.layerCount     = 1;
+
+	switch (src) {
+	case VK_IMAGE_LAYOUT_UNDEFINED:
+		barrier.srcAccessMask = 0;
+		break;
+	case VK_IMAGE_LAYOUT_PREINITIALIZED:
+		barrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT;
+		break;
+	case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+		barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+		break;
+	default:
+		// TODO(jesper): unimplemented transfer
+		DEBUG_ASSERT(false);
+		barrier.srcAccessMask = 0;
+		break;
+	}
+
+	switch (dst) {
+	case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+		barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+		break;
+	case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+		barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+		break;
+	case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+		barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+		break;
+	case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
+		barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+		break;
+	default:
+		// TODO(jesper): unimplemented transfer
+		DEBUG_ASSERT(false);
+		barrier.dstAccessMask = 0;
+		break;
+	}
+
+	vkCmdPipelineBarrier(command,
+	                     VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+	                     VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+	                     0,
+	                     0, nullptr,
+	                     0, nullptr,
+	                     1, &barrier);
+}
+
+void transition_image(VulkanDevice *device,
+                      VkImage image, VkFormat format,
+                      VkImageLayout src,
+                      VkImageLayout dst)
+{
+	VkCommandBuffer command = begin_command_buffer(device);
+	transition_image(command, image, format, src, dst);
+	end_command_buffer(device, command);
+}
+
+VkImage create_image(VulkanDevice *device,
+                     VkFormat format,
+                     u32 width,
+                     u32 height,
+                     VkImageTiling tiling,
+                     VkImageUsageFlags usage,
+                     VkMemoryPropertyFlags properties,
+                     VkDeviceMemory *memory)
+{
+	VkImage image;
+
+	VkImageCreateInfo info = {};
+	info.sType             = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+	info.imageType         = VK_IMAGE_TYPE_2D;
+	info.format            = format;
+	info.extent.width      = width;
+	info.extent.height     = height;
+	info.extent.depth      = 1;
+	info.mipLevels         = 1;
+	info.arrayLayers       = 1;
+	info.samples           = VK_SAMPLE_COUNT_1_BIT;
+	info.tiling            = tiling;
+	info.initialLayout     = VK_IMAGE_LAYOUT_PREINITIALIZED;
+	info.usage             = usage;
+	info.sharingMode       = VK_SHARING_MODE_EXCLUSIVE;
+
+	VkResult result = vkCreateImage(device->handle, &info, nullptr, &image);
+	DEBUG_ASSERT(result == VK_SUCCESS);
+
+	VkMemoryRequirements mem_requirements;
+	vkGetImageMemoryRequirements(device->handle, image, &mem_requirements);
+
+	// TODO(jesper): look into host coherent
+	u32 memory_type = find_memory_type(device->physical_device,
+	                                   mem_requirements.memoryTypeBits,
+	                                   properties);
+	DEBUG_ASSERT(memory_type != UINT32_MAX);
+
+	VkMemoryAllocateInfo alloc_info = {};
+	alloc_info.sType                = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+	alloc_info.allocationSize       = mem_requirements.size;
+	alloc_info.memoryTypeIndex      = memory_type;
+
+	result = vkAllocateMemory(device->handle, &alloc_info, nullptr, memory);
+	DEBUG_ASSERT(result == VK_SUCCESS);
+
+	vkBindImageMemory(device->handle, image, *memory, 0);
+
+	return image;
 }
 
 VulkanSwapchain create_swapchain(VulkanDevice *device,
@@ -475,6 +658,38 @@ VulkanSwapchain create_swapchain(VulkanDevice *device,
 		                           &swapchain.imageviews[i]);
 		DEBUG_ASSERT(result == VK_SUCCESS);
 	}
+
+	swapchain.depth_format = find_depth_format(physical_device);
+	DEBUG_ASSERT(swapchain.depth_format != VK_FORMAT_UNDEFINED);
+
+	swapchain.depth_image = create_image(device,
+	                                     swapchain.depth_format,
+	                                     swapchain.extent.width,
+	                                     swapchain.extent.height,
+	                                     VK_IMAGE_TILING_OPTIMAL,
+	                                     VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+	                                     VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+	                                     &swapchain.depth_memory);
+
+	VkImageViewCreateInfo view_info = {};
+	view_info.sType                           = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+	view_info.image                           = swapchain.depth_image;
+	view_info.viewType                        = VK_IMAGE_VIEW_TYPE_2D;
+	view_info.format                          = swapchain.depth_format,
+	view_info.subresourceRange.aspectMask     = VK_IMAGE_ASPECT_DEPTH_BIT;
+	view_info.subresourceRange.baseMipLevel   = 0;
+	view_info.subresourceRange.levelCount     = 1;
+	view_info.subresourceRange.baseArrayLayer = 0;
+	view_info.subresourceRange.layerCount     = 1;
+
+	result = vkCreateImageView(device->handle, &view_info, nullptr,
+	                           &swapchain.depth_imageview);
+	DEBUG_ASSERT(result == VK_SUCCESS);
+
+	transition_image(device,
+	                 swapchain.depth_image, swapchain.depth_format,
+	                 VK_IMAGE_LAYOUT_UNDEFINED,
+	                 VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 
 	return swapchain;
 }
@@ -713,6 +928,12 @@ VulkanPipeline create_font_pipeline(VulkanDevice *device)
 	shader_stages[1].module = pipeline.shaders[ShaderStage_fragment].module;
 	shader_stages[1].pName  = pipeline.shaders[ShaderStage_fragment].name;
 
+	VkPipelineDepthStencilStateCreateInfo depth_stencil = {};
+	depth_stencil.sType                 = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+	depth_stencil.depthTestEnable       = VK_FALSE;
+	depth_stencil.depthWriteEnable      = VK_FALSE;
+	depth_stencil.depthBoundsTestEnable = VK_FALSE;
+
 	VkGraphicsPipelineCreateInfo pipeline_info = {};
 	pipeline_info.sType               = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
 	pipeline_info.stageCount          = (u32)shader_stages.size();
@@ -723,6 +944,7 @@ VulkanPipeline create_font_pipeline(VulkanDevice *device)
 	pipeline_info.pRasterizationState = &raster_info;
 	pipeline_info.pMultisampleState   = &multisample_info;
 	pipeline_info.pColorBlendState    = &color_blend_info;
+	pipeline_info.pDepthStencilState  = &depth_stencil;
 	pipeline_info.layout              = pipeline.layout;
 	pipeline_info.renderPass          = device->renderpass;
 	pipeline_info.basePipelineHandle  = VK_NULL_HANDLE;
@@ -929,6 +1151,12 @@ VulkanPipeline create_pipeline(VulkanDevice *device)
 	shader_stages[1].module = pipeline.shaders[ShaderStage_fragment].module;
 	shader_stages[1].pName  = pipeline.shaders[ShaderStage_fragment].name;
 
+	VkPipelineDepthStencilStateCreateInfo depth_stencil = {};
+	depth_stencil.sType                 = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+	depth_stencil.depthTestEnable       = VK_FALSE;
+	depth_stencil.depthWriteEnable      = VK_FALSE;
+	depth_stencil.depthBoundsTestEnable = VK_FALSE;
+
 	VkGraphicsPipelineCreateInfo pipeline_info = {};
 	pipeline_info.sType               = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
 	pipeline_info.stageCount          = (u32)shader_stages.size();
@@ -939,6 +1167,7 @@ VulkanPipeline create_pipeline(VulkanDevice *device)
 	pipeline_info.pRasterizationState = &raster_info;
 	pipeline_info.pMultisampleState   = &multisample_info;
 	pipeline_info.pColorBlendState    = &color_blend_info;
+	pipeline_info.pDepthStencilState  = &depth_stencil;
 	pipeline_info.layout              = pipeline.layout;
 	pipeline_info.renderPass          = device->renderpass;
 	pipeline_info.basePipelineHandle  = VK_NULL_HANDLE;
@@ -1134,6 +1363,13 @@ VulkanPipeline create_mesh_pipeline(VulkanDevice *device)
 	shader_stages[1].module = pipeline.shaders[ShaderStage_fragment].module;
 	shader_stages[1].pName  = pipeline.shaders[ShaderStage_fragment].name;
 
+	VkPipelineDepthStencilStateCreateInfo depth_stencil = {};
+	depth_stencil.sType                 = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+	depth_stencil.depthTestEnable       = VK_TRUE;
+	depth_stencil.depthWriteEnable      = VK_TRUE;
+	depth_stencil.depthCompareOp        = VK_COMPARE_OP_LESS;
+	depth_stencil.depthBoundsTestEnable = VK_FALSE;
+
 	VkGraphicsPipelineCreateInfo pipeline_info = {};
 	pipeline_info.sType               = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
 	pipeline_info.stageCount          = (u32)shader_stages.size();
@@ -1144,6 +1380,7 @@ VulkanPipeline create_mesh_pipeline(VulkanDevice *device)
 	pipeline_info.pRasterizationState = &raster_info;
 	pipeline_info.pMultisampleState   = &multisample_info;
 	pipeline_info.pColorBlendState    = &color_blend_info;
+	pipeline_info.pDepthStencilState  = &depth_stencil;
 	pipeline_info.layout              = pipeline.layout;
 	pipeline_info.renderPass          = device->renderpass;
 	pipeline_info.basePipelineHandle  = VK_NULL_HANDLE;
@@ -1191,141 +1428,7 @@ void copy_image(VulkanDevice *device,
 	end_command_buffer(device, command);
 }
 
-void transition_image(VkCommandBuffer command,
-                      VkImage image,
-                      VkImageLayout src,
-                      VkImageLayout dst)
-{
-	VkImageAspectFlags aspect_mask = 0;
-	switch (dst) {
-	case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
-		aspect_mask |= VK_IMAGE_ASPECT_DEPTH_BIT;
-		break;
-	default:
-		aspect_mask |= VK_IMAGE_ASPECT_COLOR_BIT;
-		break;
-	}
 
-	VkImageMemoryBarrier barrier = {};
-	barrier.sType                           = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-	barrier.oldLayout                       = src;
-	barrier.newLayout                       = dst;
-	barrier.srcQueueFamilyIndex             = VK_QUEUE_FAMILY_IGNORED;
-	barrier.dstQueueFamilyIndex             = VK_QUEUE_FAMILY_IGNORED;
-	barrier.image                           = image;
-	barrier.subresourceRange.aspectMask     = aspect_mask;
-	// TODO(jesper): support mip layers
-	barrier.subresourceRange.baseMipLevel   = 0;
-	barrier.subresourceRange.levelCount     = 1;
-	barrier.subresourceRange.baseArrayLayer = 0;
-	barrier.subresourceRange.layerCount     = 1;
-
-	switch (src) {
-	case VK_IMAGE_LAYOUT_UNDEFINED:
-		barrier.srcAccessMask = 0;
-		break;
-	case VK_IMAGE_LAYOUT_PREINITIALIZED:
-		barrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT;
-		break;
-	case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
-		barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-		break;
-	default:
-		// TODO(jesper): unimplemented transfer
-		DEBUG_ASSERT(false);
-		barrier.srcAccessMask = 0;
-		break;
-	}
-
-	switch (dst) {
-	case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
-		barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-		break;
-	case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
-		barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-		break;
-	case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
-		barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-		break;
-	case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
-		barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-		break;
-	default:
-		// TODO(jesper): unimplemented transfer
-		DEBUG_ASSERT(false);
-		barrier.dstAccessMask = 0;
-		break;
-	}
-
-	vkCmdPipelineBarrier(command,
-	                     VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-	                     VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-	                     0,
-	                     0, nullptr,
-	                     0, nullptr,
-	                     1, &barrier);
-}
-
-void transition_image(VulkanDevice *device,
-                      VkImage image,
-                      VkImageLayout src,
-                      VkImageLayout dst)
-{
-	VkCommandBuffer command = begin_command_buffer(device);
-	transition_image(command, image, src, dst);
-	end_command_buffer(device, command);
-}
-
-VkImage create_image(VulkanDevice *device,
-                     VkFormat format,
-                     u32 width,
-                     u32 height,
-                     VkImageTiling tiling,
-                     VkImageUsageFlags usage,
-                     VkMemoryPropertyFlags properties,
-                     VkDeviceMemory *memory)
-{
-	VkImage image;
-
-	VkImageCreateInfo info = {};
-	info.sType             = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-	info.imageType         = VK_IMAGE_TYPE_2D;
-	info.format            = format;
-	info.extent.width      = width;
-	info.extent.height     = height;
-	info.extent.depth      = 1;
-	info.mipLevels         = 1;
-	info.arrayLayers       = 1;
-	info.samples           = VK_SAMPLE_COUNT_1_BIT;
-	info.tiling            = tiling;
-	info.initialLayout     = VK_IMAGE_LAYOUT_PREINITIALIZED;
-	info.usage             = usage;
-	info.sharingMode       = VK_SHARING_MODE_EXCLUSIVE;
-
-	VkResult result = vkCreateImage(device->handle, &info, nullptr, &image);
-	DEBUG_ASSERT(result == VK_SUCCESS);
-
-	VkMemoryRequirements mem_requirements;
-	vkGetImageMemoryRequirements(device->handle, image, &mem_requirements);
-
-	// TODO(jesper): look into host coherent
-	u32 memory_type = find_memory_type(device->physical_device,
-	                                   mem_requirements.memoryTypeBits,
-	                                   properties);
-	DEBUG_ASSERT(memory_type != UINT32_MAX);
-
-	VkMemoryAllocateInfo alloc_info = {};
-	alloc_info.sType                = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-	alloc_info.allocationSize       = mem_requirements.size;
-	alloc_info.memoryTypeIndex      = memory_type;
-
-	result = vkAllocateMemory(device->handle, &alloc_info, nullptr, memory);
-	DEBUG_ASSERT(result == VK_SUCCESS);
-
-	vkBindImageMemory(device->handle, image, *memory, 0);
-
-	return image;
-}
 
 VulkanTexture create_texture(VulkanDevice *device, u32 width, u32 height,
                              VkFormat format, void *pixels,
@@ -1402,16 +1505,16 @@ VulkanTexture create_texture(VulkanDevice *device, u32 width, u32 height,
 	                             &texture.memory);
 
 	transition_image(device,
-	                 staging_image,
+	                 staging_image, format,
 	                 VK_IMAGE_LAYOUT_PREINITIALIZED,
 	                 VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
 	transition_image(device,
-	                 texture.image,
+	                 texture.image, format,
 	                 VK_IMAGE_LAYOUT_PREINITIALIZED,
 	                 VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 	copy_image(device, width, height, staging_image, texture.image);
 	transition_image(device,
-	                 texture.image,
+	                 texture.image, format,
 	                 VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 	                 VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
@@ -1755,16 +1858,6 @@ VulkanDevice create_device(Settings *settings, PlatformState *platform)
 	}
 
 	/**************************************************************************
-	 * Create VkSwapchainKHR
-	 *************************************************************************/
-	// NOTE(jesper): the swapchain is stuck in the VulkanDevice creation right
-	// now because we're still hardcoding the depth buffer creation, among other
-	// things, in the VulkanDevice, which requires the created swapchain.
-	// Really I think it mostly/only need the extent, but same difference
-	device.swapchain = create_swapchain(&device, &device.physical_device,
-	                                    surface, settings);
-
-	/**************************************************************************
 	 * Create VkCommandPool
 	 *************************************************************************/
 	{
@@ -1780,11 +1873,22 @@ VulkanDevice create_device(Settings *settings, PlatformState *platform)
 		DEBUG_ASSERT(result == VK_SUCCESS);
 	}
 
+
+	/**************************************************************************
+	 * Create VkSwapchainKHR
+	 *************************************************************************/
+	// NOTE(jesper): the swapchain is stuck in the VulkanDevice creation right
+	// now because we're still hardcoding the depth buffer creation, among other
+	// things, in the VulkanDevice, which requires the created swapchain.
+	// Really I think it mostly/only need the extent, but same difference
+	device.swapchain = create_swapchain(&device, &device.physical_device,
+	                                    surface, settings);
+
 	/**************************************************************************
 	 * Create vkRenderPass
 	 *************************************************************************/
 	{
-		std::array<VkAttachmentDescription, 1> attachment_descriptions = {};
+		std::array<VkAttachmentDescription, 2> attachment_descriptions = {};
 		attachment_descriptions[0].format         = device.swapchain.format;
 		attachment_descriptions[0].samples        = VK_SAMPLE_COUNT_1_BIT;
 		attachment_descriptions[0].loadOp         = VK_ATTACHMENT_LOAD_OP_CLEAR;
@@ -1794,19 +1898,28 @@ VulkanDevice create_device(Settings *settings, PlatformState *platform)
 		attachment_descriptions[0].initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
 		attachment_descriptions[0].finalLayout    = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
-		std::array<VkAttachmentReference, 1> attachment_references = {};
-		attachment_references[0].attachment = 0;
-		attachment_references[0].layout     = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		attachment_descriptions[1].format         = device.swapchain.depth_format;
+		attachment_descriptions[1].samples        = VK_SAMPLE_COUNT_1_BIT;
+		attachment_descriptions[1].loadOp         = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		attachment_descriptions[1].storeOp        = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		attachment_descriptions[1].stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		attachment_descriptions[1].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		attachment_descriptions[1].initialLayout  = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+		attachment_descriptions[1].finalLayout    = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+		std::array<VkAttachmentReference, 1> color_attachments = {};
+		color_attachments[0].attachment = 0;
+		color_attachments[0].layout     = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+		VkAttachmentReference depth_attachment = {};
+		depth_attachment.attachment = 1;
+		depth_attachment.layout     = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
 		VkSubpassDescription subpass_description = {};
-		subpass_description.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-		subpass_description.inputAttachmentCount    = 0;
-		subpass_description.pInputAttachments       = nullptr;
-		subpass_description.colorAttachmentCount    = (u32)attachment_references.size();
-		subpass_description.pColorAttachments       = attachment_references.data();
-		subpass_description.pResolveAttachments     = nullptr;
-		subpass_description.preserveAttachmentCount = 0;
-		subpass_description.pPreserveAttachments    = nullptr;
+		subpass_description.pipelineBindPoint       = VK_PIPELINE_BIND_POINT_GRAPHICS;
+		subpass_description.colorAttachmentCount    = (u32)color_attachments.size();
+		subpass_description.pColorAttachments       = color_attachments.data();
+		subpass_description.pDepthStencilAttachment = &depth_attachment;
 
 		VkRenderPassCreateInfo create_info = {};
 		create_info.sType           = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
@@ -1835,14 +1948,19 @@ VulkanDevice create_device(Settings *settings, PlatformState *platform)
 		VkFramebufferCreateInfo create_info = {};
 		create_info.sType           = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
 		create_info.renderPass      = device.renderpass;
-		create_info.attachmentCount = 1;
 		create_info.width           = device.swapchain.extent.width;
 		create_info.height          = device.swapchain.extent.height;
 		create_info.layers          = 1;
 
 		for (i32 i = 0; i < device.framebuffers_count; ++i)
 		{
-			create_info.pAttachments = &device.swapchain.imageviews[i];
+			std::array<VkImageView, 2> attachments = {{
+				device.swapchain.imageviews[i],
+				device.swapchain.depth_imageview
+			}};
+
+			create_info.attachmentCount = attachments.size();
+			create_info.pAttachments    = attachments.data();
 
 			result = vkCreateFramebuffer(device.handle,
 			                             &create_info,
@@ -1910,6 +2028,10 @@ void destroy(VulkanDevice *device, VulkanSwapchain swapchain)
 	for (i32 i = 0; i < (i32)device->swapchain.images_count; i++) {
 		vkDestroyImageView(device->handle, swapchain.imageviews[i], nullptr);
 	}
+
+	vkDestroyImageView(device->handle, swapchain.depth_imageview, nullptr);
+	vkDestroyImage(device->handle, swapchain.depth_image, nullptr);
+	vkFreeMemory(device->handle, swapchain.depth_memory, nullptr);
 
 	vkDestroySwapchainKHR(device->handle, swapchain.handle, nullptr);
 	vkDestroySurfaceKHR(device->instance, swapchain.surface, nullptr);

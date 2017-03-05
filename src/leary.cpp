@@ -312,6 +312,10 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 
 void game_quit(GameState *game, PlatformState *platform, Settings *settings)
 {
+	// NOTE(jesper): disable raw mouse as soon as possible to ungrab the cursor
+	// on Linux
+	platform_set_raw_mouse(platform, false);
+
 	VAR_UNUSED(settings);
 	vkQueueWaitIdle(game->vulkan.queue);
 
@@ -506,8 +510,9 @@ void game_render(GameState *game)
 
 	u32 image_index = acquire_swapchain_image(&game->vulkan);
 
-	std::array<VkClearValue, 1> clear_values = {};
+	std::array<VkClearValue, 2> clear_values = {};
 	clear_values[0].color        = { {1.0f, 0.0f, 0.0f, 0.0f} };
+	clear_values[1].depthStencil = { 1.0f, 0 };
 
 	VkRenderPassBeginInfo render_info = {};
 	render_info.sType             = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;

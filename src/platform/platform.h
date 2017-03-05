@@ -179,6 +179,7 @@ void  platform_file_write(void *file_handle, void *buffer, usize bytes);
 char *platform_file_read(const char* path, usize *out_size);
 
 void platform_toggle_raw_mouse(PlatformState *state);
+void platform_set_raw_mouse(PlatformState *state, bool enable);
 void platform_quit(PlatformState *state);
 
 #endif // LEARY_PLATFORM_MAIN_H

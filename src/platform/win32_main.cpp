@@ -82,6 +82,15 @@ void platform_toggle_raw_mouse(PlatformState *state)
 	}
 }
 
+void platform_set_raw_mouse(PlatformState *state, bool enable)
+{
+	if ((enable && !state->raw_mouse) ||
+	    (!enable && state->raw_mouse))
+	{
+		platform_toggle_raw_mouse(state);
+	}
+}
+
 struct MouseState {
 	f32 x, y;
 	f32 dx, dy;
