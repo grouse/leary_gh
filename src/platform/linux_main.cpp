@@ -51,7 +51,7 @@ void platform_toggle_raw_mouse(PlatformState *state) {
 		             false,
 		             (KeyPressMask | KeyReleaseMask) & 0,
 		             GrabModeAsync, GrabModeAsync,
-		             None,
+		             state->x11.window,
 		             state->x11.hidden_cursor,
 		             CurrentTime);
 	} else {
