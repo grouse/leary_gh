@@ -15,16 +15,20 @@ layout(location = 0) in vec3 v;
 layout(location = 1) in vec3 normal;
 layout(location = 2) in vec2 uv;
 
-layout(location = 0) out vec4 frag_color;
+layout(location = 0) out vec3 frag_normal;
+layout(location = 1) out vec3 frag_color;
+layout(location = 2) out vec3 frag_view;
+layout(location = 3) out vec3 frag_light;
 
 void main()
 {
-	float distance = length(v - ubo.view_projection[3].xyz);
-
-	vec3 light = vec3(1.0, 1.0, 1.0);
-	vec3 diffuse = light / (distance * distance);
-
-
 	gl_Position = ubo.view_projection * model.transform * vec4(v, 1.0);
-	frag_color = vec4(diffuse * vec3(1.0, 1.0, 1.0), 1.0);
+
+	vec4 pos   = model.transform * vec4(v, 1.0);
+	vec3 light = mat3(model.transform) * vec3(0.0, -5.0, 0.0);
+
+	frag_normal = mat3(model.transform) * normal;
+	frag_color  = vec3(1.0, 1.0, 1.0);
+	frag_view   = -pos.xyz;
+	frag_light  = light - pos.xyz;
 }
