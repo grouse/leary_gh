@@ -18,8 +18,9 @@ void main()
 	vec3 v = normalize(view);
 	vec3 r = reflect(-l, n);
 
-	vec3 diffuse = max(dot(n, l), 0.0) * color;
+	vec3 ambient  = vec3(0.3, 0.3, 0.3);
+	vec3 diffuse  = max(dot(n, l), 0.0) * color;
 	vec3 specular = pow(max(dot(r, v), 0.0), 16.0) * vec3(0.75);
 
-	out_color = vec4(diffuse * color + specular, 1.0);
+	out_color = vec4(ambient + diffuse * color + specular, 1.0);
 }
