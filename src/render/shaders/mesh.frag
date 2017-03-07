@@ -22,5 +22,5 @@ void main()
 	vec3 diffuse  = max(dot(n, l), 0.0) * color;
 	vec3 specular = pow(max(dot(r, v), 0.0), 16.0) * vec3(0.75);
 
-	out_color = vec4(ambient + diffuse * color + specular, 1.0);
+	out_color = vec4((ambient + diffuse + specular) * color, 1.0);
 }
