@@ -63,8 +63,11 @@ struct VulkanPipeline {
 	VkDescriptorSet       descriptor_set;
 	VkDescriptorPool      descriptor_pool;
 	VkDescriptorSetLayout descriptor_layout;
+
 	VulkanShader          shaders[ShaderStage_max];
-	VkSampler             texture_sampler;
+
+	i32                   sampler_count;
+	VkSampler             *samplers;
 };
 
 struct VulkanSwapchain {
@@ -764,7 +767,9 @@ VulkanPipeline create_font_pipeline(VulkanDevice *device)
 	pipeline.shaders[ShaderStage_fragment] =
 		create_shader(device, VK_SHADER_STAGE_FRAGMENT_BIT, "font.frag.spv");
 
-	pipeline.texture_sampler = create_sampler(device);
+	pipeline.sampler_count = 1;
+	pipeline.samplers      = new VkSampler[1];
+	pipeline.samplers[0]   = create_sampler(device);
 
 	std::array<VkDescriptorSetLayoutBinding, 1> bindings = {};
 	// texture sampler
@@ -971,7 +976,9 @@ VulkanPipeline create_pipeline(VulkanDevice *device)
 	pipeline.shaders[ShaderStage_fragment] =
 		create_shader(device, VK_SHADER_STAGE_FRAGMENT_BIT, "generic.frag.spv");
 
-	pipeline.texture_sampler = create_sampler(device);
+	pipeline.sampler_count = 1;
+	pipeline.samplers      = new VkSampler[1];
+	pipeline.samplers[0]   = create_sampler(device);
 
 	std::array<VkDescriptorSetLayoutBinding, 2> bindings = {};
 	// camera ubo
@@ -2016,7 +2023,10 @@ void destroy(VulkanDevice *device, VulkanPipeline pipeline)
 	                      pipeline.shaders[ShaderStage_fragment].module,
 	                      nullptr);
 
-	vkDestroySampler(device->handle, pipeline.texture_sampler, nullptr);
+	for (i32 i = 0; i < pipeline.sampler_count; i++) {
+		vkDestroySampler(device->handle, pipeline.samplers[i], nullptr);
+	}
+
 	vkDestroyDescriptorPool(device->handle, pipeline.descriptor_pool, nullptr);
 	vkDestroyDescriptorSetLayout(device->handle, pipeline.descriptor_layout, nullptr);
 	vkDestroyPipelineLayout(device->handle, pipeline.layout, nullptr);
@@ -2266,7 +2276,7 @@ void update_descriptor_sets(VulkanDevice *device,
 	VkDescriptorImageInfo image_info = {};
 	image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 	image_info.imageView   = texture.image_view;
-	image_info.sampler     = pipeline.texture_sampler;
+	image_info.sampler     = pipeline.samplers[0];
 
 	std::array<VkWriteDescriptorSet, 2> descriptor_writes = {};
 	descriptor_writes[0].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -2320,7 +2330,7 @@ void update_descriptor_sets(VulkanDevice *device,
 	VkDescriptorImageInfo image_info = {};
 	image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 	image_info.imageView   = texture.image_view;
-	image_info.sampler     = pipeline.texture_sampler;
+	image_info.sampler     = pipeline.samplers[0];
 
 	std::array<VkWriteDescriptorSet, 1> descriptor_writes = {};
 	descriptor_writes[0].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
