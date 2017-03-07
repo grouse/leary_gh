@@ -37,10 +37,19 @@ struct RenderedText {
 	i32          vertex_count;
 };
 
-struct RenderObject {
+struct IndexRenderObject {
 	VulkanBuffer vertices;
 	VulkanBuffer indices;
 	i32          vertex_count;
+};
+
+// TODO(jesper): stick these in the pipeline so that we reduce the number of
+// pipeline binds
+struct RenderObject {
+	VulkanPipeline pipeline;
+	VulkanBuffer   vertices;
+	i32            vertex_count;
+	Matrix4        transform;
 };
 
 struct GameState {
@@ -57,18 +66,18 @@ struct GameState {
 		VulkanTexture font;
 	} textures;
 
-	VulkanBuffer mesh_vertices;
-	i32 mesh_vertex_count;
-
 	Camera fp_camera;
 	Camera ui_camera;
 
+	RenderObject *render_objects;
+	i32          max_render_objects;
+	i32          render_objects_count;
+
 	i32                 num_objects;
-	RenderObject        object;
+	IndexRenderObject   object;
 	Matrix4            *positions;
 
 	VkCommandBuffer     *command_buffers;
-
 
 	Vector3 velocity = {};
 
@@ -260,17 +269,23 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 	                       game->fp_camera.ubo);
 
 	{
-		Mesh cube = load_mesh_obj("cube.obj");
-
-		game->mesh_vertices = create_vertex_buffer(&game->vulkan,
-		                                           cube.vertices_count * sizeof(cube.vertices[0]),
-		                                           cube.vertices);
-		game->mesh_vertex_count = cube.vertices_count;
+		game->max_render_objects = 10;
+		game->render_objects     = new RenderObject[10];
 
 		game->pipelines.mesh = create_mesh_pipeline(&game->vulkan);
 		update_descriptor_sets(&game->vulkan,
 		                       game->pipelines.mesh,
 		                       game->fp_camera.ubo);
+
+		Mesh cube = load_mesh_obj("cube.obj");
+
+		usize size = cube.vertices_count * sizeof(cube.vertices[0]);
+		game->render_objects[0].pipeline = game->pipelines.mesh;
+		game->render_objects[0].vertex_count = cube.vertices_count;
+		game->render_objects[0].vertices = create_vertex_buffer(&game->vulkan, size, cube.vertices);
+		game->render_objects[0].transform = translate(Matrix4::identity(), {3.0f, 0.0f, -4.0f});
+
+		game->render_objects_count++;
 	}
 
 	{
@@ -331,7 +346,9 @@ void game_quit(GameState *game, PlatformState *platform, Settings *settings)
 	destroy(&game->vulkan, game->object.vertices);
 	destroy(&game->vulkan, game->object.indices);
 
-	destroy(&game->vulkan, game->mesh_vertices);
+	for (i32 i = 0; i < game->render_objects_count; i++) {
+		destroy(&game->vulkan, game->render_objects[i].vertices);
+	}
 
 	destroy(&game->vulkan, game->fp_camera.ubo);
 	destroy(&game->vulkan);
@@ -569,23 +586,27 @@ void game_render(GameState *game)
 #endif
 #endif
 
-	vkCmdBindPipeline(command,
-	                  VK_PIPELINE_BIND_POINT_GRAPHICS,
-	                  game->pipelines.mesh.handle);
+	for (i32 i = 0; i < game->render_objects_count; i++) {
+		RenderObject &object = game->render_objects[i];
 
-	vkCmdBindDescriptorSets(command,
-	                        VK_PIPELINE_BIND_POINT_GRAPHICS,
-	                        game->pipelines.mesh.layout,
-	                        0,
-	                        1, &game->pipelines.mesh.descriptor_set,
-	                        0, nullptr);
+		vkCmdBindPipeline(command,
+		                  VK_PIPELINE_BIND_POINT_GRAPHICS,
+		                  object.pipeline.handle);
 
-	vkCmdBindVertexBuffers(command, 0, 1, &game->mesh_vertices.handle, offsets);
+		vkCmdBindDescriptorSets(command,
+		                        VK_PIPELINE_BIND_POINT_GRAPHICS,
+		                        object.pipeline.layout,
+		                        0,
+		                        1, &object.pipeline.descriptor_set,
+		                        0, nullptr);
 
-	vkCmdPushConstants(command, game->pipelines.generic.layout, VK_SHADER_STAGE_VERTEX_BIT,
-	                   0, sizeof(Matrix4), &game->positions[1]);
+		vkCmdBindVertexBuffers(command, 0, 1, &object.vertices.handle, offsets);
 
-	vkCmdDraw(command, game->mesh_vertex_count, 1, 0, 0);
+		vkCmdPushConstants(command, object.pipeline.layout, VK_SHADER_STAGE_VERTEX_BIT,
+		                   0, sizeof(object.transform), &object.transform);
+
+		vkCmdDraw(command, object.vertex_count, 1, 0, 0);
+	}
 
 
 	vkCmdBindPipeline(command,
