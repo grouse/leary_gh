@@ -70,22 +70,26 @@ struct VulkanPipeline {
 	VkSampler             *samplers;
 };
 
-struct VulkanSwapchain {
-	VkSurfaceKHR   surface;
+struct VulkanDepthBuffer {
 	VkFormat       format;
-	VkSwapchainKHR handle;
-	VkExtent2D     extent;
+	VkImage        image;
+	VkImageView    imageview;
+	VkDeviceMemory memory;
+};
 
-	u32            images_count;
-	VkImage        *images;
-	VkImageView    *imageviews;
+struct VulkanSwapchain {
+	VkSurfaceKHR      surface;
+	VkFormat          format;
+	VkSwapchainKHR    handle;
+	VkExtent2D        extent;
 
-	VkFormat       depth_format;
-	VkImage        depth_image;
-	VkImageView    depth_imageview;
-	VkDeviceMemory depth_memory;
+	u32               images_count;
+	VkImage           *images;
+	VkImageView       *imageviews;
 
-	VkSemaphore    available;
+	VulkanDepthBuffer depth;
+
+	VkSemaphore       available;
 };
 
 struct VulkanPhysicalDevice {
@@ -662,23 +666,23 @@ VulkanSwapchain create_swapchain(VulkanDevice *device,
 		DEBUG_ASSERT(result == VK_SUCCESS);
 	}
 
-	swapchain.depth_format = find_depth_format(physical_device);
-	DEBUG_ASSERT(swapchain.depth_format != VK_FORMAT_UNDEFINED);
+	swapchain.depth.format = find_depth_format(physical_device);
+	DEBUG_ASSERT(swapchain.depth.format != VK_FORMAT_UNDEFINED);
 
-	swapchain.depth_image = create_image(device,
-	                                     swapchain.depth_format,
+	swapchain.depth.image = create_image(device,
+	                                     swapchain.depth.format,
 	                                     swapchain.extent.width,
 	                                     swapchain.extent.height,
 	                                     VK_IMAGE_TILING_OPTIMAL,
 	                                     VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
 	                                     VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-	                                     &swapchain.depth_memory);
+	                                     &swapchain.depth.memory);
 
 	VkImageViewCreateInfo view_info = {};
 	view_info.sType                           = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-	view_info.image                           = swapchain.depth_image;
+	view_info.image                           = swapchain.depth.image;
 	view_info.viewType                        = VK_IMAGE_VIEW_TYPE_2D;
-	view_info.format                          = swapchain.depth_format,
+	view_info.format                          = swapchain.depth.format,
 	view_info.subresourceRange.aspectMask     = VK_IMAGE_ASPECT_DEPTH_BIT;
 	view_info.subresourceRange.baseMipLevel   = 0;
 	view_info.subresourceRange.levelCount     = 1;
@@ -686,11 +690,11 @@ VulkanSwapchain create_swapchain(VulkanDevice *device,
 	view_info.subresourceRange.layerCount     = 1;
 
 	result = vkCreateImageView(device->handle, &view_info, nullptr,
-	                           &swapchain.depth_imageview);
+	                           &swapchain.depth.imageview);
 	DEBUG_ASSERT(result == VK_SUCCESS);
 
 	transition_image(device,
-	                 swapchain.depth_image, swapchain.depth_format,
+	                 swapchain.depth.image, swapchain.depth.format,
 	                 VK_IMAGE_LAYOUT_UNDEFINED,
 	                 VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 
@@ -1905,7 +1909,7 @@ VulkanDevice create_device(Settings *settings, PlatformState *platform)
 		attachment_descriptions[0].initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
 		attachment_descriptions[0].finalLayout    = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
-		attachment_descriptions[1].format         = device.swapchain.depth_format;
+		attachment_descriptions[1].format         = device.swapchain.depth.format;
 		attachment_descriptions[1].samples        = VK_SAMPLE_COUNT_1_BIT;
 		attachment_descriptions[1].loadOp         = VK_ATTACHMENT_LOAD_OP_CLEAR;
 		attachment_descriptions[1].storeOp        = VK_ATTACHMENT_STORE_OP_DONT_CARE;
@@ -1963,7 +1967,7 @@ VulkanDevice create_device(Settings *settings, PlatformState *platform)
 		{
 			std::array<VkImageView, 2> attachments = {{
 				device.swapchain.imageviews[i],
-				device.swapchain.depth_imageview
+				device.swapchain.depth.imageview
 			}};
 
 			create_info.attachmentCount = attachments.size();
@@ -2039,9 +2043,9 @@ void destroy(VulkanDevice *device, VulkanSwapchain swapchain)
 		vkDestroyImageView(device->handle, swapchain.imageviews[i], nullptr);
 	}
 
-	vkDestroyImageView(device->handle, swapchain.depth_imageview, nullptr);
-	vkDestroyImage(device->handle, swapchain.depth_image, nullptr);
-	vkFreeMemory(device->handle, swapchain.depth_memory, nullptr);
+	vkDestroyImageView(device->handle, swapchain.depth.imageview, nullptr);
+	vkDestroyImage(device->handle, swapchain.depth.image, nullptr);
+	vkFreeMemory(device->handle, swapchain.depth.memory, nullptr);
 
 	vkDestroySwapchainKHR(device->handle, swapchain.handle, nullptr);
 	vkDestroySurfaceKHR(device->instance, swapchain.surface, nullptr);
