@@ -13,6 +13,7 @@
 #include "core/profiling.cpp"
 #include "core/math.cpp"
 #include "core/mesh.cpp"
+#include "core/random.cpp"
 
 #include "render/vulkan_device.cpp"
 
@@ -184,6 +185,7 @@ void game_load_settings(Settings *settings)
 
 void game_init(Settings *settings, PlatformState *platform, GameState *game)
 {
+
 	game->text_buffer = (char*)malloc(1024 * 1024);
 
 	VAR_UNUSED(platform);
@@ -214,7 +216,7 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 #else
 	f32 aspect = width / height;
 	f32 vfov   = radians(45.0f);
-	game->fp_camera.projection = Matrix4::perspective(vfov, aspect, 0.1f, 10.0f);
+	game->fp_camera.projection = Matrix4::perspective(vfov, aspect, 0.1f, 100.0f);
 #endif
 
 	game->fp_camera.ubo = create_uniform_buffer(&game->vulkan, sizeof(Matrix4));
@@ -268,24 +270,32 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 	                       game->textures.generic,
 	                       game->fp_camera.ubo);
 
-	{
-		game->max_render_objects = 10;
-		game->render_objects     = new RenderObject[10];
+	game->max_render_objects = 10;
+	game->render_objects     = new RenderObject[10];
 
-		game->pipelines.mesh = create_mesh_pipeline(&game->vulkan);
-		update_descriptor_sets(&game->vulkan,
-		                       game->pipelines.mesh,
-		                       game->fp_camera.ubo);
+	game->pipelines.mesh = create_mesh_pipeline(&game->vulkan);
+	update_descriptor_sets(&game->vulkan,
+		                   game->pipelines.mesh,
+		                   game->fp_camera.ubo);
 
-		Mesh cube = load_mesh_obj("cube.obj");
+	Mesh cube = load_mesh_obj("cube.obj");
+	Random r = make_random(3);
+	for (i32 i = 0; i < 10; i++) {
+		RenderObject obj = {};
 
 		usize size = cube.vertices_count * sizeof(cube.vertices[0]);
-		game->render_objects[0].pipeline = game->pipelines.mesh;
-		game->render_objects[0].vertex_count = cube.vertices_count;
-		game->render_objects[0].vertices = create_vertex_buffer(&game->vulkan, size, cube.vertices);
-		game->render_objects[0].transform = translate(Matrix4::identity(), {3.0f, 0.0f, -4.0f});
 
-		game->render_objects_count++;
+		obj.pipeline = game->pipelines.mesh;
+		obj.vertex_count = cube.vertices_count;
+		obj.vertices = create_vertex_buffer(&game->vulkan, size, cube.vertices);
+
+		f32 x = next_f32(&r) * 20.0f;
+		f32 y = 0.0f;
+		f32 z = next_f32(&r) * 20.0f;
+
+		obj.transform = translate(Matrix4::identity(), {x, y, z});
+
+		game->render_objects[game->render_objects_count++] = obj;
 	}
 
 	{
