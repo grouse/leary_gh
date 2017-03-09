@@ -74,19 +74,9 @@ struct GameState {
 	i32          max_render_objects;
 	i32          render_objects_count;
 
-	i32                 num_objects;
-	IndexRenderObject   object;
-	Matrix4            *positions;
-
 	VkCommandBuffer     *command_buffers;
 
 	Vector3 velocity = {};
-
-	f32 yaw_velocity   = 0.0f;
-	f32 pitch_velocity = 0.0f;
-	f32 roll_velocity  = 0.0f;
-
-	Vector3             player_velocity = {};
 
 	stbtt_bakedchar     baked_font[256];
 
@@ -226,12 +216,6 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 	                    &view_projection, 0, sizeof(view_projection));
 
 
-	game->num_objects = 5;
-	game->positions  = (Matrix4*) malloc(5 * sizeof(Matrix4));
-
-	game->positions[0] = translate(Matrix4::identity(), {0.0f, 0.0f, -4.0f});
-	game->positions[1] = translate(Matrix4::identity(), {3.0f, 0.0f, -4.0f});
-
 	VkResult result;
 
 	game->command_buffers = (VkCommandBuffer*) malloc(5 * sizeof(VkCommandBuffer));
@@ -239,30 +223,13 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 	allocate_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
 	allocate_info.commandPool        = game->vulkan.command_pool;
 	allocate_info.level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-	allocate_info.commandBufferCount = game->num_objects;
+	allocate_info.commandBufferCount = 1;
 
 	result = vkAllocateCommandBuffers(game->vulkan.handle,
 	                                  &allocate_info,
 	                                  game->command_buffers);
 	DEBUG_ASSERT(result == VK_SUCCESS);
 
-	f32 vertices[] = {
-		-0.5f, -0.5f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
-		 0.5f, -0.5f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f,
-		 0.5f,  0.5f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f,
-		-0.5f,  0.5f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f,
-	};
-
-	u32 indices[] = {
-		0, 1, 2, 2, 3, 0
-	};
-
-	game->object.vertices = create_vertex_buffer(&game->vulkan,
-	                                             sizeof(vertices),
-	                                             vertices);
-	game->object.indices = create_index_buffer(&game->vulkan,
-	                                           indices, sizeof(indices));
-	game->object.vertex_count = sizeof(indices) / sizeof(indices[0]);
 
 	game->pipelines.generic = create_pipeline(&game->vulkan);
 	update_descriptor_sets(&game->vulkan,
@@ -352,9 +319,6 @@ void game_quit(GameState *game, PlatformState *platform, Settings *settings)
 	destroy(&game->vulkan, game->pipelines.generic);
 	destroy(&game->vulkan, game->pipelines.font);
 	destroy(&game->vulkan, game->pipelines.mesh);
-
-	destroy(&game->vulkan, game->object.vertices);
-	destroy(&game->vulkan, game->object.indices);
 
 	for (i32 i = 0; i < game->render_objects_count; i++) {
 		destroy(&game->vulkan, game->render_objects[i].vertices);
@@ -500,14 +464,6 @@ void game_update(GameState* game, f32 dt)
 	}
 
 	render_font(game, &game->text_vertices, game->text_buffer, -1.0f, -1.0f);
-
-	game->positions[0] = translate(game->positions[0], dt * game->player_velocity);
-	game->positions[0] = rotate_x(game->positions[0], dt * 1.0f);
-	//game->positions[0] = rotate_y(game->positions[0], dt * 1.0f);
-
-	game->fp_camera.pitch += dt * game->pitch_velocity;
-	game->fp_camera.yaw   += dt * game->yaw_velocity;
-	game->fp_camera.roll  += dt * game->roll_velocity;
 
 	Matrix4 pitch = rotate_x(Matrix4::identity(), game->fp_camera.pitch);
 	Matrix4 yaw   = rotate_y(Matrix4::identity(), game->fp_camera.yaw);
