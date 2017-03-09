@@ -57,13 +57,12 @@ struct GameState {
 	VulkanDevice        vulkan;
 
 	struct {
-		VulkanPipeline generic;
 		VulkanPipeline font;
 		VulkanPipeline mesh;
+		VulkanPipeline terrain;
 	} pipelines;
 
 	struct {
-		VulkanTexture generic;
 		VulkanTexture font;
 	} textures;
 
@@ -175,48 +174,29 @@ void game_load_settings(Settings *settings)
 
 void game_init(Settings *settings, PlatformState *platform, GameState *game)
 {
-
 	game->text_buffer = (char*)malloc(1024 * 1024);
-
-	VAR_UNUSED(platform);
-	game->vulkan = create_device(settings, platform);
-
-	Vector4 *pixels = new Vector4[32*32];
-	pixels[0]    = { 1.0f, 0.0f, 0.0f, 1.0f };
-	pixels[31]   = { 0.0f, 1.0f, 0.0f, 1.0f };
-	pixels[1023] = { 0.0f, 0.0f, 1.0f, 1.0f };
-
-	VkComponentMapping components = {};
-	game->textures.generic = create_texture(&game->vulkan,
-	                                        32, 32, VK_FORMAT_R32G32B32A32_SFLOAT,
-	                                        pixels, components);
-	delete[] pixels;
-
-	//game->camera.view = look_at({0.0f, 0.0f, 1.0f}, {0.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f});
-	game->fp_camera.view = Matrix4::identity();
 
 	f32 width = (f32)settings->video.resolution.width;
 	f32 height = (f32)settings->video.resolution.height;
-#if 0
-	f32 left   = - (f32)settings->video.resolution.width / 2.0f;
-	f32 right  =   (f32)settings->video.resolution.width / 2.0f;
-	f32 bottom = - (f32)settings->video.resolution.height / 2.0f;
-	f32 top    =   (f32)settings->video.resolution.height / 2.0f;
-	game->camera.projection = Matrix4::orthographic(left, right, top, bottom, 0.0f, 1.0f);
-#else
 	f32 aspect = width / height;
 	f32 vfov   = radians(45.0f);
+
+	game->fp_camera.view = Matrix4::identity();
+	game->fp_camera.position = Vector3{0.0f, 5.0f, 0.0f};
+	game->fp_camera.yaw = -0.5f * PI;
 	game->fp_camera.projection = Matrix4::perspective(vfov, aspect, 0.1f, 100.0f);
-#endif
 
-	game->fp_camera.ubo = create_uniform_buffer(&game->vulkan, sizeof(Matrix4));
+	Matrix4 view = Matrix4::identity();
+	view[0].x = 2.0f / width;
+	view[1].y = 2.0f / height;
+	view[2].z = 1.0f;
+	game->ui_camera.view = view;
 
-	Matrix4 view_projection = game->fp_camera.projection * game->fp_camera.view;
-	update_uniform_data(&game->vulkan, game->fp_camera.ubo,
-	                    &view_projection, 0, sizeof(view_projection));
-
+	game->max_render_objects = 20;
+	game->render_objects     = new RenderObject[20];
 
 	VkResult result;
+	game->vulkan = create_device(settings, platform);
 
 	game->command_buffers = (VkCommandBuffer*) malloc(5 * sizeof(VkCommandBuffer));
 	VkCommandBufferAllocateInfo allocate_info = {};
@@ -230,22 +210,60 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 	                                  game->command_buffers);
 	DEBUG_ASSERT(result == VK_SUCCESS);
 
+	// create font atlas
+	{
+		usize font_size;
+		char *font_path = platform_resolve_path(GamePath_data,
+		                                        "fonts/Roboto-Regular.ttf");
+		u8 *font_data = (u8*)platform_file_read(font_path, &font_size);
 
-	game->pipelines.generic = create_pipeline(&game->vulkan);
-	update_descriptor_sets(&game->vulkan,
-	                       game->pipelines.generic,
-	                       game->textures.generic,
-	                       game->fp_camera.ubo);
+		u8 *bitmap = new u8[1024*1024];
+		stbtt_BakeFontBitmap(font_data, 0, 20.0, bitmap, 1024, 1024, 0,
+		                     256, game->baked_font);
 
-	game->max_render_objects = 10;
-	game->render_objects     = new RenderObject[10];
+		VkComponentMapping components = {};
+		components.a = VK_COMPONENT_SWIZZLE_R;
+		game->textures.font = create_texture(&game->vulkan, 1024, 1024,
+		                                    VK_FORMAT_R8_UNORM, bitmap,
+		                                    components);
 
-	game->pipelines.mesh = create_mesh_pipeline(&game->vulkan);
-	update_descriptor_sets(&game->vulkan,
-		                   game->pipelines.mesh,
-		                   game->fp_camera.ubo);
+		game->text_vertices.vertex_count = 0;
+		game->text_vertices.buffer = create_vertex_buffer(&game->vulkan, 1024*1024);
+	}
+
+	// create pipelines
+	{
+		game->pipelines.mesh = create_mesh_pipeline(&game->vulkan);
+		game->pipelines.font = create_font_pipeline(&game->vulkan);
+		game->pipelines.terrain = create_terrain_pipeline(&game->vulkan);
+	}
+
+	// create ubos
+	{
+		game->fp_camera.ubo = create_uniform_buffer(&game->vulkan, sizeof(Matrix4));
+
+		Matrix4 view_projection = game->fp_camera.projection * game->fp_camera.view;
+		update_uniform_data(&game->vulkan, game->fp_camera.ubo,
+		                    &view_projection, 0, sizeof(view_projection));
+	}
+
+	// update descriptor sets
+	{
+		update_descriptor_sets(&game->vulkan,
+		                       game->pipelines.mesh,
+		                       game->fp_camera.ubo);
+
+		update_descriptor_sets(&game->vulkan,
+		                       game->pipelines.terrain,
+		                       game->fp_camera.ubo);
+
+		update_descriptor_sets(&game->vulkan,
+		                       game->pipelines.font,
+		                       game->textures.font);
+	}
 
 	Mesh cube = load_mesh_obj("cube.obj");
+
 	Random r = make_random(3);
 	for (i32 i = 0; i < 10; i++) {
 		RenderObject obj = {};
@@ -257,7 +275,7 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 		obj.vertices = create_vertex_buffer(&game->vulkan, size, cube.vertices);
 
 		f32 x = next_f32(&r) * 20.0f;
-		f32 y = 0.0f;
+		f32 y = -1.0f;
 		f32 z = next_f32(&r) * 20.0f;
 
 		obj.transform = translate(Matrix4::identity(), {x, y, z});
@@ -266,34 +284,22 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 	}
 
 	{
-		Matrix4 view = Matrix4::identity();
-		view[0].x = 2.0f / width;
-		view[1].y = 2.0f / height;
-		view[2].z = 1.0f;
-		game->ui_camera.view = view;
+		f32 vertices[] = {
+			-100.0f, 0.0f, -100.0f,
+			100.0f,  0.0f, -100.0f,
+			100.0f,  0.0f, 100.0f,
 
-		game->pipelines.font = create_font_pipeline(&game->vulkan);
+			100.0f,  0.0f, 100.0f,
+			-100.0f, 0.0f, 100.0f,
+			-100.0f, 0.0f, -100.0f
+		};
 
-		usize font_size;
-		char *font_path = platform_resolve_path(GamePath_data,
-		                                        "fonts/Roboto-Regular.ttf");
-		u8 *font_data = (u8*)platform_file_read(font_path, &font_size);
+		RenderObject terrain = {};
+		terrain.pipeline = game->pipelines.terrain;
+		terrain.vertices = create_vertex_buffer(&game->vulkan, sizeof(vertices), vertices);
+		terrain.vertex_count = sizeof(vertices) / (sizeof(vertices[0]) * 3);
 
-		u8 *bitmap = new u8[1024*1024];
-		stbtt_BakeFontBitmap(font_data, 0, 20.0, bitmap, 1024, 1024, 0,
-		                     256, game->baked_font);
-
-		components.a = VK_COMPONENT_SWIZZLE_R;
-		game->textures.font = create_texture(&game->vulkan, 1024, 1024,
-		                                    VK_FORMAT_R8_UNORM, bitmap,
-		                                    components);
-
-		update_descriptor_sets(&game->vulkan,
-		                       game->pipelines.font,
-		                       game->textures.font);
-
-		game->text_vertices.vertex_count = 0;
-		game->text_vertices.buffer = create_vertex_buffer(&game->vulkan, 1024*1024);
+		game->render_objects[game->render_objects_count++] = terrain;
 	}
 
 	game->key_state = (i32*)malloc(sizeof(i32) * 0xFF);
@@ -313,12 +319,11 @@ void game_quit(GameState *game, PlatformState *platform, Settings *settings)
 
 	destroy(&game->vulkan, game->text_vertices.buffer);
 
-	destroy(&game->vulkan, game->textures.generic);
 	destroy(&game->vulkan, game->textures.font);
 
-	destroy(&game->vulkan, game->pipelines.generic);
 	destroy(&game->vulkan, game->pipelines.font);
 	destroy(&game->vulkan, game->pipelines.mesh);
+	destroy(&game->vulkan, game->pipelines.terrain);
 
 	for (i32 i = 0; i < game->render_objects_count; i++) {
 		destroy(&game->vulkan, game->render_objects[i].vertices);
