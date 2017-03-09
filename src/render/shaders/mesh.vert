@@ -25,7 +25,7 @@ void main()
 	gl_Position = ubo.view_projection * model.transform * vec4(v, 1.0);
 
 	vec4 pos   = model.transform * vec4(v, 1.0);
-	vec3 light = mat3(model.transform) * vec3(0.0, -5.0, 0.0);
+	vec3 light = mat3(model.transform) * vec3(0.0, -30.0, 0.0);
 
 	frag_normal = mat3(model.transform) * normal;
 	frag_color  = vec3(1.0, 1.0, 1.0);
