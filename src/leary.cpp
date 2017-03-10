@@ -70,9 +70,7 @@ struct GameState {
 	Camera fp_camera;
 	Camera ui_camera;
 
-	RenderObject *render_objects;
-	i32          max_render_objects;
-	i32          render_objects_count;
+	Array<RenderObject> render_objects;
 
 	VkCommandBuffer     *command_buffers;
 
@@ -193,8 +191,7 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 	view[2].z = 1.0f;
 	game->ui_camera.view = view;
 
-	game->max_render_objects = 20;
-	game->render_objects     = new RenderObject[20];
+	game->render_objects = make_array<RenderObject>(20);
 
 	VkResult result;
 	game->vulkan = create_device(settings, platform);
@@ -281,7 +278,7 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 
 		obj.transform = translate(Matrix4::identity(), {x, y, z});
 
-		game->render_objects[game->render_objects_count++] = obj;
+		array_add(&game->render_objects, obj);
 	}
 
 	{
@@ -300,7 +297,7 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 		terrain.vertices = create_vertex_buffer(&game->vulkan, sizeof(vertices), vertices);
 		terrain.vertex_count = sizeof(vertices) / (sizeof(vertices[0]) * 3);
 
-		game->render_objects[game->render_objects_count++] = terrain;
+		array_add(&game->render_objects, terrain);
 	}
 
 	game->key_state = (i32*)malloc(sizeof(i32) * 0xFF);
@@ -326,7 +323,7 @@ void game_quit(GameState *game, PlatformState *platform, Settings *settings)
 	destroy(&game->vulkan, game->pipelines.mesh);
 	destroy(&game->vulkan, game->pipelines.terrain);
 
-	for (i32 i = 0; i < game->render_objects_count; i++) {
+	for (i32 i = 0; i < game->render_objects.count; i++) {
 		destroy(&game->vulkan, game->render_objects[i].vertices);
 	}
 
@@ -460,7 +457,7 @@ void game_update(GameState* game, f32 dt)
 	buffer_size -= bytes;
 
 
-	for (i32 i = 0; i < g_profile_timers_prev.index; i++) {
+	for (i32 i = 0; i < g_profile_timers_prev.names.count; i++) {
 		bytes = snprintf(buffer, buffer_size, "%s: %" PRIu64 " cy (%" PRIu64 " cy)\n",
 		                 g_profile_timers_prev.names[i],
 		                 g_profile_timers_prev.cycles[i],
@@ -558,7 +555,7 @@ void game_render(GameState *game)
 #endif
 #endif
 
-	for (i32 i = 0; i < game->render_objects_count; i++) {
+	for (i32 i = 0; i < game->render_objects.count; i++) {
 		RenderObject &object = game->render_objects[i];
 
 		vkCmdBindPipeline(command,
@@ -592,7 +589,6 @@ void game_render(GameState *game)
 	                        0,
 	                        1, &game->pipelines.font.descriptor_set,
 	                        0, nullptr);
-
 
 
 	if (game->text_vertices.vertex_count > 0) {

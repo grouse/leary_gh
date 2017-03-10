@@ -30,12 +30,11 @@ i32 profile_start_timer(const char *name);
 void profile_end_timer(i32 index, u64 cycles);
 
 struct ProfileTimers {
-	const char **names;
-	u64  *cycles;
-	u64  *cycles_last;
-	bool *open;
-	i32 index;
-	i32 max_index;
+	void *buffer;
+	StaticArray<const char*> names;
+	StaticArray<u64>   cycles;
+	StaticArray<u64>   cycles_last;
+	StaticArray<bool>  open;
 };
 
 struct ProfileBlock {
@@ -58,25 +57,24 @@ ProfileTimers g_profile_timers_prev;
 
 i32 profile_start_timer(const char *name)
 {
-	for (i32 i = 0; i < g_profile_timers.index; i++) {
+	for (i32 i = 0; i < g_profile_timers.names.count; i++) {
 		if (strcmp(name, g_profile_timers.names[i]) == 0) {
-			g_profile_timers.open[i] = true;
+			g_profile_timers.open[i]        = true;
 			g_profile_timers.cycles_last[i] = 0;
 			return i;
 		}
 	}
 
-	i32 index = g_profile_timers.index++;
-	DEBUG_ASSERT(g_profile_timers.index < g_profile_timers.max_index);
+	i32 index = g_profile_timers.names.count++;
+	DEBUG_ASSERT(g_profile_timers.names.count < g_profile_timers.names.capacity);
 
 	// NOTE(jesper): assume the passed in string won't be deallocated, I don't
 	// see a use case for these functions where name isn't a pointer to a string
 	// literal, so it'll be fine
 	g_profile_timers.names[index] = name;
-	g_profile_timers.open[index] = true;
+	g_profile_timers.open[index]  = true;
 
 	DEBUG_LOG("new profile timer added: %d - %s", index, name);
-
 	return index;
 }
 
@@ -87,9 +85,9 @@ void profile_end_timer(i32 index, u64 cycles)
 
 	g_profile_timers.open[index] = false;
 
-	for (i32 i = 0; i < g_profile_timers.index; i++) {
+	for (i32 i = 0; i < g_profile_timers.names.count; i++) {
 		if (g_profile_timers.open[i] == true && i != index) {
-			g_profile_timers.cycles[i] -= cycles;
+			g_profile_timers.cycles[i]      -= cycles;
 			g_profile_timers.cycles_last[i] -= cycles;
 		}
 	}
@@ -97,26 +95,41 @@ void profile_end_timer(i32 index, u64 cycles)
 
 void profile_init()
 {
-	// TODO(jesper): use one large buffer for the entire thing
-	g_profile_timers = {};
-	g_profile_timers.max_index = NUM_PROFILE_TIMERS;
-	g_profile_timers.names = (const char**)malloc(sizeof(char*) * NUM_PROFILE_TIMERS);
-	g_profile_timers.cycles = (u64*)malloc(sizeof(u64) * NUM_PROFILE_TIMERS);
-	g_profile_timers.cycles_last = (u64*)malloc(sizeof(u64) * NUM_PROFILE_TIMERS);
-	g_profile_timers.open = (bool*)malloc(sizeof(bool) * NUM_PROFILE_TIMERS);
+	isize names_size       = sizeof(char*) * NUM_PROFILE_TIMERS;
+	isize cycles_size      = sizeof(u64)   * NUM_PROFILE_TIMERS;
+	isize cycles_last_size = sizeof(u64)   * NUM_PROFILE_TIMERS;
+	isize open_size        = sizeof(bool)  * NUM_PROFILE_TIMERS;
 
-	g_profile_timers_prev = {};
-	g_profile_timers_prev.max_index = NUM_PROFILE_TIMERS;
-	g_profile_timers_prev.names = (const char**)malloc(sizeof(char*) * NUM_PROFILE_TIMERS);
-	g_profile_timers_prev.cycles = (u64*)malloc(sizeof(u64) * NUM_PROFILE_TIMERS);
-	g_profile_timers_prev.cycles_last = (u64*)malloc(sizeof(u64) * NUM_PROFILE_TIMERS);
-	g_profile_timers_prev.open = (bool*)malloc(sizeof(bool) * NUM_PROFILE_TIMERS);
+	u8 *buffer0 = (u8*)malloc(names_size + cycles_size + cycles_last_size + open_size);
+	u8 *buffer1 = (u8*)malloc(names_size + cycles_size + cycles_last_size + open_size);
+
+	auto names       = make_static_array<const char*>(buffer0,   0,                NUM_PROFILE_TIMERS);
+	auto cycles      = make_static_array<u64>(names.data,        names_size,       NUM_PROFILE_TIMERS);
+	auto cycles_last = make_static_array<u64>(cycles.data,       cycles_size,      NUM_PROFILE_TIMERS);
+	auto open        = make_static_array<bool>(cycles_last.data, cycles_last_size, NUM_PROFILE_TIMERS);
+
+	g_profile_timers.buffer      = buffer0;
+	g_profile_timers.names       = names;
+	g_profile_timers.cycles      = cycles;
+	g_profile_timers.cycles_last = cycles_last;
+	g_profile_timers.open        = open;
+
+	names       = make_static_array<const char*>(buffer1,   0,                NUM_PROFILE_TIMERS);
+	cycles      = make_static_array<u64>(names.data,        names_size,       NUM_PROFILE_TIMERS);
+	cycles_last = make_static_array<u64>(cycles.data,       cycles_size,      NUM_PROFILE_TIMERS);
+	open        = make_static_array<bool>(cycles_last.data, cycles_last_size, NUM_PROFILE_TIMERS);
+
+	g_profile_timers_prev.buffer      = buffer1;
+	g_profile_timers_prev.names       = names;
+	g_profile_timers_prev.cycles      = cycles;
+	g_profile_timers_prev.cycles_last = cycles_last;
+	g_profile_timers_prev.open        = open;
 }
 
 void profile_start_frame()
 {
-	for (i32 i = 0; i < g_profile_timers_prev.index - 1; i++) {
-		for (i32 j = i+1; j < g_profile_timers_prev.index; j++) {
+	for (i32 i = 0; i < g_profile_timers_prev.names.count - 1; i++) {
+		for (i32 j = i+1; j < g_profile_timers_prev.names.count; j++) {
 			if (g_profile_timers_prev.cycles[j] > g_profile_timers_prev.cycles[i]) {
 				const char *name_tmp = g_profile_timers_prev.names[j];
 				u64 cycles_tmp = g_profile_timers_prev.cycles[j];
@@ -140,7 +153,7 @@ void profile_end_frame()
 	g_profile_timers_prev  = g_profile_timers;
 	g_profile_timers       = tmp;
 
-	for (i32 i = 0; i < g_profile_timers.index; i++) {
+	for (i32 i = 0; i < g_profile_timers.names.count; i++) {
 		g_profile_timers.cycles[i] = 0;
 	}
 }
