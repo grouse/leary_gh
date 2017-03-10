@@ -8,6 +8,7 @@
 
 
 
+#include "core/array.cpp"
 #include "core/settings.cpp"
 #include "core/tokenizer.cpp"
 #include "core/profiling.cpp"

@@ -35,21 +35,34 @@ Mesh load_mesh_obj(const char *filename)
 	DEBUG_LOG("-- file size: %llu bytes", size);
 
 	i32 num_faces   = 0;
-	i32 num_vectors = 0;
-	i32 num_normals = 0;
-	i32 num_uvs     = 0;
+
+	Array<Vector3> vectors = make_array<Vector3>();
+	Array<Vector3> normals = make_array<Vector3>();
+	Array<Vector2> uvs     = make_array<Vector2>();
 
 	char *ptr = file;
 	while (ptr < end) {
 		// texture coordinates
 		if (ptr[0] == 'v' && ptr[1] == 't') {
-			num_uvs++;
+			ptr += 3;
+
+			Vector2 uv;
+			sscanf(ptr, "%f %f", &uv.x, &uv.y);
+			array_add(&uvs, uv);
 		// normals
 		} else if (ptr[0] == 'v' && ptr[1] == 'n') {
-			num_normals++;
+			ptr += 3;
+
+			Vector3 n;
+			sscanf(ptr, "%f %f %f", &n.x, &n.y, &n.z);
+			array_add(&normals, n);
 		// vertices
 		} else if (ptr[0] == 'v') {
-			num_vectors++;
+			ptr += 2;
+
+			Vector3 v;
+			sscanf(ptr, "%f %f %f", &v.x, &v.y, &v.z);
+			array_add(&vectors, v);
 		// faces
 		} else if (ptr[0] == 'f') {
 			do ptr++;
@@ -75,55 +88,15 @@ Mesh load_mesh_obj(const char *filename)
 		while (ptr < end && is_newline(ptr[0]));
 	}
 
-	DEBUG_ASSERT(num_vectors > 0);
-	DEBUG_ASSERT(num_faces > 0);
-	DEBUG_ASSERT(num_normals > 0);
-	DEBUG_ASSERT(num_uvs > 0);
+	DEBUG_ASSERT(vectors.count > 0);
+	DEBUG_ASSERT(normals.count > 0);
+	DEBUG_ASSERT(uvs.count> 0);
+	DEBUG_ASSERT(num_faces> 0);
 
-	DEBUG_LOG("-- vectors : %d", num_vectors);
-	DEBUG_LOG("-- uvs     : %d", num_uvs);
-	DEBUG_LOG("-- normals : %d", num_normals);
+	DEBUG_LOG("-- vectors : %d", vectors.count);
+	DEBUG_LOG("-- normals : %d", normals.count);
+	DEBUG_LOG("-- uvs     : %d", uvs.count);
 	DEBUG_LOG("-- faces   : %d", num_faces);
-
-	Vector3 *vectors = new Vector3[num_vectors];
-	Vector3 *normals = new Vector3[num_normals];
-	Vector2 *uvs     = new Vector2[num_uvs];
-
-	i32 vector_index = 0;
-	i32 normal_index = 0;
-	i32 uv_index     = 0;
-
-	ptr = file;
-	while (ptr < end) {
-		// texture coordinates
-		if (ptr[0] == 'v' && ptr[1] == 't') {
-			ptr += 3;
-
-			Vector2 uv;
-			sscanf(ptr, "%f %f", &uv.x, &uv.y);
-			uvs[uv_index++] = uv;
-		// normals
-		} else if (ptr[0] == 'v' && ptr[1] == 'n') {
-			ptr += 3;
-
-			Vector3 n;
-			sscanf(ptr, "%f %f %f", &n.x, &n.y, &n.z);
-			normals[normal_index++] = n;
-		// vertices
-		} else if (ptr[0] == 'v') {
-			ptr += 2;
-
-			Vector3 v;
-			sscanf(ptr, "%f %f %f", &v.x, &v.y, &v.z);
-			vectors[vector_index++] = v;
-		}
-
-		do ptr++;
-		while (ptr < end && !is_newline(ptr[0]));
-
-		do ptr++;
-		while (ptr < end && is_newline(ptr[0]));
-	}
 
 	mesh.vertices       = new Vertex[num_faces * 3];
 	mesh.vertices_count = num_faces * 3;
@@ -175,9 +148,9 @@ Mesh load_mesh_obj(const char *filename)
 		while (ptr < end && is_newline(ptr[0]));
 	}
 
-	delete[] vectors;
-	delete[] normals;
-	delete[] uvs;
+	free_array(&vectors);
+	free_array(&normals);
+	free_array(&uvs);
 
 	return mesh;
 }
