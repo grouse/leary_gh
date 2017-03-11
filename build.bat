@@ -8,7 +8,7 @@ SET WARNINGS=/W4 /wd4996 /wd4577 /wd4065 /wd4800
 SET DEFINITIONS=-DWIN32_LEAN_AND_MEAN -DNOMINMAX
 
 SET FLAGS=%WARNINGS% %DEFINITIONS%
-SET FLAGS=%FLAGS% /Zi /EHsc
+SET FLAGS=%FLAGS% /Zi /EHsc /permissive-
 
 SET OPTIMIZED=/O2
 SET UNOPTIMIZED=/Od
@@ -27,10 +27,13 @@ REM don't want to rebuild all the assets every build, it'll become real slow
 REM real fast
 glslangValidator -V %ROOT%\src\render\shaders\generic.frag -o %BUILD_DIR%\data\shaders\generic.frag.spv
 glslangValidator -V %ROOT%\src\render\shaders\generic.vert -o %BUILD_DIR%\data\shaders\generic.vert.spv
+
 glslangValidator -V %ROOT%\src\render\shaders\font.frag -o %BUILD_DIR%\data\shaders\font.frag.spv
 glslangValidator -V %ROOT%\src\render\shaders\font.vert -o %BUILD_DIR%\data\shaders\font.vert.spv
+
 glslangValidator -V %ROOT%\src\render\shaders\mesh.frag -o %BUILD_DIR%\data\shaders\mesh.frag.spv
 glslangValidator -V %ROOT%\src\render\shaders\mesh.vert -o %BUILD_DIR%\data\shaders\mesh.vert.spv
+
 glslangValidator -V %ROOT%\src\render\shaders\terrain.frag -o %BUILD_DIR%\data\shaders\terrain.frag.spv
 glslangValidator -V %ROOT%\src\render\shaders\terrain.vert -o %BUILD_DIR%\data\shaders\terrain.vert.spv
 
