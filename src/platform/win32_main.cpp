@@ -128,7 +128,7 @@ window_proc(HWND   hwnd,
 		InputEvent event;
 		event.type = InputType_key_release;
 		event.key.vkey = (VirtualKey)wparam;
-		event.key.repeated = lparam & 0x40000000;
+		event.key.repeated = false;
 
 		game_input(&game_state, &platform_state, &settings, event);
 	} break;
@@ -264,7 +264,7 @@ WinMain(HINSTANCE instance,
 
 		f32 dt = (f32)elapsed / frequency.QuadPart;
 
-		PROFILE_START(win32_input)
+		PROFILE_START(win32_input);
 		while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE)) {
 			TranslateMessage(&msg);
 			DispatchMessage(&msg);

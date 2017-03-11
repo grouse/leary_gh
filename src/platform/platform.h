@@ -66,9 +66,10 @@
 #define INTROSPECT
 #endif
 
+#define VAR_UNUSED(var) (void)(var)
+
 #define DEBUG_LOG(...)        platform_debug_print(DEBUG_FILENAME, __LINE__, __FUNCTION__, __VA_ARGS__)
 #define DEBUG_UNIMPLEMENTED() DEBUG_LOG(Log_unimplemented, "fixme! stub");
-
 
 enum FileAccess {
 	FileAccess_read,

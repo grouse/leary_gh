@@ -29,8 +29,13 @@ glslangValidator -V %ROOT%\src\render\shaders\generic.frag -o %BUILD_DIR%\data\s
 glslangValidator -V %ROOT%\src\render\shaders\generic.vert -o %BUILD_DIR%\data\shaders\generic.vert.spv
 glslangValidator -V %ROOT%\src\render\shaders\font.frag -o %BUILD_DIR%\data\shaders\font.frag.spv
 glslangValidator -V %ROOT%\src\render\shaders\font.vert -o %BUILD_DIR%\data\shaders\font.vert.spv
+glslangValidator -V %ROOT%\src\render\shaders\mesh.frag -o %BUILD_DIR%\data\shaders\mesh.frag.spv
+glslangValidator -V %ROOT%\src\render\shaders\mesh.vert -o %BUILD_DIR%\data\shaders\mesh.vert.spv
+glslangValidator -V %ROOT%\src\render\shaders\terrain.frag -o %BUILD_DIR%\data\shaders\terrain.frag.spv
+glslangValidator -V %ROOT%\src\render\shaders\terrain.vert -o %BUILD_DIR%\data\shaders\terrain.vert.spv
 
 xcopy /i /y %ROOT%\assets\fonts %BUILD_DIR%\data\fonts
+xcopy /i /y %ROOT%\assets\models %BUILD_DIR%\data\models
 
 cl %FLAGS% %UNOPTIMIZED% %INCLUDE_DIR% /Feleary.exe %ROOT%\src\platform/win32_main.cpp /link %LIBS% /SUBSYSTEM:WINDOWS
 POPD

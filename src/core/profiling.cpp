@@ -65,7 +65,7 @@ i32 profile_start_timer(const char *name)
 		}
 	}
 
-	i32 index = g_profile_timers.names.count++;
+	i32 index = (i32)g_profile_timers.names.count++;
 	DEBUG_ASSERT(g_profile_timers.names.count < g_profile_timers.names.capacity);
 
 	// NOTE(jesper): assume the passed in string won't be deallocated, I don't

@@ -36,7 +36,6 @@
 		} \
 	} while(0)
 
-#define VAR_UNUSED(var) (void)(var)
 
 #define DEBUG_BUFFER_SIZE (1024)
 

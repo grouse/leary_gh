@@ -61,7 +61,7 @@ struct Matrix4 {
 	{
 		Matrix4 result = {};
 
-		f32 tan_hvfov = tan(vfov / 2.0f);
+		f32 tan_hvfov = tanf(vfov / 2.0f);
 		result[0].x = 1.0f / (aspect * tan_hvfov);
 		result[1].y = 1.0f / (tan_hvfov);
 		result[2].w = -1.0f;
@@ -148,7 +148,7 @@ inline Matrix4 operator * (Matrix4 lhs, Matrix4 rhs);
  ******************************************************************************/
 inline f32 length(Vector3 vec)
 {
-	return std::sqrt(vec.x * vec.x + vec.y * vec.y + vec.z * vec.z);
+	return sqrtf(vec.x * vec.x + vec.y * vec.y + vec.z * vec.z);
 }
 
 inline f32 dot(Vector3 lhs, Vector3 rhs)
@@ -190,8 +190,8 @@ inline Matrix4 translate(Matrix4 m, Vector3 v)
 
 inline Matrix4 rotate(Matrix4 m, f32 theta, Vector3 axis)
 {
-	f32 c = cos(theta);
-	f32 s = sin(theta);
+	f32 c = cosf(theta);
+	f32 s = sinf(theta);
 
 	Vector3 tmp = (1.0f - c) * axis;
 
@@ -218,8 +218,8 @@ inline Matrix4 rotate(Matrix4 m, f32 theta, Vector3 axis)
 
 inline Matrix4 rotate_x(Matrix4 m, f32 theta)
 {
-	f32 c = cos(theta);
-	f32 s = sin(theta);
+	f32 c = cosf(theta);
+	f32 s = sinf(theta);
 
 	Matrix4 r;
 	r[0].x = 1;
@@ -244,8 +244,8 @@ inline Matrix4 rotate_x(Matrix4 m, f32 theta)
 
 inline Matrix4 rotate_y(Matrix4 m, f32 theta)
 {
-	f32 c = cos(theta);
-	f32 s = sin(theta);
+	f32 c = cosf(theta);
+	f32 s = sinf(theta);
 
 	Matrix4 r;
 	r[0].x = c;
@@ -270,8 +270,8 @@ inline Matrix4 rotate_y(Matrix4 m, f32 theta)
 
 inline Matrix4 rotate_z(Matrix4 m, f32 theta)
 {
-	f32 c = cos(theta);
-	f32 s = sin(theta);
+	f32 c = cosf(theta);
+	f32 s = sinf(theta);
 
 	Matrix4 r;
 	r[0].x = c;

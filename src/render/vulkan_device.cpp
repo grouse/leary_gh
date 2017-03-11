@@ -2172,7 +2172,7 @@ VulkanDevice create_device(Settings *settings, PlatformState *platform)
 				device.swapchain.depth.imageview
 			}};
 
-			create_info.attachmentCount = attachments.size();
+			create_info.attachmentCount = (u32)attachments.size();
 			create_info.pAttachments    = attachments.data();
 
 			result = vkCreateFramebuffer(device.handle,
