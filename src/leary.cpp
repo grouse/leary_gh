@@ -15,6 +15,7 @@
 #include "core/math.cpp"
 #include "core/mesh.cpp"
 #include "core/random.cpp"
+#include "core/allocator.cpp"
 
 #include "render/vulkan_device.cpp"
 
@@ -66,6 +67,10 @@ struct GameState {
 	struct {
 		VulkanTexture font;
 	} textures;
+
+	struct {
+		FrameAllocator frame;
+	} allocators;
 
 	Camera fp_camera;
 	Camera ui_camera;
@@ -173,6 +178,8 @@ void game_load_settings(Settings *settings)
 
 void game_init(Settings *settings, PlatformState *platform, GameState *game)
 {
+	game->allocators.frame = make_frame_allocator(64 * 1024 * 1024);
+
 	game->text_buffer = (char*)malloc(1024 * 1024);
 
 	f32 width = (f32)settings->video.resolution.width;
@@ -215,7 +222,7 @@ void game_init(Settings *settings, PlatformState *platform, GameState *game)
 		                                        "fonts/Roboto-Regular.ttf");
 		u8 *font_data = (u8*)platform_file_read(font_path, &font_size);
 
-		u8 *bitmap = new u8[1024*1024];
+		u8 *bitmap = allocate<u8>(&game->allocators.frame, 1024*1024);
 		stbtt_BakeFontBitmap(font_data, 0, 20.0, bitmap, 1024, 1024, 0,
 		                     256, game->baked_font);
 
@@ -652,4 +659,6 @@ void game_update_and_render(GameState *game, f32 dt)
 {
 	game_update(game, dt);
 	game_render(game);
+
+	reset(&game->allocators.frame);
 }
