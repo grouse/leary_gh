@@ -31,6 +31,17 @@ enum ShaderStage {
 	ShaderStage_max
 };
 
+enum ShaderID {
+	ShaderID_generic_vert,
+	ShaderID_generic_frag,
+	ShaderID_mesh_vert,
+	ShaderID_mesh_frag,
+	ShaderID_font_vert,
+	ShaderID_font_frag,
+	ShaderID_terrain_vert,
+	ShaderID_terrain_frag
+};
+
 struct VulkanBuffer {
 	usize          size;
 	VkBuffer       handle;
@@ -727,35 +738,179 @@ VkSampler create_sampler(VulkanDevice *device)
 	return sampler;
 }
 
-VulkanShader create_shader(VulkanDevice *device,
-                           VkShaderStageFlagBits stage,
-                           const char *file)
+VulkanShader create_shader(VulkanDevice *device, ShaderID id)
 {
-
-	char *path = platform_resolve_path(GamePath_shaders, file);
-
-	usize size;
-	u32 *source = (u32*)platform_file_read(path, &size);
-	DEBUG_ASSERT(source != nullptr);
-
-	VkResult result;
 	VulkanShader shader = {};
-	// NOTE(jesper): this is the name of the entry point function in the shader,
-	// is it at all worth supporting other entry point names? maybe if we start
-	// using HLSL
-	shader.name         = "main";
-	shader.stage        = stage;
 
 	VkShaderModuleCreateInfo info = {};
 	info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-	info.codeSize = size;
-	info.pCode = source;
 
-	result = vkCreateShaderModule(device->handle, &info, nullptr, &shader.module);
-	DEBUG_ASSERT(result == VK_SUCCESS);
+	switch (id) {
+	case ShaderID_generic_vert: {
+		char *path = platform_resolve_path(GamePath_shaders, "generic.vert.spv");
 
-	free(source);
-	free(path);
+		usize size;
+		u32 *source = (u32*)platform_file_read(path, &size);
+		DEBUG_ASSERT(source != nullptr);
+
+		shader.name   = "main";
+		shader.stage  = VK_SHADER_STAGE_VERTEX_BIT;
+
+		info.codeSize = size;
+		info.pCode    = source;
+
+		VkResult result = vkCreateShaderModule(device->handle, &info,
+		                                       nullptr, &shader.module);
+		DEBUG_ASSERT(result == VK_SUCCESS);
+
+		free(source);
+		free(path);
+	} break;
+	case ShaderID_generic_frag: {
+		char *path = platform_resolve_path(GamePath_shaders, "generic.frag.spv");
+
+		usize size;
+		u32 *source = (u32*)platform_file_read(path, &size);
+		DEBUG_ASSERT(source != nullptr);
+
+		shader.name   = "main";
+		shader.stage  = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+		info.codeSize = size;
+		info.pCode    = source;
+
+		VkResult result = vkCreateShaderModule(device->handle, &info,
+		                                       nullptr, &shader.module);
+		DEBUG_ASSERT(result == VK_SUCCESS);
+
+		free(source);
+		free(path);
+	} break;
+	case ShaderID_terrain_vert: {
+		char *path = platform_resolve_path(GamePath_shaders, "terrain.vert.spv");
+
+		usize size;
+		u32 *source = (u32*)platform_file_read(path, &size);
+		DEBUG_ASSERT(source != nullptr);
+
+		shader.name   = "main";
+		shader.stage  = VK_SHADER_STAGE_VERTEX_BIT;
+
+		info.codeSize = size;
+		info.pCode    = source;
+
+		VkResult result = vkCreateShaderModule(device->handle, &info,
+		                                       nullptr, &shader.module);
+		DEBUG_ASSERT(result == VK_SUCCESS);
+
+		free(source);
+		free(path);
+	} break;
+	case ShaderID_terrain_frag: {
+		char *path = platform_resolve_path(GamePath_shaders, "terrain.frag.spv");
+
+		usize size;
+		u32 *source = (u32*)platform_file_read(path, &size);
+		DEBUG_ASSERT(source != nullptr);
+
+		shader.name   = "main";
+		shader.stage  = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+		info.codeSize = size;
+		info.pCode    = source;
+
+		VkResult result = vkCreateShaderModule(device->handle, &info,
+		                                       nullptr, &shader.module);
+		DEBUG_ASSERT(result == VK_SUCCESS);
+
+		free(source);
+		free(path);
+	} break;
+	case ShaderID_mesh_vert: {
+		char *path = platform_resolve_path(GamePath_shaders, "mesh.vert.spv");
+
+		usize size;
+		u32 *source = (u32*)platform_file_read(path, &size);
+		DEBUG_ASSERT(source != nullptr);
+
+		shader.name   = "main";
+		shader.stage  = VK_SHADER_STAGE_VERTEX_BIT;
+
+		info.codeSize = size;
+		info.pCode    = source;
+
+		VkResult result = vkCreateShaderModule(device->handle, &info,
+		                                       nullptr, &shader.module);
+		DEBUG_ASSERT(result == VK_SUCCESS);
+
+		free(source);
+		free(path);
+	} break;
+	case ShaderID_mesh_frag: {
+		char *path = platform_resolve_path(GamePath_shaders, "mesh.frag.spv");
+
+		usize size;
+		u32 *source = (u32*)platform_file_read(path, &size);
+		DEBUG_ASSERT(source != nullptr);
+
+		shader.name   = "main";
+		shader.stage  = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+		info.codeSize = size;
+		info.pCode    = source;
+
+		VkResult result = vkCreateShaderModule(device->handle, &info,
+		                                       nullptr, &shader.module);
+		DEBUG_ASSERT(result == VK_SUCCESS);
+
+		free(source);
+		free(path);
+	} break;
+	case ShaderID_font_vert: {
+		char *path = platform_resolve_path(GamePath_shaders, "font.vert.spv");
+
+		usize size;
+		u32 *source = (u32*)platform_file_read(path, &size);
+		DEBUG_ASSERT(source != nullptr);
+
+		shader.name   = "main";
+		shader.stage  = VK_SHADER_STAGE_VERTEX_BIT;
+
+		info.codeSize = size;
+		info.pCode    = source;
+
+		VkResult result = vkCreateShaderModule(device->handle, &info,
+		                                       nullptr, &shader.module);
+		DEBUG_ASSERT(result == VK_SUCCESS);
+
+		free(source);
+		free(path);
+	} break;
+	case ShaderID_font_frag: {
+		char *path = platform_resolve_path(GamePath_shaders, "font.frag.spv");
+
+		usize size;
+		u32 *source = (u32*)platform_file_read(path, &size);
+		DEBUG_ASSERT(source != nullptr);
+
+		shader.name   = "main";
+		shader.stage  = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+		info.codeSize = size;
+		info.pCode    = source;
+
+		VkResult result = vkCreateShaderModule(device->handle, &info,
+		                                       nullptr, &shader.module);
+		DEBUG_ASSERT(result == VK_SUCCESS);
+
+		free(source);
+		free(path);
+	} break;
+	default:
+		DEBUG_LOG("unknown shader id: %d", id);
+		DEBUG_ASSERT(false);
+		break;
+	}
 
 	return shader;
 }
@@ -765,11 +920,8 @@ VulkanPipeline create_font_pipeline(VulkanDevice *device)
 	VkResult result;
 	VulkanPipeline pipeline = {};
 
-	pipeline.shaders[ShaderStage_vertex] =
-		create_shader(device, VK_SHADER_STAGE_VERTEX_BIT, "font.vert.spv");
-
-	pipeline.shaders[ShaderStage_fragment] =
-		create_shader(device, VK_SHADER_STAGE_FRAGMENT_BIT, "font.frag.spv");
+	pipeline.shaders[ShaderStage_vertex]   = create_shader(device, ShaderID_font_vert);
+	pipeline.shaders[ShaderStage_fragment] = create_shader(device, ShaderID_font_frag);
 
 	pipeline.sampler_count = 1;
 	pipeline.samplers      = new VkSampler[1];
@@ -974,11 +1126,8 @@ VulkanPipeline create_pipeline(VulkanDevice *device)
 	VkResult result;
 	VulkanPipeline pipeline = {};
 
-	pipeline.shaders[ShaderStage_vertex] =
-		create_shader(device, VK_SHADER_STAGE_VERTEX_BIT, "generic.vert.spv");
-
-	pipeline.shaders[ShaderStage_fragment] =
-		create_shader(device, VK_SHADER_STAGE_FRAGMENT_BIT, "generic.frag.spv");
+	pipeline.shaders[ShaderStage_vertex]   = create_shader(device, ShaderID_generic_vert);
+	pipeline.shaders[ShaderStage_fragment] = create_shader(device, ShaderID_generic_frag);
 
 	pipeline.sampler_count = 1;
 	pipeline.samplers      = new VkSampler[1];
@@ -1199,11 +1348,8 @@ VulkanPipeline create_terrain_pipeline(VulkanDevice *device)
 	VkResult result;
 	VulkanPipeline pipeline = {};
 
-	pipeline.shaders[ShaderStage_vertex] =
-		create_shader(device, VK_SHADER_STAGE_VERTEX_BIT, "terrain.vert.spv");
-
-	pipeline.shaders[ShaderStage_fragment] =
-		create_shader(device, VK_SHADER_STAGE_FRAGMENT_BIT, "terrain.frag.spv");
+	pipeline.shaders[ShaderStage_vertex]   = create_shader(device, ShaderID_terrain_vert);
+	pipeline.shaders[ShaderStage_fragment] = create_shader(device, ShaderID_terrain_frag);
 
 	std::array<VkDescriptorSetLayoutBinding, 1> bindings = {};
 	// camera ubo
@@ -1401,11 +1547,8 @@ VulkanPipeline create_mesh_pipeline(VulkanDevice *device)
 	VkResult result;
 	VulkanPipeline pipeline = {};
 
-	pipeline.shaders[ShaderStage_vertex] =
-		create_shader(device, VK_SHADER_STAGE_VERTEX_BIT, "mesh.vert.spv");
-
-	pipeline.shaders[ShaderStage_fragment] =
-		create_shader(device, VK_SHADER_STAGE_FRAGMENT_BIT, "mesh.frag.spv");
+	pipeline.shaders[ShaderStage_vertex]   = create_shader(device, ShaderID_mesh_vert);
+	pipeline.shaders[ShaderStage_fragment] = create_shader(device, ShaderID_mesh_frag);
 
 	std::array<VkDescriptorSetLayoutBinding, 1> bindings = {};
 	// camera ubo
