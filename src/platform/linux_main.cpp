@@ -94,7 +94,12 @@ i64 get_time_difference(timespec start, timespec end)
 
 int main()
 {
-	profile_init();
+	// TODO(jesper): allocate these using linux call
+	GameMemory memory = {};
+	memory.frame      = make_frame_allocator(64 * 1024 * 1024);
+	memory.persistent = make_persistent_allocator(256 * 1024 * 1024);
+
+	profile_init(&memory);
 	game_load_settings(&settings);
 
 	Display *display = XOpenDisplay(nullptr);
@@ -165,7 +170,7 @@ int main()
 		platform_state.x11.hidden_cursor = cursor;
 	}
 
-	game_init(&settings, &platform_state, &game_state);
+	game_state = game_init(&settings, &platform_state, &memory);
 
 	i32 num_screens = XScreenCount(platform_state.x11.display);
 

@@ -30,11 +30,10 @@ i32 profile_start_timer(const char *name);
 void profile_end_timer(i32 index, u64 cycles);
 
 struct ProfileTimers {
-	void *buffer;
-	StaticArray<const char*> names;
-	StaticArray<u64>   cycles;
-	StaticArray<u64>   cycles_last;
-	StaticArray<bool>  open;
+	StaticArray<const char*, PersistentAllocator> names;
+	StaticArray<u64, PersistentAllocator>         cycles;
+	StaticArray<u64, PersistentAllocator>         cycles_last;
+	StaticArray<bool, PersistentAllocator>        open;
 };
 
 struct ProfileBlock {
@@ -93,33 +92,23 @@ void profile_end_timer(i32 index, u64 cycles)
 	}
 }
 
-void profile_init()
+void profile_init(GameMemory *memory)
 {
-	isize names_size       = sizeof(char*) * NUM_PROFILE_TIMERS;
-	isize cycles_size      = sizeof(u64)   * NUM_PROFILE_TIMERS;
-	isize cycles_last_size = sizeof(u64)   * NUM_PROFILE_TIMERS;
-	isize open_size        = sizeof(bool)  * NUM_PROFILE_TIMERS;
+	auto names       = make_static_array<const char*>(&memory->persistent, NUM_PROFILE_TIMERS);
+	auto cycles      = make_static_array<u64>(&memory->persistent, NUM_PROFILE_TIMERS);
+	auto cycles_last = make_static_array<u64>(&memory->persistent, NUM_PROFILE_TIMERS);
+	auto open        = make_static_array<bool>(&memory->persistent, NUM_PROFILE_TIMERS);
 
-	u8 *buffer0 = (u8*)malloc(names_size + cycles_size + cycles_last_size + open_size);
-	u8 *buffer1 = (u8*)malloc(names_size + cycles_size + cycles_last_size + open_size);
-
-	auto names       = make_static_array<const char*>(buffer0,   0,                NUM_PROFILE_TIMERS);
-	auto cycles      = make_static_array<u64>(names.data,        names_size,       NUM_PROFILE_TIMERS);
-	auto cycles_last = make_static_array<u64>(cycles.data,       cycles_size,      NUM_PROFILE_TIMERS);
-	auto open        = make_static_array<bool>(cycles_last.data, cycles_last_size, NUM_PROFILE_TIMERS);
-
-	g_profile_timers.buffer      = buffer0;
 	g_profile_timers.names       = names;
 	g_profile_timers.cycles      = cycles;
 	g_profile_timers.cycles_last = cycles_last;
 	g_profile_timers.open        = open;
 
-	names       = make_static_array<const char*>(buffer1,   0,                NUM_PROFILE_TIMERS);
-	cycles      = make_static_array<u64>(names.data,        names_size,       NUM_PROFILE_TIMERS);
-	cycles_last = make_static_array<u64>(cycles.data,       cycles_size,      NUM_PROFILE_TIMERS);
-	open        = make_static_array<bool>(cycles_last.data, cycles_last_size, NUM_PROFILE_TIMERS);
+	names       = make_static_array<const char*>(&memory->persistent, NUM_PROFILE_TIMERS);
+	cycles      = make_static_array<u64>(&memory->persistent, NUM_PROFILE_TIMERS);
+	cycles_last = make_static_array<u64>(&memory->persistent, NUM_PROFILE_TIMERS);
+	open        = make_static_array<bool>(&memory->persistent, NUM_PROFILE_TIMERS);
 
-	g_profile_timers_prev.buffer      = buffer1;
 	g_profile_timers_prev.names       = names;
 	g_profile_timers_prev.cycles      = cycles;
 	g_profile_timers_prev.cycles_last = cycles_last;

@@ -21,118 +21,9 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include <limits>
-#include <fstream>
+#include "vulkan_device.h"
+
 #include <array>
-
-enum ShaderStage {
-	ShaderStage_vertex,
-	ShaderStage_fragment,
-	ShaderStage_max
-};
-
-enum ShaderID {
-	ShaderID_generic_vert,
-	ShaderID_generic_frag,
-	ShaderID_mesh_vert,
-	ShaderID_mesh_frag,
-	ShaderID_font_vert,
-	ShaderID_font_frag,
-	ShaderID_terrain_vert,
-	ShaderID_terrain_frag
-};
-
-struct VulkanBuffer {
-	usize          size;
-	VkBuffer       handle;
-	VkDeviceMemory memory;
-};
-
-struct VulkanUniformBuffer {
-	VulkanBuffer staging;
-	VulkanBuffer buffer;
-};
-
-struct VulkanTexture {
-	u32            width;
-	u32            height;
-	VkFormat       format;
-	VkImage        image;
-	VkImageView    image_view;
-	VkDeviceMemory memory;
-};
-
-struct VulkanShader {
-	VkShaderModule        module;
-	VkShaderStageFlagBits stage;
-	const char            *name;
-};
-
-struct VulkanPipeline {
-	VkPipeline            handle;
-	VkPipelineLayout      layout;
-	VkDescriptorSet       descriptor_set;
-	VkDescriptorPool      descriptor_pool;
-	VkDescriptorSetLayout descriptor_layout;
-
-	VulkanShader          shaders[ShaderStage_max];
-
-	i32                   sampler_count;
-	VkSampler             *samplers;
-};
-
-struct VulkanDepthBuffer {
-	VkFormat       format;
-	VkImage        image;
-	VkImageView    imageview;
-	VkDeviceMemory memory;
-};
-
-struct VulkanSwapchain {
-	VkSurfaceKHR      surface;
-	VkFormat          format;
-	VkSwapchainKHR    handle;
-	VkExtent2D        extent;
-
-	u32               images_count;
-	VkImage           *images;
-	VkImageView       *imageviews;
-
-	VulkanDepthBuffer depth;
-
-	VkSemaphore       available;
-};
-
-struct VulkanPhysicalDevice {
-	VkPhysicalDevice                 handle;
-	VkPhysicalDeviceProperties       properties;
-	VkPhysicalDeviceMemoryProperties memory;
-	VkPhysicalDeviceFeatures         features;
-};
-
-struct VulkanDevice {
-	VkDevice                 handle;
-
-	VkInstance               instance;
-	VkDebugReportCallbackEXT debug_callback;
-
-	VkQueue                  queue;
-	u32                      queue_family_index;
-
-
-	VulkanSwapchain          swapchain;
-	VulkanPhysicalDevice     physical_device;
-
-	VkSemaphore              render_completed;
-
-	VkCommandPool            command_pool;
-	VkCommandBuffer          cmd_present;
-
-	VkRenderPass             renderpass;
-
-	i32                      framebuffers_count;
-	VkFramebuffer            *framebuffers;
-};
 
 void transition_image(VkCommandBuffer command,
                       VkImage image, VkFormat format,
@@ -522,7 +413,8 @@ VkImage create_image(VulkanDevice *device,
 	return image;
 }
 
-VulkanSwapchain create_swapchain(VulkanDevice *device,
+VulkanSwapchain create_swapchain(GameMemory *memory,
+                                 VulkanDevice *device,
                                  VulkanPhysicalDevice *physical_device,
                                  VkSurfaceKHR surface,
                                  Settings *settings)
@@ -540,7 +432,8 @@ VulkanSwapchain create_swapchain(VulkanDevice *device,
 	                                              nullptr);
 	DEBUG_ASSERT(result == VK_SUCCESS);
 
-	VkSurfaceFormatKHR *formats = new VkSurfaceFormatKHR[formats_count];
+	auto formats = allocate<VkSurfaceFormatKHR>(&memory->frame,
+	                                            formats_count);
 	result = vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device->handle,
 	                                              swapchain.surface,
 	                                              &formats_count,
@@ -572,7 +465,8 @@ VulkanSwapchain create_swapchain(VulkanDevice *device,
 	                                                   nullptr);
 	DEBUG_ASSERT(result == VK_SUCCESS);
 
-	auto present_modes = new VkPresentModeKHR[present_modes_count];
+	auto present_modes = allocate<VkPresentModeKHR>(&memory->frame,
+	                                                present_modes_count);
 	result = vkGetPhysicalDeviceSurfacePresentModesKHR(physical_device->handle,
 	                                                   swapchain.surface,
 	                                                   &present_modes_count,
@@ -637,23 +531,23 @@ VulkanSwapchain create_swapchain(VulkanDevice *device,
 
 	DEBUG_ASSERT(result == VK_SUCCESS);
 
-	delete[] present_modes;
-	delete[] formats;
-
 	result = vkGetSwapchainImagesKHR(device->handle,
 	                                 swapchain.handle,
 	                                 &swapchain.images_count,
 	                                 nullptr);
 	DEBUG_ASSERT(result == VK_SUCCESS);
 
-	swapchain.images = new VkImage[swapchain.images_count];
+	swapchain.images = allocate<VkImage>(&memory->frame,
+	                                     swapchain.images_count);
+
 	result = vkGetSwapchainImagesKHR(device->handle,
 	                                 swapchain.handle,
 	                                 &swapchain.images_count,
 	                                 swapchain.images);
 	DEBUG_ASSERT(result == VK_SUCCESS);
 
-	swapchain.imageviews = new VkImageView[swapchain.images_count];
+	swapchain.imageviews = allocate<VkImageView>(&memory->persistent,
+	                                             swapchain.images_count);
 
 	VkImageSubresourceRange subresource_range = {};
 	subresource_range.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -915,7 +809,7 @@ VulkanShader create_shader(VulkanDevice *device, ShaderID id)
 	return shader;
 }
 
-VulkanPipeline create_font_pipeline(VulkanDevice *device)
+VulkanPipeline create_font_pipeline(GameMemory *memory, VulkanDevice *device)
 {
 	VkResult result;
 	VulkanPipeline pipeline = {};
@@ -924,7 +818,8 @@ VulkanPipeline create_font_pipeline(VulkanDevice *device)
 	pipeline.shaders[ShaderStage_fragment] = create_shader(device, ShaderID_font_frag);
 
 	pipeline.sampler_count = 1;
-	pipeline.samplers      = new VkSampler[1];
+	pipeline.samplers = allocate<VkSampler>(&memory->persistent,
+	                                        pipeline.sampler_count);
 	pipeline.samplers[0]   = create_sampler(device);
 
 	std::array<VkDescriptorSetLayoutBinding, 1> bindings = {};
@@ -1121,7 +1016,7 @@ VulkanPipeline create_font_pipeline(VulkanDevice *device)
 	return pipeline;
 }
 
-VulkanPipeline create_pipeline(VulkanDevice *device)
+VulkanPipeline create_pipeline(GameMemory *memory, VulkanDevice *device)
 {
 	VkResult result;
 	VulkanPipeline pipeline = {};
@@ -1130,7 +1025,8 @@ VulkanPipeline create_pipeline(VulkanDevice *device)
 	pipeline.shaders[ShaderStage_fragment] = create_shader(device, ShaderID_generic_frag);
 
 	pipeline.sampler_count = 1;
-	pipeline.samplers      = new VkSampler[1];
+	pipeline.samplers = allocate<VkSampler>(&memory->persistent,
+	                                        pipeline.sampler_count);
 	pipeline.samplers[0]   = create_sampler(device);
 
 	std::array<VkDescriptorSetLayoutBinding, 2> bindings = {};
@@ -1343,7 +1239,7 @@ VulkanPipeline create_pipeline(VulkanDevice *device)
 	return pipeline;
 }
 
-VulkanPipeline create_terrain_pipeline(VulkanDevice *device)
+VulkanPipeline create_terrain_pipeline(GameMemory *, VulkanDevice *device)
 {
 	VkResult result;
 	VulkanPipeline pipeline = {};
@@ -1542,7 +1438,7 @@ VulkanPipeline create_terrain_pipeline(VulkanDevice *device)
 	return pipeline;
 }
 
-VulkanPipeline create_mesh_pipeline(VulkanDevice *device)
+VulkanPipeline create_mesh_pipeline(GameMemory *, VulkanDevice *device)
 {
 	VkResult result;
 	VulkanPipeline pipeline = {};
@@ -1897,7 +1793,9 @@ VulkanTexture create_texture(VulkanDevice *device, u32 width, u32 height,
 }
 
 
-VulkanDevice create_device(Settings *settings, PlatformState *platform)
+VulkanDevice create_device(GameMemory *memory,
+                           PlatformState *platform,
+                           Settings *settings)
 {
 	VulkanDevice device = {};
 
@@ -1914,8 +1812,9 @@ VulkanDevice create_device(Settings *settings, PlatformState *platform)
 		                                            nullptr);
 		DEBUG_ASSERT(result == VK_SUCCESS);
 
-		auto supported_layers = (VkLayerProperties*)malloc(sizeof(VkLayerProperties) *
-			                                               supported_layers_count);
+		auto supported_layers = allocate<VkLayerProperties>(&memory->frame,
+		                                                    supported_layers_count);
+
 		result = vkEnumerateInstanceLayerProperties(&supported_layers_count,
 		                                            supported_layers);
 		DEBUG_ASSERT(result == VK_SUCCESS);
@@ -1940,8 +1839,8 @@ VulkanDevice create_device(Settings *settings, PlatformState *platform)
 		                                                nullptr);
 		DEBUG_ASSERT(result == VK_SUCCESS);
 
-		auto supported_extensions = (VkExtensionProperties*)malloc(sizeof(VkExtensionProperties) *
-			                                                       supported_extensions_count);
+		auto supported_extensions = allocate<VkExtensionProperties>(&memory->frame,
+		                                                            supported_extensions_count);
 		result = vkEnumerateInstanceExtensionProperties(nullptr,
 		                                                &supported_extensions_count,
 		                                                supported_extensions);
@@ -1957,12 +1856,12 @@ VulkanDevice create_device(Settings *settings, PlatformState *platform)
 		// NOTE(jesper): we might want to store these in the device for future
 		// usage/debug information
 		i32 enabled_layers_count = 0;
-		char **enabled_layers = (char**) malloc(sizeof(char*) *
-		                                        supported_layers_count);
+		auto enabled_layers = allocate<char*>(&memory->frame,
+		                                      supported_layers_count);
 
 		i32 enabled_extensions_count = 0;
-		char **enabled_extensions = (char**) malloc(sizeof(char*) *
-		                                            supported_extensions_count);
+		auto enabled_extensions = allocate<char*>(&memory->frame,
+		                                          supported_extensions_count);
 
 		for (i32 i = 0; i < (i32)supported_layers_count; ++i) {
 			VkLayerProperties &layer = supported_layers[i];
@@ -2003,12 +1902,6 @@ VulkanDevice create_device(Settings *settings, PlatformState *platform)
 
 		result = vkCreateInstance(&create_info, nullptr, &device.instance);
 		DEBUG_ASSERT(result == VK_SUCCESS);
-
-		free(enabled_layers);
-		free(enabled_extensions);
-
-		free(supported_layers);
-		free(supported_extensions);
 	}
 
 	/**************************************************************************
@@ -2051,7 +1944,7 @@ VulkanDevice create_device(Settings *settings, PlatformState *platform)
 		result = vkEnumeratePhysicalDevices(device.instance, &count, nullptr);
 		DEBUG_ASSERT(result == VK_SUCCESS);
 
-		VkPhysicalDevice *physical_devices = new VkPhysicalDevice[count];
+		auto physical_devices = allocate<VkPhysicalDevice>(&memory->frame, count);
 		result = vkEnumeratePhysicalDevices(device.instance,
 		                                    &count, physical_devices);
 		DEBUG_ASSERT(result == VK_SUCCESS);
@@ -2108,7 +2001,6 @@ VulkanDevice create_device(Settings *settings, PlatformState *platform)
 
 		vkGetPhysicalDeviceFeatures(device.physical_device.handle,
 		                            &device.physical_device.features);
-		delete[] physical_devices;
 	}
 
 	// NOTE(jesper): this is so annoying. The surface belongs with the swapchain
@@ -2128,7 +2020,8 @@ VulkanDevice create_device(Settings *settings, PlatformState *platform)
 		                                         &queue_family_count,
 		                                         nullptr);
 
-		auto queue_families = new VkQueueFamilyProperties[queue_family_count];
+		auto queue_families = allocate<VkQueueFamilyProperties>(&memory->frame,
+		                                                        queue_family_count);
 		vkGetPhysicalDeviceQueueFamilyProperties(device.physical_device.handle,
 		                                         &queue_family_count,
 		                                         queue_families);
@@ -2209,8 +2102,6 @@ VulkanDevice create_device(Settings *settings, PlatformState *platform)
 		                 device.queue_family_index,
 		                 queue_index,
 		                 &device.queue);
-
-		delete[] queue_families;
 	}
 
 	/**************************************************************************
@@ -2237,7 +2128,7 @@ VulkanDevice create_device(Settings *settings, PlatformState *platform)
 	// now because we're still hardcoding the depth buffer creation, among other
 	// things, in the VulkanDevice, which requires the created swapchain.
 	// Really I think it mostly/only need the extent, but same difference
-	device.swapchain = create_swapchain(&device, &device.physical_device,
+	device.swapchain = create_swapchain(memory, &device, &device.physical_device,
 	                                    surface, settings);
 
 	/**************************************************************************
@@ -2297,9 +2188,8 @@ VulkanDevice create_device(Settings *settings, PlatformState *platform)
 	 * Create Framebuffers
 	 *************************************************************************/
 	{
-		device.framebuffers_count = (i32)device.swapchain.images_count;
-		device.framebuffers = (VkFramebuffer*) malloc(sizeof(VkFramebuffer) *
-		                                              device.framebuffers_count);
+		device.framebuffers = make_static_array<VkFramebuffer>(&memory->persistent,
+		                                                       device.swapchain.images_count);
 
 		VkFramebufferCreateInfo create_info = {};
 		create_info.sType           = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
@@ -2308,7 +2198,7 @@ VulkanDevice create_device(Settings *settings, PlatformState *platform)
 		create_info.height          = device.swapchain.extent.height;
 		create_info.layers          = 1;
 
-		for (i32 i = 0; i < device.framebuffers_count; ++i)
+		for (i32 i = 0; i < (i32)device.swapchain.images_count; ++i)
 		{
 			std::array<VkImageView, 2> attachments = {{
 				device.swapchain.imageviews[i],
@@ -2318,11 +2208,15 @@ VulkanDevice create_device(Settings *settings, PlatformState *platform)
 			create_info.attachmentCount = (u32)attachments.size();
 			create_info.pAttachments    = attachments.data();
 
+			VkFramebuffer framebuffer;
+
 			result = vkCreateFramebuffer(device.handle,
 			                             &create_info,
 			                             nullptr,
-			                             &device.framebuffers[i]);
+			                             &framebuffer);
 			DEBUG_ASSERT(result == VK_SUCCESS);
+
+			array_add(&device.framebuffers, framebuffer);
 		}
 	}
 
@@ -2394,9 +2288,6 @@ void destroy(VulkanDevice *device, VulkanSwapchain swapchain)
 
 	vkDestroySwapchainKHR(device->handle, swapchain.handle, nullptr);
 	vkDestroySurfaceKHR(device->instance, swapchain.surface, nullptr);
-
-	delete[] swapchain.imageviews;
-	delete[] swapchain.images;
 }
 
 void destroy(VulkanDevice *device, VulkanTexture texture)
@@ -2423,11 +2314,10 @@ void destroy(VulkanDevice *device)
 	VkResult result;
 	VAR_UNUSED(result);
 
-	for (i32 i = 0; i < device->framebuffers_count; ++i) {
+	for (i32 i = 0; i < device->framebuffers.count; ++i) {
 		vkDestroyFramebuffer(device->handle, device->framebuffers[i], nullptr);
 	}
-	free(device->framebuffers);
-
+	free_array(&device->framebuffers);
 
 	vkDestroyRenderPass(device->handle, device->renderpass, nullptr);
 

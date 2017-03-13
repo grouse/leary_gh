@@ -19,7 +19,7 @@ struct Mesh {
 	i32    vertices_count;
 };
 
-Mesh load_mesh_obj(const char *filename)
+Mesh load_mesh_obj(GameMemory *memory, const char *filename)
 {
 	Mesh mesh = {};
 
@@ -36,9 +36,9 @@ Mesh load_mesh_obj(const char *filename)
 
 	i32 num_faces   = 0;
 
-	Array<Vector3> vectors = make_array<Vector3>();
-	Array<Vector3> normals = make_array<Vector3>();
-	Array<Vector2> uvs     = make_array<Vector2>();
+	auto vectors = make_array<Vector3>(&memory->frame);
+	auto normals = make_array<Vector3>(&memory->frame);
+	auto uvs     = make_array<Vector2>(&memory->frame);
 
 	char *ptr = file;
 	while (ptr < end) {
@@ -98,7 +98,8 @@ Mesh load_mesh_obj(const char *filename)
 	DEBUG_LOG("-- uvs     : %d", uvs.count);
 	DEBUG_LOG("-- faces   : %d", num_faces);
 
-	mesh.vertices       = new Vertex[num_faces * 3];
+
+	mesh.vertices = allocate<Vertex>(&memory->persistent, num_faces);
 	mesh.vertices_count = num_faces * 3;
 
 	i32 vertex_index = 0;
@@ -147,10 +148,6 @@ Mesh load_mesh_obj(const char *filename)
 		do ptr++;
 		while (ptr < end && is_newline(ptr[0]));
 	}
-
-	free_array(&vectors);
-	free_array(&normals);
-	free_array(&uvs);
 
 	return mesh;
 }

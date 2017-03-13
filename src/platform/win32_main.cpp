@@ -216,7 +216,12 @@ WinMain(HINSTANCE instance,
         LPSTR     /*cmd_line*/,
         int       /*cmd_show*/)
 {
-	profile_init();
+	// TODO(jesper): allocate these using VirtualAlloc
+	GameMemory memory = {};
+	memory.frame      = make_frame_allocator(64 * 1024 * 1024);
+	memory.persistent = make_persistent_allocator(256 * 1024 * 1024);
+
+	profile_init(&memory);
 	game_load_settings(&settings);
 
 	platform_state.win32.hinstance = instance;
@@ -244,8 +249,7 @@ WinMain(HINSTANCE instance,
 		platform_quit(&platform_state);
 	}
 
-
-	game_init(&settings, &platform_state, &game_state);
+	game_state = game_init(&settings, &platform_state, &memory);
 
 	LARGE_INTEGER frequency;
 	QueryPerformanceFrequency(&frequency);
