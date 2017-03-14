@@ -99,7 +99,7 @@ Mesh load_mesh_obj(GameMemory *memory, const char *filename)
 	DEBUG_LOG("-- faces   : %d", num_faces);
 
 
-	mesh.vertices = allocate<Vertex>(&memory->persistent, num_faces);
+	mesh.vertices = alloc<Vertex>(&memory->persistent, num_faces);
 	mesh.vertices_count = num_faces * 3;
 
 	i32 vertex_index = 0;

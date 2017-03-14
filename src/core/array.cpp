@@ -49,7 +49,7 @@ Array<T, A> make_array(A *allocator, isize capacity)
 {
 	Array<T, A> a;
 	a.allocator = allocator;
-	a.data      = allocate<T>(allocator, capacity);
+	a.data      = alloc<T>(allocator, capacity);
 	a.count     = 0;
 	a.capacity  = capacity;
 
@@ -61,7 +61,7 @@ StaticArray<T, A> make_static_array(A *allocator, isize capacity)
 {
 	StaticArray<T, A> a;
 	a.allocator = allocator;
-	a.data      = allocate<T>(allocator, capacity);
+	a.data      = alloc<T>(allocator, capacity);
 	a.count     = 0;
 	a.capacity  = capacity;
 
@@ -119,7 +119,7 @@ isize array_add(Array<T, A> *a, T &e)
 	if (a->count >= a->capacity) {
 		isize capacity = a->capacity == 0 ? 1 : a->capacity * 2;
 
-		T* data = allocate<T>(a->allocator, capacity);
+		T* data = alloc<T>(a->allocator, capacity);
 		memcpy(data, a->data, sizeof(T) * a->capacity);
 
 		dealloc(a->allocator, a->data);

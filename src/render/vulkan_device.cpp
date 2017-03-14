@@ -432,7 +432,7 @@ VulkanSwapchain create_swapchain(GameMemory *memory,
 	                                              nullptr);
 	DEBUG_ASSERT(result == VK_SUCCESS);
 
-	auto formats = allocate<VkSurfaceFormatKHR>(&memory->frame,
+	auto formats = alloc<VkSurfaceFormatKHR>(&memory->frame,
 	                                            formats_count);
 	result = vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device->handle,
 	                                              swapchain.surface,
@@ -465,7 +465,7 @@ VulkanSwapchain create_swapchain(GameMemory *memory,
 	                                                   nullptr);
 	DEBUG_ASSERT(result == VK_SUCCESS);
 
-	auto present_modes = allocate<VkPresentModeKHR>(&memory->frame,
+	auto present_modes = alloc<VkPresentModeKHR>(&memory->frame,
 	                                                present_modes_count);
 	result = vkGetPhysicalDeviceSurfacePresentModesKHR(physical_device->handle,
 	                                                   swapchain.surface,
@@ -537,7 +537,7 @@ VulkanSwapchain create_swapchain(GameMemory *memory,
 	                                 nullptr);
 	DEBUG_ASSERT(result == VK_SUCCESS);
 
-	swapchain.images = allocate<VkImage>(&memory->frame,
+	swapchain.images = alloc<VkImage>(&memory->frame,
 	                                     swapchain.images_count);
 
 	result = vkGetSwapchainImagesKHR(device->handle,
@@ -546,7 +546,7 @@ VulkanSwapchain create_swapchain(GameMemory *memory,
 	                                 swapchain.images);
 	DEBUG_ASSERT(result == VK_SUCCESS);
 
-	swapchain.imageviews = allocate<VkImageView>(&memory->persistent,
+	swapchain.imageviews = alloc<VkImageView>(&memory->persistent,
 	                                             swapchain.images_count);
 
 	VkImageSubresourceRange subresource_range = {};
@@ -818,7 +818,7 @@ VulkanPipeline create_font_pipeline(GameMemory *memory, VulkanDevice *device)
 	pipeline.shaders[ShaderStage_fragment] = create_shader(device, ShaderID_font_frag);
 
 	pipeline.sampler_count = 1;
-	pipeline.samplers = allocate<VkSampler>(&memory->persistent,
+	pipeline.samplers = alloc<VkSampler>(&memory->persistent,
 	                                        pipeline.sampler_count);
 	pipeline.samplers[0]   = create_sampler(device);
 
@@ -1025,7 +1025,7 @@ VulkanPipeline create_pipeline(GameMemory *memory, VulkanDevice *device)
 	pipeline.shaders[ShaderStage_fragment] = create_shader(device, ShaderID_generic_frag);
 
 	pipeline.sampler_count = 1;
-	pipeline.samplers = allocate<VkSampler>(&memory->persistent,
+	pipeline.samplers = alloc<VkSampler>(&memory->persistent,
 	                                        pipeline.sampler_count);
 	pipeline.samplers[0]   = create_sampler(device);
 
@@ -1812,7 +1812,7 @@ VulkanDevice create_device(GameMemory *memory,
 		                                            nullptr);
 		DEBUG_ASSERT(result == VK_SUCCESS);
 
-		auto supported_layers = allocate<VkLayerProperties>(&memory->frame,
+		auto supported_layers = alloc<VkLayerProperties>(&memory->frame,
 		                                                    supported_layers_count);
 
 		result = vkEnumerateInstanceLayerProperties(&supported_layers_count,
@@ -1839,7 +1839,7 @@ VulkanDevice create_device(GameMemory *memory,
 		                                                nullptr);
 		DEBUG_ASSERT(result == VK_SUCCESS);
 
-		auto supported_extensions = allocate<VkExtensionProperties>(&memory->frame,
+		auto supported_extensions = alloc<VkExtensionProperties>(&memory->frame,
 		                                                            supported_extensions_count);
 		result = vkEnumerateInstanceExtensionProperties(nullptr,
 		                                                &supported_extensions_count,
@@ -1856,11 +1856,11 @@ VulkanDevice create_device(GameMemory *memory,
 		// NOTE(jesper): we might want to store these in the device for future
 		// usage/debug information
 		i32 enabled_layers_count = 0;
-		auto enabled_layers = allocate<char*>(&memory->frame,
+		auto enabled_layers = alloc<char*>(&memory->frame,
 		                                      supported_layers_count);
 
 		i32 enabled_extensions_count = 0;
-		auto enabled_extensions = allocate<char*>(&memory->frame,
+		auto enabled_extensions = alloc<char*>(&memory->frame,
 		                                          supported_extensions_count);
 
 		for (i32 i = 0; i < (i32)supported_layers_count; ++i) {
@@ -1944,7 +1944,7 @@ VulkanDevice create_device(GameMemory *memory,
 		result = vkEnumeratePhysicalDevices(device.instance, &count, nullptr);
 		DEBUG_ASSERT(result == VK_SUCCESS);
 
-		auto physical_devices = allocate<VkPhysicalDevice>(&memory->frame, count);
+		auto physical_devices = alloc<VkPhysicalDevice>(&memory->frame, count);
 		result = vkEnumeratePhysicalDevices(device.instance,
 		                                    &count, physical_devices);
 		DEBUG_ASSERT(result == VK_SUCCESS);
@@ -2020,7 +2020,7 @@ VulkanDevice create_device(GameMemory *memory,
 		                                         &queue_family_count,
 		                                         nullptr);
 
-		auto queue_families = allocate<VkQueueFamilyProperties>(&memory->frame,
+		auto queue_families = alloc<VkQueueFamilyProperties>(&memory->frame,
 		                                                        queue_family_count);
 		vkGetPhysicalDeviceQueueFamilyProperties(device.physical_device.handle,
 		                                         &queue_family_count,

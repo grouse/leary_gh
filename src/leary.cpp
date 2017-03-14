@@ -106,7 +106,7 @@ void render_font(GameState *game, RenderedText *text,
 	if (text_length == 0) return;
 
 	usize vertices_size = sizeof(f32)*30*text_length;
-	auto vertices = allocate<f32>(&game->memory->frame, vertices_size);
+	auto vertices = alloc<f32>(&game->memory->frame, vertices_size);
 
 	text->vertex_count = (i32)(text_length * 6);
 
@@ -188,7 +188,7 @@ GameState game_init(Settings *settings, PlatformState *platform, GameMemory *mem
 	GameState game = {};
 	game.memory = memory;
 
-	game.text_buffer = allocate<char>(&game.memory->persistent, 1024 * 1024);
+	game.text_buffer = alloc<char>(&game.memory->persistent, 1024 * 1024);
 
 	f32 width = (f32)settings->video.resolution.width;
 	f32 height = (f32)settings->video.resolution.height;
@@ -211,7 +211,7 @@ GameState game_init(Settings *settings, PlatformState *platform, GameMemory *mem
 	VkResult result;
 	game.vulkan = create_device(game.memory, platform, settings);
 
-	game.command_buffers = allocate<VkCommandBuffer>(&game.memory->persistent, 5);
+	game.command_buffers = alloc<VkCommandBuffer>(&game.memory->persistent, 5);
 	VkCommandBufferAllocateInfo allocate_info = {};
 	allocate_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
 	allocate_info.commandPool        = game.vulkan.command_pool;
@@ -230,7 +230,7 @@ GameState game_init(Settings *settings, PlatformState *platform, GameMemory *mem
 		                                        "fonts/Roboto-Regular.ttf");
 		u8 *font_data = (u8*)platform_file_read(font_path, &font_size);
 
-		u8 *bitmap = allocate<u8>(&game.memory->frame, 1024*1024);
+		u8 *bitmap = alloc<u8>(&game.memory->frame, 1024*1024);
 		stbtt_BakeFontBitmap(font_data, 0, 20.0, bitmap, 1024, 1024, 0,
 		                     256, game.baked_font);
 
@@ -315,7 +315,7 @@ GameState game_init(Settings *settings, PlatformState *platform, GameMemory *mem
 		array_add(&game.render_objects, terrain);
 	}
 
-	game.key_state = allocate<i32>(&game.memory->persistent, 0xFF);
+	game.key_state = alloc<i32>(&game.memory->persistent, 0xFF);
 	for (i32 i = 0; i < 0xFF; i++) {
 		game.key_state[i] = InputType_key_release;
 	}

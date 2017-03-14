@@ -6,6 +6,11 @@
  * Copyright (c) 2017 - all rights reserved
  */
 
+// TODO(jesper): realloc
+// TODO(jesper): zalloc - allocate and zero memset
+// TODO(jesper): ialloc - allocate and default initialise struct
+// TODO(jesper): allocation header infront of allocated ptr for meta data
+
 struct LinearAllocator {
 	void *start;
 	void *current;
@@ -24,7 +29,7 @@ LinearAllocator make_linear_allocator(void *start, isize size)
 }
 
 template <typename T>
-T* allocate(LinearAllocator *a)
+T* alloc(LinearAllocator *a)
 {
 	// TODO(jesper): alignment
 	isize size = sizeof(T);
@@ -37,7 +42,7 @@ T* allocate(LinearAllocator *a)
 }
 
 template <typename T>
-T* allocate(LinearAllocator *a, i32 count)
+T* alloc(LinearAllocator *a, i32 count)
 {
 	// TODO(jesper): alignment
 	isize size = sizeof(T) * count;
