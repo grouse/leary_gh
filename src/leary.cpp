@@ -14,8 +14,8 @@
 #include "core/allocator.cpp"
 
 struct GameMemory {
-	FrameAllocator      frame;
-	PersistentAllocator persistent;
+	LinearAllocator frame;
+	LinearAllocator persistent;
 };
 
 #include "core/array.cpp"
@@ -76,7 +76,7 @@ struct GameState {
 	Camera fp_camera;
 	Camera ui_camera;
 
-	Array<RenderObject, PersistentAllocator> render_objects;
+	Array<RenderObject, LinearAllocator> render_objects;
 
 	VkCommandBuffer     *command_buffers;
 

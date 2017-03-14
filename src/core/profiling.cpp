@@ -30,10 +30,10 @@ i32 profile_start_timer(const char *name);
 void profile_end_timer(i32 index, u64 cycles);
 
 struct ProfileTimers {
-	StaticArray<const char*, PersistentAllocator> names;
-	StaticArray<u64, PersistentAllocator>         cycles;
-	StaticArray<u64, PersistentAllocator>         cycles_last;
-	StaticArray<bool, PersistentAllocator>        open;
+	StaticArray<const char*, LinearAllocator> names;
+	StaticArray<u64, LinearAllocator>         cycles;
+	StaticArray<u64, LinearAllocator>         cycles_last;
+	StaticArray<bool, LinearAllocator>        open;
 };
 
 struct ProfileBlock {

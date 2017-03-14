@@ -216,10 +216,16 @@ WinMain(HINSTANCE instance,
         LPSTR     /*cmd_line*/,
         int       /*cmd_show*/)
 {
+	isize frame_alloc_size      = 64 * 1024 * 1024;
+	isize persistent_alloc_size = 256 * 1024 * 1024;
+
 	// TODO(jesper): allocate these using VirtualAlloc
+	u8 *mem = (u8*)malloc(frame_alloc_size + persistent_alloc_size);
+
 	GameMemory memory = {};
-	memory.frame      = make_frame_allocator(64 * 1024 * 1024);
-	memory.persistent = make_persistent_allocator(256 * 1024 * 1024);
+	memory.frame      = make_linear_allocator(mem, frame_alloc_size);
+	memory.persistent = make_linear_allocator(mem + frame_alloc_size,
+	                                          persistent_alloc_size);
 
 	profile_init(&memory);
 	game_load_settings(&settings);

@@ -6,126 +6,57 @@
  * Copyright (c) 2017 - all rights reserved
  */
 
-struct FrameAllocator {
-	void *data;
-	void *ptr;
-	void *end;
-	isize size;
-};
-
-struct PersistentAllocator {
-	void *data;
-	void *ptr;
-	void *end;
+struct LinearAllocator {
+	void *start;
+	void *current;
 	isize size;
 };
 
 struct DefaultAllocator {};
 
-FrameAllocator make_frame_allocator(void *ptr, isize size)
+LinearAllocator make_linear_allocator(void *start, isize size)
 {
-	FrameAllocator a;
-	a.data = ptr;
-	a.end  = (u8*)a.data + size;
-	a.ptr  = a.data;
-	a.size = size;
-
+	LinearAllocator a;
+	a.start   = start;
+	a.current = a.start;
+	a.size    = size;
 	return a;
 }
 
-FrameAllocator make_frame_allocator(isize size)
+template <typename T>
+T* allocate(LinearAllocator *a)
 {
-	FrameAllocator a;
-	a.data = (u8*)malloc(size);
-	a.end  = (u8*)a.data + size;
-	a.ptr  = a.data;
-	a.size = size;
-
-	return a;
-}
-
-PersistentAllocator make_persistent_allocator(void *ptr, isize size)
-{
-	PersistentAllocator a;
-	a.data = ptr;
-	a.end  = (u8*)a.data + size;
-	a.ptr  = a.data;
-	a.size = size;
-
-	return a;
-}
-
-PersistentAllocator make_persistent_allocator(isize size)
-{
-	PersistentAllocator a;
-	a.data = (u8*)malloc(size);
-	a.end  = (u8*)a.data + size;
-	a.ptr  = a.data;
-	a.size = size;
-
-	return a;
-}
-
-
-void reset(FrameAllocator *a)
-{
-	a->ptr = a->data;
-}
-
-template<typename T>
-T* allocate(FrameAllocator *a)
-{
+	// TODO(jesper): alignment
 	isize size = sizeof(T);
 
-	T* r = (T*)a->ptr;
-	a->ptr = (u8*)a->ptr + size;
-	DEBUG_ASSERT(a->ptr < a->end);
-	return r;
+	T *ptr = (T*)a->current;
+	a->current = (u8*)a->current + size;
+	DEBUG_ASSERT(a->current < (u8*)a->start + a->size);
+
+	return ptr;
 }
 
-template<typename T>
-T* allocate(FrameAllocator *a, i32 count)
+template <typename T>
+T* allocate(LinearAllocator *a, i32 count)
 {
+	// TODO(jesper): alignment
 	isize size = sizeof(T) * count;
 
-	T* r = (T*)a->ptr;
-	a->ptr = (u8*)a->ptr + size;
-	DEBUG_ASSERT(a->ptr < a->end);
-	return r;
+	T *ptr = (T*)a->current;
+	a->current = (u8*)a->current + size;
+	DEBUG_ASSERT(a->current < (u8*)a->start + a->size);
+
+	return ptr;
 }
 
-template<typename T>
-T* allocate(PersistentAllocator *a)
+void dealloc(LinearAllocator *, void *)
 {
-	isize size = sizeof(T);
-
-	T* r = (T*)a->ptr;
-	a->ptr = (u8*)a->ptr + size;
-	DEBUG_ASSERT(a->ptr < a->end);
-	return r;
+	// TODO(jesper): deallocate if the ptr is the last one allocated
+	DEBUG_LOG("calling dealloc on linear allocator, leaking memory");
 }
 
-template<typename T>
-T* allocate(PersistentAllocator *a, i32 count)
+void reset(LinearAllocator *a)
 {
-	isize size = sizeof(T) * count;
-
-	T* r = (T*)a->ptr;
-	a->ptr = (u8*)a->ptr + size;
-	DEBUG_ASSERT(a->ptr < a->end);
-	return r;
-}
-
-
-template<typename T>
-void dealloc(FrameAllocator *, T *)
-{
-	DEBUG_LOG("dealloc called on frame allocator, memory will be leaked");
-}
-
-template<typename T>
-void dealloc(PersistentAllocator *, T *)
-{
-	DEBUG_LOG("dealloc called on persistent allocator, memory will be leaked");
+	a->current = a->start;
 }
 
