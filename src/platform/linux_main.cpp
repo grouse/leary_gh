@@ -56,6 +56,27 @@ void platform_toggle_raw_mouse(PlatformState *state) {
 		             CurrentTime);
 	} else {
 		XUngrabPointer(state->x11.display, CurrentTime);
+
+		i32 num_screens = XScreenCount(state->x11.display);
+
+		for (i32 i = 0; i < num_screens; i++) {
+			Window root = XRootWindow(state->x11.display, i);
+			Window child;
+
+			u32 mask;
+			i32 root_x, root_y, win_x, win_y;
+			bool result = XQueryPointer(platform_state.x11.display,
+			                            platform_state.x11.window,
+			                            &root, &child,
+			                            &root_x, &root_y,
+			                            &win_x, &win_y,
+			                            &mask);
+			if (result) {
+				state->x11.mouse.x = win_x;
+				state->x11.mouse.y = win_y;
+				break;
+			}
+		}
 	}
 
 	XFlush(state->x11.display);
@@ -140,7 +161,6 @@ int main()
 
 	{
 		i32 event, error;
-
 		if (!XQueryExtension(display, "XInputExtension",
 		                     &platform_state.x11.xi2_opcode,
 		                     &event, &error))
@@ -180,9 +200,6 @@ int main()
 
 	i32 num_screens = XScreenCount(platform_state.x11.display);
 
-	i32 mouse_x = 0;
-	i32 mouse_y = 0;
-
 	for (i32 i = 0; i < num_screens; i++) {
 		Window root = XRootWindow(platform_state.x11.display, i);
 		Window child;
@@ -196,8 +213,8 @@ int main()
 		                            &win_x, &win_y,
 		                            &mask);
 		if (result) {
-			mouse_x = win_x;
-			mouse_y = win_y;
+			platform_state.x11.mouse.x = win_x;
+			platform_state.x11.mouse.y = win_y;
 			break;
 		}
 	}
@@ -260,11 +277,11 @@ int main()
 				event.mouse.x = xevent.xmotion.x;
 				event.mouse.y = xevent.xmotion.y;
 
-				event.mouse.dx = xevent.xmotion.x - mouse_x;
-				event.mouse.dy = xevent.xmotion.y - mouse_y;
+				event.mouse.dx = xevent.xmotion.x - platform_state.x11.mouse.x;
+				event.mouse.dy = xevent.xmotion.y - platform_state.x11.mouse.y;
 
-				mouse_x = xevent.xmotion.x;
-				mouse_y = xevent.xmotion.y;
+				platform_state.x11.mouse.x = xevent.xmotion.x;
+				platform_state.x11.mouse.y = xevent.xmotion.y;
 
 				game_input(&game_state, &platform_state, &settings, event);
 			} break;
@@ -273,8 +290,8 @@ int main()
 				    xevent.xcrossing.window == platform_state.x11.window &&
 				    xevent.xcrossing.display == platform_state.x11.display)
 				{
-					mouse_x = xevent.xcrossing.x;
-					mouse_y = xevent.xcrossing.y;
+					platform_state.x11.mouse.x = xevent.xcrossing.x;
+					platform_state.x11.mouse.y = xevent.xcrossing.y;
 				}
 			} break;
 			case ClientMessage: {

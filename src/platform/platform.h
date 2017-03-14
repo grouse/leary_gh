@@ -128,6 +128,11 @@ struct PlatformState {
 			XkbDescPtr xkb;
 			i32        xi2_opcode;
 			Cursor     hidden_cursor;
+
+			struct {
+				i32 x;
+				i32 y;
+			} mouse;
 		} x11;
 #elif defined(_WIN32)
 		struct
