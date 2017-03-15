@@ -130,8 +130,8 @@ isize array_add(Array<T, A> *a, T &e)
 		a->capacity = capacity;
 	}
 
-	a->data[a->count++] = e;
-	return a->count;
+	a->data[a->count] = e;
+	return a->count++;
 }
 
 template<typename T, typename A>
@@ -139,6 +139,6 @@ isize array_add(StaticArray<T, A> *a, T &e)
 {
 	DEBUG_ASSERT(a->count <= a->capacity);
 
-	a->data[a->count++] = e;
-	return a->count;
+	a->data[a->count] = e;
+	return a->count++;
 }

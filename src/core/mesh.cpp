@@ -14,9 +14,14 @@ struct Vertex {
 	Vector2 uv;
 };
 
+bool operator == (Vertex &lhs, Vertex &rhs)
+{
+	return memcmp(&lhs, &rhs, sizeof(Vertex)) == 0;
+}
+
 struct Mesh {
-	Vertex *vertices;
-	i32    vertices_count;
+	Array<Vertex, LinearAllocator> vertices;
+	Array<u32, LinearAllocator>    indices;
 };
 
 Mesh load_mesh_obj(GameMemory *memory, const char *filename)
@@ -98,11 +103,7 @@ Mesh load_mesh_obj(GameMemory *memory, const char *filename)
 	DEBUG_LOG("-- uvs     : %d", uvs.count);
 	DEBUG_LOG("-- faces   : %d", num_faces);
 
-
-	mesh.vertices = alloc<Vertex>(&memory->persistent, num_faces);
-	mesh.vertices_count = num_faces * 3;
-
-	i32 vertex_index = 0;
+	auto vertices = make_array<Vertex>(&memory->frame);
 
 	ptr = file;
 	while (ptr < end) {
@@ -137,9 +138,9 @@ Mesh load_mesh_obj(GameMemory *memory, const char *filename)
 			v2.normal = normals[in2];
 			v2.uv     = uvs[it2];
 
-			mesh.vertices[vertex_index++] = v0;
-			mesh.vertices[vertex_index++] = v1;
-			mesh.vertices[vertex_index++] = v2;
+			array_add(&vertices, v0);
+			array_add(&vertices, v1);
+			array_add(&vertices, v2);
 		}
 
 		do ptr++;
@@ -148,6 +149,52 @@ Mesh load_mesh_obj(GameMemory *memory, const char *filename)
 		do ptr++;
 		while (ptr < end && is_newline(ptr[0]));
 	}
+
+	mesh.vertices = make_array<Vertex>(&memory->persistent);
+	mesh.indices  = make_array<u32>(&memory->persistent);
+
+	i32 j = 0;
+	for (i32 i = 0; i < vertices.count; i++) {
+		bool unique = true;
+		for (j = 0; j < mesh.vertices.count; j++) {
+			if (vertices[i] == mesh.vertices[j]) {
+				unique = false;
+				break;
+			}
+		}
+
+		if (unique) {
+			u32 index = (u32)array_add(&mesh.vertices, vertices[i]);
+			array_add(&mesh.indices, index);
+		} else {
+			u32 index = (u32)j;
+			array_add(&mesh.indices, index);
+		}
+	}
+
+#if 0
+	for (i32 i = 0; i < mesh.vertices.count; i++) {
+		DEBUG_LOG("vertex[%d]", i);
+		DEBUG_LOG("vector = { %f, %f, %f }",
+		          mesh.vertices[i].vector.x,
+		          mesh.vertices[i].vector.y,
+		          mesh.vertices[i].vector.z);
+		DEBUG_LOG("normal = { %f, %f, %f }",
+		          mesh.vertices[i].normal.x,
+		          mesh.vertices[i].normal.y,
+		          mesh.vertices[i].normal.z);
+		DEBUG_LOG("uv = { %f, %f }",
+		          mesh.vertices[i].uv.x,
+		          mesh.vertices[i].uv.y);
+	}
+
+	for (i32 i = 0; i < mesh.indices.count; i += 3) {
+		DEBUG_LOG("triangle: %u, %u, %u",
+		          mesh.indices[i+0],
+		          mesh.indices[i+1],
+		          mesh.indices[i+2]);
+	}
+#endif
 
 	return mesh;
 }

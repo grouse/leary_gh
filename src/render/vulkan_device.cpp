@@ -2403,7 +2403,7 @@ void copy_buffer(VulkanDevice *device, VkBuffer src, VkBuffer dst, VkDeviceSize 
 	end_command_buffer(device, command);
 }
 
-VulkanBuffer create_vertex_buffer(VulkanDevice *device, usize size, void *data)
+VulkanBuffer create_vertex_buffer(VulkanDevice *device, void *data, usize size)
 {
 #if 0 // upload to staging buffer then copy to device local
 	VulkanBuffer staging = create_buffer(device, size,

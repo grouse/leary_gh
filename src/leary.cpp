@@ -44,9 +44,11 @@ struct RenderedText {
 };
 
 struct IndexRenderObject {
-	VulkanBuffer vertices;
-	VulkanBuffer indices;
-	i32          vertex_count;
+	VulkanPipeline pipeline;
+	VulkanBuffer   vertices;
+	VulkanBuffer   indices;
+	i32            index_count;
+	Matrix4        transform;
 };
 
 // TODO(jesper): stick these in the pipeline so that we reduce the number of
@@ -77,6 +79,7 @@ struct GameState {
 	Camera ui_camera;
 
 	Array<RenderObject, LinearAllocator> render_objects;
+	Array<IndexRenderObject, LinearAllocator> index_render_objects;
 
 	VkCommandBuffer     *command_buffers;
 
@@ -207,6 +210,7 @@ GameState game_init(Settings *settings, PlatformState *platform, GameMemory *mem
 	game.ui_camera.view = view;
 
 	game.render_objects = make_array<RenderObject>(&game.memory->persistent, 20);
+	game.index_render_objects = make_array<IndexRenderObject>(&game.memory->persistent, 20);
 
 	VkResult result;
 	game.vulkan = create_device(game.memory, platform, settings);
@@ -279,21 +283,22 @@ GameState game_init(Settings *settings, PlatformState *platform, GameMemory *mem
 
 	Random r = make_random(3);
 	for (i32 i = 0; i < 10; i++) {
-		RenderObject obj = {};
+		IndexRenderObject obj = {};
 
-		usize size = cube.vertices_count * sizeof(cube.vertices[0]);
+		usize vertex_size = cube.vertices.count * sizeof(cube.vertices[0]);
+		usize index_size  = cube.indices.count  * sizeof(cube.indices[0]);
 
-		obj.pipeline = game.pipelines.mesh;
-		obj.vertex_count = cube.vertices_count;
-		obj.vertices = create_vertex_buffer(&game.vulkan, size, cube.vertices);
+		obj.pipeline    = game.pipelines.mesh;
+		obj.index_count = cube.indices.count;
+		obj.vertices    = create_vertex_buffer(&game.vulkan, cube.vertices.data, vertex_size);
+		obj.indices     = create_index_buffer(&game.vulkan, cube.indices.data, index_size);
 
 		f32 x = next_f32(&r) * 20.0f;
 		f32 y = -1.0f;
 		f32 z = next_f32(&r) * 20.0f;
 
 		obj.transform = translate(Matrix4::identity(), {x, y, z});
-
-		array_add(&game.render_objects, obj);
+		array_add(&game.index_render_objects, obj);
 	}
 
 	{
@@ -309,7 +314,7 @@ GameState game_init(Settings *settings, PlatformState *platform, GameMemory *mem
 
 		RenderObject terrain = {};
 		terrain.pipeline = game.pipelines.terrain;
-		terrain.vertices = create_vertex_buffer(&game.vulkan, sizeof(vertices), vertices);
+		terrain.vertices = create_vertex_buffer(&game.vulkan, vertices, sizeof(vertices));
 		terrain.vertex_count = sizeof(vertices) / (sizeof(vertices[0]) * 3);
 
 		array_add(&game.render_objects, terrain);
@@ -342,6 +347,11 @@ void game_quit(GameState *game, PlatformState *platform, Settings *settings)
 
 	for (i32 i = 0; i < game->render_objects.count; i++) {
 		destroy(&game->vulkan, game->render_objects[i].vertices);
+	}
+
+	for (i32 i = 0; i < game->index_render_objects.count; i++) {
+		destroy(&game->vulkan, game->index_render_objects[i].vertices);
+		destroy(&game->vulkan, game->index_render_objects[i].indices);
 	}
 
 	destroy(&game->vulkan, game->fp_camera.ubo);
@@ -592,6 +602,30 @@ void game_render(GameState *game)
 		                   0, sizeof(object.transform), &object.transform);
 
 		vkCmdDraw(command, object.vertex_count, 1, 0, 0);
+	}
+
+	for (i32 i = 0; i < game->index_render_objects.count; i++) {
+		IndexRenderObject &object = game->index_render_objects[i];
+
+		vkCmdBindPipeline(command,
+		                  VK_PIPELINE_BIND_POINT_GRAPHICS,
+		                  object.pipeline.handle);
+
+		vkCmdBindDescriptorSets(command,
+		                        VK_PIPELINE_BIND_POINT_GRAPHICS,
+		                        object.pipeline.layout,
+		                        0,
+		                        1, &object.pipeline.descriptor_set,
+		                        0, nullptr);
+
+		vkCmdBindVertexBuffers(command, 0, 1, &object.vertices.handle, offsets);
+		vkCmdBindIndexBuffer(command, object.indices.handle,
+		                     0, VK_INDEX_TYPE_UINT32);
+
+		vkCmdPushConstants(command, object.pipeline.layout, VK_SHADER_STAGE_VERTEX_BIT,
+		                   0, sizeof(object.transform), &object.transform);
+
+		vkCmdDrawIndexed(command, object.index_count, 1, 0, 0, 0);
 	}
 
 

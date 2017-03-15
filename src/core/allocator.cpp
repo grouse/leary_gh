@@ -50,7 +50,7 @@ T* alloc(LinearAllocator *a, i32 count)
 	// TODO(jesper): alignment
 	isize size = sizeof(T) * count;
 
-	T *ptr     = (T*)a->current;appliyted
+	T *ptr     = (T*)a->current;
 	a->current = (u8*)a->current + size;
 	a->last    = ptr;
 	DEBUG_ASSERT(a->current < (u8*)a->start + a->size);
