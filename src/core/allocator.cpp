@@ -14,6 +14,7 @@
 struct LinearAllocator {
 	void *start;
 	void *current;
+	void *last;
 	isize size;
 };
 
@@ -24,6 +25,7 @@ LinearAllocator make_linear_allocator(void *start, isize size)
 	LinearAllocator a;
 	a.start   = start;
 	a.current = a.start;
+	a.last    = nullptr;
 	a.size    = size;
 	return a;
 }
@@ -34,8 +36,9 @@ T* alloc(LinearAllocator *a)
 	// TODO(jesper): alignment
 	isize size = sizeof(T);
 
-	T *ptr = (T*)a->current;
+	T *ptr     = (T*)a->current;
 	a->current = (u8*)a->current + size;
+	a->last    = ptr;
 	DEBUG_ASSERT(a->current < (u8*)a->start + a->size);
 
 	return ptr;
@@ -47,21 +50,27 @@ T* alloc(LinearAllocator *a, i32 count)
 	// TODO(jesper): alignment
 	isize size = sizeof(T) * count;
 
-	T *ptr = (T*)a->current;
+	T *ptr     = (T*)a->current;appliyted
 	a->current = (u8*)a->current + size;
+	a->last    = ptr;
 	DEBUG_ASSERT(a->current < (u8*)a->start + a->size);
 
 	return ptr;
 }
 
-void dealloc(LinearAllocator *, void *)
+void dealloc(LinearAllocator *a, void *ptr)
 {
-	// TODO(jesper): deallocate if the ptr is the last one allocated
-	DEBUG_LOG("calling dealloc on linear allocator, leaking memory");
+	if (a->last != nullptr && a->last == ptr) {
+		a->current = ptr;
+		a->last    = nullptr;
+	} else {
+		DEBUG_LOG("calling dealloc on linear allocator, leaking memory");
+	}
 }
 
 void reset(LinearAllocator *a)
 {
 	a->current = a->start;
+	a->last    = nullptr;
 }
 

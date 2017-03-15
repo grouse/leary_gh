@@ -120,9 +120,12 @@ isize array_add(Array<T, A> *a, T &e)
 		isize capacity = a->capacity == 0 ? 1 : a->capacity * 2;
 
 		T* data = alloc<T>(a->allocator, capacity);
-		memcpy(data, a->data, sizeof(T) * a->capacity);
 
-		dealloc(a->allocator, a->data);
+		if (a->data != nullptr) {
+			memcpy(data, a->data, sizeof(T) * a->capacity);
+			dealloc(a->allocator, a->data);
+		}
+
 		a->data     = data;
 		a->capacity = capacity;
 	}
