@@ -30,32 +30,26 @@ LinearAllocator make_linear_allocator(void *start, isize size)
 	return a;
 }
 
-template <typename T>
-T* alloc(LinearAllocator *a)
+void *alloc(LinearAllocator *a, isize size)
 {
-	// TODO(jesper): alignment
-	isize size = sizeof(T);
-
-	T *ptr     = (T*)a->current;
+	void *ptr  = a->current;
 	a->current = (u8*)a->current + size;
 	a->last    = ptr;
-	DEBUG_ASSERT(a->current < (u8*)a->start + a->size);
+	DEBUG_ASSERT(a->current < ((u8*)a->start + a->size));
 
 	return ptr;
 }
 
 template <typename T>
-T* alloc(LinearAllocator *a, i32 count)
+T* alloc(LinearAllocator *a)
 {
-	// TODO(jesper): alignment
-	isize size = sizeof(T) * count;
+	return (T*)alloc(a, sizeof(T));
+}
 
-	T *ptr     = (T*)a->current;
-	a->current = (u8*)a->current + size;
-	a->last    = ptr;
-	DEBUG_ASSERT(a->current < (u8*)a->start + a->size);
-
-	return ptr;
+template <typename T>
+T* alloc_array(LinearAllocator *a, i32 count)
+{
+	return (T*)alloc(a, sizeof(T) * count);
 }
 
 void dealloc(LinearAllocator *a, void *ptr)

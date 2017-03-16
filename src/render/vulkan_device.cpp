@@ -432,8 +432,8 @@ VulkanSwapchain create_swapchain(GameMemory *memory,
 	                                              nullptr);
 	DEBUG_ASSERT(result == VK_SUCCESS);
 
-	auto formats = alloc<VkSurfaceFormatKHR>(&memory->frame,
-	                                            formats_count);
+	auto formats = alloc_array<VkSurfaceFormatKHR>(&memory->frame,
+	                                               formats_count);
 	result = vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device->handle,
 	                                              swapchain.surface,
 	                                              &formats_count,
@@ -465,8 +465,8 @@ VulkanSwapchain create_swapchain(GameMemory *memory,
 	                                                   nullptr);
 	DEBUG_ASSERT(result == VK_SUCCESS);
 
-	auto present_modes = alloc<VkPresentModeKHR>(&memory->frame,
-	                                                present_modes_count);
+	auto present_modes = alloc_array<VkPresentModeKHR>(&memory->frame,
+	                                                   present_modes_count);
 	result = vkGetPhysicalDeviceSurfacePresentModesKHR(physical_device->handle,
 	                                                   swapchain.surface,
 	                                                   &present_modes_count,
@@ -537,8 +537,8 @@ VulkanSwapchain create_swapchain(GameMemory *memory,
 	                                 nullptr);
 	DEBUG_ASSERT(result == VK_SUCCESS);
 
-	swapchain.images = alloc<VkImage>(&memory->frame,
-	                                     swapchain.images_count);
+	swapchain.images = alloc_array<VkImage>(&memory->frame,
+	                                        swapchain.images_count);
 
 	result = vkGetSwapchainImagesKHR(device->handle,
 	                                 swapchain.handle,
@@ -546,8 +546,8 @@ VulkanSwapchain create_swapchain(GameMemory *memory,
 	                                 swapchain.images);
 	DEBUG_ASSERT(result == VK_SUCCESS);
 
-	swapchain.imageviews = alloc<VkImageView>(&memory->persistent,
-	                                             swapchain.images_count);
+	swapchain.imageviews = alloc_array<VkImageView>(&memory->persistent,
+	                                                swapchain.images_count);
 
 	VkImageSubresourceRange subresource_range = {};
 	subresource_range.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -818,8 +818,8 @@ VulkanPipeline create_font_pipeline(GameMemory *memory, VulkanDevice *device)
 	pipeline.shaders[ShaderStage_fragment] = create_shader(device, ShaderID_font_frag);
 
 	pipeline.sampler_count = 1;
-	pipeline.samplers = alloc<VkSampler>(&memory->persistent,
-	                                        pipeline.sampler_count);
+	pipeline.samplers = alloc_array<VkSampler>(&memory->persistent,
+	                                           pipeline.sampler_count);
 	pipeline.samplers[0]   = create_sampler(device);
 
 	std::array<VkDescriptorSetLayoutBinding, 1> bindings = {};
@@ -1025,8 +1025,8 @@ VulkanPipeline create_pipeline(GameMemory *memory, VulkanDevice *device)
 	pipeline.shaders[ShaderStage_fragment] = create_shader(device, ShaderID_generic_frag);
 
 	pipeline.sampler_count = 1;
-	pipeline.samplers = alloc<VkSampler>(&memory->persistent,
-	                                        pipeline.sampler_count);
+	pipeline.samplers = alloc_array<VkSampler>(&memory->persistent,
+	                                           pipeline.sampler_count);
 	pipeline.samplers[0]   = create_sampler(device);
 
 	std::array<VkDescriptorSetLayoutBinding, 2> bindings = {};
@@ -1812,8 +1812,8 @@ VulkanDevice create_device(GameMemory *memory,
 		                                            nullptr);
 		DEBUG_ASSERT(result == VK_SUCCESS);
 
-		auto supported_layers = alloc<VkLayerProperties>(&memory->frame,
-		                                                    supported_layers_count);
+		auto supported_layers = alloc_array<VkLayerProperties>(&memory->frame,
+		                                                       supported_layers_count);
 
 		result = vkEnumerateInstanceLayerProperties(&supported_layers_count,
 		                                            supported_layers);
@@ -1839,8 +1839,8 @@ VulkanDevice create_device(GameMemory *memory,
 		                                                nullptr);
 		DEBUG_ASSERT(result == VK_SUCCESS);
 
-		auto supported_extensions = alloc<VkExtensionProperties>(&memory->frame,
-		                                                            supported_extensions_count);
+		auto supported_extensions = alloc_array<VkExtensionProperties>(&memory->frame,
+		                                                               supported_extensions_count);
 		result = vkEnumerateInstanceExtensionProperties(nullptr,
 		                                                &supported_extensions_count,
 		                                                supported_extensions);
@@ -1856,12 +1856,12 @@ VulkanDevice create_device(GameMemory *memory,
 		// NOTE(jesper): we might want to store these in the device for future
 		// usage/debug information
 		i32 enabled_layers_count = 0;
-		auto enabled_layers = alloc<char*>(&memory->frame,
-		                                      supported_layers_count);
+		auto enabled_layers = alloc_array<char*>(&memory->frame,
+		                                         supported_layers_count);
 
 		i32 enabled_extensions_count = 0;
-		auto enabled_extensions = alloc<char*>(&memory->frame,
-		                                          supported_extensions_count);
+		auto enabled_extensions = alloc_array<char*>(&memory->frame,
+		                                             supported_extensions_count);
 
 		for (i32 i = 0; i < (i32)supported_layers_count; ++i) {
 			VkLayerProperties &layer = supported_layers[i];
@@ -1944,7 +1944,7 @@ VulkanDevice create_device(GameMemory *memory,
 		result = vkEnumeratePhysicalDevices(device.instance, &count, nullptr);
 		DEBUG_ASSERT(result == VK_SUCCESS);
 
-		auto physical_devices = alloc<VkPhysicalDevice>(&memory->frame, count);
+		auto physical_devices = alloc_array<VkPhysicalDevice>(&memory->frame, count);
 		result = vkEnumeratePhysicalDevices(device.instance,
 		                                    &count, physical_devices);
 		DEBUG_ASSERT(result == VK_SUCCESS);
@@ -2020,8 +2020,8 @@ VulkanDevice create_device(GameMemory *memory,
 		                                         &queue_family_count,
 		                                         nullptr);
 
-		auto queue_families = alloc<VkQueueFamilyProperties>(&memory->frame,
-		                                                        queue_family_count);
+		auto queue_families = alloc_array<VkQueueFamilyProperties>(&memory->frame,
+		                                                           queue_family_count);
 		vkGetPhysicalDeviceQueueFamilyProperties(device.physical_device.handle,
 		                                         &queue_family_count,
 		                                         queue_families);
