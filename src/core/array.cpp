@@ -20,13 +20,11 @@ struct Array {
 	}
 };
 
-template<typename T, typename A>
+template<typename T>
 struct StaticArray {
 	T* data;
 	isize count;
 	isize capacity;
-
-	A* allocator;
 
 	T& operator[] (isize i)
 	{
@@ -56,24 +54,11 @@ Array<T, A> make_array(A *allocator, isize capacity)
 	return a;
 }
 
-template<typename T, typename A>
-StaticArray<T, A> make_static_array(A *allocator, isize capacity)
+template<typename T>
+StaticArray<T> make_static_array(void *data, isize capacity)
 {
-	StaticArray<T, A> a;
-	a.allocator = allocator;
-	a.data      = alloc_array<T>(allocator, capacity);
-	a.count     = 0;
-	a.capacity  = capacity;
-
-	return a;
-}
-
-template<typename T, typename A>
-StaticArray<T, A> make_static_array(void* ptr, isize capacity)
-{
-	StaticArray<T, A> a;
-	a.allocator = nullptr;
-	a.data      = ptr;
+	StaticArray<T> a;
+	a.data      = (T*)data;
 	a.count     = 0;
 	a.capacity  = capacity;
 
@@ -81,12 +66,11 @@ StaticArray<T, A> make_static_array(void* ptr, isize capacity)
 }
 
 template<typename T>
-StaticArray<T, DefaultAllocator> make_static_array(void* ptr,
-                                                   isize offset,
-                                                   isize capacity)
+StaticArray<T> make_static_array(void* ptr,
+                                 isize offset,
+                                 isize capacity)
 {
-	StaticArray<T, DefaultAllocator> a;
-	a.allocator = nullptr;
+	StaticArray<T> a;
 	a.data      = (T*)((u8*)ptr + offset);
 	a.count     = 0;
 	a.capacity  = capacity;
@@ -102,13 +86,9 @@ void free_array(Array<T, A> *a)
 	a->count    = 0;
 }
 
-template<typename T, typename A>
-void free_array(StaticArray<T, A> *a)
+template<typename T>
+void free_array(StaticArray<T> *a)
 {
-	if (a->allocator) {
-		dealloc(a->allocator, a->data);
-	}
-
 	a->capacity = 0;
 	a->count    = 0;
 }
@@ -134,8 +114,8 @@ isize array_add(Array<T, A> *a, T &e)
 	return a->count++;
 }
 
-template<typename T, typename A>
-isize array_add(StaticArray<T, A> *a, T &e)
+template<typename T>
+isize array_add(StaticArray<T> *a, T &e)
 {
 	DEBUG_ASSERT(a->count <= a->capacity);
 

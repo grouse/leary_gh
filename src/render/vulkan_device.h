@@ -114,7 +114,7 @@ struct VulkanDevice {
 
 	VkRenderPass             renderpass;
 
-	StaticArray<VkFramebuffer, LinearAllocator> framebuffers;
+	StaticArray<VkFramebuffer> framebuffers;
 };
 
 

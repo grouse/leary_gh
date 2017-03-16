@@ -18,8 +18,6 @@ struct LinearAllocator {
 	isize size;
 };
 
-struct DefaultAllocator {};
-
 LinearAllocator make_linear_allocator(void *start, isize size)
 {
 	LinearAllocator a;

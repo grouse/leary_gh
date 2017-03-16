@@ -2188,7 +2188,9 @@ VulkanDevice create_device(GameMemory *memory,
 	 * Create Framebuffers
 	 *************************************************************************/
 	{
-		device.framebuffers = make_static_array<VkFramebuffer>(&memory->persistent,
+		auto buffer = alloc_array<VkFramebuffer>(&memory->persistent,
+		                                         device.swapchain.images_count);
+		device.framebuffers = make_static_array<VkFramebuffer>(buffer,
 		                                                       device.swapchain.images_count);
 
 		VkFramebufferCreateInfo create_info = {};
