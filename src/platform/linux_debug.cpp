@@ -24,6 +24,7 @@
 
 #include <unistd.h>
 #include <stdarg.h>
+#include <stdio.h>
 
 #define DEBUG_BREAK() asm("int $3")
 #define DEBUG_FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)

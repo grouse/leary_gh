@@ -26,6 +26,7 @@ typedef size_t   usize;
 #include <BaseTsd.h>
 typedef SSIZE_T isize;
 #else
+#include <stdlib.h>
 typedef ssize_t  isize;
 #endif
 
