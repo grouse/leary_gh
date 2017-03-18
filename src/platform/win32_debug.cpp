@@ -22,18 +22,19 @@
  * 3. This notice may not be removed or altered from any source distribution.
 **/
 
-#define DEBUG_BREAK()       __debugbreak()
-#define DEBUG_FILENAME (strrchr(__FILE__, '\\') ? strrchr(__FILE__, '\\') + 1 : __FILE__)
+#include "platform_debug.h"
 
-#define DEBUG_ASSERT(condition) \
-	do { \
-		if (!(condition)) { \
-			DEBUG_LOG(Log_assert, "assertion failed: %s", #condition); \
-			DEBUG_BREAK(); \
-		} \
-	} while(0)
-
-#define DEBUG_BUFFER_SIZE (1024)
+const char *log_channel_string(LogChannel channel)
+{
+	switch (channel) {
+	case Log_info:          return "info";
+	case Log_error:         return "error";
+	case Log_warning:       return "warning";
+	case Log_assert:        return "assert";
+	case Log_unimplemented: return "unimplemented";
+	default:                return "";
+	}
+}
 
 void platform_debug_print(const char *file,
                           u32 line,

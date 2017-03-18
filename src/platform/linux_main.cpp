@@ -34,7 +34,8 @@
 #include "linux_file.cpp"
 #include "linux_input.cpp"
 
-#include "leary.cpp"
+#include "leary.h"
+#include "core/profiling.h"
 
 namespace  {
 	Settings      settings       = {};
@@ -240,7 +241,7 @@ int main()
 			case KeyPress: {
 				InputEvent event;
 				event.type = InputType_key_press;
-				event.key.vkey = (VirtualKey)xevent.xkey.keycode;
+				event.key.vkey = keycode_to_virtual(xevent.xkey.keycode);
 				event.key.repeated = false;
 
 				game_input(&game_state, &platform_state, &settings, event);
@@ -248,7 +249,7 @@ int main()
 			case KeyRelease: {
 				InputEvent event;
 				event.type = InputType_key_release;
-				event.key.vkey = (VirtualKey)xevent.xkey.keycode;
+				event.key.vkey = keycode_to_virtual(xevent.xkey.keycode);
 				event.key.repeated = false;
 
 				if (XEventsQueued(platform_state.x11.display,

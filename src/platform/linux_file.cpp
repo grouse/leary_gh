@@ -28,6 +28,8 @@
 #include <fcntl.h>
 #include <pwd.h>
 
+#include "platform_file.h"
+
 char *platform_path(GamePath root)
 {
 	char *path = nullptr;

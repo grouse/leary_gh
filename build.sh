@@ -18,7 +18,7 @@ OPTIMIZED=-O3
 UNOPTIMIZED=-O0
 
 LEARY_LIBS="-lvulkan -lX11 -lXi"
-LEARY_FLAGS="$FLAGS $WARNINGS $UNOPTIMIZED $INCLUDE_DIR $LEARY_LIBS"
+LEARY_FLAGS="$FLAGS $WARNINGS $UNOPTIMIZED $INCLUDE_DIR"
 TOOLS_FLAGS="$FLAGS $WARNINGS $UNOPTIMIZED $INCLUDE_DIR"
 
 
@@ -41,11 +41,13 @@ cp -R $ROOT/assets/models $ROOT/build/data/models
 assets_end=`date +%s%N`
 
 leary_start=`date +%s%N`
-$CXX $LEARY_FLAGS -o leary $ROOT/src/platform/linux_main.cpp
+$CXX $LEARY_FLAGS -c $ROOT/src/leary.cpp
+$CXX $LEARY_FLAGS $LEARY_LIBS -o win32leary $ROOT/src/platform/linux_main.cpp leary.o
 leary_end=`date +%s%N`
 
 tools_start=`date +%s%N`
 $CXX $TOOLS_FLAGS -o preprocessor $ROOT/tools/preprocessor.cpp
+#$CXX $TOOLS_FLAGS -O0 -o benchmark    $ROOT/tools/benchmark.cpp
 tools_end=`date +%s%N`
 popd
 

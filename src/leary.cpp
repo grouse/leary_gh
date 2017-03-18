@@ -6,93 +6,31 @@
  * Copyright (c) 2016 - all rights reserved
  */
 
+#include <stdio.h>
+
+#ifndef INTROSPECT
+#define INTROSPECT
+#endif
+
+#include "platform/platform.h"
+#include "platform/platform_debug.h"
+#include "platform/platform_file.h"
+#include "platform/platform_input.h"
+#include "platform/platform_vulkan.h"
+
+#include "leary.h"
+
 #define STB_TRUETYPE_IMPLEMENTATION
-#define STB_RECT_PACK_IMPLEMENTATION
-#include "external/stb/stb_rect_pack.h"
 #include "external/stb/stb_truetype.h"
 
 #include "core/allocator.cpp"
-
-struct GameMemory {
-	LinearAllocator frame;
-	LinearAllocator persistent;
-};
-
 #include "core/array.cpp"
-
 #include "core/settings.cpp"
 #include "core/tokenizer.cpp"
 #include "core/profiling.cpp"
 #include "core/math.cpp"
 #include "core/mesh.cpp"
 #include "core/random.cpp"
-
-#include "render/vulkan_device.h"
-
-struct Camera {
-	Matrix4             view;
-	Matrix4             projection;
-	VulkanUniformBuffer ubo;
-
-	Vector3             position;
-	f32                 yaw, pitch, roll;
-};
-
-struct RenderedText {
-	VulkanBuffer buffer;
-	i32          vertex_count;
-};
-
-struct IndexRenderObject {
-	VulkanPipeline pipeline;
-	VulkanBuffer   vertices;
-	VulkanBuffer   indices;
-	i32            index_count;
-	Matrix4        transform;
-};
-
-// TODO(jesper): stick these in the pipeline so that we reduce the number of
-// pipeline binds
-struct RenderObject {
-	VulkanPipeline pipeline;
-	VulkanBuffer   vertices;
-	i32            vertex_count;
-	Matrix4        transform;
-};
-
-struct GameState {
-	VulkanDevice        vulkan;
-
-	struct {
-		VulkanPipeline font;
-		VulkanPipeline mesh;
-		VulkanPipeline terrain;
-	} pipelines;
-
-	struct {
-		VulkanTexture font;
-	} textures;
-
-	GameMemory *memory;
-
-	Camera fp_camera;
-	Camera ui_camera;
-
-	Array<RenderObject, LinearAllocator> render_objects;
-	Array<IndexRenderObject, LinearAllocator> index_render_objects;
-
-	VkCommandBuffer     *command_buffers;
-
-	Vector3 velocity = {};
-
-	stbtt_bakedchar     baked_font[256];
-
-	char                *text_buffer;
-	RenderedText        text_vertices;
-
-	i32 *key_state;
-};
-
 
 #include "render/vulkan_device.cpp"
 
@@ -186,7 +124,9 @@ void game_load_settings(Settings *settings)
 	SERIALIZE_LOAD_CONF(settings_path, Settings, settings);
 }
 
-GameState game_init(Settings *settings, PlatformState *platform, GameMemory *memory)
+GameState game_init(Settings *settings,
+                    PlatformState *platform,
+                    GameMemory *memory)
 {
 	GameState game = {};
 	game.memory = memory;
@@ -362,7 +302,9 @@ void game_quit(GameState *game, PlatformState *platform, Settings *settings)
 	platform_quit(platform);
 }
 
-void game_input(GameState *game, PlatformState *platform, Settings *settings,
+void game_input(GameState *game,
+                PlatformState *platform,
+                Settings *settings,
                 InputEvent event)
 {
 	switch (event.type) {

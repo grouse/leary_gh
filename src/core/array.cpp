@@ -6,31 +6,6 @@
  * Copyright (c) 2017 - all rights reserved
  */
 
-template<typename T, typename A>
-struct Array {
-	T* data;
-	isize count;
-	isize capacity;
-
-	A* allocator;
-
-	T& operator[] (isize i)
-	{
-		return data[i];
-	}
-};
-
-template<typename T>
-struct StaticArray {
-	T* data;
-	isize count;
-	isize capacity;
-
-	T& operator[] (isize i)
-	{
-		return data[i];
-	}
-};
 
 template<typename T, typename A>
 Array<T, A> make_array(A *allocator)

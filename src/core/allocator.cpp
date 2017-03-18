@@ -11,18 +11,6 @@
 // TODO(jesper): ialloc - allocate and default initialise struct
 // TODO(jesper): allocation header infront of allocated ptr for meta data
 
-struct LinearAllocator {
-	void *start;
-	void *current;
-	void *last;
-	isize size;
-};
-
-struct StackAllocator {
-	void *start;
-	void *current;
-	isize size;
-};
 
 LinearAllocator make_linear_allocator(void *start, isize size)
 {
