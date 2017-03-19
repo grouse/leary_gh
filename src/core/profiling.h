@@ -29,12 +29,6 @@
 #define PROFILE_BLOCK(name) ProfileBlock profile_block_##name(#name)
 #define PROFILE_FUNCTION() ProfileBlock profile_block_##__FUNCTION__(__FUNCTION__)
 
-void profile_init(GameMemory *memory);
-void profile_start_frame();
-void profile_end_frame();
-i32 profile_start_timer(const char *name);
-void profile_end_timer(i32 index, u64 cycles);
-
 #else
 
 #define PROFILE_START(...)
@@ -42,12 +36,6 @@ void profile_end_timer(i32 index, u64 cycles);
 
 #define PROFILE_BLOCK(...)
 #define PROFILE_FUNCTION(...)
-
-void profile_init(GameMemory *) {}
-void profile_start_frame() {}
-void profile_end_frame() {}
-i32 profile_start_timer(const char *) { return -1; }
-void profile_end_timer(i32, u64) {}
 
 #endif
 

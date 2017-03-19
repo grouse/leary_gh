@@ -37,9 +37,6 @@ struct StackAllocator {
 	isize size;
 };
 
-LinearAllocator make_linear_allocator(void *start, isize size);
-StackAllocator  make_stack_allocator(void *start, isize size);
-
 struct GameMemory {
 	LinearAllocator frame;
 	LinearAllocator persistent;
@@ -218,19 +215,32 @@ struct GameState {
 	i32 *key_state;
 };
 
-void game_load_settings(Settings *settings);
-GameState game_init(Settings *settings,
-                    PlatformState *platform,
-                    GameMemory *memory);
+#define GAME_FUNCS(M)\
+	M(GameState , init, Settings*, PlatformState*, GameMemory*);\
+	M(void, load_platform_code, PlatformCode*);\
+	M(void, load_settings, Settings*);\
+	M(void, quit, GameState*, PlatformState*, Settings*);\
+\
+	M(void, input, GameState*, PlatformState*, Settings*, InputEvent);\
+	M(void, update_and_render, GameState*, f32)
 
-void game_quit(GameState *game, PlatformState *platform, Settings *settings);
+#define GAME_TYPEDEF_FUNC(ret, name, ...) typedef ret game_##name##_t (__VA_ARGS__)
+#define GAME_DCL_FPTR(ret, name, ...) game_##name##_t *name
+#define GAME_DCL_STATIC_FPTR(ret, name, ...) static game_##name##_t *game_##name
 
-void game_input(GameState *game,
-                PlatformState *platform,
-                Settings *settings,
-                InputEvent event);
+#define MISC_FUNCS(M)\
+	M(LinearAllocator, make_linear_allocator, void*, isize);\
+	M(StackAllocator, make_stack_allocator, void*, isize);\
+\
+	M(void, profile_init, GameMemory*);\
+	M(void, profile_start_frame, void);\
+	M(void, profile_end_frame, void);\
+	M(i32, profile_start_timer, const char*);\
+	M(void, profile_end_timer, i32, u64)
 
-void game_update_and_render(GameState *game, f32 dt);
+#define MISC_TYPEDEF_FUNC(ret, name, ...) typedef ret name##_t (__VA_ARGS__)
+#define MISC_DCL_FPTR(ret, name, ...) name##_t *name
+#define MISC_DCL_STATIC_FPTR(ret, name, ...) static name##_t *name
 
 #endif /* LEARY_H */
 

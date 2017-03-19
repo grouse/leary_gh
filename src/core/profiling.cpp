@@ -10,29 +10,11 @@
 
 #if PROFILE_TIMERS_ENABLE
 
-i32 profile_start_timer(const char *name);
-void profile_end_timer(i32 index, u64 cycles);
-
 struct ProfileTimers {
 	StaticArray<const char*> names;
 	StaticArray<u64>         cycles;
 	StaticArray<u64>         cycles_last;
 	StaticArray<bool>        open;
-};
-
-struct ProfileBlock {
-	i32 id;
-	u64 start_cycles;
-
-	ProfileBlock(const char *name) {
-		this->id = profile_start_timer(name);
-		this->start_cycles = rdtsc();
-	}
-
-	~ProfileBlock() {
-		u64 end_cycles = rdtsc();
-		profile_end_timer(this->id, end_cycles - start_cycles);
-	}
 };
 
 ProfileTimers g_profile_timers;
@@ -75,6 +57,22 @@ void profile_end_timer(i32 index, u64 cycles)
 		}
 	}
 }
+
+struct ProfileBlock {
+	i32 id;
+	u64 start_cycles;
+
+	ProfileBlock(const char *name) {
+		this->id = profile_start_timer(name);
+		this->start_cycles = rdtsc();
+	}
+
+	~ProfileBlock() {
+		u64 end_cycles = rdtsc();
+		profile_end_timer(this->id, end_cycles - start_cycles);
+	}
+};
+
 
 void profile_init(GameMemory *memory)
 {

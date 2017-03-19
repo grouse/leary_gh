@@ -17,6 +17,8 @@
 	#error "unsupported error"
 #endif
 
+#include <string.h>
+
 #if defined(__linux__)
 	#define DEBUG_BREAK()   asm("int $3")
 	#define DEBUG_FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
@@ -51,17 +53,6 @@ enum LogChannel {
 	Log_assert,
 	Log_unimplemented
 };
-
-void platform_debug_print(const char *file,
-                          u32 line,
-                          const char *function,
-                          LogChannel channel,
-                          const char *fmt, ...);
-
-void platform_debug_print(const char *file,
-                          u32 line,
-                          const char *function,
-                          const char *fmt, ...);
 
 #endif /* PLATFORM_DEBUG_H */
 

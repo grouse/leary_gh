@@ -22,19 +22,18 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include "platform_vulkan.h"
-
 VkResult
-vulkan_create_surface(VkInstance instance,
-                      VkSurfaceKHR *surface,
-                      PlatformState platform_state)
+platform_vulkan_create_surface(VkInstance instance,
+                               VkSurfaceKHR *surface,
+                               PlatformState *platform)
 {
+	LinuxState *native = (LinuxState*)platform->native;
 	VkXlibSurfaceCreateInfoKHR info = {};
 	info.sType  = VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR;
 	info.pNext  = nullptr;
 	info.flags  = 0;
-	info.dpy    = platform_state.x11.display;
-	info.window = platform_state.x11.window;
+	info.dpy    = native->display;
+	info.window = native->window;
 
 	return vkCreateXlibSurfaceKHR(instance, &info, nullptr, surface);
 }
@@ -50,9 +49,7 @@ platform_vulkan_enable_instance_extension(VkExtensionProperties &extension)
 }
 
 bool
-platform_vulkan_enable_instance_layer(VkLayerProperties layer)
+platform_vulkan_enable_instance_layer(VkLayerProperties)
 {
-	VAR_UNUSED(layer);
 	return false;
 }
-

@@ -28,7 +28,7 @@
 
 #include "platform_debug.h"
 
-const char *log_channel_string(LogChannel channel)
+static const char *log_channel_string(LogChannel channel)
 {
 	switch (channel) {
 	case Log_info:          return "info";
@@ -40,11 +40,11 @@ const char *log_channel_string(LogChannel channel)
 	}
 }
 
-void platform_debug_print(const char *file,
-                          u32 line,
-                          const char *function,
-                          LogChannel channel,
-                          const char *fmt, ...)
+static void platform_debug_print(const char *file,
+                                 u32 line,
+                                 const char *function,
+                                 LogChannel channel,
+                                 const char *fmt, ...)
 {
 	const char *channel_str = log_channel_string(channel);
 
@@ -63,10 +63,10 @@ void platform_debug_print(const char *file,
 	write(1, buffer, length);
 }
 
-void platform_debug_print(const char *file,
-                          u32 line,
-                          const char *function,
-                          const char *fmt, ...)
+static void platform_debug_print(const char *file,
+                                 u32 line,
+                                 const char *function,
+                                 const char *fmt, ...)
 {
 	const char *channel_str = log_channel_string(Log_info);
 

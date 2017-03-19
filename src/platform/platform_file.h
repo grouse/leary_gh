@@ -23,18 +23,5 @@ enum GamePath {
 	GamePath_preferences
 };
 
-char *platform_path(GamePath root);
-char *platform_resolve_path(const char *path);
-char *platform_resolve_path(GamePath root, const char *path);
-
-bool  platform_file_exists(const char *path);
-bool  platform_file_create(const char *path);
-
-void* platform_file_open(const char *path, FileAccess access);
-void  platform_file_close(void *file_handle);
-
-void  platform_file_write(void *file_handle, void *buffer, usize bytes);
-char *platform_file_read(const char* path, usize *out_size);
-
 #endif /* PLATFORM_FILE_H */
 

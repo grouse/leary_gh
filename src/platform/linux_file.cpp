@@ -107,7 +107,7 @@ char *platform_path(GamePath root)
 	return path;
 }
 
-char *platform_resolve_path(const char *path)
+char *platform_resolve_relative(const char *path)
 {
 	return realpath(path, nullptr);
 }

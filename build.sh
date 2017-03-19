@@ -9,7 +9,7 @@ mkdir -p build/data/shaders
 
 FLAGS="-std=c++11 -g"
 
-NOWARNINGS="-Wno-int-to-void-pointer-cast -Wno-nested-anon-types"
+NOWARNINGS="-Wno-int-to-void-pointer-cast -Wno-nested-anon-types -Wno-unused-function"
 WARNINGS="-Wall -Wextra -Wpedantic $NOWARNINGS"
 
 INCLUDE_DIR="-I$ROOT/src -I$ROOT"
@@ -17,7 +17,7 @@ INCLUDE_DIR="-I$ROOT/src -I$ROOT"
 OPTIMIZED=-O3
 UNOPTIMIZED=-O0
 
-LEARY_LIBS="-lvulkan -lX11 -lXi"
+LEARY_LIBS="-lvulkan -lX11 -lXi -ldl"
 LEARY_FLAGS="$FLAGS $WARNINGS $UNOPTIMIZED $INCLUDE_DIR"
 TOOLS_FLAGS="$FLAGS $WARNINGS $UNOPTIMIZED $INCLUDE_DIR"
 
@@ -41,8 +41,8 @@ cp -R $ROOT/assets/models $ROOT/build/data/models
 assets_end=`date +%s%N`
 
 leary_start=`date +%s%N`
-$CXX $LEARY_FLAGS -c $ROOT/src/leary.cpp
-$CXX $LEARY_FLAGS $LEARY_LIBS -o win32leary $ROOT/src/platform/linux_main.cpp leary.o
+$CXX $LEARY_FLAGS -fPIC -shared $ROOT/src/platform/linux_leary.cpp -o game.so
+$CXX $LEARY_FLAGS $LEARY_LIBS -o leary $ROOT/src/platform/linux_main.cpp
 leary_end=`date +%s%N`
 
 tools_start=`date +%s%N`

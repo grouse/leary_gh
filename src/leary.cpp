@@ -13,10 +13,31 @@
 #endif
 
 #include "platform/platform.h"
+
+PLATFORM_FUNCS(PLATFORM_DCL_STATIC_FPTR);
+void game_load_platform_code(PlatformCode *code)
+{
+	// NOTE(jesper): I wanted to preprocess macro this in the same vein as in
+	// platform.h, but couldn't wrestle the stupid preprocessor to my will
+	platform_toggle_raw_mouse                 = code->toggle_raw_mouse;
+	platform_set_raw_mouse                    = code->set_raw_mouse;
+	platform_quit                             = code->quit;
+	platform_vulkan_create_surface            = code->vulkan_create_surface;
+	platform_vulkan_enable_instance_extension = code->vulkan_enable_instance_extension;
+	platform_vulkan_enable_instance_layer     = code->vulkan_enable_instance_layer;
+	platform_resolve_relative                 = code->resolve_relative;
+	platform_resolve_path                     = code->resolve_path;
+	platform_file_exists                      = code->file_exists;
+	platform_file_create                      = code->file_create;
+	platform_file_open                        = code->file_open;
+	platform_file_close                       = code->file_close;
+	platform_file_write                       = code->file_write;
+	platform_file_read                        = code->file_read;
+}
+
 #include "platform/platform_debug.h"
 #include "platform/platform_file.h"
 #include "platform/platform_input.h"
-#include "platform/platform_vulkan.h"
 
 #include "leary.h"
 
@@ -35,7 +56,6 @@
 #include "render/vulkan_device.cpp"
 
 #include "core/serialize.cpp"
-
 
 
 void render_font(GameState *game, RenderedText *text,
@@ -190,9 +210,9 @@ GameState game_init(Settings *settings,
 
 	// create pipelines
 	{
-		game.pipelines.mesh = create_mesh_pipeline(game.memory, &game.vulkan);
-		game.pipelines.font = create_font_pipeline(game.memory, &game.vulkan);
-		game.pipelines.terrain = create_terrain_pipeline(game.memory, &game.vulkan);
+		game.pipelines.mesh = create_mesh_pipeline(&game.vulkan, game.memory);
+		game.pipelines.font = create_font_pipeline(&game.vulkan, game.memory);
+		game.pipelines.terrain = create_terrain_pipeline(&game.vulkan, game.memory);
 	}
 
 	// create ubos
@@ -274,7 +294,6 @@ void game_quit(GameState *game, PlatformState *platform, Settings *settings)
 	// on Linux
 	platform_set_raw_mouse(platform, false);
 
-	VAR_UNUSED(settings);
 	vkQueueWaitIdle(game->vulkan.queue);
 
 	destroy(&game->vulkan, game->text_vertices.buffer);

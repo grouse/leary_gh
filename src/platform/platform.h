@@ -32,65 +32,72 @@
 	#include <X11/Xlib.h>
 	#include <X11/XKBlib.h>
 	#include <X11/extensions/XInput2.h>
+
+	#define FILE_SEP "/"
+	#define FILE_EOL "\n"
+
+	#define VK_USE_PLATFORM_XLIB_KHR
 #elif defined(_WIN32)
 	#include <Windows.h>
 	#include <Shlobj.h>
 	#include <Shlwapi.h>
-#else
-	#error "unsupported platform"
-#endif
 
-#if defined(_WIN32)
+	#define VK_USE_PLATFORM_WIN32_KHR
+
 	#undef near
 	#undef far
 
 	#define FILE_SEP "\\"
 	#define FILE_EOL "\r\n"
-#elif defined(__linux__)
-	#define FILE_SEP "/"
-	#define FILE_EOL "\n"
 #else
 	#error "unsupported platform"
 #endif
+
+#include <vulkan/vulkan.h>
 
 #ifndef INTROSPECT
 #define INTROSPECT
 #endif
 
-#define VAR_UNUSED(var) (void)(var)
+struct PlatformState;
+
+// TODO(jesper): reevaluate whether some of the platform layer should be
+// compiled into the game.dll
+
+#include "platform_file.h"
+
+#define PLATFORM_FUNCS(M)\
+	M(void,     toggle_raw_mouse,                 PlatformState*);\
+	M(void,     set_raw_mouse,                    PlatformState *, bool);\
+	M(void,     quit,                             PlatformState *);\
+\
+	M(VkResult, vulkan_create_surface,            VkInstance, VkSurfaceKHR *, PlatformState *);\
+	M(bool,     vulkan_enable_instance_extension, VkExtensionProperties &);\
+	M(bool,     vulkan_enable_instance_layer,     VkLayerProperties);\
+\
+	M(char*,    resolve_relative,                 const char*);\
+	M(char*,    resolve_path,                     GamePath, const char *);\
+	M(bool,     file_exists,                      const char *);\
+	M(bool,     file_create,                      const char *);\
+	M(void*,    file_open,                        const char *, FileAccess);\
+	M(void,     file_close,                       void*);\
+	M(void,     file_write,                       void*, void*, usize);\
+	M(char*,    file_read,                        const char *, usize *)
+
+#define PLATFORM_TYPEDEF_FUNC(ret, name, ...) typedef ret platform_##name##_t (__VA_ARGS__)
+#define PLATFORM_FUNC_STUB(ret, name, ...) ret platform_##name##_stub(__VA_ARGS__) { return (ret)0; }
+#define PLATFORM_DCL_FPTR(ret, name, ...) platform_##name##_t *name
+#define PLATFORM_DCL_STATIC_FPTR(ret, name, ...) static platform_##name##_t *platform_##name
+
+PLATFORM_FUNCS(PLATFORM_TYPEDEF_FUNC);
 
 struct PlatformState {
 	bool raw_mouse = false;
-
-	union {
-#if defined(__linux__)
-		struct
-		{
-			Window     window;
-			Display    *display;
-			XkbDescPtr xkb;
-			i32        xi2_opcode;
-			Cursor     hidden_cursor;
-
-			struct {
-				i32 x;
-				i32 y;
-			} mouse;
-		} x11;
-#elif defined(_WIN32)
-		struct
-		{
-			HWND      hwnd;
-			HINSTANCE hinstance;
-		} win32;
-#else
-	#error "unsupported platform"
-#endif
-	};
+	void *native   = nullptr;
 };
 
-void platform_toggle_raw_mouse(PlatformState *state);
-void platform_set_raw_mouse(PlatformState *state, bool enable);
-void platform_quit(PlatformState *state);
+struct PlatformCode {
+	PLATFORM_FUNCS(PLATFORM_DCL_FPTR);
+};
 
 #endif // LEARY_PLATFORM_MAIN_H

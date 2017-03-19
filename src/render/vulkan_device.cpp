@@ -42,18 +42,13 @@ PFN_vkDestroyDebugReportCallbackEXT  DestroyDebugReportCallbackEXT;
 static VKAPI_ATTR VkBool32 VKAPI_CALL
 debug_callback_func(VkFlags flags,
                     VkDebugReportObjectTypeEXT object_type,
-                    u64 object,
-                    usize location,
+                    u64 /*object*/,
+                    usize /*location*/,
                     i32 message_code,
                     const char* layer,
                     const char* message,
-                    void *user_data)
+                    void * /*user_data*/)
 {
-	// NOTE: these might be useful?
-	VAR_UNUSED(object);
-	VAR_UNUSED(location);
-	VAR_UNUSED(user_data);
-
 	// TODO(jesper): multiple flags can be set at the same time, I don't really
 	// have a way to express this in my current logging system so I let the log
 	// type be decided by a severity precedence
@@ -809,7 +804,7 @@ VulkanShader create_shader(VulkanDevice *device, ShaderID id)
 	return shader;
 }
 
-VulkanPipeline create_font_pipeline(GameMemory *memory, VulkanDevice *device)
+VulkanPipeline create_font_pipeline(VulkanDevice *device, GameMemory *memory)
 {
 	VkResult result;
 	VulkanPipeline pipeline = {};
@@ -1016,7 +1011,7 @@ VulkanPipeline create_font_pipeline(GameMemory *memory, VulkanDevice *device)
 	return pipeline;
 }
 
-VulkanPipeline create_pipeline(GameMemory *memory, VulkanDevice *device)
+VulkanPipeline create_pipeline(VulkanDevice *device, GameMemory *memory)
 {
 	VkResult result;
 	VulkanPipeline pipeline = {};
@@ -1239,7 +1234,7 @@ VulkanPipeline create_pipeline(GameMemory *memory, VulkanDevice *device)
 	return pipeline;
 }
 
-VulkanPipeline create_terrain_pipeline(GameMemory *, VulkanDevice *device)
+VulkanPipeline create_terrain_pipeline(VulkanDevice *device, GameMemory *)
 {
 	VkResult result;
 	VulkanPipeline pipeline = {};
@@ -1438,7 +1433,7 @@ VulkanPipeline create_terrain_pipeline(GameMemory *, VulkanDevice *device)
 	return pipeline;
 }
 
-VulkanPipeline create_mesh_pipeline(GameMemory *, VulkanDevice *device)
+VulkanPipeline create_mesh_pipeline(VulkanDevice *device, GameMemory *)
 {
 	VkResult result;
 	VulkanPipeline pipeline = {};
@@ -2007,7 +2002,7 @@ VulkanDevice create_device(GameMemory *memory,
 	// (imo), but to create the swapchain we need the device, and to create the
 	// device we need the surface
 	VkSurfaceKHR surface;
-	result = vulkan_create_surface(device.instance, &surface, *platform);
+	result = platform_vulkan_create_surface(device.instance, &surface, platform);
 	DEBUG_ASSERT(result == VK_SUCCESS);
 
 
@@ -2313,9 +2308,6 @@ void destroy(VulkanDevice *device, VulkanUniformBuffer ubo)
 
 void destroy(VulkanDevice *device)
 {
-	VkResult result;
-	VAR_UNUSED(result);
-
 	for (i32 i = 0; i < device->framebuffers.count; ++i) {
 		vkDestroyFramebuffer(device->handle, device->framebuffers[i], nullptr);
 	}
