@@ -15,7 +15,9 @@
 #include "platform/platform.h"
 
 PLATFORM_FUNCS(PLATFORM_DCL_STATIC_FPTR);
-void game_load_platform_code(PlatformCode *code)
+
+extern "C" void
+game_load_platform_code(PlatformCode *code)
 {
 	// NOTE(jesper): I wanted to preprocess macro this in the same vein as in
 	// platform.h, but couldn't wrestle the stupid preprocessor to my will
@@ -138,15 +140,18 @@ void render_font(GameState *game, RenderedText *text,
 }
 
 
-void game_load_settings(Settings *settings)
+extern "C" void
+game_load_settings(Settings *settings)
 {
 	char *settings_path = platform_resolve_path(GamePath_preferences, "settings.conf");
 	SERIALIZE_LOAD_CONF(settings_path, Settings, settings);
 }
 
-GameState game_init(Settings *settings,
-                    PlatformState *platform,
-                    GameMemory *memory)
+extern "C" void
+game_init(Settings *settings,
+          PlatformState *platform,
+          GameMemory *memory,
+          GameState *ret)
 {
 	GameState game = {};
 	game.memory = memory;
@@ -285,10 +290,11 @@ GameState game_init(Settings *settings,
 		game.key_state[i] = InputType_key_release;
 	}
 
-	return game;
+	*ret = game;
 }
 
-void game_quit(GameState *game, PlatformState *platform, Settings *settings)
+extern "C" void
+game_quit(GameState *game, PlatformState *platform, Settings *settings)
 {
 	// NOTE(jesper): disable raw mouse as soon as possible to ungrab the cursor
 	// on Linux
@@ -321,10 +327,11 @@ void game_quit(GameState *game, PlatformState *platform, Settings *settings)
 	platform_quit(platform);
 }
 
-void game_input(GameState *game,
-                PlatformState *platform,
-                Settings *settings,
-                InputEvent event)
+extern "C" void
+game_input(GameState *game,
+           PlatformState *platform,
+           Settings *settings,
+           InputEvent event)
 {
 	switch (event.type) {
 	case InputType_key_press: {
@@ -660,7 +667,8 @@ void game_render(GameState *game)
 	PROFILE_END(vulkan_swap);
 }
 
-void game_update_and_render(GameState *game, f32 dt)
+extern "C" void
+game_update_and_render(GameState *game, f32 dt)
 {
 	game_update(game, dt);
 	game_render(game);

@@ -12,7 +12,8 @@
 // TODO(jesper): allocation header infront of allocated ptr for meta data
 
 
-LinearAllocator make_linear_allocator(void *start, isize size)
+extern "C" LinearAllocator
+make_linear_allocator(void *start, isize size)
 {
 	LinearAllocator a;
 	a.start   = start;
@@ -22,7 +23,8 @@ LinearAllocator make_linear_allocator(void *start, isize size)
 	return a;
 }
 
-StackAllocator make_stack_allocator(void *start, isize size)
+extern "C" StackAllocator
+make_stack_allocator(void *start, isize size)
 {
 	StackAllocator a;
 	a.start   = start;

@@ -216,7 +216,7 @@ struct GameState {
 };
 
 #define GAME_FUNCS(M)\
-	M(GameState , init, Settings*, PlatformState*, GameMemory*);\
+	M(void, init, Settings*, PlatformState*, GameMemory*, GameState*);\
 	M(void, load_platform_code, PlatformCode*);\
 	M(void, load_settings, Settings*);\
 	M(void, quit, GameState*, PlatformState*, Settings*);\

@@ -70,6 +70,25 @@ char *platform_path(GamePath root)
 			strcat(path, "data/");
 		}
 	} break;
+	case GamePath_binary: {
+		char linkname[64];
+		pid_t pid = getpid();
+		i64 result = snprintf(linkname, sizeof(linkname), "/proc/%i/exe", pid);
+		DEBUG_ASSERT(result >= 0);
+
+		char buffer[PATH_MAX];
+		i64 length = readlink(linkname, buffer, PATH_MAX);
+		DEBUG_ASSERT(length >= 0);
+
+		for (; length >= 0; length--) {
+			if (buffer[length-1] == '/') {
+				break;
+			}
+		}
+
+		path = (char*)malloc(length + 1);
+		strncpy(path, buffer, length);
+	} break;
 	case GamePath_shaders: {
 		char *data_path = platform_path(GamePath_data);
 		u64 length = strlen(data_path) + strlen("shaders/") + 1;
@@ -115,11 +134,13 @@ char *platform_resolve_relative(const char *path)
 char *platform_resolve_path(GamePath root, const char *path)
 {
 	static const char *data_path        = platform_path(GamePath_data);
+	static const char *binary_path      = platform_path(GamePath_binary);
 	static const char *models_path      = platform_path(GamePath_models);
 	static const char *shaders_path     = platform_path(GamePath_shaders);
 	static const char *preferences_path = platform_path(GamePath_preferences);
 
 	static const u64 data_path_length        = strlen(data_path);
+	static const u64 binary_path_length      = strlen(binary_path);
 	static const u64 models_path_length      = strlen(models_path);
 	static const u64 shaders_path_length     = strlen(shaders_path);
 	static const u64 preferences_path_length = strlen(preferences_path);
@@ -131,6 +152,12 @@ char *platform_resolve_path(GamePath root, const char *path)
 		usize length = data_path_length + strlen(path) + 1;
 		resolved = (char*)malloc(length);
 		strcpy(resolved, data_path);
+		strcat(resolved, path);
+	} break;
+	case GamePath_binary: {
+		usize length = binary_path_length + strlen(path) + 1;
+		resolved = (char*)malloc(length);
+		strcpy(resolved, binary_path);
 		strcat(resolved, path);
 	} break;
 	case GamePath_shaders: {

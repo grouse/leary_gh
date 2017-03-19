@@ -20,7 +20,8 @@ struct ProfileTimers {
 ProfileTimers g_profile_timers;
 ProfileTimers g_profile_timers_prev;
 
-i32 profile_start_timer(const char *name)
+extern "C" i32
+profile_start_timer(const char *name)
 {
 	for (i32 i = 0; i < g_profile_timers.names.count; i++) {
 		if (strcmp(name, g_profile_timers.names[i]) == 0) {
@@ -43,7 +44,8 @@ i32 profile_start_timer(const char *name)
 	return index;
 }
 
-void profile_end_timer(i32 index, u64 cycles)
+extern "C" void
+profile_end_timer(i32 index, u64 cycles)
 {
 	g_profile_timers.cycles[index]      += cycles;
 	g_profile_timers.cycles_last[index] += cycles;
@@ -74,7 +76,8 @@ struct ProfileBlock {
 };
 
 
-void profile_init(GameMemory *memory)
+extern "C" void
+profile_init(GameMemory *memory)
 {
 	isize names_size  = sizeof(const char*) * NUM_PROFILE_TIMERS;
 	isize cycles_size = sizeof(u64) * NUM_PROFILE_TIMERS;
@@ -118,7 +121,8 @@ void profile_init(GameMemory *memory)
 	g_profile_timers_prev.open        = open;
 }
 
-void profile_start_frame()
+extern "C" void
+profile_start_frame()
 {
 	for (i32 i = 0; i < g_profile_timers_prev.names.count - 1; i++) {
 		for (i32 j = i+1; j < g_profile_timers_prev.names.count; j++) {
@@ -139,7 +143,8 @@ void profile_start_frame()
 	}
 }
 
-void profile_end_frame()
+extern "C" void
+profile_end_frame()
 {
 	ProfileTimers tmp      = g_profile_timers_prev;
 	g_profile_timers_prev  = g_profile_timers;

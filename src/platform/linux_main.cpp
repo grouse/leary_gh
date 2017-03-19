@@ -47,7 +47,8 @@ MISC_FUNCS(MISC_DCL_STATIC_FPTR);
 #define DLOAD_FUNC(lib, name, result) name = (name##_t*)dlsym(lib, #name); result = result && name
 void* load_game_code()
 {
-	void *lib = dlopen("game.so", RTLD_NOW);
+	char *path = platform_resolve_path(GamePath_binary, "game.so");
+	void *lib = dlopen(path, RTLD_NOW);
 
 	if (lib) {
 		bool valid = true;
@@ -278,7 +279,7 @@ int main()
 		                                           1, 1);
 	}
 
-	game_state = game_init(&settings, &platform, &memory);
+	game_init(&settings, &platform, &memory, &game_state);
 
 	i32 num_screens = XScreenCount(native.display);
 	for (i32 i = 0; i < num_screens; i++) {
