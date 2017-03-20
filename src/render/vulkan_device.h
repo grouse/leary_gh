@@ -9,6 +9,8 @@
 #ifndef VULKAN_DEVICE_H
 #define VULKAN_DEVICE_H
 
+#include "platform/platform.h"
+
 enum ShaderStage {
 	ShaderStage_vertex,
 	ShaderStage_fragment,

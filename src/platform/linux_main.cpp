@@ -36,6 +36,7 @@
 #include "linux_input.cpp"
 
 #include "leary.h"
+#include "generated/type_info.h"
 #include "core/profiling.h"
 
 GAME_FUNCS(GAME_TYPEDEF_FUNC);
@@ -54,7 +55,6 @@ void* load_game_code()
 		bool valid = true;
 		DLOAD_FUNC(lib, game_init, valid);
 		DLOAD_FUNC(lib, game_load_platform_code, valid);
-		DLOAD_FUNC(lib, game_load_settings, valid);
 		DLOAD_FUNC(lib, game_quit, valid);
 		DLOAD_FUNC(lib, game_input, valid);
 		DLOAD_FUNC(lib, game_update_and_render, valid);
@@ -67,6 +67,9 @@ void* load_game_code()
 		DLOAD_FUNC(lib, profile_end_frame, valid);
 		DLOAD_FUNC(lib, profile_start_timer, valid);
 		DLOAD_FUNC(lib, profile_end_timer, valid);
+
+		DLOAD_FUNC(lib, serialize_load_conf, valid);
+		DLOAD_FUNC(lib, serialize_save_conf, valid);
 
 		if (!valid) {
 			dlclose(lib);
@@ -145,6 +148,10 @@ void platform_quit(PlatformState *platform)
 {
 	LinuxState *native = (LinuxState*)platform->native;
 	XUngrabPointer(native->display, CurrentTime);
+
+	char *settings_path = platform_resolve_path(GamePath_preferences, "settings.conf");
+	SERIALIZE_SAVE_CONF(settings_path, Settings, &platform->settings);
+
 	exit(EXIT_SUCCESS);
 }
 
@@ -199,8 +206,8 @@ int main()
 
 	game_load_platform_code(&code);
 
-	Settings  settings = {};
-	game_load_settings(&settings);
+	char *settings_path = platform_resolve_path(GamePath_preferences, "settings.conf");
+	SERIALIZE_LOAD_CONF(settings_path, Settings, &platform.settings);
 
 	isize frame_alloc_size      = 64 * 1024 * 1024;
 	isize persistent_alloc_size = 256 * 1024 * 1024;
@@ -220,8 +227,8 @@ int main()
 	native.window  = XCreateSimpleWindow(native.display,
 	                                     DefaultRootWindow(native.display),
 	                                     0, 0,
-	                                     settings.video.resolution.width,
-	                                     settings.video.resolution.height,
+	                                     platform.settings.video.resolution.width,
+	                                     platform.settings.video.resolution.height,
 	                                     2, BlackPixel(native.display, screen),
 	                                     BlackPixel(native.display, screen));
 
@@ -278,7 +285,7 @@ int main()
 		                                           1, 1);
 	}
 
-	game_init(&settings, &platform, &memory);
+	game_init(&memory, &platform);
 
 	i32 num_screens = XScreenCount(native.display);
 	for (i32 i = 0; i < num_screens; i++) {
@@ -323,7 +330,7 @@ int main()
 				event.key.vkey     = keycode_to_virtual(xevent.xkey.keycode);
 				event.key.repeated = false;
 
-				game_input(&memory, &platform, &settings, event);
+				game_input(&memory, &platform, event);
 			} break;
 			case KeyRelease: {
 				InputEvent event;
@@ -343,7 +350,7 @@ int main()
 					}
 				}
 
-				game_input(&memory, &platform, &settings, event);
+				game_input(&memory, &platform, event);
 			} break;
 			case MotionNotify: {
 				if (platform.raw_mouse) {
@@ -361,7 +368,7 @@ int main()
 				native.mouse.x = xevent.xmotion.x;
 				native.mouse.y = xevent.xmotion.y;
 
-				game_input(&memory, &platform, &settings, event);
+				game_input(&memory, &platform, event);
 			} break;
 			case EnterNotify: {
 				if (xevent.xcrossing.focus == true &&
@@ -374,7 +381,7 @@ int main()
 			} break;
 			case ClientMessage: {
 				if ((Atom)xevent.xclient.data.l[0] == WM_DELETE_WINDOW) {
-					game_quit(&memory, &platform, &settings);
+					game_quit(&memory, &platform);
 				}
 			} break;
 			case GenericEvent: {
@@ -422,7 +429,7 @@ int main()
 						event.mouse.dx = deltas[0];
 						event.mouse.dy = deltas[1];
 
-						game_input(&memory, &platform, &settings, event);
+						game_input(&memory, &platform, event);
 					} break;
 					default:
 						DEBUG_LOG("unhandled xinput2 event: %d",

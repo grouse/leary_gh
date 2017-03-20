@@ -9,15 +9,6 @@
 #include <inttypes.h>
 #include "generated/type_info.h"
 
-#define SERIALIZE_SAVE_CONF(file, name, ptr) \
-	serialize_save_conf(file, name ## _members, \
-	                    sizeof(name ## _members) / sizeof(StructMemberInfo), \
-	                    ptr)
-
-#define SERIALIZE_LOAD_CONF(file, name, ptr) \
-	serialize_load_conf(file, name ## _members, \
-	                    sizeof(name ## _members) / sizeof(StructMemberInfo), \
-	                    ptr)
 i32
 member_to_string(StructMemberInfo &member,
                  void *ptr,
@@ -136,7 +127,7 @@ member_to_string(StructMemberInfo &member,
 	return bytes;
 }
 
-void
+extern "C" void
 serialize_save_conf(const char *path,
                    StructMemberInfo *members,
                    usize num_members,
@@ -290,7 +281,7 @@ member_from_string(char **ptr,
 	*ptr = tokenizer.at;
 }
 
-void
+extern "C" void
 serialize_load_conf(const char *path,
                     StructMemberInfo *members,
                     usize num_members,

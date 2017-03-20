@@ -12,7 +12,39 @@
 #define INTROSPECT
 #endif
 
+#include "leary.h"
 #include "platform/platform.h"
+
+struct GameState {
+	VulkanDevice        vulkan;
+
+	struct {
+		VulkanPipeline font;
+		VulkanPipeline mesh;
+		VulkanPipeline terrain;
+	} pipelines;
+
+	struct {
+		VulkanTexture font;
+	} textures;
+
+	Camera fp_camera;
+	Camera ui_camera;
+
+	Array<RenderObject, LinearAllocator> render_objects;
+	Array<IndexRenderObject, LinearAllocator> index_render_objects;
+
+	VkCommandBuffer     *command_buffers;
+
+	Vector3 velocity = {};
+
+	stbtt_bakedchar     baked_font[256];
+
+	char                *text_buffer;
+	RenderedText        text_vertices;
+
+	i32 *key_state;
+};
 
 PLATFORM_FUNCS(PLATFORM_DCL_STATIC_FPTR);
 
@@ -48,7 +80,6 @@ game_load_platform_code(PlatformCode *code)
 
 #include "core/allocator.cpp"
 #include "core/array.cpp"
-#include "core/settings.cpp"
 #include "core/tokenizer.cpp"
 #include "core/profiling.cpp"
 #include "core/math.cpp"
@@ -140,26 +171,16 @@ void render_font(GameMemory *memory, RenderedText *text,
 	vkUnmapMemory(game->vulkan.handle, text->buffer.memory);
 }
 
-
 extern "C" void
-game_load_settings(Settings *settings)
-{
-	char *settings_path = platform_resolve_path(GamePath_preferences, "settings.conf");
-	SERIALIZE_LOAD_CONF(settings_path, Settings, settings);
-}
-
-extern "C" void
-game_init(Settings *settings,
-          PlatformState *platform,
-          GameMemory *memory)
+game_init(GameMemory *memory, PlatformState *platform)
 {
 	GameState *game = ialloc<GameState>(&memory->persistent);
 	memory->game = game;
 
 	game->text_buffer = (char*)alloc(&memory->persistent, 1024 * 1024);
 
-	f32 width = (f32)settings->video.resolution.width;
-	f32 height = (f32)settings->video.resolution.height;
+	f32 width = (f32)platform->settings.video.resolution.width;
+	f32 height = (f32)platform->settings.video.resolution.height;
 	f32 aspect = width / height;
 	f32 vfov   = radians(45.0f);
 
@@ -178,7 +199,7 @@ game_init(Settings *settings,
 	game->index_render_objects = make_array<IndexRenderObject>(&memory->persistent, 20);
 
 	VkResult result;
-	game->vulkan = create_device(memory, platform, settings);
+	game->vulkan = create_device(memory, platform, &platform->settings);
 
 	game->command_buffers = alloc_array<VkCommandBuffer>(&memory->persistent, 5);
 	VkCommandBufferAllocateInfo allocate_info = {};
@@ -292,7 +313,7 @@ game_init(Settings *settings,
 }
 
 extern "C" void
-game_quit(GameState *game, PlatformState *platform, Settings *settings)
+game_quit(GameState *game, PlatformState *platform)
 {
 	// NOTE(jesper): disable raw mouse as soon as possible to ungrab the cursor
 	// on Linux
@@ -320,15 +341,12 @@ game_quit(GameState *game, PlatformState *platform, Settings *settings)
 	destroy(&game->vulkan, game->fp_camera.ubo);
 	destroy(&game->vulkan);
 
-	char *settings_path = platform_resolve_path(GamePath_preferences, "settings.conf");
-	SERIALIZE_SAVE_CONF(settings_path, Settings, settings);
 	platform_quit(platform);
 }
 
 extern "C" void
 game_input(GameMemory *memory,
            PlatformState *platform,
-           Settings *settings,
            InputEvent event)
 {
 	GameState *game = (GameState*)memory->game;
@@ -342,7 +360,7 @@ game_input(GameMemory *memory,
 
 		switch (event.key.vkey) {
 		case VirtualKey_escape:
-			game_quit(game, platform, settings);
+			game_quit(game, platform);
 			break;
 		case VirtualKey_W:
 			// TODO(jesper): tweak movement speed when we have a sense of scale
@@ -384,7 +402,7 @@ game_input(GameMemory *memory,
 				e.key.vkey     = VirtualKey_S;
 				e.key.repeated = false;
 
-				game_input(memory, platform, settings, e);
+				game_input(memory, platform, e);
 			}
 			break;
 		case VirtualKey_S:
@@ -395,7 +413,7 @@ game_input(GameMemory *memory,
 				e.key.vkey     = VirtualKey_W;
 				e.key.repeated = false;
 
-				game_input(memory, platform, settings, e);
+				game_input(memory, platform, e);
 			}
 			break;
 		case VirtualKey_A:
@@ -406,7 +424,7 @@ game_input(GameMemory *memory,
 				e.key.vkey     = VirtualKey_D;
 				e.key.repeated = false;
 
-				game_input(memory, platform, settings, e);
+				game_input(memory, platform, e);
 			}
 			break;
 		case VirtualKey_D:
@@ -417,7 +435,7 @@ game_input(GameMemory *memory,
 				e.key.vkey     = VirtualKey_A;
 				e.key.repeated = false;
 
-				game_input(memory, platform, settings, e);
+				game_input(memory, platform, e);
 			}
 			break;
 		default:

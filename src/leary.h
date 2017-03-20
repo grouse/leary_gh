@@ -71,28 +71,6 @@ struct StaticArray {
 
 #include "render/vulkan_device.h"
 
-INTROSPECT struct Resolution
-{
-	i32 width  = 1280;
-	i32 height = 720;
-};
-
-INTROSPECT struct VideoSettings
-{
-	Resolution resolution;
-
-	// NOTE: these are integers to later support different fullscreen and vsync techniques
-	i16 fullscreen = 0;
-	i16 vsync      = 1;
-};
-
-INTROSPECT struct Settings
-{
-	VideoSettings video;
-};
-
-
-
 INTROSPECT struct Vector2 {
 	f32 x, y;
 };
@@ -183,44 +161,23 @@ struct RenderObject {
 	Matrix4        transform;
 };
 
-struct GameState {
-	VulkanDevice        vulkan;
+#define SERIALIZE_SAVE_CONF(file, name, ptr) \
+	serialize_save_conf(file, name ## _members, \
+	                    sizeof(name ## _members) / sizeof(StructMemberInfo), \
+	                    ptr)
 
-	struct {
-		VulkanPipeline font;
-		VulkanPipeline mesh;
-		VulkanPipeline terrain;
-	} pipelines;
+#define SERIALIZE_LOAD_CONF(file, name, ptr) \
+	serialize_load_conf(file, name ## _members, \
+	                    sizeof(name ## _members) / sizeof(StructMemberInfo), \
+	                    ptr)
 
-	struct {
-		VulkanTexture font;
-	} textures;
-
-	Camera fp_camera;
-	Camera ui_camera;
-
-	Array<RenderObject, LinearAllocator> render_objects;
-	Array<IndexRenderObject, LinearAllocator> index_render_objects;
-
-	VkCommandBuffer     *command_buffers;
-
-	Vector3 velocity = {};
-
-	stbtt_bakedchar     baked_font[256];
-
-	char                *text_buffer;
-	RenderedText        text_vertices;
-
-	i32 *key_state;
-};
 
 #define GAME_FUNCS(M)\
-	M(void, init, Settings*, PlatformState*, GameMemory*);\
+	M(void, init, GameMemory*, PlatformState *);\
 	M(void, load_platform_code, PlatformCode*);\
-	M(void, load_settings, Settings*);\
-	M(void, quit, GameMemory*, PlatformState*, Settings*);\
+	M(void, quit, GameMemory*, PlatformState*);\
 \
-	M(void, input, GameMemory*, PlatformState*, Settings*, InputEvent);\
+	M(void, input, GameMemory*, PlatformState*, InputEvent);\
 	M(void, update_and_render, GameMemory*, f32)
 
 #define GAME_TYPEDEF_FUNC(ret, name, ...) typedef ret game_##name##_t (__VA_ARGS__)
@@ -235,7 +192,10 @@ struct GameState {
 	M(void, profile_start_frame, void);\
 	M(void, profile_end_frame, void);\
 	M(i32, profile_start_timer, const char*);\
-	M(void, profile_end_timer, i32, u64)
+	M(void, profile_end_timer, i32, u64);\
+\
+	M(void, serialize_load_conf, const char*, StructMemberInfo*, usize, void*);\
+	M(void, serialize_save_conf, const char*, StructMemberInfo*, usize, void*)
 
 #define MISC_TYPEDEF_FUNC(ret, name, ...) typedef ret name##_t (__VA_ARGS__)
 #define MISC_DCL_FPTR(ret, name, ...) name##_t *name
