@@ -60,16 +60,17 @@ game_load_platform_code(PlatformCode *code)
 #include "core/serialize.cpp"
 
 
-void render_font(GameState *game, RenderedText *text,
+void render_font(GameMemory *memory, RenderedText *text,
                  const char *str, float x, float y)
 {
+	GameState *game = (GameState*)memory->game;
 	i32 offset = 0;
 
 	usize text_length = strlen(str);
 	if (text_length == 0) return;
 
 	usize vertices_size = sizeof(f32)*30*text_length;
-	auto vertices = alloc_array<f32>(&game->memory->frame, vertices_size);
+	auto vertices = alloc_array<f32>(&memory->frame, vertices_size);
 
 	text->vertex_count = (i32)(text_length * 6);
 
@@ -150,46 +151,45 @@ game_load_settings(Settings *settings)
 extern "C" void
 game_init(Settings *settings,
           PlatformState *platform,
-          GameMemory *memory,
-          GameState *ret)
+          GameMemory *memory)
 {
-	GameState game = {};
-	game.memory = memory;
+	GameState *game = ialloc<GameState>(&memory->persistent);
+	memory->game = game;
 
-	game.text_buffer = (char*)alloc(&game.memory->persistent, 1024 * 1024);
+	game->text_buffer = (char*)alloc(&memory->persistent, 1024 * 1024);
 
 	f32 width = (f32)settings->video.resolution.width;
 	f32 height = (f32)settings->video.resolution.height;
 	f32 aspect = width / height;
 	f32 vfov   = radians(45.0f);
 
-	game.fp_camera.view = Matrix4::identity();
-	game.fp_camera.position = Vector3{0.0f, 5.0f, 0.0f};
-	game.fp_camera.yaw = -0.5f * PI;
-	game.fp_camera.projection = Matrix4::perspective(vfov, aspect, 0.1f, 100.0f);
+	game->fp_camera.view = Matrix4::identity();
+	game->fp_camera.position = Vector3{0.0f, 5.0f, 0.0f};
+	game->fp_camera.yaw = -0.5f * PI;
+	game->fp_camera.projection = Matrix4::perspective(vfov, aspect, 0.1f, 100.0f);
 
 	Matrix4 view = Matrix4::identity();
 	view[0].x = 2.0f / width;
 	view[1].y = 2.0f / height;
 	view[2].z = 1.0f;
-	game.ui_camera.view = view;
+	game->ui_camera.view = view;
 
-	game.render_objects = make_array<RenderObject>(&game.memory->persistent, 20);
-	game.index_render_objects = make_array<IndexRenderObject>(&game.memory->persistent, 20);
+	game->render_objects = make_array<RenderObject>(&memory->persistent, 20);
+	game->index_render_objects = make_array<IndexRenderObject>(&memory->persistent, 20);
 
 	VkResult result;
-	game.vulkan = create_device(game.memory, platform, settings);
+	game->vulkan = create_device(memory, platform, settings);
 
-	game.command_buffers = alloc_array<VkCommandBuffer>(&game.memory->persistent, 5);
+	game->command_buffers = alloc_array<VkCommandBuffer>(&memory->persistent, 5);
 	VkCommandBufferAllocateInfo allocate_info = {};
 	allocate_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-	allocate_info.commandPool        = game.vulkan.command_pool;
+	allocate_info.commandPool        = game->vulkan.command_pool;
 	allocate_info.level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
 	allocate_info.commandBufferCount = 1;
 
-	result = vkAllocateCommandBuffers(game.vulkan.handle,
+	result = vkAllocateCommandBuffers(game->vulkan.handle,
 	                                  &allocate_info,
-	                                  game.command_buffers);
+	                                  game->command_buffers);
 	DEBUG_ASSERT(result == VK_SUCCESS);
 
 	// create font atlas
@@ -199,52 +199,52 @@ game_init(Settings *settings,
 		                                        "fonts/Roboto-Regular.ttf");
 		u8 *font_data = (u8*)platform_file_read(font_path, &font_size);
 
-		u8 *bitmap = alloc_array<u8>(&game.memory->frame, 1024*1024);
+		u8 *bitmap = alloc_array<u8>(&memory->frame, 1024*1024);
 		stbtt_BakeFontBitmap(font_data, 0, 20.0, bitmap, 1024, 1024, 0,
-		                     256, game.baked_font);
+		                     256, game->baked_font);
 
 		VkComponentMapping components = {};
 		components.a = VK_COMPONENT_SWIZZLE_R;
-		game.textures.font = create_texture(&game.vulkan, 1024, 1024,
+		game->textures.font = create_texture(&game->vulkan, 1024, 1024,
 		                                    VK_FORMAT_R8_UNORM, bitmap,
 		                                    components);
 
-		game.text_vertices.vertex_count = 0;
-		game.text_vertices.buffer = create_vertex_buffer(&game.vulkan, 1024*1024);
+		game->text_vertices.vertex_count = 0;
+		game->text_vertices.buffer = create_vertex_buffer(&game->vulkan, 1024*1024);
 	}
 
 	// create pipelines
 	{
-		game.pipelines.mesh = create_mesh_pipeline(&game.vulkan, game.memory);
-		game.pipelines.font = create_font_pipeline(&game.vulkan, game.memory);
-		game.pipelines.terrain = create_terrain_pipeline(&game.vulkan, game.memory);
+		game->pipelines.mesh = create_mesh_pipeline(&game->vulkan, memory);
+		game->pipelines.font = create_font_pipeline(&game->vulkan, memory);
+		game->pipelines.terrain = create_terrain_pipeline(&game->vulkan, memory);
 	}
 
 	// create ubos
 	{
-		game.fp_camera.ubo = create_uniform_buffer(&game.vulkan, sizeof(Matrix4));
+		game->fp_camera.ubo = create_uniform_buffer(&game->vulkan, sizeof(Matrix4));
 
-		Matrix4 view_projection = game.fp_camera.projection * game.fp_camera.view;
-		update_uniform_data(&game.vulkan, game.fp_camera.ubo,
+		Matrix4 view_projection = game->fp_camera.projection * game->fp_camera.view;
+		update_uniform_data(&game->vulkan, game->fp_camera.ubo,
 		                    &view_projection, 0, sizeof(view_projection));
 	}
 
 	// update descriptor sets
 	{
-		update_descriptor_sets(&game.vulkan,
-		                       game.pipelines.mesh,
-		                       game.fp_camera.ubo);
+		update_descriptor_sets(&game->vulkan,
+		                       game->pipelines.mesh,
+		                       game->fp_camera.ubo);
 
-		update_descriptor_sets(&game.vulkan,
-		                       game.pipelines.terrain,
-		                       game.fp_camera.ubo);
+		update_descriptor_sets(&game->vulkan,
+		                       game->pipelines.terrain,
+		                       game->fp_camera.ubo);
 
-		update_descriptor_sets(&game.vulkan,
-		                       game.pipelines.font,
-		                       game.textures.font);
+		update_descriptor_sets(&game->vulkan,
+		                       game->pipelines.font,
+		                       game->textures.font);
 	}
 
-	Mesh cube = load_mesh_obj(game.memory, "cube.obj");
+	Mesh cube = load_mesh_obj(memory, "cube.obj");
 
 	Random r = make_random(3);
 	for (i32 i = 0; i < 10; i++) {
@@ -253,17 +253,17 @@ game_init(Settings *settings,
 		usize vertex_size = cube.vertices.count * sizeof(cube.vertices[0]);
 		usize index_size  = cube.indices.count  * sizeof(cube.indices[0]);
 
-		obj.pipeline    = game.pipelines.mesh;
+		obj.pipeline    = game->pipelines.mesh;
 		obj.index_count = cube.indices.count;
-		obj.vertices    = create_vertex_buffer(&game.vulkan, cube.vertices.data, vertex_size);
-		obj.indices     = create_index_buffer(&game.vulkan, cube.indices.data, index_size);
+		obj.vertices    = create_vertex_buffer(&game->vulkan, cube.vertices.data, vertex_size);
+		obj.indices     = create_index_buffer(&game->vulkan, cube.indices.data, index_size);
 
 		f32 x = next_f32(&r) * 20.0f;
 		f32 y = -1.0f;
 		f32 z = next_f32(&r) * 20.0f;
 
 		obj.transform = translate(Matrix4::identity(), {x, y, z});
-		array_add(&game.index_render_objects, obj);
+		array_add(&game->index_render_objects, obj);
 	}
 
 	{
@@ -278,19 +278,17 @@ game_init(Settings *settings,
 		};
 
 		RenderObject terrain = {};
-		terrain.pipeline = game.pipelines.terrain;
-		terrain.vertices = create_vertex_buffer(&game.vulkan, vertices, sizeof(vertices));
+		terrain.pipeline = game->pipelines.terrain;
+		terrain.vertices = create_vertex_buffer(&game->vulkan, vertices, sizeof(vertices));
 		terrain.vertex_count = sizeof(vertices) / (sizeof(vertices[0]) * 3);
 
-		array_add(&game.render_objects, terrain);
+		array_add(&game->render_objects, terrain);
 	}
 
-	game.key_state = alloc_array<i32>(&game.memory->persistent, 0xFF);
+	game->key_state = alloc_array<i32>(&memory->persistent, 0xFF);
 	for (i32 i = 0; i < 0xFF; i++) {
-		game.key_state[i] = InputType_key_release;
+		game->key_state[i] = InputType_key_release;
 	}
-
-	*ret = game;
 }
 
 extern "C" void
@@ -328,11 +326,12 @@ game_quit(GameState *game, PlatformState *platform, Settings *settings)
 }
 
 extern "C" void
-game_input(GameState *game,
+game_input(GameMemory *memory,
            PlatformState *platform,
            Settings *settings,
            InputEvent event)
 {
+	GameState *game = (GameState*)memory->game;
 	switch (event.type) {
 	case InputType_key_press: {
 		if (event.key.repeated) {
@@ -385,7 +384,7 @@ game_input(GameState *game,
 				e.key.vkey     = VirtualKey_S;
 				e.key.repeated = false;
 
-				game_input(game, platform, settings, e);
+				game_input(memory, platform, settings, e);
 			}
 			break;
 		case VirtualKey_S:
@@ -396,7 +395,7 @@ game_input(GameState *game,
 				e.key.vkey     = VirtualKey_W;
 				e.key.repeated = false;
 
-				game_input(game, platform, settings, e);
+				game_input(memory, platform, settings, e);
 			}
 			break;
 		case VirtualKey_A:
@@ -407,7 +406,7 @@ game_input(GameState *game,
 				e.key.vkey     = VirtualKey_D;
 				e.key.repeated = false;
 
-				game_input(game, platform, settings, e);
+				game_input(memory, platform, settings, e);
 			}
 			break;
 		case VirtualKey_D:
@@ -418,7 +417,7 @@ game_input(GameState *game,
 				e.key.vkey     = VirtualKey_A;
 				e.key.repeated = false;
 
-				game_input(game, platform, settings, e);
+				game_input(memory, platform, settings, e);
 			}
 			break;
 		default:
@@ -437,9 +436,10 @@ game_input(GameState *game,
 	}
 }
 
-void game_update(GameState* game, f32 dt)
+void game_update(GameMemory *memory, f32 dt)
 {
 	PROFILE_FUNCTION();
+	GameState *game = (GameState*)memory->game;
 
 	isize buffer_size = 1024*1024;
 	char *buffer = game->text_buffer;
@@ -461,7 +461,7 @@ void game_update(GameState* game, f32 dt)
 		buffer_size -= bytes;
 	}
 
-	render_font(game, &game->text_vertices, game->text_buffer, -1.0f, -1.0f);
+	render_font(memory, &game->text_vertices, game->text_buffer, -1.0f, -1.0f);
 
 	Matrix4 pitch = rotate_x(Matrix4::identity(), game->fp_camera.pitch);
 	Matrix4 yaw   = rotate_y(Matrix4::identity(), game->fp_camera.yaw);
@@ -485,9 +485,10 @@ void game_update(GameState* game, f32 dt)
 	                    &view_projection, 0, sizeof(view_projection));
 }
 
-void game_render(GameState *game)
+void game_render(GameMemory *memory)
 {
 	PROFILE_FUNCTION();
+	GameState *game = (GameState*)memory->game;
 
 	u32 image_index = acquire_swapchain_image(&game->vulkan);
 
@@ -668,10 +669,10 @@ void game_render(GameState *game)
 }
 
 extern "C" void
-game_update_and_render(GameState *game, f32 dt)
+game_update_and_render(GameMemory *memory, f32 dt)
 {
-	game_update(game, dt);
-	game_render(game);
+	game_update(memory, dt);
+	game_render(memory);
 
-	reset(&game->memory->frame);
+	reset(&memory->frame);
 }

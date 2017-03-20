@@ -38,6 +38,7 @@ struct StackAllocator {
 };
 
 struct GameMemory {
+	void *game;
 	LinearAllocator frame;
 	LinearAllocator persistent;
 };
@@ -195,8 +196,6 @@ struct GameState {
 		VulkanTexture font;
 	} textures;
 
-	GameMemory *memory;
-
 	Camera fp_camera;
 	Camera ui_camera;
 
@@ -216,13 +215,13 @@ struct GameState {
 };
 
 #define GAME_FUNCS(M)\
-	M(void, init, Settings*, PlatformState*, GameMemory*, GameState*);\
+	M(void, init, Settings*, PlatformState*, GameMemory*);\
 	M(void, load_platform_code, PlatformCode*);\
 	M(void, load_settings, Settings*);\
-	M(void, quit, GameState*, PlatformState*, Settings*);\
+	M(void, quit, GameMemory*, PlatformState*, Settings*);\
 \
-	M(void, input, GameState*, PlatformState*, Settings*, InputEvent);\
-	M(void, update_and_render, GameState*, f32)
+	M(void, input, GameMemory*, PlatformState*, Settings*, InputEvent);\
+	M(void, update_and_render, GameMemory*, f32)
 
 #define GAME_TYPEDEF_FUNC(ret, name, ...) typedef ret game_##name##_t (__VA_ARGS__)
 #define GAME_DCL_FPTR(ret, name, ...) game_##name##_t *name

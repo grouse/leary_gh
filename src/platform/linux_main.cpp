@@ -197,10 +197,10 @@ int main()
 	PlatformState platform = {};
 	platform.native           = &native;
 
-	GameState game_state = {};
-	Settings  settings = {};
-
 	game_load_platform_code(&code);
+
+	Settings  settings = {};
+	game_load_settings(&settings);
 
 	isize frame_alloc_size      = 64 * 1024 * 1024;
 	isize persistent_alloc_size = 256 * 1024 * 1024;
@@ -214,7 +214,6 @@ int main()
 	                                          persistent_alloc_size);
 
 	profile_init(&memory);
-	game_load_settings(&settings);
 
 	native.display = XOpenDisplay(nullptr);
 	i32 screen     = DefaultScreen(native.display);
@@ -279,7 +278,7 @@ int main()
 		                                           1, 1);
 	}
 
-	game_init(&settings, &platform, &memory, &game_state);
+	game_init(&settings, &platform, &memory);
 
 	i32 num_screens = XScreenCount(native.display);
 	for (i32 i = 0; i < num_screens; i++) {
@@ -324,7 +323,7 @@ int main()
 				event.key.vkey     = keycode_to_virtual(xevent.xkey.keycode);
 				event.key.repeated = false;
 
-				game_input(&game_state, &platform, &settings, event);
+				game_input(&memory, &platform, &settings, event);
 			} break;
 			case KeyRelease: {
 				InputEvent event;
@@ -344,7 +343,7 @@ int main()
 					}
 				}
 
-				game_input(&game_state, &platform, &settings, event);
+				game_input(&memory, &platform, &settings, event);
 			} break;
 			case MotionNotify: {
 				if (platform.raw_mouse) {
@@ -362,7 +361,7 @@ int main()
 				native.mouse.x = xevent.xmotion.x;
 				native.mouse.y = xevent.xmotion.y;
 
-				game_input(&game_state, &platform, &settings, event);
+				game_input(&memory, &platform, &settings, event);
 			} break;
 			case EnterNotify: {
 				if (xevent.xcrossing.focus == true &&
@@ -375,7 +374,7 @@ int main()
 			} break;
 			case ClientMessage: {
 				if ((Atom)xevent.xclient.data.l[0] == WM_DELETE_WINDOW) {
-					game_quit(&game_state, &platform, &settings);
+					game_quit(&memory, &platform, &settings);
 				}
 			} break;
 			case GenericEvent: {
@@ -423,7 +422,7 @@ int main()
 						event.mouse.dx = deltas[0];
 						event.mouse.dy = deltas[1];
 
-						game_input(&game_state, &platform, &settings, event);
+						game_input(&memory, &platform, &settings, event);
 					} break;
 					default:
 						DEBUG_LOG("unhandled xinput2 event: %d",
@@ -442,7 +441,7 @@ int main()
 
 		PROFILE_END(linux_input);
 
-		game_update_and_render(&game_state, dt);
+		game_update_and_render(&memory, dt);
 
 		profile_end_frame();
 	}

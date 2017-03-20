@@ -58,6 +58,15 @@ T* alloc(LinearAllocator *a)
 }
 
 template <typename T>
+T* ialloc(LinearAllocator *a)
+{
+	T* mem = (T*)alloc(a, sizeof(T));
+	T e = {};
+	memcpy(mem, &e, sizeof(T));
+	return mem;
+}
+
+template <typename T>
 T* alloc_array(LinearAllocator *a, i32 count)
 {
 	return (T*)alloc(a, sizeof(T) * count);
