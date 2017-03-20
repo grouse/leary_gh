@@ -6,6 +6,7 @@
  * Copyright (c) 2017 - all rights reserved
  */
 
+#include "array.h"
 
 template<typename T, typename A>
 Array<T, A> make_array(A *allocator)

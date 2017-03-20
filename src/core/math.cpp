@@ -6,6 +6,7 @@
  * Copyright (c) 2016-2017 Jesper Stefansson
  */
 
+#include "math.h"
 
 inline constexpr f32 radians(f32 degrees)
 {

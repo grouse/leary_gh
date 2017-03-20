@@ -10,6 +10,7 @@
 #define VULKAN_DEVICE_H
 
 #include "platform/platform.h"
+#include "core/array.h"
 
 enum ShaderStage {
 	ShaderStage_vertex,

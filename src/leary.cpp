@@ -6,14 +6,61 @@
  * Copyright (c) 2016 - all rights reserved
  */
 
-#include <stdio.h>
-
-#ifndef INTROSPECT
-#define INTROSPECT
-#endif
-
 #include "leary.h"
+
+#define STB_TRUETYPE_IMPLEMENTATION
+#include "external/stb/stb_truetype.h"
+
 #include "platform/platform.h"
+#include "platform/platform_debug.h"
+#include "platform/platform_file.h"
+#include "platform/platform_input.h"
+
+PLATFORM_FUNCS(PLATFORM_DCL_STATIC_FPTR);
+
+#include "core/allocator.cpp"
+#include "core/array.cpp"
+#include "core/tokenizer.cpp"
+#include "core/profiling.cpp"
+#include "core/math.cpp"
+#include "core/mesh.cpp"
+#include "core/random.cpp"
+
+#include "render/vulkan_device.cpp"
+
+#include "core/serialize.cpp"
+
+
+struct RenderedText {
+	VulkanBuffer buffer;
+	i32          vertex_count;
+};
+
+struct IndexRenderObject {
+	VulkanPipeline pipeline;
+	VulkanBuffer   vertices;
+	VulkanBuffer   indices;
+	i32            index_count;
+	Matrix4        transform;
+};
+
+// TODO(jesper): stick these in the pipeline so that we reduce the number of
+// pipeline binds
+struct RenderObject {
+	VulkanPipeline pipeline;
+	VulkanBuffer   vertices;
+	i32            vertex_count;
+	Matrix4        transform;
+};
+
+struct Camera {
+	Matrix4             view;
+	Matrix4             projection;
+	VulkanUniformBuffer ubo;
+
+	Vector3             position;
+	f32                 yaw, pitch, roll;
+};
 
 struct GameState {
 	VulkanDevice        vulkan;
@@ -46,7 +93,6 @@ struct GameState {
 	i32 *key_state;
 };
 
-PLATFORM_FUNCS(PLATFORM_DCL_STATIC_FPTR);
 
 extern "C" void
 game_load_platform_code(PlatformCode *code)
@@ -69,26 +115,7 @@ game_load_platform_code(PlatformCode *code)
 	platform_file_read                        = code->file_read;
 }
 
-#include "platform/platform_debug.h"
-#include "platform/platform_file.h"
-#include "platform/platform_input.h"
 
-#include "leary.h"
-
-#define STB_TRUETYPE_IMPLEMENTATION
-#include "external/stb/stb_truetype.h"
-
-#include "core/allocator.cpp"
-#include "core/array.cpp"
-#include "core/tokenizer.cpp"
-#include "core/profiling.cpp"
-#include "core/math.cpp"
-#include "core/mesh.cpp"
-#include "core/random.cpp"
-
-#include "render/vulkan_device.cpp"
-
-#include "core/serialize.cpp"
 
 
 void render_font(GameMemory *memory, RenderedText *text,

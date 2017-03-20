@@ -6,11 +6,12 @@
  * Copyright (c) 2017 - all rights reserved
  */
 
+#include "allocator.h"
+
 // TODO(jesper): realloc
 // TODO(jesper): zalloc - allocate and zero memset
 // TODO(jesper): ialloc - allocate and default initialise struct
 // TODO(jesper): allocation header infront of allocated ptr for meta data
-
 
 extern "C" LinearAllocator
 make_linear_allocator(void *start, isize size)

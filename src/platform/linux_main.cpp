@@ -36,8 +36,10 @@
 #include "linux_input.cpp"
 
 #include "leary.h"
-#include "generated/type_info.h"
 #include "core/profiling.h"
+#include "core/math.h"
+
+#include "generated/type_info.h"
 
 GAME_FUNCS(GAME_TYPEDEF_FUNC);
 GAME_FUNCS(GAME_DCL_STATIC_FPTR);
