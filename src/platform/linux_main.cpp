@@ -178,7 +178,8 @@ void platform_quit(PlatformState *platform)
 	XUngrabPointer(native->display, CurrentTime);
 
 	char *settings_path = platform_resolve_path(GamePath_preferences, "settings.conf");
-	SERIALIZE_SAVE_CONF(settings_path, Settings, &platform->settings);
+	serialize_save_conf(settings_path, Settings_members,
+	                    ARRAY_SIZE(Settings_members), &platform->settings);
 
 	exit(EXIT_SUCCESS);
 }
@@ -235,7 +236,8 @@ int main()
 	game_load_platform_code(&code);
 
 	char *settings_path = platform_resolve_path(GamePath_preferences, "settings.conf");
-	SERIALIZE_LOAD_CONF(settings_path, Settings, &platform.settings);
+	serialize_load_conf(settings_path, Settings_members,
+	                    ARRAY_SIZE(Settings_members), &platform.settings);
 
 	isize frame_alloc_size      = 64 * 1024 * 1024;
 	isize persistent_alloc_size = 256 * 1024 * 1024;

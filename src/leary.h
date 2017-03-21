@@ -23,6 +23,8 @@
 #include "core/types.h"
 #include "core/allocator.h"
 
+#define ARRAY_SIZE(a) sizeof((a)) / sizeof((a)[0])
+
 #define MIN(a, b) (a) < (b) ? (a) : (b)
 #define MAX(a, b) (a) > (b) ? (a) : (b)
 
@@ -31,16 +33,6 @@ struct GameMemory {
 	LinearAllocator frame;
 	LinearAllocator persistent;
 };
-
-#define SERIALIZE_SAVE_CONF(file, name, ptr) \
-	serialize_save_conf(file, name ## _members, \
-	                    sizeof(name ## _members) / sizeof(StructMemberInfo), \
-	                    ptr)
-
-#define SERIALIZE_LOAD_CONF(file, name, ptr) \
-	serialize_load_conf(file, name ## _members, \
-	                    sizeof(name ## _members) / sizeof(StructMemberInfo), \
-	                    ptr)
 
 #define GAME_INIT_FUNC(fname)               void fname(GameMemory *memory, PlatformState *platform)
 #define GAME_LOAD_PLATFORM_CODE_FUNC(fname) void fname(PlatformCode *code)
