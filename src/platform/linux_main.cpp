@@ -41,11 +41,37 @@
 
 #include "generated/type_info.h"
 
-GAME_FUNCS(GAME_TYPEDEF_FUNC);
-GAME_FUNCS(GAME_DCL_STATIC_FPTR);
+typedef GAME_INIT_FUNC(game_init_t);
+typedef GAME_LOAD_PLATFORM_CODE_FUNC(game_load_platform_code_t);
+typedef GAME_QUIT_FUNC(game_quit_t);
+typedef GAME_INPUT_FUNC(game_input_t);
+typedef GAME_UPDATE_AND_RENDER_FUNC(game_update_and_render_t);
 
-MISC_FUNCS(MISC_TYPEDEF_FUNC);
-MISC_FUNCS(MISC_DCL_STATIC_FPTR);
+typedef MAKE_LINEAR_ALLOCATOR_FUNC(make_linear_allocator_t);
+typedef MAKE_STACK_ALLOCATOR_FUNC(make_stack_allocator_t);
+typedef PROFILE_INIT_FUNC(profile_init_t);
+typedef PROFILE_START_FRAME_FUNC(profile_start_frame_t);
+typedef PROFILE_END_FRAME_FUNC(profile_end_frame_t);
+typedef PROFILE_START_TIMER_FUNC(profile_start_timer_t);
+typedef PROFILE_END_TIMER_FUNC(profile_end_timer_t);
+typedef SERIALIZE_LOAD_CONF_FUNC(serialize_load_conf_t);
+typedef SERIALIZE_SAVE_CONF_FUNC(serialize_save_conf_t);
+
+static game_init_t               *game_init;
+static game_load_platform_code_t *game_load_platform_code;
+static game_quit_t               *game_quit;
+static game_input_t              *game_input;
+static game_update_and_render_t  *game_update_and_render;
+
+static make_linear_allocator_t   *make_linear_allocator;
+static make_stack_allocator_t    *make_stack_allocator;
+static profile_init_t            *profile_init;
+static profile_start_frame_t     *profile_start_frame;
+static profile_end_frame_t       *profile_end_frame;
+static profile_start_timer_t     *profile_start_timer;
+static profile_end_timer_t       *profile_end_timer;
+static serialize_load_conf_t     *serialize_load_conf;
+static serialize_save_conf_t     *serialize_save_conf;
 
 #define DLOAD_FUNC(lib, name, result) name = (name##_t*)dlsym(lib, #name); result = result && name
 void* load_game_code()

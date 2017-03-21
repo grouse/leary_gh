@@ -127,11 +127,8 @@ member_to_string(StructMemberInfo &member,
 	return bytes;
 }
 
-extern "C" void
-serialize_save_conf(const char *path,
-                   StructMemberInfo *members,
-                   usize num_members,
-                   void *ptr)
+extern "C"
+SERIALIZE_SAVE_CONF_FUNC(serialize_save_conf)
 {
 	if (!platform_file_exists(path) && !platform_file_create(path)) {
 		DEBUG_LOG(Log_warning, "path does not exist or can't be created: %s",
@@ -281,11 +278,8 @@ member_from_string(char **ptr,
 	*ptr = tokenizer.at;
 }
 
-extern "C" void
-serialize_load_conf(const char *path,
-                    StructMemberInfo *members,
-                    usize num_members,
-                    void *out)
+extern "C"
+SERIALIZE_LOAD_CONF_FUNC(serialize_load_conf)
 {
 	if (!platform_file_exists(path)) {
 		DEBUG_LOG(Log_warning, "path does not exist: %s", path);

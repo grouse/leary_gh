@@ -17,6 +17,9 @@
 
 #include "external/stb/stb_truetype.h"
 
+#include "platform/platform.h"
+#include "platform/platform_input.h"
+
 #include "core/types.h"
 #include "core/allocator.h"
 
@@ -39,34 +42,21 @@ struct GameMemory {
 	                    sizeof(name ## _members) / sizeof(StructMemberInfo), \
 	                    ptr)
 
-#define GAME_FUNCS(M)\
-	M(void, init, GameMemory*, PlatformState *);\
-	M(void, load_platform_code, PlatformCode*);\
-	M(void, quit, GameMemory*, PlatformState*);\
-\
-	M(void, input, GameMemory*, PlatformState*, InputEvent);\
-	M(void, update_and_render, GameMemory*, f32)
+#define GAME_INIT_FUNC(fname)               void fname(GameMemory *memory, PlatformState *platform)
+#define GAME_LOAD_PLATFORM_CODE_FUNC(fname) void fname(PlatformCode *code)
+#define GAME_QUIT_FUNC(fname)               void fname(GameMemory *memory, PlatformState *platform)
+#define GAME_INPUT_FUNC(fname)              void fname(GameMemory *memory, PlatformState *platform, InputEvent event)
+#define GAME_UPDATE_AND_RENDER_FUNC(fname)  void fname(GameMemory *memory, f32 dt)
 
-#define GAME_TYPEDEF_FUNC(ret, name, ...) typedef ret game_##name##_t (__VA_ARGS__)
-#define GAME_DCL_FPTR(ret, name, ...) game_##name##_t *name
-#define GAME_DCL_STATIC_FPTR(ret, name, ...) static game_##name##_t *game_##name
-
-#define MISC_FUNCS(M)\
-	M(LinearAllocator, make_linear_allocator, void*, isize);\
-	M(StackAllocator, make_stack_allocator, void*, isize);\
-\
-	M(void, profile_init, GameMemory*);\
-	M(void, profile_start_frame, void);\
-	M(void, profile_end_frame, void);\
-	M(i32, profile_start_timer, const char*);\
-	M(void, profile_end_timer, i32, u64);\
-\
-	M(void, serialize_load_conf, const char*, StructMemberInfo*, usize, void*);\
-	M(void, serialize_save_conf, const char*, StructMemberInfo*, usize, void*)
-
-#define MISC_TYPEDEF_FUNC(ret, name, ...) typedef ret name##_t (__VA_ARGS__)
-#define MISC_DCL_FPTR(ret, name, ...) name##_t *name
-#define MISC_DCL_STATIC_FPTR(ret, name, ...) static name##_t *name
+#define MAKE_LINEAR_ALLOCATOR_FUNC(fname) LinearAllocator fname(void *start, isize size)
+#define MAKE_STACK_ALLOCATOR_FUNC(fname)  StackAllocator fname(void *start, isize size)
+#define PROFILE_INIT_FUNC(fname)          void fname(GameMemory *memory)
+#define PROFILE_START_FRAME_FUNC(fname)   void fname(void)
+#define PROFILE_END_FRAME_FUNC(fname)     void fname(void)
+#define PROFILE_START_TIMER_FUNC(fname)   i32 fname(const char *name)
+#define PROFILE_END_TIMER_FUNC(fname)     void fname(i32 index, u64 cycles)
+#define SERIALIZE_LOAD_CONF_FUNC(fname)   void fname(const char *path, StructMemberInfo *members, usize num_members, void *out)
+#define SERIALIZE_SAVE_CONF_FUNC(fname)   void fname(const char *path, StructMemberInfo *members, usize num_members, void *ptr)
 
 #endif /* LEARY_H */
 
