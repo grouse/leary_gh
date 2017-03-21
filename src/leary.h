@@ -15,8 +15,6 @@
 
 #include <math.h>
 
-#include "external/stb/stb_truetype.h"
-
 #include "platform/platform.h"
 #include "platform/platform_input.h"
 
