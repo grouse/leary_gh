@@ -31,6 +31,9 @@ typedef SSIZE_T isize;
 typedef ssize_t  isize;
 #endif
 
+typedef intptr_t  iptr;
+typedef uintptr_t uptr;
+
 typedef float    f32;
 typedef double   f64;
 

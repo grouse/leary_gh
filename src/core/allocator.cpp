@@ -34,21 +34,26 @@ MAKE_STACK_ALLOCATOR_FUNC(make_stack_allocator)
 	return a;
 }
 
+void *align_address(void *address, uptr alignment)
+{
+	return (void*)(((uptr)address + alignment) & ~(alignment - 1));
+}
+
 void *alloc(LinearAllocator *a, isize size)
 {
-	void *ptr  = a->current;
-	a->current = (u8*)a->current + size;
+	void *ptr  = align_address(a->current, 16);
+	a->current = (void*)((uptr)ptr + size);
 	a->last    = ptr;
-	DEBUG_ASSERT(a->current < ((u8*)a->start + a->size));
+	DEBUG_ASSERT((uptr)a->current < ((uptr)a->start + a->size));
 
 	return ptr;
 }
 
 void *alloc(StackAllocator *a, isize size)
 {
-	void *ptr  = a->current;
-	a->current = (u8*)a->current + size;
-	DEBUG_ASSERT(a->current < ((u8*)a->start + a->size));
+	void *ptr  = align_address(a->current, 16);
+	a->current = (void*)((uptr)ptr + size);
+	DEBUG_ASSERT((uptr)a->current < ((uptr)a->start + a->size));
 	return ptr;
 }
 
