@@ -34,27 +34,69 @@ MAKE_STACK_ALLOCATOR_FUNC(make_stack_allocator)
 	return a;
 }
 
+struct AllocationHeader {
+	isize size;
+	void *unaligned;
+};
+
 void *align_address(void *address, uptr alignment)
 {
 	return (void*)(((uptr)address + alignment) & ~(alignment - 1));
 }
 
+void *align_address(void *address, u8 alignment, u8 header_size)
+{
+	u8 adjustment = alignment - ((uptr)address & ((uptr)alignment - 1));
+	if (adjustment == alignment) {
+		adjustment = 0;
+	}
+
+	u8 required = header_size;
+	if (adjustment < required) {
+		required -= adjustment;
+
+		adjustment += alignment * (required / alignment);
+		if (required % alignment > 0) {
+			adjustment += alignment;
+		}
+	}
+
+	return (void*)((uptr)address + adjustment);
+}
+
 void *alloc(LinearAllocator *a, isize size)
 {
-	void *ptr  = align_address(a->current, 16);
-	a->current = (void*)((uptr)ptr + size);
-	a->last    = ptr;
+	u8 header_size = sizeof(AllocationHeader);
+
+	void *unaligned = a->current;
+	void *aligned   = align_address(unaligned, 16, header_size);
+
+	a->current = (void*)((uptr)aligned + size);
+	a->last    = aligned;
 	DEBUG_ASSERT((uptr)a->current < ((uptr)a->start + a->size));
 
-	return ptr;
+	AllocationHeader *header = (AllocationHeader*)((uptr)aligned - header_size);
+	header->size      = size;
+	header->unaligned = unaligned;
+
+	return aligned;
 }
 
 void *alloc(StackAllocator *a, isize size)
 {
-	void *ptr  = align_address(a->current, 16);
-	a->current = (void*)((uptr)ptr + size);
+	u8 header_size = sizeof(AllocationHeader);
+
+	void *unaligned = a->current;
+	void *aligned   = align_address(unaligned, 16, header_size);
+
+	a->current = (void*)((uptr)aligned + size);
 	DEBUG_ASSERT((uptr)a->current < ((uptr)a->start + a->size));
-	return ptr;
+
+	AllocationHeader *header = (AllocationHeader*)((uptr)aligned - header_size);
+	header->size      = size;
+	header->unaligned = unaligned;
+
+	return aligned;
 }
 
 template <typename T>
@@ -90,11 +132,44 @@ T* alloc_array(StackAllocator *a, i32 count)
 	return (T*)alloc(a, sizeof(T) * count);
 }
 
+void *realloc(LinearAllocator *a, void *ptr, isize size)
+{
+	if (ptr == nullptr) {
+		return alloc(a, size);
+	}
+
+	AllocationHeader *header = (AllocationHeader*)((uptr)ptr - sizeof(AllocationHeader));
+	if ((uptr)ptr + header->size == (uptr)a->current) {
+		isize extra = size - header->size;
+		DEBUG_ASSERT(extra > 0); // NOTE(jesper): untested
+
+		a->current   = (void*)((uptr)a->current + extra);
+		header->size = size;
+		return ptr;
+	} else {
+		DEBUG_LOG("can't expand linear allocation, leaking memory");
+		void *nptr = alloc(a, size);
+		memcpy(nptr, ptr, header->size);
+		return nptr;
+	}
+}
+
+template<typename T>
+T *realloc_array(LinearAllocator *a, T *ptr, isize capacity)
+{
+	isize size = capacity * sizeof(T);
+	return (T*)realloc(a, ptr, size);
+}
+
 void dealloc(LinearAllocator *a, void *ptr)
 {
-	if (a->last != nullptr && a->last == ptr) {
-		a->current = ptr;
-		a->last    = nullptr;
+	if (ptr == nullptr) {
+		return;
+	}
+
+	AllocationHeader *header = (AllocationHeader*)((uptr)ptr - sizeof(AllocationHeader));
+	if ((uptr)ptr + header->size == (uptr)a->current) {
+		a->current = header->unaligned;
 	} else {
 		DEBUG_LOG("calling dealloc on linear allocator, leaking memory");
 	}

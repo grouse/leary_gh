@@ -74,16 +74,8 @@ isize array_add(Array<T, A> *a, T &e)
 {
 	if (a->count >= a->capacity) {
 		isize capacity = a->capacity == 0 ? 1 : a->capacity * 2;
-
-		T* data = alloc_array<T>(a->allocator, capacity);
-
-		if (a->data != nullptr) {
-			memcpy(data, a->data, sizeof(T) * a->capacity);
-			dealloc(a->allocator, a->data);
-		}
-
-		a->data     = data;
-		a->capacity = capacity;
+		a->data        = realloc_array(a->allocator, a->data, capacity);
+		a->capacity    = capacity;
 	}
 
 	a->data[a->count] = e;
