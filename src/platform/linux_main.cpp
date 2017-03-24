@@ -490,16 +490,24 @@ int main()
 
 	XEvent xevent;
 
+	constexpr f32 game_code_reload_rate = 1.0f;
+	f32 game_code_reload_timer = game_code_reload_rate;
+
 	timespec last_time = get_time();
 	while (true) {
-		native.game = reload_game_code(&memory, &native);
-		native.game.profile_start_frame();
-
 		timespec current_time = get_time();
 		i64 difference = get_time_difference(last_time, current_time);
 		last_time = current_time;
 		f32 dt = (f32)difference / 1000000000.0f;
 		DEBUG_ASSERT(difference >= 0);
+
+		game_code_reload_timer += dt;
+		if (game_code_reload_timer >= game_code_reload_rate) {
+			native.game            = reload_game_code(&memory, &native);
+			game_code_reload_timer = 0.0f;
+		}
+
+		native.game.profile_start_frame();
 
 		PROFILE_START(linux_input);
 
