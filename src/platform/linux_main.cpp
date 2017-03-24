@@ -49,63 +49,186 @@ typedef GAME_UPDATE_AND_RENDER_FUNC(game_update_and_render_t);
 
 typedef MAKE_LINEAR_ALLOCATOR_FUNC(make_linear_allocator_t);
 typedef MAKE_STACK_ALLOCATOR_FUNC(make_stack_allocator_t);
+
 typedef PROFILE_INIT_FUNC(profile_init_t);
+typedef PROFILE_SET_STATE_FUNC(profile_set_state_t);
 typedef PROFILE_START_FRAME_FUNC(profile_start_frame_t);
 typedef PROFILE_END_FRAME_FUNC(profile_end_frame_t);
 typedef PROFILE_START_TIMER_FUNC(profile_start_timer_t);
 typedef PROFILE_END_TIMER_FUNC(profile_end_timer_t);
+
 typedef SERIALIZE_LOAD_CONF_FUNC(serialize_load_conf_t);
 typedef SERIALIZE_SAVE_CONF_FUNC(serialize_save_conf_t);
 
-static game_init_t               *game_init;
-static game_load_platform_code_t *game_load_platform_code;
-static game_quit_t               *game_quit;
-static game_input_t              *game_input;
-static game_update_and_render_t  *game_update_and_render;
+GAME_INIT_FUNC(game_init_stub)
+{
+	(void)memory;
+	(void)platform;
+}
 
-static make_linear_allocator_t   *make_linear_allocator;
-static make_stack_allocator_t    *make_stack_allocator;
-static profile_init_t            *profile_init;
-static profile_start_frame_t     *profile_start_frame;
-static profile_end_frame_t       *profile_end_frame;
+GAME_LOAD_PLATFORM_CODE_FUNC(game_load_platform_code_stub)
+{
+	(void)code;
+}
+
+GAME_QUIT_FUNC(game_quit_stub)
+{
+	(void)memory;
+	(void)platform;
+}
+
+GAME_INPUT_FUNC(game_input_stub)
+{
+	(void)memory;
+	(void)platform;
+	(void)event;
+}
+
+GAME_UPDATE_AND_RENDER_FUNC(game_update_and_render_stub)
+{
+	(void)memory;
+	(void)dt;
+}
+
+MAKE_LINEAR_ALLOCATOR_FUNC(make_linear_allocator_stub)
+{
+	(void)start;
+	(void)size;
+	return LinearAllocator{};
+}
+
+MAKE_STACK_ALLOCATOR_FUNC(make_stack_allocator_stub)
+{
+	(void)start;
+	(void)size;
+	return StackAllocator{};
+}
+
+PROFILE_INIT_FUNC(profile_init_stub)
+{
+	(void)memory;
+	return ProfileState{};
+}
+
+PROFILE_SET_STATE_FUNC(profile_set_state_stub)
+{
+	(void)state;
+}
+
+PROFILE_START_FRAME_FUNC(profile_start_frame_stub)
+{
+}
+
+PROFILE_END_FRAME_FUNC(profile_end_frame_stub)
+{
+}
+
+PROFILE_START_TIMER_FUNC(profile_start_timer_stub)
+{
+	(void)name;
+	return -1;
+}
+
+PROFILE_END_TIMER_FUNC(profile_end_timer_stub)
+{
+	(void)index;
+	(void)cycles;
+}
+
+SERIALIZE_LOAD_CONF_FUNC(serialize_load_conf_stub)
+{
+	(void)path;
+	(void)members;
+	(void)num_members;
+	(void)out;
+}
+
+SERIALIZE_SAVE_CONF_FUNC(serialize_save_conf_stub)
+{
+	(void)path;
+	(void)members;
+	(void)num_members;
+	(void)ptr;
+}
+
 static profile_start_timer_t     *profile_start_timer;
 static profile_end_timer_t       *profile_end_timer;
-static serialize_load_conf_t     *serialize_load_conf;
-static serialize_save_conf_t     *serialize_save_conf;
 
-#define DLOAD_FUNC(lib, name, result) name = (name##_t*)dlsym(lib, #name); result = result && name
-void* load_game_code()
+struct GameCode {
+	void                      *lib                   = nullptr;
+
+	game_init_t               *init                  = nullptr;
+	game_load_platform_code_t *load_platform_code    = nullptr;
+	game_quit_t               *quit                  = nullptr;
+	game_input_t              *input                 = nullptr;
+	game_update_and_render_t  *update_and_render     = nullptr;
+
+	make_linear_allocator_t   *make_linear_allocator = nullptr;
+	make_stack_allocator_t    *make_stack_allocator  = nullptr;
+
+	profile_init_t            *profile_init          = nullptr;
+	profile_set_state_t       *profile_set_state     = nullptr;
+	profile_start_frame_t     *profile_start_frame   = nullptr;
+	profile_end_frame_t       *profile_end_frame     = nullptr;
+	profile_start_timer_t     *profile_start_timer   = nullptr;
+	profile_end_timer_t       *profile_end_timer     = nullptr;
+
+	serialize_load_conf_t     *serialize_load_conf   = nullptr;
+	serialize_save_conf_t     *serialize_save_conf   = nullptr;
+};
+
+#define DLOAD_FUNC(lib, name) (name##_t*)dlsym(lib, #name)
+GameCode load_game_code()
 {
 	char *path = platform_resolve_path(GamePath_binary, "game.so");
-	void *lib = dlopen(path, RTLD_NOW);
 
-	if (lib) {
-		bool valid = true;
-		DLOAD_FUNC(lib, game_init, valid);
-		DLOAD_FUNC(lib, game_load_platform_code, valid);
-		DLOAD_FUNC(lib, game_quit, valid);
-		DLOAD_FUNC(lib, game_input, valid);
-		DLOAD_FUNC(lib, game_update_and_render, valid);
+	GameCode code = {};
+	code.lib = dlopen(path, RTLD_NOW);
 
-		DLOAD_FUNC(lib, make_linear_allocator, valid);
-		DLOAD_FUNC(lib, make_stack_allocator, valid);
+	if (code.lib) {
+		code.init                  = DLOAD_FUNC(code.lib, game_init);
+		code.load_platform_code    = DLOAD_FUNC(code.lib, game_load_platform_code);
+		code.quit                  = DLOAD_FUNC(code.lib, game_quit);
+		code.input                 = DLOAD_FUNC(code.lib, game_input);
+		code.update_and_render     = DLOAD_FUNC(code.lib, game_update_and_render);
 
-		DLOAD_FUNC(lib, profile_init, valid);
-		DLOAD_FUNC(lib, profile_start_frame, valid);
-		DLOAD_FUNC(lib, profile_end_frame, valid);
-		DLOAD_FUNC(lib, profile_start_timer, valid);
-		DLOAD_FUNC(lib, profile_end_timer, valid);
+		code.make_linear_allocator = DLOAD_FUNC(code.lib, make_linear_allocator);
+		code.make_stack_allocator  = DLOAD_FUNC(code.lib, make_stack_allocator);
 
-		DLOAD_FUNC(lib, serialize_load_conf, valid);
-		DLOAD_FUNC(lib, serialize_save_conf, valid);
+		code.profile_init          = DLOAD_FUNC(code.lib, profile_init);
+		code.profile_set_state     = DLOAD_FUNC(code.lib, profile_set_state);
+		code.profile_start_frame   = DLOAD_FUNC(code.lib, profile_start_frame);
+		code.profile_end_frame     = DLOAD_FUNC(code.lib, profile_end_frame);
+		code.profile_start_timer   = DLOAD_FUNC(code.lib, profile_start_timer);
+		code.profile_end_timer     = DLOAD_FUNC(code.lib, profile_end_timer);
 
-		if (!valid) {
-			dlclose(lib);
-			lib = nullptr;
-		}
+		code.serialize_load_conf   = DLOAD_FUNC(code.lib, serialize_load_conf);
+		code.serialize_save_conf   = DLOAD_FUNC(code.lib, serialize_save_conf);
 	}
 
-	return lib;
+	if (!code.init)                  code.init                  = &game_init_stub;
+	if (!code.load_platform_code)    code.load_platform_code    = &game_load_platform_code_stub;
+	if (!code.quit)                  code.quit                  = &game_quit_stub;
+	if (!code.input)                 code.input                 = &game_input_stub;
+	if (!code.update_and_render)     code.update_and_render     = &game_update_and_render_stub;
+
+	if (!code.make_linear_allocator) code.make_linear_allocator = make_linear_allocator_stub;
+	if (!code.make_stack_allocator)  code.make_stack_allocator  = make_stack_allocator_stub;
+
+	if (!code.profile_init)          code.profile_init          = profile_init_stub;
+	if (!code.profile_set_state)     code.profile_set_state     = profile_set_state_stub;
+	if (!code.profile_start_frame)   code.profile_start_frame   = profile_start_frame_stub;
+	if (!code.profile_end_frame)     code.profile_end_frame     = profile_end_frame_stub;
+	if (!code.profile_start_timer)   code.profile_start_timer   = profile_start_timer_stub;
+	if (!code.profile_end_timer)     code.profile_end_timer     = profile_end_timer_stub;
+
+	if (!code.serialize_load_conf)   code.serialize_load_conf   = serialize_load_conf_stub;
+	if (!code.serialize_save_conf)   code.serialize_save_conf   = serialize_save_conf_stub;
+
+	profile_start_timer = code.profile_start_timer;
+	profile_end_timer   = code.profile_end_timer;
+
+	return code;
 }
 
 struct LinuxState {
@@ -115,13 +238,29 @@ struct LinuxState {
 	i32        xinput2;
 	Cursor     hidden_cursor;
 
-	void *game_lib;
+	GameCode     game;
+	ProfileState profile;
+	PlatformCode platform_code;
 
 	struct {
 		i32 x;
 		i32 y;
 	} mouse;
 };
+
+
+GameCode reload_game_code(LinuxState *native)
+{
+	if (native->game.lib != nullptr) {
+		dlclose(native->game.lib);
+	}
+
+	GameCode game = load_game_code();
+	game.profile_set_state(&native->profile);
+	game.load_platform_code(&native->platform_code);
+
+	return game;
+}
 
 #include "linux_vulkan.cpp"
 
@@ -178,8 +317,8 @@ void platform_quit(PlatformState *platform)
 	XUngrabPointer(native->display, CurrentTime);
 
 	char *settings_path = platform_resolve_path(GamePath_preferences, "settings.conf");
-	serialize_save_conf(settings_path, Settings_members,
-	                    ARRAY_SIZE(Settings_members), &platform->settings);
+	native->game.serialize_save_conf(settings_path, Settings_members,
+	                                 ARRAY_SIZE(Settings_members), &platform->settings);
 
 	exit(EXIT_SUCCESS);
 }
@@ -225,19 +364,19 @@ PlatformCode make_platform_code()
 int main()
 {
 	LinuxState native = {};
-	PlatformCode code = make_platform_code();
+	native.platform_code = make_platform_code();
 
-	native.game_lib = load_game_code();
-	DEBUG_ASSERT(native.game_lib != nullptr);
+	native.game = load_game_code();
+	DEBUG_ASSERT(native.game.lib != nullptr);
 
 	PlatformState platform = {};
-	platform.native           = &native;
+	platform.native = &native;
 
-	game_load_platform_code(&code);
+	native.game.load_platform_code(&native.platform_code);
 
 	char *settings_path = platform_resolve_path(GamePath_preferences, "settings.conf");
-	serialize_load_conf(settings_path, Settings_members,
-	                    ARRAY_SIZE(Settings_members), &platform.settings);
+	native.game.serialize_load_conf(settings_path, Settings_members,
+	                                ARRAY_SIZE(Settings_members), &platform.settings);
 
 	isize frame_alloc_size      = 64 * 1024 * 1024;
 	isize persistent_alloc_size = 256 * 1024 * 1024;
@@ -246,11 +385,11 @@ int main()
 	u8 *mem = (u8*)malloc(frame_alloc_size + persistent_alloc_size);
 
 	GameMemory memory = {};
-	memory.frame      = make_linear_allocator(mem, frame_alloc_size);
-	memory.persistent = make_linear_allocator(mem + frame_alloc_size,
-	                                          persistent_alloc_size);
+	memory.frame      = native.game.make_linear_allocator(mem, frame_alloc_size);
+	memory.persistent = native.game.make_linear_allocator(mem + frame_alloc_size,
+	                                                      persistent_alloc_size);
 
-	profile_init(&memory);
+	native.profile = native.game.profile_init(&memory);
 
 	native.display = XOpenDisplay(nullptr);
 	i32 screen     = DefaultScreen(native.display);
@@ -315,7 +454,7 @@ int main()
 		                                           1, 1);
 	}
 
-	game_init(&memory, &platform);
+	native.game.init(&memory, &platform);
 
 	i32 num_screens = XScreenCount(native.display);
 	for (i32 i = 0; i < num_screens; i++) {
@@ -340,7 +479,8 @@ int main()
 
 	timespec last_time = get_time();
 	while (true) {
-		profile_start_frame();
+		native.game = reload_game_code(&native);
+		native.game.profile_start_frame();
 
 		timespec current_time = get_time();
 		i64 difference = get_time_difference(last_time, current_time);
@@ -360,7 +500,7 @@ int main()
 				event.key.vkey     = keycode_to_virtual(xevent.xkey.keycode);
 				event.key.repeated = false;
 
-				game_input(&memory, &platform, event);
+				native.game.input(&memory, &platform, event);
 			} break;
 			case KeyRelease: {
 				InputEvent event;
@@ -380,7 +520,7 @@ int main()
 					}
 				}
 
-				game_input(&memory, &platform, event);
+				native.game.input(&memory, &platform, event);
 			} break;
 			case MotionNotify: {
 				if (platform.raw_mouse) {
@@ -398,7 +538,7 @@ int main()
 				native.mouse.x = xevent.xmotion.x;
 				native.mouse.y = xevent.xmotion.y;
 
-				game_input(&memory, &platform, event);
+				native.game.input(&memory, &platform, event);
 			} break;
 			case EnterNotify: {
 				if (xevent.xcrossing.focus == true &&
@@ -411,7 +551,7 @@ int main()
 			} break;
 			case ClientMessage: {
 				if ((Atom)xevent.xclient.data.l[0] == WM_DELETE_WINDOW) {
-					game_quit(&memory, &platform);
+					native.game.quit(&memory, &platform);
 				}
 			} break;
 			case GenericEvent: {
@@ -459,7 +599,7 @@ int main()
 						event.mouse.dx = deltas[0];
 						event.mouse.dy = deltas[1];
 
-						game_input(&memory, &platform, event);
+						native.game.input(&memory, &platform, event);
 					} break;
 					default:
 						DEBUG_LOG("unhandled xinput2 event: %d",
@@ -478,9 +618,8 @@ int main()
 
 		PROFILE_END(linux_input);
 
-		game_update_and_render(&memory, dt);
-
-		profile_end_frame();
+		native.game.update_and_render(&memory, dt);
+		native.game.profile_end_frame();
 	}
 
 	return 0;

@@ -13,6 +13,20 @@
 #define PROFILE_TIMERS_ENABLE 1
 #endif
 
+#include "core/array.h"
+
+struct ProfileTimers {
+	StaticArray<const char*> names;
+	StaticArray<u64>         cycles;
+	StaticArray<u64>         cycles_last;
+	StaticArray<bool>        open;
+};
+
+struct ProfileState {
+	ProfileTimers timers;
+	ProfileTimers prev_timers;
+};
+
 #if PROFILE_TIMERS_ENABLE
 
 #define NUM_PROFILE_TIMERS (256)

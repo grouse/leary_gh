@@ -40,11 +40,14 @@ struct GameMemory {
 
 #define MAKE_LINEAR_ALLOCATOR_FUNC(fname) LinearAllocator fname(void *start, isize size)
 #define MAKE_STACK_ALLOCATOR_FUNC(fname)  StackAllocator fname(void *start, isize size)
-#define PROFILE_INIT_FUNC(fname)          void fname(GameMemory *memory)
-#define PROFILE_START_FRAME_FUNC(fname)   void fname(void)
-#define PROFILE_END_FRAME_FUNC(fname)     void fname(void)
+
+#define PROFILE_INIT_FUNC(fname)          ProfileState fname(GameMemory *memory)
+#define PROFILE_SET_STATE_FUNC(fname)     void fname(ProfileState *state)
+#define PROFILE_START_FRAME_FUNC(fname)   void fname()
+#define PROFILE_END_FRAME_FUNC(fname)     void fname()
 #define PROFILE_START_TIMER_FUNC(fname)   i32 fname(const char *name)
 #define PROFILE_END_TIMER_FUNC(fname)     void fname(i32 index, u64 cycles)
+
 #define SERIALIZE_LOAD_CONF_FUNC(fname)   void fname(const char *path, StructMemberInfo *members, usize num_members, void *out)
 #define SERIALIZE_SAVE_CONF_FUNC(fname)   void fname(const char *path, StructMemberInfo *members, usize num_members, void *ptr)
 

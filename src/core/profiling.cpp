@@ -10,15 +10,15 @@
 
 #if PROFILE_TIMERS_ENABLE
 
-struct ProfileTimers {
-	StaticArray<const char*> names;
-	StaticArray<u64>         cycles;
-	StaticArray<u64>         cycles_last;
-	StaticArray<bool>        open;
-};
-
 ProfileTimers g_profile_timers;
 ProfileTimers g_profile_timers_prev;
+
+extern "C"
+PROFILE_SET_STATE_FUNC(profile_set_state)
+{
+	g_profile_timers      = state->timers;
+	g_profile_timers_prev = state->prev_timers;
+}
 
 extern "C"
 PROFILE_START_TIMER_FUNC(profile_start_timer)
@@ -79,6 +79,8 @@ struct ProfileBlock {
 extern "C"
 PROFILE_INIT_FUNC(profile_init)
 {
+	ProfileState state = {};
+
 	isize names_size  = sizeof(const char*) * NUM_PROFILE_TIMERS;
 	isize cycles_size = sizeof(u64) * NUM_PROFILE_TIMERS;
 	isize open_size   = sizeof(bool) * NUM_PROFILE_TIMERS;
@@ -99,10 +101,10 @@ PROFILE_INIT_FUNC(profile_init)
 
 	auto open         = make_static_array<bool>(buffer0, NUM_PROFILE_TIMERS);
 
-	g_profile_timers.names       = names;
-	g_profile_timers.cycles      = cycles;
-	g_profile_timers.cycles_last = cycles_last;
-	g_profile_timers.open        = open;
+	state.timers.names       = names;
+	state.timers.cycles      = cycles;
+	state.timers.cycles_last = cycles_last;
+	state.timers.open        = open;
 
 	names        = make_static_array<const char*>(buffer1, NUM_PROFILE_TIMERS);
 	buffer1     += names_size;
@@ -115,10 +117,12 @@ PROFILE_INIT_FUNC(profile_init)
 
 	open         = make_static_array<bool>(buffer1, NUM_PROFILE_TIMERS);
 
-	g_profile_timers_prev.names       = names;
-	g_profile_timers_prev.cycles      = cycles;
-	g_profile_timers_prev.cycles_last = cycles_last;
-	g_profile_timers_prev.open        = open;
+	state.prev_timers.names       = names;
+	state.prev_timers.cycles      = cycles;
+	state.prev_timers.cycles_last = cycles_last;
+	state.prev_timers.open        = open;
+
+	return state;
 }
 
 extern "C"
