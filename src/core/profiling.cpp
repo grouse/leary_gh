@@ -10,71 +10,15 @@
 
 #if PROFILE_TIMERS_ENABLE
 
-ProfileTimers g_profile_timers;
-ProfileTimers g_profile_timers_prev;
+ProfileTimers *g_profile_timers;
+ProfileTimers *g_profile_timers_prev;
 
 extern "C"
 PROFILE_SET_STATE_FUNC(profile_set_state)
 {
-	g_profile_timers      = state->timers;
-	g_profile_timers_prev = state->prev_timers;
+	g_profile_timers      = &state->timers;
+	g_profile_timers_prev = &state->prev_timers;
 }
-
-extern "C"
-PROFILE_START_TIMER_FUNC(profile_start_timer)
-{
-	for (i32 i = 0; i < g_profile_timers.names.count; i++) {
-		if (strcmp(name, g_profile_timers.names[i]) == 0) {
-			g_profile_timers.open[i]        = true;
-			g_profile_timers.cycles_last[i] = 0;
-			return i;
-		}
-	}
-
-	i32 index = (i32)g_profile_timers.names.count++;
-	DEBUG_ASSERT(g_profile_timers.names.count < g_profile_timers.names.capacity);
-
-	// NOTE(jesper): assume the passed in string won't be deallocated, I don't
-	// see a use case for these functions where name isn't a pointer to a string
-	// literal, so it'll be fine
-	g_profile_timers.names[index] = name;
-	g_profile_timers.open[index]  = true;
-
-	DEBUG_LOG("new profile timer added: %d - %s", index, name);
-	return index;
-}
-
-extern "C"
-PROFILE_END_TIMER_FUNC(profile_end_timer)
-{
-	g_profile_timers.cycles[index]      += cycles;
-	g_profile_timers.cycles_last[index] += cycles;
-
-	g_profile_timers.open[index] = false;
-
-	for (i32 i = 0; i < g_profile_timers.names.count; i++) {
-		if (g_profile_timers.open[i] == true && i != index) {
-			g_profile_timers.cycles[i]      -= cycles;
-			g_profile_timers.cycles_last[i] -= cycles;
-		}
-	}
-}
-
-struct ProfileBlock {
-	i32 id;
-	u64 start_cycles;
-
-	ProfileBlock(const char *name) {
-		this->id = profile_start_timer(name);
-		this->start_cycles = rdtsc();
-	}
-
-	~ProfileBlock() {
-		u64 end_cycles = rdtsc();
-		profile_end_timer(this->id, end_cycles - start_cycles);
-	}
-};
-
 
 extern "C"
 PROFILE_INIT_FUNC(profile_init)
@@ -125,23 +69,80 @@ PROFILE_INIT_FUNC(profile_init)
 	return state;
 }
 
+
+extern "C"
+PROFILE_START_TIMER_FUNC(profile_start_timer)
+{
+	for (i32 i = 0; i < g_profile_timers->names.count; i++) {
+		if (strcmp(name, g_profile_timers->names[i]) == 0) {
+			g_profile_timers->open[i]        = true;
+			g_profile_timers->cycles_last[i] = 0;
+			return i;
+		}
+	}
+
+	i32 index = (i32)g_profile_timers->names.count++;
+	DEBUG_ASSERT(g_profile_timers->names.count < g_profile_timers->names.capacity);
+
+	// NOTE(jesper): assume the passed in string won't be deallocated, I don't
+	// see a use case for these functions where name isn't a pointer to a string
+	// literal, so it'll be fine
+	g_profile_timers->names[index] = name;
+	g_profile_timers->open[index]  = true;
+
+	DEBUG_LOG("new profile timer added: %d - %s", index, name);
+	return index;
+}
+
+extern "C"
+PROFILE_END_TIMER_FUNC(profile_end_timer)
+{
+	g_profile_timers->cycles[index]      += cycles;
+	g_profile_timers->cycles_last[index] += cycles;
+
+	g_profile_timers->open[index] = false;
+
+	for (i32 i = 0; i < g_profile_timers->names.count; i++) {
+		if (g_profile_timers->open[i] == true && i != index) {
+			g_profile_timers->cycles[i]      -= cycles;
+			g_profile_timers->cycles_last[i] -= cycles;
+		}
+	}
+}
+
+struct ProfileBlock {
+	i32 id;
+	u64 start_cycles;
+
+	ProfileBlock(const char *name) {
+		this->id = profile_start_timer(name);
+		this->start_cycles = rdtsc();
+	}
+
+	~ProfileBlock() {
+		u64 end_cycles = rdtsc();
+		profile_end_timer(this->id, end_cycles - start_cycles);
+	}
+};
+
+
 extern "C"
 PROFILE_START_FRAME_FUNC(profile_start_frame)
 {
-	for (i32 i = 0; i < g_profile_timers_prev.names.count - 1; i++) {
-		for (i32 j = i+1; j < g_profile_timers_prev.names.count; j++) {
-			if (g_profile_timers_prev.cycles[j] > g_profile_timers_prev.cycles[i]) {
-				const char *name_tmp = g_profile_timers_prev.names[j];
-				u64 cycles_tmp = g_profile_timers_prev.cycles[j];
-				u64 cycles_last_tmp = g_profile_timers_prev.cycles_last[j];
+	for (i32 i = 0; i < g_profile_timers_prev->names.count - 1; i++) {
+		for (i32 j = i+1; j < g_profile_timers_prev->names.count; j++) {
+			if (g_profile_timers_prev->cycles[j] > g_profile_timers_prev->cycles[i]) {
+				const char *name_tmp = g_profile_timers_prev->names[j];
+				u64 cycles_tmp = g_profile_timers_prev->cycles[j];
+				u64 cycles_last_tmp = g_profile_timers_prev->cycles_last[j];
 
-				g_profile_timers_prev.names[j] = g_profile_timers_prev.names[i];
-				g_profile_timers_prev.cycles[j] = g_profile_timers_prev.cycles[i];
-				g_profile_timers_prev.cycles_last[j] = g_profile_timers_prev.cycles_last[i];
+				g_profile_timers_prev->names[j] = g_profile_timers_prev->names[i];
+				g_profile_timers_prev->cycles[j] = g_profile_timers_prev->cycles[i];
+				g_profile_timers_prev->cycles_last[j] = g_profile_timers_prev->cycles_last[i];
 
-				g_profile_timers_prev.names[i] = name_tmp;
-				g_profile_timers_prev.cycles[i] = cycles_tmp;
-				g_profile_timers_prev.cycles_last[i] = cycles_last_tmp;
+				g_profile_timers_prev->names[i] = name_tmp;
+				g_profile_timers_prev->cycles[i] = cycles_tmp;
+				g_profile_timers_prev->cycles_last[i] = cycles_last_tmp;
 			}
 		}
 	}
@@ -150,12 +151,12 @@ PROFILE_START_FRAME_FUNC(profile_start_frame)
 extern "C"
 PROFILE_END_FRAME_FUNC(profile_end_frame)
 {
-	ProfileTimers tmp      = g_profile_timers_prev;
-	g_profile_timers_prev  = g_profile_timers;
-	g_profile_timers       = tmp;
+	ProfileTimers tmp      = *g_profile_timers_prev;
+	*g_profile_timers_prev = *g_profile_timers;
+	*g_profile_timers      = tmp;
 
-	for (i32 i = 0; i < g_profile_timers.names.count; i++) {
-		g_profile_timers.cycles[i] = 0;
+	for (i32 i = 0; i < g_profile_timers->names.count; i++) {
+		g_profile_timers->cycles[i] = 0;
 	}
 }
 

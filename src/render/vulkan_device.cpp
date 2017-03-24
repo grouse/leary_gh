@@ -1787,6 +1787,51 @@ VulkanTexture create_texture(VulkanDevice *device, u32 width, u32 height,
 	return texture;
 }
 
+void vulkan_set_code(VulkanDevice *device)
+{
+	CreateDebugReportCallbackEXT  = device->code.CreateDebugReportCallbackEXT;
+	DestroyDebugReportCallbackEXT = device->code.DestroyDebugReportCallbackEXT;
+}
+
+VulkanCode vulkan_load(VulkanDevice *device)
+{
+	VulkanCode code = {};
+	code.CreateDebugReportCallbackEXT =
+		(PFN_vkCreateDebugReportCallbackEXT)
+		vkGetInstanceProcAddr(device->instance,
+			                  "vkCreateDebugReportCallbackEXT");
+
+	code.DestroyDebugReportCallbackEXT =
+		(PFN_vkDestroyDebugReportCallbackEXT)
+		vkGetInstanceProcAddr(device->instance,
+			                  "vkDestroyDebugReportCallbackEXT");
+
+	return code;
+}
+
+void vulkan_create_debug(VulkanDevice *device)
+{
+	VkDebugReportCallbackCreateInfoEXT create_info = {};
+	create_info.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CREATE_INFO_EXT;
+
+	create_info.flags = VK_DEBUG_REPORT_ERROR_BIT_EXT |
+		VK_DEBUG_REPORT_WARNING_BIT_EXT |
+		VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT |
+		VK_DEBUG_REPORT_DEBUG_BIT_EXT;
+
+	create_info.pfnCallback = &debug_callback_func;
+
+	VkResult result = CreateDebugReportCallbackEXT(device->instance,
+	                                               &create_info,
+	                                               nullptr,
+	                                               &device->debug_callback);
+	DEBUG_ASSERT(result == VK_SUCCESS);
+}
+
+void vulkan_destroy_debug(VulkanDevice *device)
+{
+	DestroyDebugReportCallbackEXT(device->instance, device->debug_callback, nullptr);
+}
 
 VulkanDevice create_device(GameMemory *memory,
                            PlatformState *platform,
@@ -1903,32 +1948,11 @@ VulkanDevice create_device(GameMemory *memory,
 	 * Create debug callbacks
 	 *************************************************************************/
 	{
+		VulkanCode code = vulkan_load(&device);
+		device.code     = code;
+		vulkan_set_code(&device);
 
-		CreateDebugReportCallbackEXT =
-			(PFN_vkCreateDebugReportCallbackEXT)
-			vkGetInstanceProcAddr(device.instance,
-			                      "vkCreateDebugReportCallbackEXT");
-
-		DestroyDebugReportCallbackEXT =
-			(PFN_vkDestroyDebugReportCallbackEXT)
-			vkGetInstanceProcAddr(device.instance,
-			                      "vkDestroyDebugReportCallbackEXT");
-
-		VkDebugReportCallbackCreateInfoEXT create_info = {};
-		create_info.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CREATE_INFO_EXT;
-
-		create_info.flags = VK_DEBUG_REPORT_ERROR_BIT_EXT |
-		    VK_DEBUG_REPORT_WARNING_BIT_EXT |
-		    VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT |
-		    VK_DEBUG_REPORT_DEBUG_BIT_EXT;
-
-		create_info.pfnCallback = &debug_callback_func;
-
-		result = CreateDebugReportCallbackEXT(device.instance,
-		                                      &create_info,
-		                                      nullptr,
-		                                      &device.debug_callback);
-		DEBUG_ASSERT(result == VK_SUCCESS);
+		vulkan_create_debug(&device);
 	}
 
 	/**************************************************************************
@@ -2331,7 +2355,7 @@ void destroy(VulkanDevice *device)
 
 	vkDestroyDevice(device->handle,     nullptr);
 
-	DestroyDebugReportCallbackEXT(device->instance, device->debug_callback, nullptr);
+	vulkan_destroy_debug(device);
 
 	vkDestroyInstance(device->instance, nullptr);
 }

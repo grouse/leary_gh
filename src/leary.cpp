@@ -114,8 +114,6 @@ struct GameState {
 extern "C"
 GAME_LOAD_PLATFORM_CODE_FUNC(game_load_platform_code)
 {
-	// NOTE(jesper): I wanted to preprocess macro this in the same vein as in
-	// platform.h, but couldn't wrestle the stupid preprocessor to my will
 	platform_toggle_raw_mouse                 = code->toggle_raw_mouse;
 	platform_set_raw_mouse                    = code->set_raw_mouse;
 	platform_quit                             = code->quit;
@@ -130,6 +128,15 @@ GAME_LOAD_PLATFORM_CODE_FUNC(game_load_platform_code)
 	platform_file_close                       = code->file_close;
 	platform_file_write                       = code->file_write;
 	platform_file_read                        = code->file_read;
+}
+
+extern "C"
+GAME_RELOAD_FUNC(game_reload)
+{
+	game_load_platform_code(code);
+
+	GameState *game = (GameState*)memory->game;
+	vulkan_set_code(&game->vulkan);
 }
 
 
@@ -513,11 +520,11 @@ void game_update(GameMemory *memory, f32 dt)
 	buffer_size -= bytes;
 
 
-	for (i32 i = 0; i < g_profile_timers_prev.names.count; i++) {
+	for (i32 i = 0; i < g_profile_timers_prev->names.count; i++) {
 		bytes = snprintf(buffer, buffer_size, "%s: %" PRIu64 " cy (%" PRIu64 " cy)\n",
-		                 g_profile_timers_prev.names[i],
-		                 g_profile_timers_prev.cycles[i],
-		                 g_profile_timers_prev.cycles_last[i]);
+		                 g_profile_timers_prev->names[i],
+		                 g_profile_timers_prev->cycles[i],
+		                 g_profile_timers_prev->cycles_last[i]);
 		buffer += bytes;
 		buffer_size -= bytes;
 	}

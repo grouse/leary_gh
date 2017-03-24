@@ -42,6 +42,7 @@
 #include "generated/type_info.h"
 
 typedef GAME_INIT_FUNC(game_init_t);
+typedef GAME_RELOAD_FUNC(game_reload_t);
 typedef GAME_LOAD_PLATFORM_CODE_FUNC(game_load_platform_code_t);
 typedef GAME_QUIT_FUNC(game_quit_t);
 typedef GAME_INPUT_FUNC(game_input_t);
@@ -64,6 +65,11 @@ GAME_INIT_FUNC(game_init_stub)
 {
 	(void)memory;
 	(void)platform;
+}
+GAME_RELOAD_FUNC(game_reload_stub)
+{
+	(void)memory;
+	(void)code;
 }
 
 GAME_LOAD_PLATFORM_CODE_FUNC(game_load_platform_code_stub)
@@ -158,6 +164,8 @@ struct GameCode {
 	void                      *lib                   = nullptr;
 
 	game_init_t               *init                  = nullptr;
+	game_reload_t             *reload                = nullptr;
+
 	game_load_platform_code_t *load_platform_code    = nullptr;
 	game_quit_t               *quit                  = nullptr;
 	game_input_t              *input                 = nullptr;
@@ -187,6 +195,8 @@ GameCode load_game_code()
 
 	if (code.lib) {
 		code.init                  = DLOAD_FUNC(code.lib, game_init);
+		code.reload                = DLOAD_FUNC(code.lib, game_reload);
+
 		code.load_platform_code    = DLOAD_FUNC(code.lib, game_load_platform_code);
 		code.quit                  = DLOAD_FUNC(code.lib, game_quit);
 		code.input                 = DLOAD_FUNC(code.lib, game_input);
@@ -207,6 +217,8 @@ GameCode load_game_code()
 	}
 
 	if (!code.init)                  code.init                  = &game_init_stub;
+	if (!code.reload)                code.reload                = &game_reload_stub;
+
 	if (!code.load_platform_code)    code.load_platform_code    = &game_load_platform_code_stub;
 	if (!code.quit)                  code.quit                  = &game_quit_stub;
 	if (!code.input)                 code.input                 = &game_input_stub;
@@ -249,7 +261,7 @@ struct LinuxState {
 };
 
 
-GameCode reload_game_code(LinuxState *native)
+GameCode reload_game_code(GameMemory *memory, LinuxState *native)
 {
 	if (native->game.lib != nullptr) {
 		dlclose(native->game.lib);
@@ -257,7 +269,7 @@ GameCode reload_game_code(LinuxState *native)
 
 	GameCode game = load_game_code();
 	game.profile_set_state(&native->profile);
-	game.load_platform_code(&native->platform_code);
+	game.reload(memory, &native->platform_code);
 
 	return game;
 }
@@ -372,12 +384,6 @@ int main()
 	PlatformState platform = {};
 	platform.native = &native;
 
-	native.game.load_platform_code(&native.platform_code);
-
-	char *settings_path = platform_resolve_path(GamePath_preferences, "settings.conf");
-	native.game.serialize_load_conf(settings_path, Settings_members,
-	                                ARRAY_SIZE(Settings_members), &platform.settings);
-
 	isize frame_alloc_size      = 64 * 1024 * 1024;
 	isize persistent_alloc_size = 256 * 1024 * 1024;
 
@@ -388,6 +394,13 @@ int main()
 	memory.frame      = native.game.make_linear_allocator(mem, frame_alloc_size);
 	memory.persistent = native.game.make_linear_allocator(mem + frame_alloc_size,
 	                                                      persistent_alloc_size);
+
+	native.game.load_platform_code(&native.platform_code);
+
+	char *settings_path = platform_resolve_path(GamePath_preferences, "settings.conf");
+	native.game.serialize_load_conf(settings_path, Settings_members,
+	                                ARRAY_SIZE(Settings_members), &platform.settings);
+
 
 	native.profile = native.game.profile_init(&memory);
 
@@ -479,7 +492,7 @@ int main()
 
 	timespec last_time = get_time();
 	while (true) {
-		native.game = reload_game_code(&native);
+		native.game = reload_game_code(&memory, &native);
 		native.game.profile_start_frame();
 
 		timespec current_time = get_time();

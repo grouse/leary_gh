@@ -33,6 +33,8 @@ struct GameMemory {
 };
 
 #define GAME_INIT_FUNC(fname)               void fname(GameMemory *memory, PlatformState *platform)
+#define GAME_RELOAD_FUNC(fname)             void fname(GameMemory *memory, PlatformCode *code)
+
 #define GAME_LOAD_PLATFORM_CODE_FUNC(fname) void fname(PlatformCode *code)
 #define GAME_QUIT_FUNC(fname)               void fname(GameMemory *memory, PlatformState *platform)
 #define GAME_INPUT_FUNC(fname)              void fname(GameMemory *memory, PlatformState *platform, InputEvent event)
