@@ -26,314 +26,13 @@
 #include <cstdlib>
 
 #include <dlfcn.h>
+#include <unistd.h>
+#include <linux/limits.h>
 
 #include <time.h>
 
 #include "platform.h"
-
 #include "linux_debug.cpp"
-#include "linux_file.cpp"
-#include "linux_input.cpp"
-
-#include "leary.h"
-#include "core/profiling.h"
-#include "core/math.h"
-
-#include "generated/type_info.h"
-
-typedef GAME_INIT_FUNC(game_init_t);
-typedef GAME_RELOAD_FUNC(game_reload_t);
-typedef GAME_LOAD_PLATFORM_CODE_FUNC(game_load_platform_code_t);
-typedef GAME_QUIT_FUNC(game_quit_t);
-typedef GAME_INPUT_FUNC(game_input_t);
-typedef GAME_UPDATE_AND_RENDER_FUNC(game_update_and_render_t);
-
-typedef MAKE_LINEAR_ALLOCATOR_FUNC(make_linear_allocator_t);
-typedef MAKE_STACK_ALLOCATOR_FUNC(make_stack_allocator_t);
-
-typedef PROFILE_INIT_FUNC(profile_init_t);
-typedef PROFILE_SET_STATE_FUNC(profile_set_state_t);
-typedef PROFILE_START_FRAME_FUNC(profile_start_frame_t);
-typedef PROFILE_END_FRAME_FUNC(profile_end_frame_t);
-typedef PROFILE_START_TIMER_FUNC(profile_start_timer_t);
-typedef PROFILE_END_TIMER_FUNC(profile_end_timer_t);
-
-typedef SERIALIZE_LOAD_CONF_FUNC(serialize_load_conf_t);
-typedef SERIALIZE_SAVE_CONF_FUNC(serialize_save_conf_t);
-
-GAME_INIT_FUNC(game_init_stub)
-{
-	(void)memory;
-	(void)platform;
-}
-GAME_RELOAD_FUNC(game_reload_stub)
-{
-	(void)memory;
-	(void)code;
-}
-
-GAME_LOAD_PLATFORM_CODE_FUNC(game_load_platform_code_stub)
-{
-	(void)code;
-}
-
-GAME_QUIT_FUNC(game_quit_stub)
-{
-	(void)memory;
-	(void)platform;
-}
-
-GAME_INPUT_FUNC(game_input_stub)
-{
-	(void)memory;
-	(void)platform;
-	(void)event;
-}
-
-GAME_UPDATE_AND_RENDER_FUNC(game_update_and_render_stub)
-{
-	(void)memory;
-	(void)dt;
-}
-
-MAKE_LINEAR_ALLOCATOR_FUNC(make_linear_allocator_stub)
-{
-	(void)start;
-	(void)size;
-	return LinearAllocator{};
-}
-
-MAKE_STACK_ALLOCATOR_FUNC(make_stack_allocator_stub)
-{
-	(void)start;
-	(void)size;
-	return StackAllocator{};
-}
-
-PROFILE_INIT_FUNC(profile_init_stub)
-{
-	(void)memory;
-	return ProfileState{};
-}
-
-PROFILE_SET_STATE_FUNC(profile_set_state_stub)
-{
-	(void)state;
-}
-
-PROFILE_START_FRAME_FUNC(profile_start_frame_stub)
-{
-}
-
-PROFILE_END_FRAME_FUNC(profile_end_frame_stub)
-{
-}
-
-PROFILE_START_TIMER_FUNC(profile_start_timer_stub)
-{
-	(void)name;
-	return -1;
-}
-
-PROFILE_END_TIMER_FUNC(profile_end_timer_stub)
-{
-	(void)index;
-	(void)cycles;
-}
-
-SERIALIZE_LOAD_CONF_FUNC(serialize_load_conf_stub)
-{
-	(void)path;
-	(void)members;
-	(void)num_members;
-	(void)out;
-}
-
-SERIALIZE_SAVE_CONF_FUNC(serialize_save_conf_stub)
-{
-	(void)path;
-	(void)members;
-	(void)num_members;
-	(void)ptr;
-}
-
-static profile_start_timer_t     *profile_start_timer;
-static profile_end_timer_t       *profile_end_timer;
-
-struct GameCode {
-	void                      *lib                   = nullptr;
-
-	game_init_t               *init                  = nullptr;
-	game_reload_t             *reload                = nullptr;
-
-	game_load_platform_code_t *load_platform_code    = nullptr;
-	game_quit_t               *quit                  = nullptr;
-	game_input_t              *input                 = nullptr;
-	game_update_and_render_t  *update_and_render     = nullptr;
-
-	make_linear_allocator_t   *make_linear_allocator = nullptr;
-	make_stack_allocator_t    *make_stack_allocator  = nullptr;
-
-	profile_init_t            *profile_init          = nullptr;
-	profile_set_state_t       *profile_set_state     = nullptr;
-	profile_start_frame_t     *profile_start_frame   = nullptr;
-	profile_end_frame_t       *profile_end_frame     = nullptr;
-	profile_start_timer_t     *profile_start_timer   = nullptr;
-	profile_end_timer_t       *profile_end_timer     = nullptr;
-
-	serialize_load_conf_t     *serialize_load_conf   = nullptr;
-	serialize_save_conf_t     *serialize_save_conf   = nullptr;
-};
-
-#define DLOAD_FUNC(lib, name) (name##_t*)dlsym(lib, #name)
-GameCode load_game_code()
-{
-	char *path = platform_resolve_path(GamePath_binary, "game.so");
-
-	GameCode code = {};
-	code.lib = dlopen(path, RTLD_NOW);
-
-	if (code.lib) {
-		code.init                  = DLOAD_FUNC(code.lib, game_init);
-		code.reload                = DLOAD_FUNC(code.lib, game_reload);
-
-		code.load_platform_code    = DLOAD_FUNC(code.lib, game_load_platform_code);
-		code.quit                  = DLOAD_FUNC(code.lib, game_quit);
-		code.input                 = DLOAD_FUNC(code.lib, game_input);
-		code.update_and_render     = DLOAD_FUNC(code.lib, game_update_and_render);
-
-		code.make_linear_allocator = DLOAD_FUNC(code.lib, make_linear_allocator);
-		code.make_stack_allocator  = DLOAD_FUNC(code.lib, make_stack_allocator);
-
-		code.profile_init          = DLOAD_FUNC(code.lib, profile_init);
-		code.profile_set_state     = DLOAD_FUNC(code.lib, profile_set_state);
-		code.profile_start_frame   = DLOAD_FUNC(code.lib, profile_start_frame);
-		code.profile_end_frame     = DLOAD_FUNC(code.lib, profile_end_frame);
-		code.profile_start_timer   = DLOAD_FUNC(code.lib, profile_start_timer);
-		code.profile_end_timer     = DLOAD_FUNC(code.lib, profile_end_timer);
-
-		code.serialize_load_conf   = DLOAD_FUNC(code.lib, serialize_load_conf);
-		code.serialize_save_conf   = DLOAD_FUNC(code.lib, serialize_save_conf);
-	}
-
-	if (!code.init)                  code.init                  = &game_init_stub;
-	if (!code.reload)                code.reload                = &game_reload_stub;
-
-	if (!code.load_platform_code)    code.load_platform_code    = &game_load_platform_code_stub;
-	if (!code.quit)                  code.quit                  = &game_quit_stub;
-	if (!code.input)                 code.input                 = &game_input_stub;
-	if (!code.update_and_render)     code.update_and_render     = &game_update_and_render_stub;
-
-	if (!code.make_linear_allocator) code.make_linear_allocator = make_linear_allocator_stub;
-	if (!code.make_stack_allocator)  code.make_stack_allocator  = make_stack_allocator_stub;
-
-	if (!code.profile_init)          code.profile_init          = profile_init_stub;
-	if (!code.profile_set_state)     code.profile_set_state     = profile_set_state_stub;
-	if (!code.profile_start_frame)   code.profile_start_frame   = profile_start_frame_stub;
-	if (!code.profile_end_frame)     code.profile_end_frame     = profile_end_frame_stub;
-	if (!code.profile_start_timer)   code.profile_start_timer   = profile_start_timer_stub;
-	if (!code.profile_end_timer)     code.profile_end_timer     = profile_end_timer_stub;
-
-	if (!code.serialize_load_conf)   code.serialize_load_conf   = serialize_load_conf_stub;
-	if (!code.serialize_save_conf)   code.serialize_save_conf   = serialize_save_conf_stub;
-
-	profile_start_timer = code.profile_start_timer;
-	profile_end_timer   = code.profile_end_timer;
-
-	return code;
-}
-
-struct LinuxState {
-	Window     window;
-	Display    *display;
-	XkbDescPtr xkb;
-	i32        xinput2;
-	Cursor     hidden_cursor;
-
-	GameCode     game;
-	ProfileState profile;
-	PlatformCode platform_code;
-
-	struct {
-		i32 x;
-		i32 y;
-	} mouse;
-};
-
-
-GameCode reload_game_code(GameMemory *memory, LinuxState *native)
-{
-	if (native->game.lib != nullptr) {
-		dlclose(native->game.lib);
-	}
-
-	GameCode game = load_game_code();
-	game.profile_set_state(&native->profile);
-	game.reload(memory, &native->platform_code);
-
-	return game;
-}
-
-#include "linux_vulkan.cpp"
-
-void platform_toggle_raw_mouse(PlatformState *platform)
-{
-	LinuxState *native = (LinuxState*)platform->native;
-
-	platform->raw_mouse = !platform->raw_mouse;
-	DEBUG_LOG("raw mouse mode set to: %d", platform->raw_mouse);
-
-	if (platform->raw_mouse) {
-		XGrabPointer(native->display, native->window, false,
-		             (KeyPressMask | KeyReleaseMask) & 0,
-		             GrabModeAsync, GrabModeAsync,
-		             native->window, native->hidden_cursor, CurrentTime);
-	} else {
-		XUngrabPointer(native->display, CurrentTime);
-
-		i32 num_screens = XScreenCount(native->display);
-
-		for (i32 i = 0; i < num_screens; i++) {
-			Window root = XRootWindow(native->display, i);
-			Window child;
-
-			u32 mask;
-			i32 root_x, root_y, win_x, win_y;
-			bool result = XQueryPointer(native->display, native->window,
-			                            &root, &child,
-			                            &root_x, &root_y, &win_x, &win_y,
-			                            &mask);
-			if (result) {
-				native->mouse.x = win_x;
-				native->mouse.y = win_y;
-				break;
-			}
-		}
-	}
-
-	XFlush(native->display);
-}
-
-void platform_set_raw_mouse(PlatformState *platform, bool enable)
-{
-	if ((enable && !platform->raw_mouse) ||
-	    (!enable && platform->raw_mouse))
-	{
-		platform_toggle_raw_mouse(platform);
-	}
-}
-
-void platform_quit(PlatformState *platform)
-{
-	LinuxState *native = (LinuxState*)platform->native;
-	XUngrabPointer(native->display, CurrentTime);
-
-	char *settings_path = platform_resolve_path(GamePath_preferences, "settings.conf");
-	native->game.serialize_save_conf(settings_path, Settings_members,
-	                                 ARRAY_SIZE(Settings_members), &platform->settings);
-
-	exit(EXIT_SUCCESS);
-}
 
 timespec get_time()
 {
@@ -351,296 +50,124 @@ i64 get_time_difference(timespec start, timespec end)
 	return difference;
 }
 
-PlatformCode make_platform_code()
+#if LEARY_DYNAMIC
+typedef PLATFORM_INIT_FUNC(platform_init_t);
+typedef PLATFORM_PRE_RELOAD_FUNC(platform_pre_reload_t);
+typedef PLATFORM_RELOAD_FUNC(platform_reload_t);
+typedef PLATFORM_UPDATE_FUNC(platform_update_t);
+
+PLATFORM_INIT_FUNC(platform_init_stub)
 {
-	// NOTE(jesper): I wanted to preprocess macro this in the same vein as in
-	// platform.h, but couldn't wrestle the stupid preprocessor to my will
-	PlatformCode code = {};
-	code.toggle_raw_mouse                 = &platform_toggle_raw_mouse;
-	code.set_raw_mouse                    = &platform_set_raw_mouse;
-	code.quit                             = &platform_quit;
-	code.vulkan_create_surface            = &platform_vulkan_create_surface;
-	code.vulkan_enable_instance_extension = &platform_vulkan_enable_instance_extension;
-	code.vulkan_enable_instance_layer     = &platform_vulkan_enable_instance_layer;
-	code.resolve_relative                 = &platform_resolve_relative;
-	code.resolve_path                     = &platform_resolve_path;
-	code.file_exists                      = &platform_file_exists;
-	code.file_create                      = &platform_file_create;
-	code.file_open                        = &platform_file_open;
-	code.file_close                       = &platform_file_close;
-	code.file_write                       = &platform_file_write;
-	code.file_read                        = &platform_file_read;
-	return code;
+	(void)platform;
 }
+
+PLATFORM_PRE_RELOAD_FUNC(platform_pre_reload_stub)
+{
+	(void)platform;
+}
+
+PLATFORM_RELOAD_FUNC(platform_reload_stub)
+{
+	(void)platform;
+}
+
+PLATFORM_UPDATE_FUNC(platform_update_stub)
+{
+	(void)platform;
+	(void)dt;
+}
+
+static platform_init_t       *platform_init       = &platform_init_stub;
+static platform_pre_reload_t *platform_pre_reload = &platform_pre_reload_stub;
+static platform_reload_t     *platform_reload     = &platform_reload_stub;
+static platform_update_t     *platform_update     = &platform_update_stub;
+
+#define DLOAD_FUNC(lib, name) (name##_t*)dlsym(lib, #name)
+void* reload_code(PlatformState *platform, char *path, void *current)
+{
+	if (platform != nullptr) {
+		platform_pre_reload(platform);
+	}
+
+	if (current != nullptr) {
+		dlclose(current);
+	}
+
+	void *lib = dlopen(path, RTLD_NOW);
+	if (lib) {
+		platform_init       = DLOAD_FUNC(lib, platform_init);
+		platform_pre_reload = DLOAD_FUNC(lib, platform_pre_reload);
+		platform_reload     = DLOAD_FUNC(lib, platform_reload);
+		platform_update     = DLOAD_FUNC(lib, platform_update);
+	}
+
+	if (!platform_init)       platform_init       = &platform_init_stub;
+	if (!platform_pre_reload) platform_pre_reload = &platform_pre_reload_stub;
+	if (!platform_reload)     platform_reload     = &platform_reload_stub;
+	if (!platform_update)     platform_update     = &platform_update_stub;
+
+	if (platform != nullptr) {
+		platform_reload(platform);
+	}
+
+	return lib;
+}
+#else
+
+// TODO(jesper): include the game code .cpp files directly
+void* reload_code(PlatformState *, char *, void *)
+{
+	return nullptr;
+}
+
+#endif
 
 int main()
 {
-	LinuxState native = {};
-	native.platform_code = make_platform_code();
+	char linkname[64];
+	pid_t pid = getpid();
+	i64 result = snprintf(linkname, sizeof(linkname), "/proc/%i/exe", pid);
+	DEBUG_ASSERT(result >= 0);
 
-	native.game = load_game_code();
-	DEBUG_ASSERT(native.game.lib != nullptr);
+	char buffer[PATH_MAX];
+	i64 length = readlink(linkname, buffer, PATH_MAX);
+	DEBUG_ASSERT(length >= 0);
 
-	PlatformState platform = {};
-	platform.native = &native;
-
-	isize frame_alloc_size      = 64 * 1024 * 1024;
-	isize persistent_alloc_size = 256 * 1024 * 1024;
-
-	// TODO(jesper): allocate these using linux call
-	u8 *mem = (u8*)malloc(frame_alloc_size + persistent_alloc_size);
-
-	GameMemory memory = {};
-	memory.frame      = native.game.make_linear_allocator(mem, frame_alloc_size);
-	memory.persistent = native.game.make_linear_allocator(mem + frame_alloc_size,
-	                                                      persistent_alloc_size);
-
-	native.game.load_platform_code(&native.platform_code);
-
-	char *settings_path = platform_resolve_path(GamePath_preferences, "settings.conf");
-	native.game.serialize_load_conf(settings_path, Settings_members,
-	                                ARRAY_SIZE(Settings_members), &platform.settings);
-
-
-	native.profile = native.game.profile_init(&memory);
-
-	native.display = XOpenDisplay(nullptr);
-	i32 screen     = DefaultScreen(native.display);
-	native.window  = XCreateSimpleWindow(native.display,
-	                                     DefaultRootWindow(native.display),
-	                                     0, 0,
-	                                     platform.settings.video.resolution.width,
-	                                     platform.settings.video.resolution.height,
-	                                     2, BlackPixel(native.display, screen),
-	                                     BlackPixel(native.display, screen));
-
-	XSelectInput(native.display, native.window,
-	             KeyPressMask | KeyReleaseMask | StructureNotifyMask |
-	             PointerMotionMask | EnterWindowMask);
-	XMapWindow(native.display, native.window);
-
-	Atom WM_DELETE_WINDOW = XInternAtom(native.display, "WM_DELETE_WINDOW", false);
-	XSetWMProtocols(native.display, native.window, &WM_DELETE_WINDOW, 1);
-
-	i32 xkb_major = XkbMajorVersion;
-	i32 xkb_minor = XkbMinorVersion;
-
-	if (XkbQueryExtension(native.display, NULL, NULL, NULL, &xkb_major, &xkb_minor)) {
-		native.xkb = XkbGetMap(native.display, XkbAllClientInfoMask, XkbUseCoreKbd);
-		DEBUG_LOG("Initialised XKB version %d.%d", xkb_major, xkb_minor);
-	}
-
-	{
-		i32 event, error;
-		if (!XQueryExtension(native.display, "XInputExtension",
-		                     &native.xinput2,
-		                     &event, &error))
-		{
-			DEBUG_ASSERT(false && "XInput2 extension not found, this is required");
-			return 0;
-		}
-
-		u8 mask[3] = { 0, 0, 0 };
-
-		XIEventMask emask;
-		emask.deviceid = XIAllMasterDevices;
-		emask.mask_len = sizeof(mask);
-		emask.mask     = mask;
-
-		XISetMask(mask, XI_RawMotion);
-		XISetMask(mask, XI_RawButtonPress);
-		XISetMask(mask, XI_RawButtonRelease);
-
-		XISelectEvents(native.display, DefaultRootWindow(native.display),
-		               &emask, 1);
-		XFlush(native.display);
-	}
-
-	{ // create hidden cursor used when raw mouse is enabled
-		XColor xcolor;
-		char csr_bits[] = { 0x00 };
-
-		Pixmap csr = XCreateBitmapFromData(native.display, native.window,
-		                                   csr_bits, 1, 1);
-		native.hidden_cursor = XCreatePixmapCursor(native.display,
-		                                           csr, csr, &xcolor, &xcolor,
-		                                           1, 1);
-	}
-
-	native.game.init(&memory, &platform);
-
-	i32 num_screens = XScreenCount(native.display);
-	for (i32 i = 0; i < num_screens; i++) {
-		Window root = XRootWindow(native.display, i);
-		Window child;
-
-		u32 mask;
-		i32 root_x, root_y, win_x, win_y;
-		bool result = XQueryPointer(native.display, native.window,
-		                            &root, &child,
-		                            &root_x, &root_y,
-		                            &win_x, &win_y,
-		                            &mask);
-		if (result) {
-			native.mouse.x = win_x;
-			native.mouse.y = win_y;
+	for (; length >= 0; length--) {
+		if (buffer[length-1] == '/') {
 			break;
 		}
 	}
 
-	XEvent xevent;
+	i64 total_length = length + strlen("game.so");
+	char *lib_path = (char*)malloc(total_length);
+	strncpy(lib_path, buffer, length);
+	strcat(lib_path, "game.so");
 
-	constexpr f32 game_code_reload_rate = 1.0f;
-	f32 game_code_reload_timer = game_code_reload_rate;
+	void *lib = reload_code(nullptr, lib_path, nullptr);
+
+	PlatformState platform = {};
+	platform_init(&platform);
+
+	constexpr f32 code_reload_rate = 1.0f;
+	f32 code_reload_timer = code_reload_rate;
 
 	timespec last_time = get_time();
 	while (true) {
 		timespec current_time = get_time();
-		i64 difference = get_time_difference(last_time, current_time);
-		last_time = current_time;
+		i64 difference        = get_time_difference(last_time, current_time);
+		last_time             = current_time;
+
 		f32 dt = (f32)difference / 1000000000.0f;
 		DEBUG_ASSERT(difference >= 0);
 
-		game_code_reload_timer += dt;
-		if (game_code_reload_timer >= game_code_reload_rate) {
-			native.game            = reload_game_code(&memory, &native);
-			game_code_reload_timer = 0.0f;
+		code_reload_timer += dt;
+		if (code_reload_timer >= code_reload_rate) {
+			reload_code(&platform, lib_path, lib);
+			code_reload_timer = 0.0f;
 		}
 
-		native.game.profile_start_frame();
-
-		PROFILE_START(linux_input);
-
-		while (XPending(native.display) > 0) {
-			XNextEvent(native.display, &xevent);
-
-			switch (xevent.type) {
-			case KeyPress: {
-				InputEvent event;
-				event.type         = InputType_key_press;
-				event.key.vkey     = keycode_to_virtual(xevent.xkey.keycode);
-				event.key.repeated = false;
-
-				native.game.input(&memory, &platform, event);
-			} break;
-			case KeyRelease: {
-				InputEvent event;
-				event.type         = InputType_key_release;
-				event.key.vkey     = keycode_to_virtual(xevent.xkey.keycode);
-				event.key.repeated = false;
-
-				if (XEventsQueued(native.display, QueuedAfterReading)) {
-					XEvent next;
-					XPeekEvent(native.display, &next);
-
-					if (next.type == KeyPress &&
-					    next.xkey.time == xevent.xkey.time &&
-					    next.xkey.keycode == xevent.xkey.keycode)
-					{
-						event.key.repeated = true;
-					}
-				}
-
-				native.game.input(&memory, &platform, event);
-			} break;
-			case MotionNotify: {
-				if (platform.raw_mouse) {
-					break;
-				}
-
-				InputEvent event;
-				event.type = InputType_mouse_move;
-				event.mouse.x = xevent.xmotion.x;
-				event.mouse.y = xevent.xmotion.y;
-
-				event.mouse.dx = xevent.xmotion.x - native.mouse.x;
-				event.mouse.dy = xevent.xmotion.y - native.mouse.y;
-
-				native.mouse.x = xevent.xmotion.x;
-				native.mouse.y = xevent.xmotion.y;
-
-				native.game.input(&memory, &platform, event);
-			} break;
-			case EnterNotify: {
-				if (xevent.xcrossing.focus == true &&
-				    xevent.xcrossing.window == native.window &&
-				    xevent.xcrossing.display == native.display)
-				{
-					native.mouse.x = xevent.xcrossing.x;
-					native.mouse.y = xevent.xcrossing.y;
-				}
-			} break;
-			case ClientMessage: {
-				if ((Atom)xevent.xclient.data.l[0] == WM_DELETE_WINDOW) {
-					native.game.quit(&memory, &platform);
-				}
-			} break;
-			case GenericEvent: {
-				if (xevent.xcookie.extension == native.xinput2 &&
-				    XGetEventData(native.display, &xevent.xcookie))
-				{
-					switch (xevent.xcookie.evtype) {
-					case XI_RawMotion: {
-						if (!platform.raw_mouse) {
-							break;
-						}
-
-						static Time prev_time = 0;
-						static f64  prev_deltas[2];
-
-						XIRawEvent *revent = (XIRawEvent*)xevent.xcookie.data;
-
-						f64 deltas[2];
-
-						u8  *mask    = revent->valuators.mask;
-						i32 mask_len = revent->valuators.mask_len;
-						f64 *ivalues = revent->raw_values;
-
-						i32 top = MIN(mask_len * 8, 16);
-						for (i32 i = 0, j = 0; i < top && j < 2; i++,j++) {
-							if (XIMaskIsSet(mask, i)) {
-								deltas[j] = *ivalues++;
-							}
-						}
-
-						if (revent->time == prev_time &&
-						    deltas[0] == prev_deltas[0] &&
-						    deltas[1] == prev_deltas[1])
-						{
-							// NOTE(jesper): discard duplicate events,
-							// apparently can happen?
-							break;
-						}
-
-						prev_deltas[0] = deltas[0];
-						prev_deltas[1] = deltas[1];
-
-						InputEvent event = {};
-						event.type     = InputType_mouse_move;
-						event.mouse.dx = deltas[0];
-						event.mouse.dy = deltas[1];
-
-						native.game.input(&memory, &platform, event);
-					} break;
-					default:
-						DEBUG_LOG("unhandled xinput2 event: %d",
-						          xevent.xcookie.evtype);
-						break;
-					}
-				} else {
-					DEBUG_LOG("unhandled generic event");
-				}
-			} break;
-			default: {
-				DEBUG_LOG("unhandled xevent type: %d", xevent.type);
-			} break;
-			}
-		}
-
-		PROFILE_END(linux_input);
-
-		native.game.update_and_render(&memory, dt);
-		native.game.profile_end_frame();
+		platform_update(&platform, dt);
 	}
 
 	return 0;

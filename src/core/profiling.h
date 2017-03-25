@@ -27,6 +27,7 @@ struct ProfileState {
 	ProfileTimers prev_timers;
 };
 
+
 #if PROFILE_TIMERS_ENABLE
 
 #define NUM_PROFILE_TIMERS (256)

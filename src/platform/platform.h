@@ -56,49 +56,28 @@
 #include <vulkan/vulkan.h>
 
 #ifndef INTROSPECT
-#define INTROSPECT
+	#define INTROSPECT
 #endif
 
-struct PlatformState;
+#ifndef LEARY_DYNAMIC
+	#define LEARY_DYNAMIC 1
+#endif
 
-// TODO(jesper): reevaluate whether some of the platform layer should be
-// compiled into the game.dll
+#if LEARY_DYNAMIC
+	#define DL_EXPORT extern "C"
+#else
+	#define DL_EXPORT
+#endif
 
+
+#include "leary.h"
+#include "core/profiling.h"
 #include "platform_file.h"
 
-#define PLATFORM_TOGGLE_RAW_MOUSE_FUNC(name)                 void name(PlatformState *platform)
-#define PLATFORM_SET_RAW_MOUSE_FUNC(name)                    void name(PlatformState *platform, bool enable)
-#define PLATFORM_QUIT_FUNC(name)                             void name(PlatformState *platform)
-
-#define PLATFORM_VULKAN_CREATE_SURFACE_FUNC(name)            VkResult name(VkInstance instance, VkSurfaceKHR *surface, PlatformState *platform)
-#define PLATFORM_VULKAN_ENABLE_INSTANCE_EXTENSION_FUNC(name) bool name(VkExtensionProperties &extension)
-#define PLATFORM_VULKAN_ENABLE_INSTANCE_LAYER_FUNC(name)     bool name(VkLayerProperties layer)
-
-#define PLATFORM_RESOLVE_RELATIVE_FUNC(name)                 char* name(const char *path)
-#define PLATFORM_RESOLVE_PATH_FUNC(name)                     char* name(GamePath root, const char *path)
-#define PLATFORM_FILE_EXISTS_FUNC(name)                      bool name(const char *path)
-#define PLATFORM_FILE_CREATE_FUNC(name)                      bool name(const char *path)
-#define PLATFORM_FILE_OPEN_FUNC(name)                        void* name(const char *path, FileAccess access)
-#define PLATFORM_FILE_CLOSE_FUNC(name)                       void name(void *file_handle)
-#define PLATFORM_FILE_WRITE_FUNC(name)                       void name(void *file_handle, void *buffer, usize size)
-#define PLATFORM_FILE_READ_FUNC(name)                        char* name(const char *read, usize *size)
-
-typedef PLATFORM_TOGGLE_RAW_MOUSE_FUNC(platform_toggle_raw_mouse_t);
-typedef PLATFORM_SET_RAW_MOUSE_FUNC(platform_set_raw_mouse_t);
-typedef PLATFORM_QUIT_FUNC(platform_quit_t);
-
-typedef PLATFORM_VULKAN_CREATE_SURFACE_FUNC(platform_vulkan_create_surface_t);
-typedef PLATFORM_VULKAN_ENABLE_INSTANCE_EXTENSION_FUNC(platform_vulkan_enable_instance_extension_t);
-typedef PLATFORM_VULKAN_ENABLE_INSTANCE_LAYER_FUNC(platform_vulkan_enable_instance_layer_t);
-
-typedef PLATFORM_RESOLVE_RELATIVE_FUNC(platform_resolve_relative_t);
-typedef PLATFORM_RESOLVE_PATH_FUNC(platform_resolve_path_t);
-typedef PLATFORM_FILE_EXISTS_FUNC(platform_file_exists_t);
-typedef PLATFORM_FILE_CREATE_FUNC(platform_file_create_t);
-typedef PLATFORM_FILE_OPEN_FUNC(platform_file_open_t);
-typedef PLATFORM_FILE_CLOSE_FUNC(platform_file_close_t);
-typedef PLATFORM_FILE_WRITE_FUNC(platform_file_write_t);
-typedef PLATFORM_FILE_READ_FUNC(platform_file_read_t);
+#define PLATFORM_INIT_FUNC(fname)       void fname(PlatformState *platform)
+#define PLATFORM_PRE_RELOAD_FUNC(fname) void fname(PlatformState *platform)
+#define PLATFORM_RELOAD_FUNC(fname)     void fname(PlatformState *platform)
+#define PLATFORM_UPDATE_FUNC(fname)     void fname(PlatformState *platform, f32 dt)
 
 INTROSPECT struct Resolution
 {
@@ -121,29 +100,11 @@ INTROSPECT struct Settings
 };
 
 struct PlatformState {
-	Settings settings = {};
-	bool raw_mouse    = false;
-
-	void *native      = nullptr;
-};
-
-struct PlatformCode {
-	platform_toggle_raw_mouse_t                 *toggle_raw_mouse;
-	platform_set_raw_mouse_t                    *set_raw_mouse;
-	platform_quit_t                             *quit;
-
-	platform_vulkan_create_surface_t            *vulkan_create_surface;
-	platform_vulkan_enable_instance_extension_t *vulkan_enable_instance_extension;
-	platform_vulkan_enable_instance_layer_t     *vulkan_enable_instance_layer;
-
-	platform_resolve_relative_t                 *resolve_relative;
-	platform_resolve_path_t                     *resolve_path;
-	platform_file_exists_t                      *file_exists;
-	platform_file_create_t                      *file_create;
-	platform_file_open_t                        *file_open;
-	platform_file_close_t                       *file_close;
-	platform_file_write_t                       *file_write;
-	platform_file_read_t                        *file_read;
+	Settings     settings  = {};
+	GameMemory   memory    = {};
+	ProfileState profile   = {};
+	bool         raw_mouse = false;
+	void         *native   = nullptr;
 };
 
 #endif // LEARY_PLATFORM_MAIN_H

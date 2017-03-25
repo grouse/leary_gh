@@ -16,25 +16,6 @@
 #include "platform/platform_file.h"
 #include "platform/platform_input.h"
 
-// TODO(jesper): consider moving these into a struct to keep it out of global
-// state. not a fan of it.
-static platform_toggle_raw_mouse_t                 *platform_toggle_raw_mouse;
-static platform_set_raw_mouse_t                    *platform_set_raw_mouse;
-static platform_quit_t                             *platform_quit;
-
-static platform_vulkan_create_surface_t            *platform_vulkan_create_surface;
-static platform_vulkan_enable_instance_extension_t *platform_vulkan_enable_instance_extension;
-static platform_vulkan_enable_instance_layer_t     *platform_vulkan_enable_instance_layer;
-
-static platform_resolve_relative_t                 *platform_resolve_relative;
-static platform_resolve_path_t                     *platform_resolve_path;
-static platform_file_exists_t                      *platform_file_exists;
-static platform_file_create_t                      *platform_file_create;
-static platform_file_open_t                        *platform_file_open;
-static platform_file_close_t                       *platform_file_close;
-static platform_file_write_t                       *platform_file_write;
-static platform_file_read_t                        *platform_file_read;
-
 #include "core/allocator.cpp"
 #include "core/array.cpp"
 #include "core/tokenizer.cpp"
@@ -109,38 +90,6 @@ struct GameState {
 
 	i32 *key_state;
 };
-
-
-extern "C"
-GAME_LOAD_PLATFORM_CODE_FUNC(game_load_platform_code)
-{
-	platform_toggle_raw_mouse                 = code->toggle_raw_mouse;
-	platform_set_raw_mouse                    = code->set_raw_mouse;
-	platform_quit                             = code->quit;
-	platform_vulkan_create_surface            = code->vulkan_create_surface;
-	platform_vulkan_enable_instance_extension = code->vulkan_enable_instance_extension;
-	platform_vulkan_enable_instance_layer     = code->vulkan_enable_instance_layer;
-	platform_resolve_relative                 = code->resolve_relative;
-	platform_resolve_path                     = code->resolve_path;
-	platform_file_exists                      = code->file_exists;
-	platform_file_create                      = code->file_create;
-	platform_file_open                        = code->file_open;
-	platform_file_close                       = code->file_close;
-	platform_file_write                       = code->file_write;
-	platform_file_read                        = code->file_read;
-}
-
-extern "C"
-GAME_RELOAD_FUNC(game_reload)
-{
-	game_load_platform_code(code);
-
-	GameState *game = (GameState*)memory->game;
-	vulkan_set_code(&game->vulkan);
-}
-
-
-
 
 void render_font(GameMemory *memory, RenderedText *text,
                  const char *str, float x, float y)
@@ -222,8 +171,7 @@ void render_font(GameMemory *memory, RenderedText *text,
 	vkUnmapMemory(game->vulkan.handle, text->buffer.memory);
 }
 
-extern "C"
-GAME_INIT_FUNC(game_init)
+void game_init(GameMemory *memory, PlatformState *platform)
 {
 	GameState *game = ialloc<GameState>(&memory->persistent);
 	memory->game = game;
@@ -363,8 +311,7 @@ GAME_INIT_FUNC(game_init)
 	}
 }
 
-extern "C"
-GAME_QUIT_FUNC(game_quit)
+void game_quit(GameMemory *memory, PlatformState *platform)
 {
 	GameState *game = (GameState*)memory->game;
 	// NOTE(jesper): disable raw mouse as soon as possible to ungrab the cursor
@@ -396,8 +343,19 @@ GAME_QUIT_FUNC(game_quit)
 	platform_quit(platform);
 }
 
-extern "C"
-GAME_INPUT_FUNC(game_input)
+void game_pre_reload(GameMemory *memory)
+{
+	GameState *game = (GameState*)memory->game;
+	vkQueueWaitIdle(game->vulkan.queue);
+}
+
+void game_reload(GameMemory *memory)
+{
+	GameState *game = (GameState*)memory->game;
+	vulkan_set_code(&game->vulkan);
+}
+
+void game_input(GameMemory *memory, PlatformState *platform, InputEvent event)
 {
 	GameState *game = (GameState*)memory->game;
 	switch (event.type) {
@@ -561,7 +519,7 @@ void game_render(GameMemory *memory)
 	u32 image_index = acquire_swapchain_image(&game->vulkan);
 
 	std::array<VkClearValue, 2> clear_values = {};
-	clear_values[0].color        = { {1.0f, 0.0f, 0.0f, 0.0f} };
+	clear_values[0].color        = { {0.0f, 0.0f, 0.0f, 0.0f} };
 	clear_values[1].depthStencil = { 1.0f, 0 };
 
 	VkRenderPassBeginInfo render_info = {};
@@ -736,8 +694,7 @@ void game_render(GameMemory *memory)
 	PROFILE_END(vulkan_swap);
 }
 
-extern "C"
-GAME_UPDATE_AND_RENDER_FUNC(game_update_and_render)
+void game_update_and_render(GameMemory *memory, f32 dt)
 {
 	game_update(memory, dt);
 	game_render(memory);

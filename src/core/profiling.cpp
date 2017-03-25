@@ -13,15 +13,13 @@
 ProfileTimers *g_profile_timers;
 ProfileTimers *g_profile_timers_prev;
 
-extern "C"
-PROFILE_SET_STATE_FUNC(profile_set_state)
+void profile_set_state(ProfileState *state)
 {
 	g_profile_timers      = &state->timers;
 	g_profile_timers_prev = &state->prev_timers;
 }
 
-extern "C"
-PROFILE_INIT_FUNC(profile_init)
+ProfileState profile_init(GameMemory *memory)
 {
 	ProfileState state = {};
 
@@ -70,8 +68,7 @@ PROFILE_INIT_FUNC(profile_init)
 }
 
 
-extern "C"
-PROFILE_START_TIMER_FUNC(profile_start_timer)
+i32 profile_start_timer(const char *name)
 {
 	for (i32 i = 0; i < g_profile_timers->names.count; i++) {
 		if (strcmp(name, g_profile_timers->names[i]) == 0) {
@@ -94,8 +91,7 @@ PROFILE_START_TIMER_FUNC(profile_start_timer)
 	return index;
 }
 
-extern "C"
-PROFILE_END_TIMER_FUNC(profile_end_timer)
+void profile_end_timer(i32 index, i64 cycles)
 {
 	g_profile_timers->cycles[index]      += cycles;
 	g_profile_timers->cycles_last[index] += cycles;
@@ -125,9 +121,7 @@ struct ProfileBlock {
 	}
 };
 
-
-extern "C"
-PROFILE_START_FRAME_FUNC(profile_start_frame)
+void profile_start_frame()
 {
 	for (i32 i = 0; i < g_profile_timers_prev->names.count - 1; i++) {
 		for (i32 j = i+1; j < g_profile_timers_prev->names.count; j++) {
@@ -148,8 +142,7 @@ PROFILE_START_FRAME_FUNC(profile_start_frame)
 	}
 }
 
-extern "C"
-PROFILE_END_FRAME_FUNC(profile_end_frame)
+void profile_end_frame()
 {
 	ProfileTimers tmp      = *g_profile_timers_prev;
 	*g_profile_timers_prev = *g_profile_timers;

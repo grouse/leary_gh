@@ -13,8 +13,7 @@
 // TODO(jesper): ialloc - allocate and default initialise struct
 // TODO(jesper): allocation header infront of allocated ptr for meta data
 
-extern "C"
-MAKE_LINEAR_ALLOCATOR_FUNC(make_linear_allocator)
+LinearAllocator make_linear_allocator(void *start, isize size)
 {
 	LinearAllocator a;
 	a.start   = start;
@@ -24,8 +23,7 @@ MAKE_LINEAR_ALLOCATOR_FUNC(make_linear_allocator)
 	return a;
 }
 
-extern "C"
-MAKE_STACK_ALLOCATOR_FUNC(make_stack_allocator)
+StackAllocator make_stack_allocator(void *start, isize size)
 {
 	StackAllocator a;
 	a.start   = start;
