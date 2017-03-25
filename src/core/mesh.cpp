@@ -41,7 +41,7 @@ Mesh load_mesh_obj(GameMemory *memory, const char *filename)
 
 	i32 num_faces   = 0;
 
-	auto vectors = make_array<Vector3>(&memory->frame);
+	auto vectors = make_array<Vector3>(&memory->free_list);
 	auto normals = make_array<Vector3>(&memory->frame);
 	auto uvs     = make_array<Vector2>(&memory->frame);
 

@@ -28,8 +28,9 @@
 
 struct GameMemory {
 	void *game;
-	LinearAllocator frame;
-	LinearAllocator persistent;
+	LinearAllocator   frame;
+	LinearAllocator   persistent;
+	FreeListAllocator free_list;
 };
 
 #endif /* LEARY_H */

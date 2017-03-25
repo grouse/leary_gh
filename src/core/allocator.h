@@ -22,6 +22,14 @@ struct StackAllocator {
 	isize size;
 };
 
+struct FreeBlock {
+	isize size;
+	FreeBlock *next;
+};
+
+struct FreeListAllocator {
+	FreeBlock *free;
+};
 
 #endif /* ALLOCATOR_H */
 
