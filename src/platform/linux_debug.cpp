@@ -49,8 +49,8 @@ static void platform_debug_print(const char *file,
 	const char *channel_str = log_channel_string(channel);
 
 	va_list args;
-	char message[DEBUG_BUFFER_SIZE];
-	char buffer[DEBUG_BUFFER_SIZE];
+	char *message = (char*)malloc(DEBUG_BUFFER_SIZE);
+	char *buffer  = (char*)malloc(DEBUG_BUFFER_SIZE);
 
 	va_start(args, fmt);
 	i32 length = vsnprintf(message, DEBUG_BUFFER_SIZE, fmt, args);
@@ -61,6 +61,9 @@ static void platform_debug_print(const char *file,
 	                  file, line, channel_str, function, message);
 	DEBUG_ASSERT(length < DEBUG_BUFFER_SIZE);
 	write(1, buffer, length);
+
+	free(message);
+	free(buffer);
 }
 
 static void platform_debug_print(const char *file,
@@ -71,8 +74,8 @@ static void platform_debug_print(const char *file,
 	const char *channel_str = log_channel_string(Log_info);
 
 	va_list args;
-	char message[DEBUG_BUFFER_SIZE];
-	char buffer[DEBUG_BUFFER_SIZE];
+	char *message = (char*)malloc(DEBUG_BUFFER_SIZE);
+	char *buffer  = (char*)malloc(DEBUG_BUFFER_SIZE);
 
 	va_start(args, fmt);
 	i32 length = vsnprintf(message, DEBUG_BUFFER_SIZE, fmt, args);
@@ -83,4 +86,7 @@ static void platform_debug_print(const char *file,
 	                  file, line, channel_str, function, message);
 	DEBUG_ASSERT(length < DEBUG_BUFFER_SIZE);
 	write(1, buffer, length);
+
+	free(message);
+	free(buffer);
 }

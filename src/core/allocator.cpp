@@ -18,7 +18,6 @@ LinearAllocator make_linear_allocator(void *start, isize size)
 	LinearAllocator a;
 	a.start   = start;
 	a.current = a.start;
-	a.last    = nullptr;
 	a.size    = size;
 	return a;
 }
@@ -89,7 +88,6 @@ void *alloc(LinearAllocator *a, isize size)
 	void *aligned   = align_address(unaligned, 16, header_size);
 
 	a->current = (void*)((uptr)aligned + size);
-	a->last    = aligned;
 	DEBUG_ASSERT((uptr)a->current < ((uptr)a->start + a->size));
 
 	AllocationHeader *header = (AllocationHeader*)((uptr)aligned - header_size);
@@ -198,15 +196,49 @@ void dealloc(FreeListAllocator *a, void *ptr)
 {
 	auto  header     = (AllocationHeader*)((uptr)ptr - sizeof(AllocationHeader));
 	isize size       = header->size;
-	void  *unaligned = header->unaligned;
 
-	FreeBlock *nfree = (FreeBlock*)unaligned;
-	nfree->size = size;
-	nfree->next = a->free;
-	a->free     = nfree;
+	uptr start = (uptr)header->unaligned;
+	uptr end   = start + size;
 
-	// TODO(jesper): automatic defragment by finding neighbour free blocks and
-	// merging them
+	FreeBlock *nfree = (FreeBlock*)start;
+	nfree->size      = size;
+
+	bool expanded = false;
+	bool insert   = false;
+	FreeBlock *prev = nullptr;
+	FreeBlock *free = a->free;
+	FreeBlock *next = nullptr;
+
+	while (free != nullptr) {
+		if (end == (uptr)free) {
+			nfree->size = nfree->size + free->size;
+			nfree->next = free->next;
+
+			if (prev != nullptr) {
+				prev->next = nfree;
+			}
+			expanded = true;
+			break;
+		} else if (((uptr)free + free->size) == start) {
+			free->size = free->size + nfree->size;
+			expanded = true;
+			break;
+		} else if ((uptr)free > start) {
+			prev = free;
+			next = free->next;
+			insert = true;
+			break;
+		}
+
+		prev = free;
+		free = free->next;
+	}
+
+	DEBUG_ASSERT(insert || expanded);
+	if (!expanded) {
+		prev->next  = nfree;
+		nfree->next = next;
+	}
 }
 
 void *realloc(LinearAllocator *a, void *ptr, isize size)
@@ -250,7 +282,6 @@ void *realloc(FreeListAllocator *a, void *ptr, isize size)
 void reset(LinearAllocator *a)
 {
 	a->current = a->start;
-	a->last    = nullptr;
 }
 
 
