@@ -64,7 +64,10 @@ TOOLS_FLAGS = $(FLAGS) $(WARNINGS) $(UNOPTIMIZED) $(INCLUDE_DIR)
 $(BUILD)/preprocessor: FORCE
 	$(CXX) $(TOOLS_FLAGS) $(ROOT)/tools/preprocessor.cpp -o $@
 
-tools: $(BUILD)/preprocessor
+$(BUILD)/benchmark: FORCE
+	$(CXX) $(TOOLS_FLAGS) $(ROOT)/tools/benchmark.cpp -o $@
+
+tools: $(BUILD)/preprocessor $(BUILD)/benchmark
 
 
 all: shaders fonts models leary tools

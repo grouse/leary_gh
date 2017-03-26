@@ -28,6 +28,9 @@ struct FreeBlock {
 };
 
 struct FreeListAllocator {
+	void *start;
+	isize size;
+
 	FreeBlock *free;
 };
 

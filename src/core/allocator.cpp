@@ -35,6 +35,9 @@ StackAllocator make_stack_allocator(void *start, isize size)
 FreeListAllocator make_free_list_allocator(void *start, isize size)
 {
 	FreeListAllocator a;
+	a.start = start;
+	a.size  = size;
+
 	a.free = (FreeBlock*)start;
 	a.free->size = size;
 	a.free->next = nullptr;
@@ -70,6 +73,12 @@ void *align_address(void *address, u8 alignment, u8 header_size)
 	}
 
 	return (void*)((uptr)address + adjustment);
+}
+
+u8 align_address_adjustment(void *address, u8 alignment, u8 header_size)
+{
+	uptr aligned = (uptr)align_address(address, alignment, header_size);
+	return (u8)(aligned - (uptr)address);
 }
 
 void *alloc(LinearAllocator *a, isize size)
@@ -114,12 +123,18 @@ void *alloc(FreeListAllocator *a, isize size)
 
 	FreeBlock *prev = nullptr;
 	FreeBlock *free = a->free;
-	while(free != nullptr && free->size < required) {
+	while(free != nullptr) {
+		u8 adjustment = align_address_adjustment(free, 16, header_size);
+		if (free->size > (size + adjustment)) {
+			break;
+		}
+
 		// TODO(jesper): find best fitting free block
 		prev = free;
 		free = free->next;
 	}
 
+	DEBUG_ASSERT(((uptr)free + size) < ((uptr)a->start + a->size));
 	DEBUG_ASSERT(free && free->size >= required);
 	if (free == nullptr || free->size < required) {
 		return nullptr;
@@ -132,7 +147,7 @@ void *alloc(FreeListAllocator *a, isize size)
 	isize remaining = free_size - size;
 
 	// TODO(jesper): double check suitable value of minimum remaining
-	if (remaining < (header_size + 16 + 8)) {
+	if (remaining < (header_size + 48)) {
 		size = free_size;
 
 		if (prev != nullptr) {
@@ -175,15 +190,12 @@ void dealloc(LinearAllocator *a, void *ptr)
 
 void dealloc(StackAllocator *a, void *ptr)
 {
-	a->current = ptr;
+	auto  header = (AllocationHeader*)((uptr)ptr - sizeof(AllocationHeader));
+	a->current = header->unaligned;
 }
 
 void dealloc(FreeListAllocator *a, void *ptr)
 {
-	if (ptr == nullptr) {
-		return;
-	}
-
 	auto  header     = (AllocationHeader*)((uptr)ptr - sizeof(AllocationHeader));
 	isize size       = header->size;
 	void  *unaligned = header->unaligned;
