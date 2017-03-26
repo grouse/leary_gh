@@ -65,7 +65,7 @@ $(BUILD)/preprocessor: FORCE
 	$(CXX) $(TOOLS_FLAGS) $(ROOT)/tools/preprocessor.cpp -o $@
 
 $(BUILD)/benchmark: FORCE
-	$(CXX) $(TOOLS_FLAGS) $(ROOT)/tools/benchmark.cpp -o $@
+	$(CXX) $(TOOLS_FLAGS) -O2 $(ROOT)/tools/benchmark.cpp -o $@
 
 tools: $(BUILD)/preprocessor $(BUILD)/benchmark
 
