@@ -64,7 +64,7 @@
 #endif
 
 #if LEARY_DYNAMIC
-	#define DL_EXPORT extern "C"
+	#define DL_EXPORT extern "C" __declspec(dllexport)
 #else
 	#define DL_EXPORT
 #endif
@@ -74,7 +74,14 @@
 #include "core/profiling.h"
 #include "platform_file.h"
 
-#define PLATFORM_INIT_FUNC(fname)       void fname(PlatformState *platform)
+#if defined(__linux__)
+	#define PLATFORM_INIT_FUNC(fname)       void fname(PlatformState *platform)
+#elif defined(_WIN32)
+	#define PLATFORM_INIT_FUNC(fname)       void fname(PlatformState *platform, HINSTANCE instance)
+#else
+	#error "unsupported platform
+#endif
+
 #define PLATFORM_PRE_RELOAD_FUNC(fname) void fname(PlatformState *platform)
 #define PLATFORM_RELOAD_FUNC(fname)     void fname(PlatformState *platform)
 #define PLATFORM_UPDATE_FUNC(fname)     void fname(PlatformState *platform, f32 dt)

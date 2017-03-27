@@ -40,5 +40,6 @@ glslangValidator -V %ROOT%\src\render\shaders\terrain.vert -o %BUILD_DIR%\data\s
 xcopy /i /y %ROOT%\assets\fonts %BUILD_DIR%\data\fonts
 xcopy /i /y %ROOT%\assets\models %BUILD_DIR%\data\models
 
-cl %FLAGS% %UNOPTIMIZED% %INCLUDE_DIR% /Feleary.exe %ROOT%\src\platform/win32_main.cpp /link %LIBS% /SUBSYSTEM:WINDOWS
+cl %FLAGS% %UNOPTIMIZED% %INCLUDE_DIR% %ROOT%\src\platform\win32_leary.cpp /link %LIBS% /DLL /OUT:game.dll
+cl %FLAGS% %UNOPTIMIZED% %INCLUDE_DIR% /Feleary.exe %ROOT%\src\platform/win32_main.cpp /SUBSYSTEM:WINDOWS
 POPD
