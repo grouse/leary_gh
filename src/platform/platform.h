@@ -33,6 +33,8 @@
 	#include <X11/XKBlib.h>
 	#include <X11/extensions/XInput2.h>
 
+	#define DL_EXPORT extern "C"
+
 	#define FILE_SEP "/"
 	#define FILE_EOL "\n"
 
@@ -41,6 +43,8 @@
 	#include <Windows.h>
 	#include <Shlobj.h>
 	#include <Shlwapi.h>
+
+	#define DL_EXPORT extern "C" __declspec(dllexport)
 
 	#define VK_USE_PLATFORM_WIN32_KHR
 
@@ -63,9 +67,8 @@
 	#define LEARY_DYNAMIC 1
 #endif
 
-#if LEARY_DYNAMIC
-	#define DL_EXPORT extern "C" __declspec(dllexport)
-#else
+#if !LEARY_DYNAMIC
+	#undef DL_EXPORT
 	#define DL_EXPORT
 #endif
 
