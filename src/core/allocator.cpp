@@ -301,7 +301,7 @@ T *ialloc(A *a)
 }
 
 template <typename T, typename A>
-T *alloc_array(A *a, i32 count)
+T *alloc_array(A *a, isize count)
 {
 	return (T*)alloc(a, sizeof(T) * count);
 }

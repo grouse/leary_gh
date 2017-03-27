@@ -101,7 +101,7 @@ void render_font(GameMemory *memory, RenderedText *text,
 	if (text_length == 0) return;
 
 	usize vertices_size = sizeof(f32)*30*text_length;
-	auto vertices = alloc_array<f32>(&memory->frame, vertices_size);
+	auto vertices = (f32*)alloc(&memory->frame, vertices_size);
 
 	text->vertex_count = (i32)(text_length * 6);
 
@@ -274,7 +274,7 @@ void game_init(GameMemory *memory, PlatformState *platform)
 		usize index_size  = cube.indices.count  * sizeof(cube.indices[0]);
 
 		obj.pipeline    = game->pipelines.mesh;
-		obj.index_count = cube.indices.count;
+		obj.index_count = (i32)cube.indices.count;
 		obj.vertices    = create_vertex_buffer(&game->vulkan, cube.vertices.data, vertex_size);
 		obj.indices     = create_index_buffer(&game->vulkan, cube.indices.data, index_size);
 

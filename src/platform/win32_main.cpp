@@ -29,21 +29,27 @@
 
 #include "platform.h"
 
+struct Win32State {
+	HINSTANCE hinstance;
+	HWND      hwnd;
+};
+
 #include "win32_debug.cpp"
 #include "win32_vulkan.cpp"
 #include "win32_file.cpp"
 #include "win32_input.cpp"
 
-// TODO(jesper): move this into its own translation unit. Eventually i want to be able to compile
-// the game into a .dll and load it dynamically in the platform layer, if feature is turned off,
-// for live code editing.
+void platform_toggle_raw_mouse(PlatformState *state);
+void platform_set_raw_mouse(PlatformState *state, bool enable);
+void platform_quit(PlatformState *);
+
 #include "leary.cpp"
 
 namespace {
 	Settings      settings = {};
-	PlatformState platform_state = {};
-	GameState     game_state = {};
+	PlatformState platform = {};
 }
+
 
 void platform_quit(PlatformState *)
 {
@@ -118,22 +124,22 @@ window_proc(HWND   hwnd,
 	} break;
 	case WM_KEYDOWN: {
 		InputEvent event;
-		event.type = InputType_key_press;
-		event.key.vkey = (VirtualKey)wparam;
+		event.type         = InputType_key_press;
+		event.key.vkey     = wparam_to_virtual(wparam);
 		event.key.repeated = lparam & 0x40000000;
 
-		game_input(&game_state, &platform_state, &settings, event);
+		game_input(&platform.memory, &platform, event);
 	} break;
 	case WM_KEYUP: {
 		InputEvent event;
-		event.type = InputType_key_release;
-		event.key.vkey = (VirtualKey)wparam;
+		event.type         = InputType_key_release;
+		event.key.vkey     = wparam_to_virtual(wparam);
 		event.key.repeated = false;
 
-		game_input(&game_state, &platform_state, &settings, event);
+		game_input(&platform.memory, &platform, event);
 	} break;
 	case WM_MOUSEMOVE: {
-		if (platform_state.raw_mouse) {
+		if (platform.raw_mouse) {
 			break;
 		}
 
@@ -152,7 +158,7 @@ window_proc(HWND   hwnd,
 		event.mouse.dx = mouse_state.dx;
 		event.mouse.dy = mouse_state.dy;
 
-		game_input(&game_state, &platform_state, &settings, event);
+		game_input(&platform.memory, &platform, event);
 	} break;
 	case WM_INPUT: {
 		u32 size;
@@ -167,7 +173,7 @@ window_proc(HWND   hwnd,
 
 		switch (raw->header.dwType) {
 		case RIM_TYPEMOUSE: {
-			if (!platform_state.raw_mouse) {
+			if (!platform.raw_mouse) {
 				break;
 			}
 
@@ -193,7 +199,7 @@ window_proc(HWND   hwnd,
 			event.mouse.x  = mouse_state.x;
 			event.mouse.y  = mouse_state.y;
 
-			game_input(&game_state, &platform_state, &settings, event);
+			game_input(&platform.memory, &platform, event);
 		} break;
 		default:
 			DEBUG_LOG("unhandled raw input device type: %d",
@@ -216,21 +222,30 @@ WinMain(HINSTANCE instance,
         LPSTR     /*cmd_line*/,
         int       /*cmd_show*/)
 {
-	isize frame_alloc_size      = 64 * 1024 * 1024;
-	isize persistent_alloc_size = 256 * 1024 * 1024;
+	platform = {};
+
+	isize frame_size      = 64  * 1024 * 1024;
+	isize persistent_size = 256 * 1024 * 1024;
+	isize free_list_size  = 256 * 1024 * 1024;
 
 	// TODO(jesper): allocate these using VirtualAlloc
-	u8 *mem = (u8*)malloc(frame_alloc_size + persistent_alloc_size);
+	u8 *mem = (u8*)malloc(frame_size + persistent_size + free_list_size);
 
-	GameMemory memory = {};
-	memory.frame      = make_linear_allocator(mem, frame_alloc_size);
-	memory.persistent = make_linear_allocator(mem + frame_alloc_size,
-	                                          persistent_alloc_size);
+	platform.memory = {};
+	platform.memory.frame      = make_linear_allocator(mem, frame_size);
+	mem += frame_size;
 
-	profile_init(&memory);
-	game_load_settings(&settings);
+	platform.memory.free_list  = make_free_list_allocator(mem, free_list_size);
+	mem += free_list_size;
 
-	platform_state.win32.hinstance = instance;
+	platform.memory.persistent = make_linear_allocator(mem, persistent_size);
+
+	Win32State *native = alloc<Win32State>(&platform.memory.persistent);
+	platform.native = native;
+
+	platform.profile = profile_init(&platform.memory);
+
+	native->hinstance = instance;
 
 	WNDCLASS wc = {};
 	wc.lpfnWndProc   = window_proc;
@@ -239,23 +254,26 @@ WinMain(HINSTANCE instance,
 
 	RegisterClass(&wc);
 
-	platform_state.win32.hwnd = CreateWindow("leary",
-	                                         "leary",
-	                                         WS_TILED | WS_VISIBLE,
-	                                         0,
-	                                         0,
-	                                         settings.video.resolution.width,
-	                                         settings.video.resolution.height,
-	                                         nullptr,
-	                                         nullptr,
-	                                         instance,
-	                                         nullptr);
+	native->hwnd = CreateWindow("leary",
+	                            "leary",
+	                            WS_TILED | WS_VISIBLE,
+	                            0,
+	                            0,
+	                            settings.video.resolution.width,
+	                            settings.video.resolution.height,
+	                            nullptr,
+	                            nullptr,
+	                            instance,
+	                            nullptr);
 
-	if (platform_state.win32.hwnd == nullptr) {
-		platform_quit(&platform_state);
+	if (native->hwnd == nullptr) {
+		platform_quit(&platform);
 	}
 
-	game_state = game_init(&settings, &platform_state, &memory);
+	game_init(&platform.memory, &platform);
+	game_pre_reload(&platform.memory);
+	profile_set_state(&platform.profile);
+	game_reload(&platform.memory);
 
 	LARGE_INTEGER frequency;
 	QueryPerformanceFrequency(&frequency);
@@ -281,12 +299,12 @@ WinMain(HINSTANCE instance,
 		}
 
 		if (msg.message == WM_QUIT) {
-			game_quit(&game_state, &platform_state, &settings);
+			game_quit(&platform.memory, &platform);
 		}
 		PROFILE_END(win32_input);
 
 
-		game_update_and_render(&game_state, dt);
+		game_update_and_render(&platform.memory, dt);
 
 		profile_end_frame();
 	}

@@ -95,7 +95,6 @@ char *platform_path(GamePath root)
 char *platform_resolve_path(const char *path)
 {
 	DWORD result;
-	VAR_UNUSED(result);
 
 	char buffer[MAX_PATH];
 	result = GetFullPathName(path, MAX_PATH, buffer, nullptr);
@@ -251,7 +250,6 @@ char* platform_file_read(const char *filename, usize *size)
 void platform_file_write(void *file_handle, void *buffer, usize bytes)
 {
 	BOOL result;
-	VAR_UNUSED(result);
 
 	// NOTE(jesper): WriteFile takes 32 bit number of bytes to write
 	DEBUG_ASSERT(bytes <= 0xFFFFFFFF);
@@ -271,7 +269,6 @@ void platform_file_write(void *file_handle, void *buffer, usize bytes)
 char *platform_resolve_relative(const char *path)
 {
 	DWORD result;
-	VAR_UNUSED(result);
 
 	char buffer[MAX_PATH];
 	result = GetFullPathName(path, MAX_PATH, buffer, nullptr);

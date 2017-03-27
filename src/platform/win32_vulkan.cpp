@@ -22,19 +22,18 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include "platform_vulkan.h"
-
 VkResult
-vulkan_create_surface(VkInstance instance,
-                      VkSurfaceKHR *surface,
-                      PlatformState platform_state)
+platform_vulkan_create_surface(VkInstance instance,
+                               VkSurfaceKHR *surface,
+                               PlatformState *platform)
 {
+	Win32State *native = (Win32State*)platform->native;
 	VkWin32SurfaceCreateInfoKHR create_info = {
 		VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
 		nullptr,
 		0,
-		platform_state.win32.hinstance,
-		platform_state.win32.hwnd
+		native->hinstance,
+		native->hwnd
 	};
 
 	return vkCreateWin32SurfaceKHR(instance, &create_info, nullptr, surface);
@@ -53,8 +52,7 @@ platform_vulkan_enable_instance_extension(VkExtensionProperties &extension)
 bool
 platform_vulkan_enable_instance_layer(VkLayerProperties layer)
 {
-	VAR_UNUSED(layer);
-
+	(void)layer;
 	bool enable = false;
 	return enable;
 }
