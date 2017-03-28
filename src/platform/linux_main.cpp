@@ -25,9 +25,14 @@
 #include <cstdint>
 #include <cstdlib>
 
+#include <linux/limits.h>
+
+#include <sys/types.h>
+#include <sys/stat.h>
+
+#include <fcntl.h>
 #include <dlfcn.h>
 #include <unistd.h>
-#include <linux/limits.h>
 
 #include <time.h>
 
@@ -83,17 +88,9 @@ static platform_reload_t     *platform_reload     = &platform_reload_stub;
 static platform_update_t     *platform_update     = &platform_update_stub;
 
 #define DLOAD_FUNC(lib, name) (name##_t*)dlsym(lib, #name)
-void* reload_code(PlatformState *platform, char *path, void *current)
+void* load_code(char *path)
 {
-	if (platform != nullptr) {
-		platform_pre_reload(platform);
-	}
-
-	if (current != nullptr) {
-		dlclose(current);
-	}
-
-	void *lib = dlopen(path, RTLD_NOW);
+	void *lib = dlopen(path, RTLD_LAZY | RTLD_GLOBAL);
 	if (lib) {
 		platform_init       = DLOAD_FUNC(lib, platform_init);
 		platform_pre_reload = DLOAD_FUNC(lib, platform_pre_reload);
@@ -106,16 +103,13 @@ void* reload_code(PlatformState *platform, char *path, void *current)
 	if (!platform_reload)     platform_reload     = &platform_reload_stub;
 	if (!platform_update)     platform_update     = &platform_update_stub;
 
-	if (platform != nullptr) {
-		platform_reload(platform);
-	}
-
 	return lib;
 }
+
 #else
 
 // TODO(jesper): include the game code .cpp files directly
-void* reload_code(PlatformState *, char *, void *)
+void* load_code(char *)
 {
 	return nullptr;
 }
@@ -139,12 +133,11 @@ int main()
 		}
 	}
 
-	i64 total_length = length + strlen("game.so");
-	char *lib_path = (char*)malloc(total_length);
+	char *lib_path = (char*)malloc(length + strlen("game.so") + 1);
 	strncpy(lib_path, buffer, length);
 	strcat(lib_path, "game.so");
 
-	void *lib = reload_code(nullptr, lib_path, nullptr);
+	void *lib = load_code(lib_path);
 
 	PlatformState platform = {};
 	platform_init(&platform);
@@ -163,7 +156,12 @@ int main()
 
 		code_reload_timer += dt;
 		if (code_reload_timer >= code_reload_rate) {
-			reload_code(&platform, lib_path, lib);
+			platform_pre_reload(&platform);
+
+			dlclose(lib);
+			lib = load_code(lib_path);
+
+			platform_reload(&platform);
 			code_reload_timer = 0.0f;
 		}
 
