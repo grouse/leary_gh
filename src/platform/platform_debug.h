@@ -44,7 +44,7 @@
 #define DEBUG_LOG(...)        platform_debug_print(DEBUG_FILENAME, __LINE__, __FUNCTION__, __VA_ARGS__)
 #define DEBUG_UNIMPLEMENTED() DEBUG_LOG(Log_unimplemented, "fixme! stub");
 
-#define DEBUG_BUFFER_SIZE (4096)
+#define DEBUG_BUFFER_SIZE (2048)
 
 enum LogChannel {
 	Log_error,

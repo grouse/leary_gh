@@ -37,25 +37,11 @@
 #include <time.h>
 
 #include "platform.h"
-#include "linux_debug.cpp"
-
-timespec get_time()
-{
-	timespec ts;
-	i32 result = clock_gettime(CLOCK_MONOTONIC, &ts);
-	DEBUG_ASSERT(result == 0);
-	return ts;
-}
-
-i64 get_time_difference(timespec start, timespec end)
-{
-	i64 difference = (end.tv_sec - start.tv_sec) * 1000000000 +
-	                 (end.tv_nsec - start.tv_nsec);
-	DEBUG_ASSERT(difference >= 0);
-	return difference;
-}
+#include "platform/platform_debug.h"
 
 #if LEARY_DYNAMIC
+#include "linux_debug.cpp"
+
 typedef PLATFORM_INIT_FUNC(platform_init_t);
 typedef PLATFORM_PRE_RELOAD_FUNC(platform_pre_reload_t);
 typedef PLATFORM_RELOAD_FUNC(platform_reload_t);
@@ -106,15 +92,40 @@ void* load_code(char *path)
 	return lib;
 }
 
-#else
+void unload_code(void *lib)
+{
+	dlclose(lib);
+}
 
-// TODO(jesper): include the game code .cpp files directly
+#else
+#include "linux_leary.cpp"
+
 void* load_code(char *)
 {
 	return nullptr;
 }
 
+void unload_code(void *)
+{
+}
 #endif
+
+timespec get_time()
+{
+	timespec ts;
+	i32 result = clock_gettime(CLOCK_MONOTONIC, &ts);
+	DEBUG_ASSERT(result == 0);
+	return ts;
+}
+
+i64 get_time_difference(timespec start, timespec end)
+{
+	i64 difference = (end.tv_sec - start.tv_sec) * 1000000000 +
+	                 (end.tv_nsec - start.tv_nsec);
+	DEBUG_ASSERT(difference >= 0);
+	return difference;
+}
+
 
 int main()
 {
@@ -158,7 +169,7 @@ int main()
 		if (code_reload_timer >= code_reload_rate) {
 			platform_pre_reload(&platform);
 
-			dlclose(lib);
+			unload_code(lib);
 			lib = load_code(lib_path);
 
 			platform_reload(&platform);
