@@ -39,6 +39,11 @@
 #include "platform.h"
 #include "platform/platform_debug.h"
 
+struct DynamicLib {
+	void   *handle;
+	time_t load_time;
+};
+
 #if LEARY_DYNAMIC
 #include "linux_debug.cpp"
 
@@ -74,14 +79,22 @@ static platform_reload_t     *platform_reload     = &platform_reload_stub;
 static platform_update_t     *platform_update     = &platform_update_stub;
 
 #define DLOAD_FUNC(lib, name) (name##_t*)dlsym(lib, #name)
-void* load_code(char *path)
+DynamicLib load_code(char *path)
 {
-	void *lib = dlopen(path, RTLD_LAZY | RTLD_GLOBAL);
-	if (lib) {
-		platform_init       = DLOAD_FUNC(lib, platform_init);
-		platform_pre_reload = DLOAD_FUNC(lib, platform_pre_reload);
-		platform_reload     = DLOAD_FUNC(lib, platform_reload);
-		platform_update     = DLOAD_FUNC(lib, platform_update);
+	DynamicLib lib = {};
+
+	struct stat st;
+	int result = stat(path, &st);
+	DEBUG_ASSERT(result == 0);
+
+	lib.load_time = st.st_mtime;
+	lib.handle    = dlopen(path, RTLD_LAZY | RTLD_GLOBAL);
+
+	if (lib.handle) {
+		platform_init       = DLOAD_FUNC(lib.handle, platform_init);
+		platform_pre_reload = DLOAD_FUNC(lib.handle, platform_pre_reload);
+		platform_reload     = DLOAD_FUNC(lib.handle, platform_reload);
+		platform_update     = DLOAD_FUNC(lib.handle, platform_update);
 	}
 
 	if (!platform_init)       platform_init       = &platform_init_stub;
@@ -92,20 +105,20 @@ void* load_code(char *path)
 	return lib;
 }
 
-void unload_code(void *lib)
+void unload_code(DynamicLib lib)
 {
-	dlclose(lib);
+	dlclose(lib.handle);
 }
 
 #else
 #include "linux_leary.cpp"
 
-void* load_code(char *)
+DynamicLib load_code(char *)
 {
-	return nullptr;
+	return DynamicLib{};
 }
 
-void unload_code(void *)
+void unload_code(DynamicLib)
 {
 }
 #endif
@@ -148,13 +161,21 @@ int main()
 	strncpy(lib_path, buffer, length);
 	strcat(lib_path, "game.so");
 
-	void *lib = load_code(lib_path);
+#if LEARY_DYNAMIC
+	DynamicLib lib = load_code(lib_path);
+
+	constexpr f32 code_reload_rate = 1.0f;
+	f32 code_reload_timer = code_reload_rate;
+#endif
 
 	PlatformState platform = {};
 	platform_init(&platform);
 
-	constexpr f32 code_reload_rate = 1.0f;
-	f32 code_reload_timer = code_reload_rate;
+#if !LEARY_DYMAMIC
+	// TODO(jesper): this is only needed because I don't properly set the global
+	// profiling state in profile_init. Which is very dumb
+	platform_reload(&platform);
+#endif
 
 	timespec last_time = get_time();
 	while (true) {
@@ -165,16 +186,26 @@ int main()
 		f32 dt = (f32)difference / 1000000000.0f;
 		DEBUG_ASSERT(difference >= 0);
 
+#if LEARY_DYNAMIC
 		code_reload_timer += dt;
 		if (code_reload_timer >= code_reload_rate) {
-			platform_pre_reload(&platform);
+			struct stat st;
+			int result = stat(lib_path, &st);
+			DEBUG_ASSERT(result == 0);
 
-			unload_code(lib);
-			lib = load_code(lib_path);
+			if (st.st_mtime > lib.load_time) {
+				platform_pre_reload(&platform);
 
-			platform_reload(&platform);
+				unload_code(lib);
+				lib = load_code(lib_path);
+
+				platform_reload(&platform);
+				DEBUG_LOG("reloaded code: %lld", lib.load_time);
+			}
+
 			code_reload_timer = 0.0f;
 		}
+#endif
 
 		platform_update(&platform, dt);
 	}
