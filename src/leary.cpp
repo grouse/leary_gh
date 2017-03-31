@@ -103,7 +103,7 @@ void render_font(GameMemory *memory, RenderedText *text,
 	usize vertices_size = sizeof(f32)*30*text_length;
 	auto vertices = (f32*)alloc(&memory->frame, vertices_size);
 
-	text->vertex_count = (i32)(text_length * 6);
+	text->vertex_count = 0;
 
 	Matrix4 camera = translate(game->ui_camera.view, {x, y, 0.0f});
 
@@ -116,6 +116,8 @@ void render_font(GameMemory *memory, RenderedText *text,
 			tmp_x  = 0.0f;
 			continue;
 		}
+
+		text->vertex_count += 6;
 
 		stbtt_aligned_quad q = {};
 		stbtt_GetBakedQuad(game->baked_font, 1024, 1024, c, &tmp_x, &tmp_y, &q, 1);
