@@ -374,8 +374,10 @@ void game_quit(GameMemory *memory, PlatformState *platform)
 	destroy(&game->vulkan, game->text_vertices.buffer);
 
 	destroy(&game->vulkan, game->textures.font);
+	destroy(&game->vulkan, game->textures.cube);
 
 	destroy_material(&game->vulkan, &game->materials.font);
+	destroy_material(&game->vulkan, &game->materials.phong);
 
 	destroy(&game->vulkan, game->pipelines.font);
 	destroy(&game->vulkan, game->pipelines.mesh);
