@@ -70,7 +70,7 @@ void free_array(StaticArray<T> *a)
 }
 
 template<typename T, typename A>
-isize array_add(Array<T, A> *a, T &e)
+isize array_add(Array<T, A> *a, T e)
 {
 	if (a->count >= a->capacity) {
 		isize capacity = a->capacity == 0 ? 1 : a->capacity * 2;
@@ -83,7 +83,7 @@ isize array_add(Array<T, A> *a, T &e)
 }
 
 template<typename T>
-isize array_add(StaticArray<T> *a, T &e)
+isize array_add(StaticArray<T> *a, T e)
 {
 	DEBUG_ASSERT(a->count <= a->capacity);
 
