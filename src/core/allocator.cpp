@@ -241,6 +241,30 @@ void dealloc(FreeListAllocator *a, void *ptr)
 	}
 }
 
+void *realloc(StackAllocator *a, void *ptr, isize size)
+{
+	if (ptr == nullptr) {
+		return alloc(a, size);
+	}
+
+	// NOTE(jesper): reallocing can be bad as we'll almost certainly leak the
+	// memory, but for the general use case this should be fine
+	auto header = (AllocationHeader*)((uptr)ptr - sizeof(AllocationHeader));
+	if ((uptr)ptr + header->size == (uptr)a->current) {
+		isize extra = size - header->size;
+		DEBUG_ASSERT(extra > 0); // NOTE(jesper): untested
+
+		a->current   = (void*)((uptr)a->current + extra);
+		header->size = size;
+		return ptr;
+	} else {
+		DEBUG_LOG("can't expand stack allocation, leaking memory");
+		void *nptr = alloc(a, size);
+		memcpy(nptr, ptr, header->size);
+		return nptr;
+	}
+}
+
 void *realloc(LinearAllocator *a, void *ptr, isize size)
 {
 	if (ptr == nullptr) {
