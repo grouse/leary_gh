@@ -330,6 +330,25 @@ T *alloc_array(A *a, isize count)
 	return (T*)alloc(a, sizeof(T) * count);
 }
 
+template <typename T, typename A>
+T *zalloc_array(A *a, isize count)
+{
+	T *ptr = (T*)alloc(a, sizeof(T) * count);
+	memset(ptr, 0, sizeof(T) * count);
+	return ptr;
+}
+
+template <typename T, typename A>
+T *ialloc_array(A *a, isize count)
+{
+	T *ptr = (T*)alloc(a, sizeof(T) * count);
+	T val = {};
+	for (i32 i = 0; i < count; i++) {
+		ptr[i] = val;
+	}
+	return ptr;
+}
+
 template<typename T, typename A>
 T *realloc_array(A *a, T *ptr, isize capacity)
 {
