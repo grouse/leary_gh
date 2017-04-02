@@ -30,6 +30,7 @@ struct GameMemory {
 	void *game;
 	LinearAllocator   frame;
 	LinearAllocator   persistent;
+	StackAllocator    stack;
 	FreeListAllocator free_list;
 };
 

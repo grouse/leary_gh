@@ -812,62 +812,39 @@ VulkanPipeline create_font_pipeline(VulkanDevice *device, GameMemory *memory)
 	pipeline.shaders[ShaderStage_vertex]   = create_shader(device, ShaderID_font_vert);
 	pipeline.shaders[ShaderStage_fragment] = create_shader(device, ShaderID_font_frag);
 
+	// TODO(jesper): i think it probably makes sense to move this into the
+	// material, but unsure
 	pipeline.sampler_count = 1;
 	pipeline.samplers = alloc_array<VkSampler>(&memory->persistent,
 	                                           pipeline.sampler_count);
 	pipeline.samplers[0]   = create_sampler(device);
 
-	std::array<VkDescriptorSetLayoutBinding, 1> bindings = {};
-	// texture sampler
-	bindings[0].binding         = 1;
-	bindings[0].descriptorCount = 1;
-	bindings[0].descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	bindings[0].stageFlags      = VK_SHADER_STAGE_FRAGMENT_BIT;
+	auto layouts = make_array<VkDescriptorSetLayout>(&memory->frame);
+	{ // material
+		std::array<VkDescriptorSetLayoutBinding, 1> bindings = {};
+		// texture sampler
+		bindings[0].binding         = 1;
+		bindings[0].descriptorCount = 1;
+		bindings[0].descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		bindings[0].stageFlags      = VK_SHADER_STAGE_FRAGMENT_BIT;
 
-	VkDescriptorSetLayoutCreateInfo descriptor_layout_info = {};
-	descriptor_layout_info.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-	descriptor_layout_info.bindingCount = (u32)bindings.size();
-	descriptor_layout_info.pBindings    = bindings.data();
+		VkDescriptorSetLayoutCreateInfo descriptor_layout_info = {};
+		descriptor_layout_info.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+		descriptor_layout_info.bindingCount = (u32)bindings.size();
+		descriptor_layout_info.pBindings    = bindings.data();
 
-	result = vkCreateDescriptorSetLayout(device->handle,
-	                                     &descriptor_layout_info,
-	                                     nullptr,
-	                                     &pipeline.descriptor_layout);
-	DEBUG_ASSERT(result == VK_SUCCESS);
-
-	// NOTE(jesper): create a pool size descriptor for each type of
-	// descriptor this shader program uses
-	std::array<VkDescriptorPoolSize, 1> pool_sizes = {};
-	pool_sizes[0].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	pool_sizes[0].descriptorCount = 1;
-
-	VkDescriptorPoolCreateInfo pool_info = {};
-	pool_info.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-	pool_info.poolSizeCount = (u32)pool_sizes.size();
-	pool_info.pPoolSizes    = pool_sizes.data();
-	pool_info.maxSets       = 1;
-
-	result = vkCreateDescriptorPool(device->handle,
-	                                &pool_info,
-	                                nullptr,
-	                                &pipeline.descriptor_pool);
-	DEBUG_ASSERT(result == VK_SUCCESS);
-
-	VkDescriptorSetAllocateInfo descriptor_alloc_info = {};
-	descriptor_alloc_info.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-	descriptor_alloc_info.descriptorPool     = pipeline.descriptor_pool;
-	descriptor_alloc_info.descriptorSetCount = 1;
-	descriptor_alloc_info.pSetLayouts        = &pipeline.descriptor_layout;
-
-	result = vkAllocateDescriptorSets(device->handle,
-	                                  &descriptor_alloc_info,
-	                                  &pipeline.descriptor_set);
-	DEBUG_ASSERT(result == VK_SUCCESS);
+		result = vkCreateDescriptorSetLayout(device->handle,
+		                                     &descriptor_layout_info,
+		                                     nullptr,
+		                                     &pipeline.descriptor_layout_material);
+		DEBUG_ASSERT(result == VK_SUCCESS);
+		array_add(&layouts, pipeline.descriptor_layout_material);
+	}
 
 	VkPipelineLayoutCreateInfo layout_info = {};
 	layout_info.sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-	layout_info.setLayoutCount         = 1;
-	layout_info.pSetLayouts            = &pipeline.descriptor_layout;
+	layout_info.setLayoutCount         = layouts.count;
+	layout_info.pSetLayouts            = layouts.data;
 
 	result = vkCreatePipelineLayout(device->handle,
 	                                &layout_info,
@@ -1024,38 +1001,54 @@ VulkanPipeline create_pipeline(VulkanDevice *device, GameMemory *memory)
 	                                           pipeline.sampler_count);
 	pipeline.samplers[0]   = create_sampler(device);
 
-	std::array<VkDescriptorSetLayoutBinding, 2> bindings = {};
-	// camera ubo
-	bindings[0].binding         = 0;
-	bindings[0].descriptorCount = 1;
-	bindings[0].descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	bindings[0].stageFlags      = VK_SHADER_STAGE_VERTEX_BIT;
+	auto layouts = make_array<VkDescriptorSetLayout>(&memory->frame);
+	{ // pipeline
+		std::array<VkDescriptorSetLayoutBinding, 1> bindings = {};
+		bindings[0].binding         = 0;
+		bindings[0].descriptorCount = 1;
+		bindings[0].descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		bindings[0].stageFlags      = VK_SHADER_STAGE_VERTEX_BIT;
 
-	// texture sampler
-	bindings[1].binding         = 1;
-	bindings[1].descriptorCount = 1;
-	bindings[1].descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	bindings[1].stageFlags      = VK_SHADER_STAGE_FRAGMENT_BIT;
+		VkDescriptorSetLayoutCreateInfo layout_info = {};
+		layout_info.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+		layout_info.bindingCount = (u32)bindings.size();
+		layout_info.pBindings    = bindings.data();
 
-	VkDescriptorSetLayoutCreateInfo descriptor_layout_info = {};
-	descriptor_layout_info.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-	descriptor_layout_info.bindingCount = (u32)bindings.size();
-	descriptor_layout_info.pBindings    = bindings.data();
+		result = vkCreateDescriptorSetLayout(device->handle,
+		                                     &layout_info,
+		                                     nullptr,
+		                                     &pipeline.descriptor_layout_pipeline);
+		DEBUG_ASSERT(result == VK_SUCCESS);
 
-	result = vkCreateDescriptorSetLayout(device->handle,
-	                                     &descriptor_layout_info,
-	                                     nullptr,
-	                                     &pipeline.descriptor_layout);
-	DEBUG_ASSERT(result == VK_SUCCESS);
+		array_add(&layouts, pipeline.descriptor_layout_pipeline);
+	}
+
+	{ // material
+		std::array<VkDescriptorSetLayoutBinding, 1> bindings = {};
+		bindings[0].binding         = 1;
+		bindings[0].descriptorCount = 1;
+		bindings[0].descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		bindings[0].stageFlags      = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+		VkDescriptorSetLayoutCreateInfo layout_info = {};
+		layout_info.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+		layout_info.bindingCount = (u32)bindings.size();
+		layout_info.pBindings    = bindings.data();
+
+		result = vkCreateDescriptorSetLayout(device->handle,
+		                                     &layout_info,
+		                                     nullptr,
+		                                     &pipeline.descriptor_layout_pipeline);
+		DEBUG_ASSERT(result == VK_SUCCESS);
+
+		array_add(&layouts, pipeline.descriptor_layout_material);
+	}
 
 	// NOTE(jesper): create a pool size descriptor for each type of
 	// descriptor this shader program uses
-	std::array<VkDescriptorPoolSize, 2> pool_sizes = {};
+	std::array<VkDescriptorPoolSize, 1> pool_sizes = {};
 	pool_sizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 	pool_sizes[0].descriptorCount = 1;
-
-	pool_sizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	pool_sizes[1].descriptorCount = 1;
 
 	VkDescriptorPoolCreateInfo pool_info = {};
 	pool_info.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -1073,7 +1066,7 @@ VulkanPipeline create_pipeline(VulkanDevice *device, GameMemory *memory)
 	descriptor_alloc_info.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
 	descriptor_alloc_info.descriptorPool     = pipeline.descriptor_pool;
 	descriptor_alloc_info.descriptorSetCount = 1;
-	descriptor_alloc_info.pSetLayouts        = &pipeline.descriptor_layout;
+	descriptor_alloc_info.pSetLayouts        = &pipeline.descriptor_layout_pipeline;
 
 	result = vkAllocateDescriptorSets(device->handle,
 	                                  &descriptor_alloc_info,
@@ -1087,8 +1080,8 @@ VulkanPipeline create_pipeline(VulkanDevice *device, GameMemory *memory)
 
 	VkPipelineLayoutCreateInfo layout_info = {};
 	layout_info.sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-	layout_info.setLayoutCount         = 1;
-	layout_info.pSetLayouts            = &pipeline.descriptor_layout;
+	layout_info.setLayoutCount         = layouts.count;
+	layout_info.pSetLayouts            = layouts.data;
 	layout_info.pushConstantRangeCount = 1;
 	layout_info.pPushConstantRanges    = &push_constants;
 
@@ -1234,7 +1227,7 @@ VulkanPipeline create_pipeline(VulkanDevice *device, GameMemory *memory)
 	return pipeline;
 }
 
-VulkanPipeline create_terrain_pipeline(VulkanDevice *device, GameMemory *)
+VulkanPipeline create_terrain_pipeline(VulkanDevice *device, GameMemory *memory)
 {
 	VkResult result;
 	VulkanPipeline pipeline = {};
@@ -1242,23 +1235,27 @@ VulkanPipeline create_terrain_pipeline(VulkanDevice *device, GameMemory *)
 	pipeline.shaders[ShaderStage_vertex]   = create_shader(device, ShaderID_terrain_vert);
 	pipeline.shaders[ShaderStage_fragment] = create_shader(device, ShaderID_terrain_frag);
 
-	std::array<VkDescriptorSetLayoutBinding, 1> bindings = {};
-	// camera ubo
-	bindings[0].binding         = 0;
-	bindings[0].descriptorCount = 1;
-	bindings[0].descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	bindings[0].stageFlags      = VK_SHADER_STAGE_VERTEX_BIT;
+	auto layouts = make_array<VkDescriptorSetLayout>(&memory->frame);
+	{ // pipeline
+		std::array<VkDescriptorSetLayoutBinding, 1> bindings = {};
+		bindings[0].binding         = 0;
+		bindings[0].descriptorCount = 1;
+		bindings[0].descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		bindings[0].stageFlags      = VK_SHADER_STAGE_VERTEX_BIT;
 
-	VkDescriptorSetLayoutCreateInfo descriptor_layout_info = {};
-	descriptor_layout_info.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-	descriptor_layout_info.bindingCount = (u32)bindings.size();
-	descriptor_layout_info.pBindings    = bindings.data();
+		VkDescriptorSetLayoutCreateInfo layout_info = {};
+		layout_info.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+		layout_info.bindingCount = (u32)bindings.size();
+		layout_info.pBindings    = bindings.data();
 
-	result = vkCreateDescriptorSetLayout(device->handle,
-	                                     &descriptor_layout_info,
-	                                     nullptr,
-	                                     &pipeline.descriptor_layout);
-	DEBUG_ASSERT(result == VK_SUCCESS);
+		result = vkCreateDescriptorSetLayout(device->handle,
+		                                     &layout_info,
+		                                     nullptr,
+		                                     &pipeline.descriptor_layout_pipeline);
+		DEBUG_ASSERT(result == VK_SUCCESS);
+
+		array_add(&layouts, pipeline.descriptor_layout_pipeline);
+	}
 
 	// NOTE(jesper): create a pool size descriptor for each type of
 	// descriptor this shader program uses
@@ -1282,7 +1279,7 @@ VulkanPipeline create_terrain_pipeline(VulkanDevice *device, GameMemory *)
 	descriptor_alloc_info.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
 	descriptor_alloc_info.descriptorPool     = pipeline.descriptor_pool;
 	descriptor_alloc_info.descriptorSetCount = 1;
-	descriptor_alloc_info.pSetLayouts        = &pipeline.descriptor_layout;
+	descriptor_alloc_info.pSetLayouts        = &pipeline.descriptor_layout_pipeline;
 
 	result = vkAllocateDescriptorSets(device->handle,
 	                                  &descriptor_alloc_info,
@@ -1296,8 +1293,8 @@ VulkanPipeline create_terrain_pipeline(VulkanDevice *device, GameMemory *)
 
 	VkPipelineLayoutCreateInfo layout_info = {};
 	layout_info.sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-	layout_info.setLayoutCount         = 1;
-	layout_info.pSetLayouts            = &pipeline.descriptor_layout;
+	layout_info.setLayoutCount         = layouts.count;
+	layout_info.pSetLayouts            = layouts.data;
 	layout_info.pushConstantRangeCount = 1;
 	layout_info.pPushConstantRanges    = &push_constants;
 
@@ -1433,7 +1430,7 @@ VulkanPipeline create_terrain_pipeline(VulkanDevice *device, GameMemory *)
 	return pipeline;
 }
 
-VulkanPipeline create_mesh_pipeline(VulkanDevice *device, GameMemory *)
+VulkanPipeline create_mesh_pipeline(VulkanDevice *device, GameMemory *memory)
 {
 	VkResult result;
 	VulkanPipeline pipeline = {};
@@ -1441,34 +1438,67 @@ VulkanPipeline create_mesh_pipeline(VulkanDevice *device, GameMemory *)
 	pipeline.shaders[ShaderStage_vertex]   = create_shader(device, ShaderID_mesh_vert);
 	pipeline.shaders[ShaderStage_fragment] = create_shader(device, ShaderID_mesh_frag);
 
-	std::array<VkDescriptorSetLayoutBinding, 1> bindings = {};
-	// camera ubo
-	bindings[0].binding         = 0;
-	bindings[0].descriptorCount = 1;
-	bindings[0].descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	bindings[0].stageFlags      = VK_SHADER_STAGE_VERTEX_BIT;
+	// TODO(jesper): i think it probably makes sense to move this into the
+	// material, but unsure
+	pipeline.sampler_count = 1;
+	pipeline.samplers = alloc_array<VkSampler>(&memory->persistent,
+	                                           pipeline.sampler_count);
+	pipeline.samplers[0]   = create_sampler(device);
 
-	VkDescriptorSetLayoutCreateInfo descriptor_layout_info = {};
-	descriptor_layout_info.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-	descriptor_layout_info.bindingCount = (u32)bindings.size();
-	descriptor_layout_info.pBindings    = bindings.data();
 
-	result = vkCreateDescriptorSetLayout(device->handle,
-	                                     &descriptor_layout_info,
-	                                     nullptr,
-	                                     &pipeline.descriptor_layout);
-	DEBUG_ASSERT(result == VK_SUCCESS);
+	auto layouts = make_array<VkDescriptorSetLayout>(&memory->frame);
+	{ // pipeline
+		std::array<VkDescriptorSetLayoutBinding, 1> bindings = {};
+		bindings[0].binding         = 0;
+		bindings[0].descriptorCount = 1;
+		bindings[0].descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		bindings[0].stageFlags      = VK_SHADER_STAGE_VERTEX_BIT;
+
+		VkDescriptorSetLayoutCreateInfo layout_info = {};
+		layout_info.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+		layout_info.bindingCount = (u32)bindings.size();
+		layout_info.pBindings    = bindings.data();
+
+		result = vkCreateDescriptorSetLayout(device->handle,
+		                                     &layout_info,
+		                                     nullptr,
+		                                     &pipeline.descriptor_layout_pipeline);
+		DEBUG_ASSERT(result == VK_SUCCESS);
+
+		array_add(&layouts, pipeline.descriptor_layout_pipeline);
+	}
+
+	{ // material
+		std::array<VkDescriptorSetLayoutBinding, 1> bindings = {};
+		bindings[0].binding         = 0;
+		bindings[0].descriptorCount = 1;
+		bindings[0].descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		bindings[0].stageFlags      = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+		VkDescriptorSetLayoutCreateInfo layout_info = {};
+		layout_info.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+		layout_info.bindingCount = (u32)bindings.size();
+		layout_info.pBindings    = bindings.data();
+
+		result = vkCreateDescriptorSetLayout(device->handle,
+		                                     &layout_info,
+		                                     nullptr,
+		                                     &pipeline.descriptor_layout_material);
+		DEBUG_ASSERT(result == VK_SUCCESS);
+
+		array_add(&layouts, pipeline.descriptor_layout_material);
+	}
 
 	// NOTE(jesper): create a pool size descriptor for each type of
 	// descriptor this shader program uses
-	std::array<VkDescriptorPoolSize, 1> pool_sizes = {};
-	pool_sizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	pool_sizes[0].descriptorCount = 1;
+	auto pool_sizes = make_array<VkDescriptorPoolSize>(&memory->frame);
+	array_add(&pool_sizes, { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         1 });
+	//array_add(&pool_sizes, { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1 });
 
 	VkDescriptorPoolCreateInfo pool_info = {};
 	pool_info.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-	pool_info.poolSizeCount = (u32)pool_sizes.size();
-	pool_info.pPoolSizes    = pool_sizes.data();
+	pool_info.poolSizeCount = pool_sizes.count;
+	pool_info.pPoolSizes    = pool_sizes.data;
 	pool_info.maxSets       = 1;
 
 	result = vkCreateDescriptorPool(device->handle,
@@ -1481,7 +1511,7 @@ VulkanPipeline create_mesh_pipeline(VulkanDevice *device, GameMemory *)
 	descriptor_alloc_info.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
 	descriptor_alloc_info.descriptorPool     = pipeline.descriptor_pool;
 	descriptor_alloc_info.descriptorSetCount = 1;
-	descriptor_alloc_info.pSetLayouts        = &pipeline.descriptor_layout;
+	descriptor_alloc_info.pSetLayouts        = &layouts[0];
 
 	result = vkAllocateDescriptorSets(device->handle,
 	                                  &descriptor_alloc_info,
@@ -1495,8 +1525,8 @@ VulkanPipeline create_mesh_pipeline(VulkanDevice *device, GameMemory *)
 
 	VkPipelineLayoutCreateInfo layout_info = {};
 	layout_info.sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-	layout_info.setLayoutCount         = 1;
-	layout_info.pSetLayouts            = &pipeline.descriptor_layout;
+	layout_info.setLayoutCount         = layouts.count;
+	layout_info.pSetLayouts            = layouts.data;
 	layout_info.pushConstantRangeCount = 1;
 	layout_info.pPushConstantRanges    = &push_constants;
 
@@ -2292,7 +2322,8 @@ void destroy(VulkanDevice *device, VulkanPipeline pipeline)
 	}
 
 	vkDestroyDescriptorPool(device->handle, pipeline.descriptor_pool, nullptr);
-	vkDestroyDescriptorSetLayout(device->handle, pipeline.descriptor_layout, nullptr);
+	vkDestroyDescriptorSetLayout(device->handle, pipeline.descriptor_layout_pipeline, nullptr);
+	vkDestroyDescriptorSetLayout(device->handle, pipeline.descriptor_layout_material, nullptr);
 	vkDestroyPipelineLayout(device->handle, pipeline.layout, nullptr);
 	vkDestroyPipeline(device->handle, pipeline.handle, nullptr);
 }
@@ -2520,89 +2551,6 @@ void update_uniform_data(VulkanDevice *device,
 	copy_buffer(device, ubo.staging.handle, ubo.buffer.handle, size);
 }
 
-void update_descriptor_sets(VulkanDevice *device,
-                            VulkanPipeline pipeline,
-                            VulkanTexture texture,
-                            VulkanUniformBuffer ubo)
-{
-	VkDescriptorBufferInfo buffer_info = {};
-	buffer_info.buffer = ubo.buffer.handle;
-	buffer_info.offset = 0;
-	buffer_info.range  = ubo.buffer.size;
-
-	VkDescriptorImageInfo image_info = {};
-	image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	image_info.imageView   = texture.image_view;
-	image_info.sampler     = pipeline.samplers[0];
-
-	std::array<VkWriteDescriptorSet, 2> descriptor_writes = {};
-	descriptor_writes[0].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-	descriptor_writes[0].dstSet          = pipeline.descriptor_set;
-	descriptor_writes[0].dstBinding      = 0;
-	descriptor_writes[0].dstArrayElement = 0;
-	descriptor_writes[0].descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	descriptor_writes[0].descriptorCount = 1;
-	descriptor_writes[0].pBufferInfo     = &buffer_info;
-
-	descriptor_writes[1].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-	descriptor_writes[1].dstSet          = pipeline.descriptor_set;
-	descriptor_writes[1].dstBinding      = 1;
-	descriptor_writes[1].dstArrayElement = 0;
-	descriptor_writes[1].descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	descriptor_writes[1].descriptorCount = 1;
-	descriptor_writes[1].pImageInfo      = &image_info;
-
-	vkUpdateDescriptorSets(device->handle,
-	                       (u32)descriptor_writes.size(), descriptor_writes.data(),
-	                       0, nullptr);
-}
-
-void update_descriptor_sets(VulkanDevice *device,
-                            VulkanPipeline pipeline,
-                            VulkanUniformBuffer ubo)
-{
-	VkDescriptorBufferInfo buffer_info = {};
-	buffer_info.buffer = ubo.buffer.handle;
-	buffer_info.offset = 0;
-	buffer_info.range  = ubo.buffer.size;
-
-	std::array<VkWriteDescriptorSet, 1> descriptor_writes = {};
-	descriptor_writes[0].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-	descriptor_writes[0].dstSet          = pipeline.descriptor_set;
-	descriptor_writes[0].dstBinding      = 0;
-	descriptor_writes[0].dstArrayElement = 0;
-	descriptor_writes[0].descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	descriptor_writes[0].descriptorCount = 1;
-	descriptor_writes[0].pBufferInfo     = &buffer_info;
-
-	vkUpdateDescriptorSets(device->handle,
-	                       (u32)descriptor_writes.size(), descriptor_writes.data(),
-	                       0, nullptr);
-}
-
-void update_descriptor_sets(VulkanDevice *device,
-                            VulkanPipeline pipeline,
-                            VulkanTexture texture)
-{
-	VkDescriptorImageInfo image_info = {};
-	image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	image_info.imageView   = texture.image_view;
-	image_info.sampler     = pipeline.samplers[0];
-
-	std::array<VkWriteDescriptorSet, 1> descriptor_writes = {};
-	descriptor_writes[0].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-	descriptor_writes[0].dstSet          = pipeline.descriptor_set;
-	descriptor_writes[0].dstBinding      = 1;
-	descriptor_writes[0].dstArrayElement = 0;
-	descriptor_writes[0].descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	descriptor_writes[0].descriptorCount = 1;
-	descriptor_writes[0].pImageInfo      = &image_info;
-
-	vkUpdateDescriptorSets(device->handle,
-	                       (u32)descriptor_writes.size(), descriptor_writes.data(),
-	                       0, nullptr);
-}
-
 u32 acquire_swapchain_image(VulkanDevice *device)
 {
 	VkResult result;
@@ -2617,3 +2565,130 @@ u32 acquire_swapchain_image(VulkanDevice *device)
 	return image_index;
 }
 
+Material create_material(VulkanDevice *device, GameMemory *memory,
+                         VulkanPipeline *pipeline, MaterialID id)
+{
+	// TODO(jesper): hardcoded font material for now
+	Material mat = {};
+	mat.id       = id;
+	mat.pipeline = pipeline;
+
+	auto pool_sizes = make_array<VkDescriptorPoolSize>(&memory->frame);
+
+	switch (id) {
+	case Material_phong: {
+		array_add(&pool_sizes, VkDescriptorPoolSize{
+			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1
+		});
+	} break;
+	case Material_font: {
+		array_add(&pool_sizes, VkDescriptorPoolSize{
+			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1
+		});
+	} break;
+	default:
+		DEBUG_LOG("unknown material");
+		DEBUG_ASSERT(false);
+		break;
+	}
+
+	VkDescriptorPoolCreateInfo pool_info = {};
+	pool_info.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+	pool_info.poolSizeCount = pool_sizes.count;
+	pool_info.pPoolSizes    = pool_sizes.data;
+	pool_info.maxSets       = 1;
+
+	VkResult result = vkCreateDescriptorPool(device->handle,
+	                                         &pool_info,
+	                                         nullptr,
+	                                         &mat.descriptor_pool);
+	DEBUG_ASSERT(result == VK_SUCCESS);
+
+	VkDescriptorSetAllocateInfo descriptor_alloc_info = {};
+	descriptor_alloc_info.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+	descriptor_alloc_info.descriptorPool     = mat.descriptor_pool;
+	descriptor_alloc_info.descriptorSetCount = 1;
+	descriptor_alloc_info.pSetLayouts        = &pipeline->descriptor_layout_material;
+
+	result = vkAllocateDescriptorSets(device->handle,
+	                                  &descriptor_alloc_info,
+	                                  &mat.descriptor_set);
+	DEBUG_ASSERT(result == VK_SUCCESS);
+
+	return mat;
+}
+
+void destroy_material(VulkanDevice *device, Material *material)
+{
+	vkDestroyDescriptorPool(device->handle, material->descriptor_pool, nullptr);
+}
+
+void set_texture(VulkanDevice *device,
+                 Material *material,
+                 ResourceSlot slot,
+                 VulkanTexture *texture)
+{
+	// TODO(jesper): use this to figure out which sampler and dstBinding to set
+	(void)slot;
+
+	VkDescriptorImageInfo image_info = {};
+	image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	image_info.imageView   = texture->image_view;
+	// TODO(jesper): figure this one out based on ResourceSlot
+	// NOTE(jesper): there might be some merit to sticking the sampler inside
+	// the material, as this'd allow us to use different image samplers with
+	// different materials? would make sense I think
+	image_info.sampler     = material->pipeline->samplers[0];
+
+	VkWriteDescriptorSet writes = {};
+	writes.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	writes.dstSet          = material->descriptor_set;
+
+	// TODO(jesper): the dstBinding depends on ResourceSlot and MaterialID
+	switch (slot) {
+	case ResourceSlot_texture:
+		writes.dstBinding      = 0;
+		break;
+	case ResourceSlot_font_atlas:
+		writes.dstBinding      = 1;
+		break;
+	default:
+		DEBUG_LOG("unknown resource slot");
+		DEBUG_ASSERT(false);
+		break;
+	}
+
+	writes.dstArrayElement = 0;
+	writes.descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	writes.descriptorCount = 1;
+	writes.pImageInfo      = &image_info;
+
+	vkUpdateDescriptorSets(device->handle, 1, &writes, 0, nullptr);
+}
+
+void set_uniform(VulkanDevice *device,
+                 VulkanPipeline *pipeline,
+                 ResourceSlot slot,
+                 VulkanUniformBuffer *ubo)
+{
+	// TODO(jesper): use this to figure out the dstBinding to use
+	(void)slot;
+
+	VkDescriptorBufferInfo buffer_info = {};
+	buffer_info.buffer = ubo->buffer.handle;
+	// TODO(jesper): support ubo offsets
+	buffer_info.offset = 0;
+	buffer_info.range  = ubo->buffer.size;
+
+	VkWriteDescriptorSet writes = {};
+	writes.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	writes.dstSet          = pipeline->descriptor_set;
+	// TODO(jesper): set this based on ResourceSlot
+	writes.dstBinding      = 0;
+	writes.dstArrayElement = 0;
+	writes.descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	writes.descriptorCount = 1;
+	writes.pBufferInfo     = &buffer_info;
+
+	vkUpdateDescriptorSets(device->handle, 1, &writes, 0, nullptr);
+}

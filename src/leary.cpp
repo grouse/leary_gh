@@ -28,7 +28,6 @@
 
 #include "core/serialize.cpp"
 
-
 struct RenderedText {
 	VulkanBuffer buffer;
 	i32          vertex_count;
@@ -40,6 +39,7 @@ struct IndexRenderObject {
 	VulkanBuffer   indices;
 	i32            index_count;
 	Matrix4        transform;
+	Material       *material;
 };
 
 // TODO(jesper): stick these in the pipeline so that we reduce the number of
@@ -49,6 +49,7 @@ struct RenderObject {
 	VulkanBuffer   vertices;
 	i32            vertex_count;
 	Matrix4        transform;
+	Material       *material;
 };
 
 struct Camera {
@@ -71,7 +72,13 @@ struct GameState {
 
 	struct {
 		VulkanTexture font;
+		VulkanTexture cube;
 	} textures;
+
+	struct {
+		Material font;
+		Material phong;
+	} materials;
 
 	Camera fp_camera;
 	Camera ui_camera;
@@ -235,6 +242,20 @@ void game_init(GameMemory *memory, PlatformState *platform)
 		game->text_vertices.buffer = create_vertex_buffer(&game->vulkan, 1024*1024);
 	}
 
+	{
+		Vector4 *pixels = ialloc_array<Vector4>(&memory->stack, 32 * 32);
+		pixels[0]           = Vector4 { 1.0f, 0.0f, 0.0f, 1.0f };
+		pixels[32]          = Vector4 { 0.0f, 1.0f, 0.0f, 1.0f };
+		pixels[32 * 32 - 1] = Vector4 { 0.0f, 0.0f, 1.0f, 1.0f };
+
+		// TODO(jesper): texture file loading
+		game->textures.cube = create_texture(&game->vulkan, 32, 32,
+		                                     VK_FORMAT_R32G32B32A32_SFLOAT,
+		                                     pixels,
+		                                     VkComponentMapping{});
+	}
+
+
 	// create pipelines
 	{
 		game->pipelines.mesh = create_mesh_pipeline(&game->vulkan, memory);
@@ -251,8 +272,34 @@ void game_init(GameMemory *memory, PlatformState *platform)
 		                    &view_projection, 0, sizeof(view_projection));
 	}
 
+	// create materials
+	{
+		game->materials.font = create_material(&game->vulkan, memory,
+		                                       &game->pipelines.font,
+		                                       Material_font);
+
+		game->materials.phong = create_material(&game->vulkan, memory,
+		                                        &game->pipelines.mesh,
+		                                        Material_phong);
+	}
+
 	// update descriptor sets
 	{
+		set_uniform(&game->vulkan, &game->pipelines.mesh,
+		            ResourceSlot_mvp, &game->fp_camera.ubo);
+
+		set_uniform(&game->vulkan, &game->pipelines.terrain,
+		            ResourceSlot_mvp, &game->fp_camera.ubo);
+
+
+		set_texture(&game->vulkan, &game->materials.font,
+		            ResourceSlot_font_atlas, &game->textures.font);
+
+		set_texture(&game->vulkan, &game->materials.phong,
+		            ResourceSlot_texture, &game->textures.cube);
+
+
+#if 0
 		update_descriptor_sets(&game->vulkan,
 		                       game->pipelines.mesh,
 		                       game->fp_camera.ubo);
@@ -264,6 +311,7 @@ void game_init(GameMemory *memory, PlatformState *platform)
 		update_descriptor_sets(&game->vulkan,
 		                       game->pipelines.font,
 		                       game->textures.font);
+#endif
 	}
 
 	Mesh cube = load_mesh_obj(memory, "cube.obj");
@@ -271,6 +319,7 @@ void game_init(GameMemory *memory, PlatformState *platform)
 	Random r = make_random(3);
 	for (i32 i = 0; i < 10; i++) {
 		IndexRenderObject obj = {};
+		obj.material = &game->materials.phong;
 
 		usize vertex_size = cube.vertices.count * sizeof(cube.vertices[0]);
 		usize index_size  = cube.indices.count  * sizeof(cube.indices[0]);
@@ -325,6 +374,8 @@ void game_quit(GameMemory *memory, PlatformState *platform)
 	destroy(&game->vulkan, game->text_vertices.buffer);
 
 	destroy(&game->vulkan, game->textures.font);
+
+	destroy_material(&game->vulkan, &game->materials.font);
 
 	destroy(&game->vulkan, game->pipelines.font);
 	destroy(&game->vulkan, game->pipelines.mesh);
@@ -586,6 +637,9 @@ void game_render(GameMemory *memory)
 		                  VK_PIPELINE_BIND_POINT_GRAPHICS,
 		                  object.pipeline.handle);
 
+		// TODO(jesper): bind material descriptor set if bound
+		// TODO(jesper): only bind pipeline descriptor set if one exists, might
+		// be such a special case that we should hardcode it?
 		vkCmdBindDescriptorSets(command,
 		                        VK_PIPELINE_BIND_POINT_GRAPHICS,
 		                        object.pipeline.layout,
@@ -608,11 +662,21 @@ void game_render(GameMemory *memory)
 		                  VK_PIPELINE_BIND_POINT_GRAPHICS,
 		                  object.pipeline.handle);
 
+		// TODO(jesper): bind material descriptor set if bound
+		// TODO(jesper): only bind pipeline descriptor set if one exists, might
+		// be such a special case that we should hardcode it?
+		auto descriptors = make_array<VkDescriptorSet>(&memory->stack);
+		array_add(&descriptors, object.pipeline.descriptor_set);
+
+		if (object.material) {
+			array_add(&descriptors, object.material->descriptor_set);
+		}
+
 		vkCmdBindDescriptorSets(command,
 		                        VK_PIPELINE_BIND_POINT_GRAPHICS,
 		                        object.pipeline.layout,
 		                        0,
-		                        1, &object.pipeline.descriptor_set,
+		                        descriptors.count, descriptors.data,
 		                        0, nullptr);
 
 		vkCmdBindVertexBuffers(command, 0, 1, &object.vertices.handle, offsets);
@@ -623,6 +687,8 @@ void game_render(GameMemory *memory)
 		                   0, sizeof(object.transform), &object.transform);
 
 		vkCmdDrawIndexed(command, object.index_count, 1, 0, 0, 0);
+
+		free_array(&descriptors);
 	}
 
 
@@ -631,11 +697,17 @@ void game_render(GameMemory *memory)
 	                  game->pipelines.font.handle);
 
 
+	std::array<VkDescriptorSet, 1> descriptors = {};
+	descriptors[0] = game->materials.font.descriptor_set;
+
+	// TODO(jesper): bind material descriptor set if bound
+	// TODO(jesper): only bind pipeline descriptor set if one exists, might
+	// be such a special case that we should hardcode it?
 	vkCmdBindDescriptorSets(command,
 	                        VK_PIPELINE_BIND_POINT_GRAPHICS,
 	                        game->pipelines.font.layout,
 	                        0,
-	                        1, &game->pipelines.font.descriptor_set,
+	                        (u32)descriptors.size(), descriptors.data(),
 	                        0, nullptr);
 
 

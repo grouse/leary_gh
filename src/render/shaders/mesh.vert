@@ -19,6 +19,7 @@ layout(location = 0) out vec3 frag_normal;
 layout(location = 1) out vec3 frag_color;
 layout(location = 2) out vec3 frag_view;
 layout(location = 3) out vec3 frag_light;
+layout(location = 4) out vec2 frag_uv;
 
 void main()
 {
@@ -31,4 +32,5 @@ void main()
 	frag_color  = vec3(1.0, 1.0, 1.0);
 	frag_view   = -pos.xyz;
 	frag_light  = light - pos.xyz;
+	frag_uv     = uv;
 }

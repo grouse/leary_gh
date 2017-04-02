@@ -62,10 +62,17 @@ struct VulkanShader {
 
 struct VulkanPipeline {
 	VkPipeline            handle;
+
 	VkPipelineLayout      layout;
+
 	VkDescriptorSet       descriptor_set;
 	VkDescriptorPool      descriptor_pool;
-	VkDescriptorSetLayout descriptor_layout;
+
+	// TODO(jesper): better name. The suffix implies the bind frequency. E.g.
+	// _pipeline will contain descriptors bound once per pipeline, e.g.
+	// projection matrix
+	VkDescriptorSetLayout descriptor_layout_pipeline;
+	VkDescriptorSetLayout descriptor_layout_material;
 
 	VulkanShader          shaders[ShaderStage_max];
 
@@ -127,6 +134,26 @@ struct VulkanDevice {
 	StaticArray<VkFramebuffer> framebuffers;
 };
 
+enum MaterialID {
+	Material_font,
+	Material_phong
+};
+
+enum ResourceSlot {
+	ResourceSlot_mvp,
+	ResourceSlot_font_atlas,
+	ResourceSlot_texture
+};
+
+struct Material {
+	MaterialID       id;
+	// NOTE(jesper): does this make sense? we need to use the pipeline when
+	// creating the material for its descriptor layout, but maybe the dependency
+	// makes more sense if it goes the other way around?
+	VulkanPipeline   *pipeline;
+	VkDescriptorPool descriptor_pool;
+	VkDescriptorSet  descriptor_set;
+};
 
 
 #endif /* VULKAN_DEVICE_H */

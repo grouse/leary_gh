@@ -106,9 +106,11 @@ PLATFORM_INIT_FUNC(platform_init)
 	isize frame_size      = 64  * 1024 * 1024;
 	isize persistent_size = 256 * 1024 * 1024;
 	isize free_list_size  = 256 * 1024 * 1024;
+	isize stack_size      = 16  * 1024 * 1024;
 
 	// TODO(jesper): allocate these using linux call
-	u8 *mem = (u8*)malloc(frame_size + persistent_size + free_list_size);
+	u8 *mem = (u8*)malloc(frame_size + persistent_size + free_list_size +
+	                      stack_size);
 
 	platform->memory = {};
 	platform->memory.frame      = make_linear_allocator(mem, frame_size);
@@ -118,6 +120,9 @@ PLATFORM_INIT_FUNC(platform_init)
 	mem += free_list_size;
 
 	platform->memory.persistent = make_linear_allocator(mem, persistent_size);
+	mem += persistent_size;
+
+	platform->memory.stack = make_stack_allocator(mem, stack_size);
 
 	LinuxState *native = alloc<LinuxState>(&platform->memory.persistent);
 	platform->native   = native;
