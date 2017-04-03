@@ -42,13 +42,16 @@ PFN_vkDestroyDebugReportCallbackEXT  DestroyDebugReportCallbackEXT;
 static VKAPI_ATTR VkBool32 VKAPI_CALL
 debug_callback_func(VkFlags flags,
                     VkDebugReportObjectTypeEXT object_type,
-                    u64 /*object*/,
-                    usize /*location*/,
+                    u64 object,
+                    usize location,
                     i32 message_code,
                     const char* layer,
                     const char* message,
-                    void * /*user_data*/)
+                    void * user_data)
 {
+	(void)object;
+	(void)location;
+	(void)user_data;
 	// TODO(jesper): multiple flags can be set at the same time, I don't really
 	// have a way to express this in my current logging system so I let the log
 	// type be decided by a severity precedence
@@ -817,13 +820,13 @@ VulkanPipeline create_font_pipeline(VulkanDevice *device, GameMemory *memory)
 	pipeline.sampler_count = 1;
 	pipeline.samplers = alloc_array<VkSampler>(&memory->persistent,
 	                                           pipeline.sampler_count);
-	pipeline.samplers[0]   = create_sampler(device);
+	pipeline.samplers[0] = create_sampler(device);
 
 	auto layouts = make_array<VkDescriptorSetLayout>(&memory->frame);
 	{ // material
 		std::array<VkDescriptorSetLayoutBinding, 1> bindings = {};
 		// texture sampler
-		bindings[0].binding         = 1;
+		bindings[0].binding         = 0;
 		bindings[0].descriptorCount = 1;
 		bindings[0].descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 		bindings[0].stageFlags      = VK_SHADER_STAGE_FRAGMENT_BIT;
@@ -999,7 +1002,7 @@ VulkanPipeline create_pipeline(VulkanDevice *device, GameMemory *memory)
 	pipeline.sampler_count = 1;
 	pipeline.samplers = alloc_array<VkSampler>(&memory->persistent,
 	                                           pipeline.sampler_count);
-	pipeline.samplers[0]   = create_sampler(device);
+	pipeline.samplers[0] = create_sampler(device);
 
 	auto layouts = make_array<VkDescriptorSetLayout>(&memory->frame);
 	{ // pipeline
@@ -1443,7 +1446,7 @@ VulkanPipeline create_mesh_pipeline(VulkanDevice *device, GameMemory *memory)
 	pipeline.sampler_count = 1;
 	pipeline.samplers = alloc_array<VkSampler>(&memory->persistent,
 	                                           pipeline.sampler_count);
-	pipeline.samplers[0]   = create_sampler(device);
+	pipeline.samplers[0] = create_sampler(device);
 
 
 	auto layouts = make_array<VkDescriptorSetLayout>(&memory->frame);
@@ -1741,17 +1744,23 @@ VulkanTexture create_texture(VulkanDevice *device, u32 width, u32 height,
 	// TODO(jesper): hardcoded 1 byte per channel and 4 channels, lookup based
 	// on the receieved VkFormat
 
-	i32 num_channels      = 4;
-	i32 bytes_per_channel = 4;
+	i32 num_channels;
+	i32 bytes_per_channel;
 	switch (format) {
 	case VK_FORMAT_R8_UNORM:
 	case VK_FORMAT_R8_UINT:
-		num_channels = 1;
+		num_channels      = 1;
+		bytes_per_channel = 1;
+		break;
+	case VK_FORMAT_R8G8B8A8_UNORM:
+		num_channels      = 4;
 		bytes_per_channel = 1;
 		break;
 	default:
 		DEBUG_LOG(Log_warning, "unhandled format in determining number of bytes "
 		          "per channel and number of channels");
+		num_channels      = 4;
+		bytes_per_channel = 4;
 		break;
 	}
 
@@ -2650,7 +2659,7 @@ void set_texture(VulkanDevice *device,
 		writes.dstBinding      = 0;
 		break;
 	case ResourceSlot_font_atlas:
-		writes.dstBinding      = 1;
+		writes.dstBinding      = 0;
 		break;
 	default:
 		DEBUG_LOG("unknown resource slot");

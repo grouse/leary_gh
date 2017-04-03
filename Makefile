@@ -38,6 +38,16 @@ $(MODELS_DST)/%.obj: $(MODELS_SRC)/%.obj
 models: | $(MODELS_DST) $(MODELS)
 
 
+TEXTURES_SRC = $(ROOT)/assets/textures
+TEXTURES_DST = $(BUILD)/data/textures
+TEXTURES = $(addprefix $(TEXTURES_DST)/,dummy.bmp)
+
+$(TEXTURES_DST)/%.bmp: $(TEXTURES_SRC)/%.bmp
+	cp $< $@
+
+textures: | $(TEXTURES_DST) $(TEXTURES)
+
+
 FLAGS = -std=c++11 -g
 
 NOWARNINGS = -Wno-int-to-void-pointer-cast -Wno-nested-anon-types -Wno-unused-function
@@ -70,7 +80,7 @@ $(BUILD)/benchmark: FORCE
 tools: $(BUILD)/preprocessor $(BUILD)/benchmark
 
 
-all: shaders fonts models leary tools
+all: shaders fonts models leary tools textures
 
 $(SPV_DST):
 	mkdir -p $(SPV_DST)
@@ -80,5 +90,8 @@ $(FONT_DST):
 
 $(MODELS_DST):
 	mkdir -p $(MODELS_DST)
+
+$(TEXTURES_DST):
+	mkdir -p $(TEXTURES_DST)
 
 FORCE:

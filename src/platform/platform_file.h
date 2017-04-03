@@ -21,6 +21,7 @@ enum GamePath {
 	GamePath_models,
 	GamePath_shaders,
 	GamePath_fonts,
+	GamePath_textures,
 	GamePath_preferences
 };
 

@@ -96,6 +96,13 @@ char *platform_path(GamePath root)
 		strcpy(path, data_path);
 		strcat(path, "shaders/");
 	} break;
+	case GamePath_textures: {
+		char *data_path = platform_path(GamePath_data);
+		u64 length = strlen(data_path) + strlen("textures/") + 1;
+		path = (char*)malloc(length);
+		strcpy(path, data_path);
+		strcat(path, "textures/");
+	} break;
 	case GamePath_models: {
 		char *data_path = platform_path(GamePath_data);
 		u64 length = strlen(data_path) + strlen("models/") + 1;
@@ -137,12 +144,14 @@ char *platform_resolve_path(GamePath root, const char *path)
 	static const char *binary_path      = platform_path(GamePath_binary);
 	static const char *models_path      = platform_path(GamePath_models);
 	static const char *shaders_path     = platform_path(GamePath_shaders);
+	static const char *textures_path    = platform_path(GamePath_textures);
 	static const char *preferences_path = platform_path(GamePath_preferences);
 
 	static const u64 data_path_length        = strlen(data_path);
 	static const u64 binary_path_length      = strlen(binary_path);
 	static const u64 models_path_length      = strlen(models_path);
 	static const u64 shaders_path_length     = strlen(shaders_path);
+	static const u64 textures_path_length    = strlen(textures_path);
 	static const u64 preferences_path_length = strlen(preferences_path);
 
 	char *resolved = nullptr;
@@ -164,6 +173,12 @@ char *platform_resolve_path(GamePath root, const char *path)
 		usize length = shaders_path_length + strlen(path) + 1;
 		resolved = (char*)malloc(length);
 		strcpy(resolved, shaders_path);
+		strcat(resolved, path);
+	} break;
+	case GamePath_textures: {
+		usize length = textures_path_length + strlen(path) + 1;
+		resolved = (char*)malloc(length);
+		strcpy(resolved, textures_path);
 		strcat(resolved, path);
 	} break;
 	case GamePath_models: {

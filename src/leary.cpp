@@ -23,6 +23,7 @@
 #include "core/math.cpp"
 #include "core/mesh.cpp"
 #include "core/random.cpp"
+#include "core/assets.cpp"
 
 #include "render/vulkan_device.cpp"
 
@@ -243,15 +244,14 @@ void game_init(GameMemory *memory, PlatformState *platform)
 	}
 
 	{
-		Vector4 *pixels = ialloc_array<Vector4>(&memory->stack, 32 * 32);
-		pixels[0]           = Vector4 { 1.0f, 0.0f, 0.0f, 1.0f };
-		pixels[32]          = Vector4 { 0.0f, 1.0f, 0.0f, 1.0f };
-		pixels[32 * 32 - 1] = Vector4 { 0.0f, 0.0f, 1.0f, 1.0f };
+		Texture dummy = load_texture_bmp("dummy.bmp");
 
 		// TODO(jesper): texture file loading
-		game->textures.cube = create_texture(&game->vulkan, 32, 32,
-		                                     VK_FORMAT_R32G32B32A32_SFLOAT,
-		                                     pixels,
+		game->textures.cube = create_texture(&game->vulkan,
+		                                     dummy.width,
+		                                     dummy.height,
+		                                     dummy.format,
+		                                     dummy.pixels,
 		                                     VkComponentMapping{});
 	}
 
