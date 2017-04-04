@@ -84,6 +84,12 @@ Texture load_texture_bmp(const char *filename)
 		h->colors_important = h->colors_used;
 	}
 
+	bool flip = true;
+	if (h->height < 0) {
+		flip = false;
+		h->height = -h->height;
+	}
+
 	// NOTE(jesper): bmp's with bbp > 16 doesn't have a color palette
 	// NOTE(jesper): and other bbps are untested atm
 	if (h->bpp != 24) {
@@ -120,7 +126,7 @@ Texture load_texture_bmp(const char *filename)
 	}
 
 	// NOTE(jesper): flip bottom-up textures
-	if (h->height > 0) {
+	if (flip) {
 		dst = (u8*)texture.data;
 		for (i32 i = 0; i < h->height >> 2; i++) {
 			u8 *p1 = &dst[i * h->width * channels];
