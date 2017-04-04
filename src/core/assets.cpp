@@ -92,12 +92,12 @@ Texture load_texture_bmp(const char *filename)
 		return Texture{};
 	}
 
-	u8 num_channels = (h->bpp / 3) + 1;
+	u8 channels = 4;
 
 	texture.format = VK_FORMAT_B8G8R8A8_UNORM;
 	texture.width  = h->width;
 	texture.height = h->height;
-	texture.size   = h->width * h->height * num_channels;
+	texture.size   = h->width * h->height * channels;
 	texture.data   = malloc(texture.size);
 
 	bool alpha = false;
@@ -105,8 +105,8 @@ Texture load_texture_bmp(const char *filename)
 	u8 *src = (u8*)ptr;
 	u8 *dst = (u8*)texture.data;
 
-	for (i32 i = 0; i < h->width; i++) {
-		for (i32 j = 0; j < h->height; j++) {
+	for (i32 i = 0; i < h->height; i++) {
+		for (i32 j = 0; j < h->width; j++) {
 			*dst++ = *src++;
 			*dst++ = *src++;
 			*dst++ = *src++;
@@ -119,12 +119,19 @@ Texture load_texture_bmp(const char *filename)
 		}
 	}
 
-#if 0
-	if (h->height > 0) { // bottom-up
-	} else { // top-down
-		DEBUG_ASSERT(h->height < 0);
+	// NOTE(jesper): flip bottom-up textures
+	if (h->height > 0) {
+		dst = (u8*)texture.data;
+		for (i32 i = 0; i < h->height >> 2; i++) {
+			u8 *p1 = &dst[i * h->width * channels];
+			u8 *p2 = &dst[(h->height - 1 - i) * h->width * channels];
+			for (i32 j = 0; j < h->width * channels; j++) {
+				u8 tmp = p1[j];
+				p1[j] = p2[j];
+				p2[j] = tmp;
+			}
+		}
 	}
-#endif
 
 	return texture;
 }
