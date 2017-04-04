@@ -1753,6 +1753,7 @@ VulkanTexture create_texture(VulkanDevice *device, u32 width, u32 height,
 		bytes_per_channel = 1;
 		break;
 	case VK_FORMAT_R8G8B8A8_UNORM:
+	case VK_FORMAT_B8G8R8A8_UNORM:
 		num_channels      = 4;
 		bytes_per_channel = 1;
 		break;

@@ -251,7 +251,7 @@ void game_init(GameMemory *memory, PlatformState *platform)
 		                                     dummy.width,
 		                                     dummy.height,
 		                                     dummy.format,
-		                                     dummy.pixels,
+		                                     dummy.data,
 		                                     VkComponentMapping{});
 	}
 

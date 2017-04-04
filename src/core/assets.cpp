@@ -9,10 +9,10 @@
 struct Texture {
 	// TODO(jesper): internal non-Vulkan format?
 	VkFormat format;
-	u32 width;
-	u32 height;
-	isize size;
-	u8 *pixels;
+	u32      width;
+	u32      height;
+	isize    size;
+	void     *data;
 };
 
 // NOTE(jesper): only Microsoft BMP version 3 is supported
@@ -29,11 +29,11 @@ struct BitmapHeader {
 	i32 width;
 	i32 height;
 	u16 planes;
-	u16 bbp;
+	u16 bpp;
 	u32 compression;
 	u32 bmp_size;
-	i32 horz_resolution;
-	i32 vert_resolution;
+	i32 res_horiz;
+	i32 res_vert;
 	u32 colors_used;
 	u32 colors_important;
 } __attribute__((packed));
@@ -64,8 +64,8 @@ Texture load_texture_bmp(const char *filename)
 	// TODO(jesper): support compression
 	DEBUG_ASSERT(h->compression == 0);
 
-	if (h->colors_used == 0 && h->bbp < 16) {
-		h->colors_used = 1 << h->bbp;
+	if (h->colors_used == 0 && h->bpp < 16) {
+		h->colors_used = 1 << h->bpp;
 	}
 
 	if (h->colors_important == 0) {
@@ -74,21 +74,21 @@ Texture load_texture_bmp(const char *filename)
 
 	// NOTE(jesper): bmp's with bbp > 16 doesn't have a color palette
 	// NOTE(jesper): and other bbps are untested atm
-	DEBUG_ASSERT(h->bbp > 16);
-	DEBUG_ASSERT(h->bbp == 24);
+	DEBUG_ASSERT(h->bpp > 16);
+	DEBUG_ASSERT(h->bpp == 24);
 
-	u8 num_channels = (h->bbp / 3) + 1;
+	u8 num_channels = (h->bpp / 3) + 1;
 
-	texture.format = VK_FORMAT_R8G8B8A8_UNORM;
+	texture.format = VK_FORMAT_B8G8R8A8_UNORM;
 	texture.width  = h->width;
 	texture.height = h->height;
 	texture.size   = h->width * h->height * num_channels;
-	texture.pixels = (u8*)malloc(texture.size);
+	texture.data   = malloc(texture.size);
 
 	bool alpha = false;
 
 	u8 *src = (u8*)ptr;
-	u8 *dst = (u8*)texture.pixels;
+	u8 *dst = (u8*)texture.data;
 
 	for (i32 i = 0; i < h->width; i++) {
 		for (i32 j = 0; j < h->height; j++) {
