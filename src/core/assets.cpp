@@ -50,19 +50,31 @@ Texture load_texture_bmp(const char *filename)
 
 	char *ptr = file;
 	BitmapFileHeader *fh = (BitmapFileHeader*)ptr;
-	// TODO(jesper): support other bmp versions
-	DEBUG_ASSERT(fh->type == 0x4d42);
+
+	if (fh->type != 0x4d42) {
+		// TODO(jesper): support other bmp versions
+		DEBUG_UNIMPLEMENTED();
+		return Texture{};
+	}
+
 	ptr += sizeof(BitmapFileHeader);
 
 	BitmapHeader *h = (BitmapHeader*)ptr;
-	// TODO(jesper): use header_size to determine whether it's a BMP version 3
-	// or version 2
-	DEBUG_ASSERT(h->header_size == sizeof(BitmapHeader));
+
+	if (h->header_size != 40) {
+		// TODO(jesper): support other bmp versions
+		DEBUG_UNIMPLEMENTED();
+		return Texture{};
+	}
+
 	DEBUG_ASSERT(h->header_size == 40);
 	ptr += sizeof(BitmapHeader);
 
-	// TODO(jesper): support compression
-	DEBUG_ASSERT(h->compression == 0);
+	if (h->compression != 0) {
+		// TODO(jesper): support compression
+		DEBUG_UNIMPLEMENTED();
+		return Texture{};
+	}
 
 	if (h->colors_used == 0 && h->bpp < 16) {
 		h->colors_used = 1 << h->bpp;
@@ -74,8 +86,11 @@ Texture load_texture_bmp(const char *filename)
 
 	// NOTE(jesper): bmp's with bbp > 16 doesn't have a color palette
 	// NOTE(jesper): and other bbps are untested atm
-	DEBUG_ASSERT(h->bpp > 16);
-	DEBUG_ASSERT(h->bpp == 24);
+	if (h->bpp != 24) {
+		// TODO(jesper): only 24 bpp is tested and supported
+		DEBUG_UNIMPLEMENTED();
+		return Texture{};
+	}
 
 	u8 num_channels = (h->bpp / 3) + 1;
 
