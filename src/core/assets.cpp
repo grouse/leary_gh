@@ -38,13 +38,6 @@ struct BitmapHeader {
 	u32 colors_important;
 } __attribute__((packed));
 
-struct BitmapPaletteElement {
-	u8 blue;
-	u8 green;
-	u8 red;
-	u8 reserved;
-} __attribute__((packed));
-
 Texture load_texture_bmp(const char *filename)
 {
 	Texture texture = {};
@@ -92,12 +85,23 @@ Texture load_texture_bmp(const char *filename)
 	texture.size   = h->width * h->height * num_channels;
 	texture.pixels = (u8*)malloc(texture.size);
 
-	u8 *pixels = (u8*)ptr;
-	for (i32 i = 0; i < h->width * h->height * 3 ; i += 4) {
-		texture.pixels[i + 0] = pixels[i + 0];
-		texture.pixels[i + 1] = pixels[i + 1];
-		texture.pixels[i + 2] = pixels[i + 2];
-		texture.pixels[i + 3] = 255;
+	bool alpha = false;
+
+	u8 *src = (u8*)ptr;
+	u8 *dst = (u8*)texture.pixels;
+
+	for (i32 i = 0; i < h->width; i++) {
+		for (i32 j = 0; j < h->height; j++) {
+			*dst++ = *src++;
+			*dst++ = *src++;
+			*dst++ = *src++;
+
+			if (alpha) {
+				*dst++ = *src++;
+			} else {
+				*dst++ = 255;
+			}
+		}
 	}
 
 #if 0
