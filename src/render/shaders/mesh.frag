@@ -19,11 +19,8 @@ void main()
 	vec3 v = normalize(view);
 	vec3 r = reflect(-l, n);
 
-	vec3 ambient  = vec3(0.3, 0.3, 0.3);
-	vec3 diffuse  = max(dot(n, l), 0.0) * color;
-	vec3 specular = pow(max(dot(r, v), 0.0), 16.0) * vec3(0.75);
+	vec4 ambient  = vec4(0.3, 0.3, 0.3, 1.0);
+	vec4 diffuse  = vec4(max(dot(n, l), 0.0) * color, 1.0);
 
-	vec4 color = vec4((ambient + diffuse + specular) * color, 1.0);
-	vec4 texel = texture(texture_sampler, uv);
-	out_color = mix(color, texel, color.a);
+	out_color = texture(texture_sampler, uv) * (ambient + diffuse);
 }
