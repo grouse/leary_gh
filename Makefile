@@ -80,7 +80,7 @@ $(BUILD)/benchmark: FORCE
 tools: $(BUILD)/preprocessor $(BUILD)/benchmark
 
 
-all: shaders fonts models leary tools textures
+all: shaders fonts models tools leary textures
 
 $(SPV_DST):
 	mkdir -p $(SPV_DST)

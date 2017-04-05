@@ -171,37 +171,6 @@ find_member(char *name,
 	return nullptr;
 }
 
-i64
-read_integer(Token token)
-{
-	i64 result = 0;
-	i32 i = token.length;
-	while (i && token.str[0] && token.str[0] >= '0' && token.str[0] <= '9') {
-		result *= 10;
-		result += token.str[0] - '0';
-
-		++token.str;
-		--i;
-	}
-
-	return result;
-}
-
-u64
-read_unsigned_integer(Token token)
-{
-	u64 result = 0;
-	i32 i = token.length;
-	while (i && token.str[0] && token.str[0] >= '0' && token.str[0] <= '9') {
-		result *= 10;
-		result += token.str[0] - '0';
-
-		++token.str;
-		--i;
-	}
-
-	return result;
-}
 
 void
 member_from_string(char **ptr,

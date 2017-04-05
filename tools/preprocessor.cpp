@@ -38,17 +38,30 @@ enum VariableType {
 
 	VariableType_f32,
 
+	VariableType_array,
+
+	// TODO(jesper): come up with a better system for these.
+	// Meta program the meta program? dawg!
 	VariableType_resolution,
 	VariableType_video_settings,
 	VariableType_settings,
+	VariableType_Vector4,
 
 	VariableType_unknown,
 	VariableType_num
 };
 
+struct ArrayTypeInfo {
+	VariableType underlying;
+	i32 size;
+};
+
 struct TypeInfo {
 	char *name;
 	VariableType type;
+	union {
+		ArrayTypeInfo   array;
+	};
 };
 
 struct StructInfo {
@@ -94,10 +107,14 @@ VariableType variable_type(Token token)
 		result = VariableType_uint16;
 	} else if (is_identifier(token, "f32")) {
 		result = VariableType_f32;
+	// TODO(jesper): come up with a better system for these.
+	// Meta program the meta program? dawg!
 	} else if (is_identifier(token, "Resolution")) {
 		result = VariableType_resolution;
 	} else if (is_identifier(token, "VideoSettings")) {
 		result = VariableType_video_settings;
+	} else if (is_identifier(token, "Vector4")) {
+		result = VariableType_Vector4;
 	}
 
 	return result;
@@ -116,9 +133,15 @@ const char *variable_type_str(VariableType type)
 
 	CASE_RETURN_ENUM_STR(VariableType_f32);
 
+
+	CASE_RETURN_ENUM_STR(VariableType_array);
+
+	// TODO(jesper): come up with a better system for these.
+	// Meta program the meta program? dawg!
 	CASE_RETURN_ENUM_STR(VariableType_resolution);
 	CASE_RETURN_ENUM_STR(VariableType_video_settings);
 	CASE_RETURN_ENUM_STR(VariableType_settings);
+	CASE_RETURN_ENUM_STR(VariableType_Vector4);
 
 	DEFAULT_CASE_RETURN_ENUM_STR(VariableType_unknown);
 	}
@@ -140,21 +163,39 @@ void parse_struct_type_info(Tokenizer tokenizer,
 	struct_info.members = make_array<TypeInfo>(struct_infos->allocator);
 
 	do {
-		VariableType member_type = variable_type(next_token(tokenizer));
+		token = next_token(tokenizer);
+		VariableType type = variable_type(token);
+		DEBUG_ASSERT(type != VariableType_unknown);
 
 		do token = next_token(tokenizer);
 		while (token.type != Token::identifier);
-		char *member_name = string_duplicate(token.str, token.length);
 
-		array_add(&struct_info.members, { member_name, member_type });
+		TypeInfo tinfo = {};
+		tinfo.name = string_duplicate(token.str, token.length);
+		tinfo.type = type;
+
+		isize i = array_add(&struct_info.members, tinfo);
 
 		do {
 			token = next_token(tokenizer);
 			if (token.type == Token::comma) {
 				token = next_token(tokenizer);
 
-				member_name = string_duplicate(token.str, token.length);
-				array_add(&struct_info.members, { member_name, member_type });
+				tinfo.name = string_duplicate(token.str, token.length);
+				array_add(&struct_info.members, tinfo);
+			} else if (token.type == Token::open_square_brace) {
+				token = next_token(tokenizer);
+				DEBUG_ASSERT(token.type != Token::close_square_brace);
+
+				i64 size = read_integer(token);
+
+				VariableType underlying = struct_info.members[i].type;
+				struct_info.members[i].type             = VariableType_array;
+				struct_info.members[i].array.underlying = underlying;
+				struct_info.members[i].array.size       = size;
+
+				token = next_token(tokenizer);
+				DEBUG_ASSERT(token.type == Token::close_square_brace);
 			}
 		} while (token.type != Token::semicolon);
 
@@ -231,14 +272,20 @@ int main(int argc, char **argv)
 	}
 	std::fprintf(output_file, "};\n\n");
 
+	std::fprintf(output_file, "struct ArrayTypeInfo {\n");
+	std::fprintf(output_file, "\tVariableType underlying;\n");
+	std::fprintf(output_file, "\tisize size;\n");
+	std::fprintf(output_file, "};\n\n");
+
 	std::fprintf(output_file, "struct StructMemberInfo {\n");
 	std::fprintf(output_file, "\tVariableType type;\n");
 	std::fprintf(output_file, "\tconst char   *name;\n");
 	std::fprintf(output_file, "\tusize        offset;\n");
+	std::fprintf(output_file, "\tArrayTypeInfo array;\n");
 	std::fprintf(output_file, "};\n\n");
 
 	const char *files[] = {
-		//FILE_SEP "core" FILE_SEP "settings.cpp",
+		FILE_SEP "platform" FILE_SEP "platform.h",
 		FILE_SEP "core" FILE_SEP "math.h"
 	};
 
@@ -290,12 +337,24 @@ int main(int argc, char **argv)
 		             struct_info.name);
 		for (i32 j = 0; j < struct_info.members.count; ++j) {
 			TypeInfo &type_info = struct_info.members[j];
-			std::fprintf(output_file,
-					 	 "\t{ %s, \"%s\", offsetof(%s, %s) },\n",
-					 	 variable_type_str(type_info.type),
-					 	 type_info.name,
-					 	 struct_info.name,
-					 	 type_info.name);
+
+			if (type_info.type == VariableType_array) {
+				std::fprintf(output_file,
+				             "\t{ %s, \"%s\", offsetof(%s, %s), { %s, %d } },\n",
+				             variable_type_str(type_info.type),
+				             type_info.name,
+				             struct_info.name,
+				             type_info.name,
+				             variable_type_str(type_info.array.underlying),
+				             type_info.array.size);
+			} else {
+				std::fprintf(output_file,
+				             "\t{ %s, \"%s\", offsetof(%s, %s), {} },\n",
+				             variable_type_str(type_info.type),
+				             type_info.name,
+				             struct_info.name,
+				             type_info.name);
+			}
 		}
 
 		std::fprintf(output_file, "};\n\n");

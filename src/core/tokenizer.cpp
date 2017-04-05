@@ -19,6 +19,8 @@ struct Token {
 		close_curly_brace,
 		open_paren,
 		close_paren,
+		open_square_brace,
+		close_square_brace,
 		less_than,
 		greater_than,
 		semicolon,
@@ -60,6 +62,38 @@ bool is_newline(char c)
 	return (c == '\n' || c == '\r');
 }
 
+i64
+read_integer(Token token)
+{
+	i64 result = 0;
+	i32 i = token.length;
+	while (i && token.str[0] && token.str[0] >= '0' && token.str[0] <= '9') {
+		result *= 10;
+		result += token.str[0] - '0';
+
+		++token.str;
+		--i;
+	}
+
+	return result;
+}
+
+u64
+read_unsigned_integer(Token token)
+{
+	u64 result = 0;
+	i32 i = token.length;
+	while (i && token.str[0] && token.str[0] >= '0' && token.str[0] <= '9') {
+		result *= 10;
+		result += token.str[0] - '0';
+
+		++token.str;
+		--i;
+	}
+
+	return result;
+}
+
 Token::Type get_token_type(char c)
 {
 	Token::Type type;
@@ -67,6 +101,8 @@ Token::Type get_token_type(char c)
 	switch (c) {
 	case '{':  type = Token::open_curly_brace;  break;
 	case '}':  type = Token::close_curly_brace; break;
+	case '[':  type = Token::open_square_brace;  break;
+	case ']':  type = Token::close_square_brace; break;
 	case '(':  type = Token::open_paren;        break;
 	case ')':  type = Token::close_paren;       break;
 	case '<':  type = Token::greater_than;      break;
