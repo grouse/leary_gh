@@ -27,6 +27,8 @@
 #endif
 
 #include "core/tokenizer.cpp"
+#include "core/allocator.cpp"
+#include "core/array.cpp"
 
 enum VariableType {
 	VariableType_int32,
@@ -50,9 +52,8 @@ struct TypeInfo {
 };
 
 struct StructInfo {
-	char     *name;
-	i32  num_members;
-	TypeInfo *members;
+	char *name;
+	Array<TypeInfo, SystemAllocator> members;
 };
 
 char *string_duplicate(char *src, usize size)
@@ -123,7 +124,8 @@ const char *variable_type_str(VariableType type)
 	}
 }
 
-StructInfo parse_struct_type_info(Tokenizer tokenizer)
+void parse_struct_type_info(Tokenizer tokenizer,
+                            Array<StructInfo, SystemAllocator> *struct_infos)
 {
 	StructInfo struct_info = {};
 
@@ -135,27 +137,7 @@ StructInfo parse_struct_type_info(Tokenizer tokenizer)
 	do token = next_token(tokenizer);
 	while (token.type != Token::open_curly_brace);
 
-	Tokenizer tmp = tokenizer;
-	do {
-		next_token(tmp);
-
-		do token = next_token(tmp);
-		while (token.type != Token::identifier);
-
-		++struct_info.num_members;
-
-		do {
-			token = next_token(tmp);
-			if (token.type == Token::comma) {
-				++struct_info.num_members;
-			}
-		} while (token.type != Token::semicolon);
-
-		token = peek_next_token(tmp);
-	} while (token.type == Token::identifier);
-
-	struct_info.members = new TypeInfo[struct_info.num_members];
-	i32 index = 0;
+	struct_info.members = make_array<TypeInfo>(struct_infos->allocator);
 
 	do {
 		VariableType member_type = variable_type(next_token(tokenizer));
@@ -164,9 +146,7 @@ StructInfo parse_struct_type_info(Tokenizer tokenizer)
 		while (token.type != Token::identifier);
 		char *member_name = string_duplicate(token.str, token.length);
 
-		struct_info.members[index].name = member_name;
-		struct_info.members[index].type = member_type;
-		++index;
+		array_add(&struct_info.members, { member_name, member_type });
 
 		do {
 			token = next_token(tokenizer);
@@ -174,20 +154,20 @@ StructInfo parse_struct_type_info(Tokenizer tokenizer)
 				token = next_token(tokenizer);
 
 				member_name = string_duplicate(token.str, token.length);
-				struct_info.members[index].name = member_name;
-				struct_info.members[index].type = member_type;
-				++index;
+				array_add(&struct_info.members, { member_name, member_type });
 			}
 		} while (token.type != Token::semicolon);
 
 		token = peek_next_token(tokenizer);
 	} while (token.type == Token::identifier);
 
-	return struct_info;
+	array_add(struct_infos, struct_info);
 }
 
 int main(int argc, char **argv)
 {
+	SystemAllocator allocator = {};
+
 	char *output_path = nullptr;
 	char *input_root  = nullptr;
 
@@ -258,11 +238,11 @@ int main(int argc, char **argv)
 	std::fprintf(output_file, "};\n\n");
 
 	const char *files[] = {
-		FILE_SEP "core" FILE_SEP "settings.cpp",
-		FILE_SEP "core" FILE_SEP "math.cpp"
+		//FILE_SEP "core" FILE_SEP "settings.cpp",
+		FILE_SEP "core" FILE_SEP "math.h"
 	};
 
-	std::vector<StructInfo> struct_infos;
+	auto struct_infos = make_array<StructInfo>(&allocator);
 
 	i32 num_files = (i32)sizeof(files) / sizeof(files[0]);
 
@@ -295,18 +275,20 @@ int main(int argc, char **argv)
 				if (is_identifier(token, "INTROSPECT") &&
 				    is_identifier(next_token(tokenizer), "struct"))
 				{
-					struct_infos.push_back(parse_struct_type_info(tokenizer));
+					parse_struct_type_info(tokenizer, &struct_infos);
 				}
 			}
 		}
 		free(file_path);
 	}
 
-	for (auto &struct_info : struct_infos) {
+	for (i32 i = 0; i < struct_infos.count; i++) {
+		StructInfo &struct_info = struct_infos[i];
+
 		std::fprintf(output_file,
-				 	 "StructMemberInfo %s_members[] = {\n",
-				 	 struct_info.name);
-		for (i32 j = 0; j < struct_info.num_members; ++j) {
+		             "StructMemberInfo %s_members[] = {\n",
+		             struct_info.name);
+		for (i32 j = 0; j < struct_info.members.count; ++j) {
 			TypeInfo &type_info = struct_info.members[j];
 			std::fprintf(output_file,
 					 	 "\t{ %s, \"%s\", offsetof(%s, %s) },\n",

@@ -80,6 +80,21 @@ u8 align_address_adjustment(void *address, u8 alignment, u8 header_size)
 	return (u8)(aligned - (uptr)address);
 }
 
+void *alloc(SystemAllocator *, isize size)
+{
+	return malloc(size);
+}
+
+void dealloc(SystemAllocator *, void *ptr)
+{
+	free(ptr);
+}
+
+void *realloc(SystemAllocator *, void *ptr, isize size)
+{
+	return realloc(ptr, size);
+}
+
 void *alloc(LinearAllocator *a, isize size)
 {
 	u8 header_size = sizeof(AllocationHeader);

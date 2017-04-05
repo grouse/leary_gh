@@ -9,6 +9,8 @@
 #ifndef ALLOCATOR_H
 #define ALLOCATOR_H
 
+struct SystemAllocator {};
+
 struct LinearAllocator {
 	void *start;
 	void *current;
