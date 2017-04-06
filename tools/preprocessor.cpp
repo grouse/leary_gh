@@ -164,9 +164,23 @@ void parse_struct_type_info(Tokenizer tokenizer,
 
 	do {
 		token = next_token(tokenizer);
-		VariableType type = variable_type(token);
-		DEBUG_ASSERT(type != VariableType_unknown);
 
+		if (is_identifier(token, "inline")) {
+			i32 level = 0;
+			do {
+				token = next_token(tokenizer);
+				if (token.type == Token::open_curly_brace) {
+					level++;
+				} else if (token.type == Token::close_curly_brace) {
+					level--;
+				}
+			} while (level != 0 || token.type != Token::semicolon);
+
+			token = peek_next_token(tokenizer);
+			continue;
+		}
+
+		VariableType type = variable_type(token);
 		do token = next_token(tokenizer);
 		while (token.type != Token::identifier);
 
@@ -176,28 +190,38 @@ void parse_struct_type_info(Tokenizer tokenizer,
 
 		isize i = array_add(&struct_info.members, tinfo);
 
-		do {
+		Token next = peek_next_token(tokenizer);
+		if (next.type == Token::comma ||
+		    next.type == Token::open_square_brace)
+		{
 			token = next_token(tokenizer);
-			if (token.type == Token::comma) {
+			do {
+				if (token.type == Token::comma) {
+					token = next_token(tokenizer);
+
+					tinfo.name = string_duplicate(token.str, token.length);
+					array_add(&struct_info.members, tinfo);
+				} else if (token.type == Token::open_square_brace) {
+					token = next_token(tokenizer);
+					DEBUG_ASSERT(token.type != Token::close_square_brace);
+
+					i64 size = read_integer(token);
+
+					VariableType underlying = struct_info.members[i].type;
+					struct_info.members[i].type             = VariableType_array;
+					struct_info.members[i].array.underlying = underlying;
+					struct_info.members[i].array.size       = size;
+
+					token = next_token(tokenizer);
+					DEBUG_ASSERT(token.type == Token::close_square_brace);
+				}
 				token = next_token(tokenizer);
-
-				tinfo.name = string_duplicate(token.str, token.length);
-				array_add(&struct_info.members, tinfo);
-			} else if (token.type == Token::open_square_brace) {
+			} while (token.type != Token::semicolon);
+		} else {
+			do {
 				token = next_token(tokenizer);
-				DEBUG_ASSERT(token.type != Token::close_square_brace);
-
-				i64 size = read_integer(token);
-
-				VariableType underlying = struct_info.members[i].type;
-				struct_info.members[i].type             = VariableType_array;
-				struct_info.members[i].array.underlying = underlying;
-				struct_info.members[i].array.size       = size;
-
-				token = next_token(tokenizer);
-				DEBUG_ASSERT(token.type == Token::close_square_brace);
-			}
-		} while (token.type != Token::semicolon);
+			} while (token.type != Token::semicolon);
+		}
 
 		token = peek_next_token(tokenizer);
 	} while (token.type == Token::identifier);
@@ -285,7 +309,7 @@ int main(int argc, char **argv)
 	std::fprintf(output_file, "};\n\n");
 
 	const char *files[] = {
-		FILE_SEP "platform" FILE_SEP "platform.h",
+		//FILE_SEP "platform" FILE_SEP "platform.h",
 		FILE_SEP "core" FILE_SEP "math.h"
 	};
 
