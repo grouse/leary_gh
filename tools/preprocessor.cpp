@@ -147,6 +147,49 @@ const char *variable_type_str(VariableType type)
 	}
 }
 
+void skip_struct_function(Tokenizer &tokenizer)
+{
+	Token token;
+
+	i32 curly = 0;
+	i32 paren = 0;
+	do {
+		token = next_token(tokenizer);
+
+		if (token.type == Token::semicolon) {
+			break;
+		}
+
+		if (token.type == Token::open_paren) {
+			paren++;
+			do {
+				token = next_token(tokenizer);
+				if (token.type == Token::open_paren) {
+					paren++;
+				} else if (token.type == Token::close_paren) {
+					paren--;
+				}
+			} while (paren > 0);
+
+			continue;
+		}
+
+		if (token.type == Token::open_curly_brace) {
+			curly++;
+			do {
+				token = next_token(tokenizer);
+				if (token.type == Token::open_curly_brace) {
+					curly++;
+				} else if (token.type == Token::close_curly_brace) {
+					curly--;
+				}
+			} while (curly > 0);
+
+			continue;
+		}
+	} while (true);
+}
+
 void parse_struct_type_info(Tokenizer tokenizer,
                             Array<StructInfo, SystemAllocator> *struct_infos)
 {
@@ -163,18 +206,12 @@ void parse_struct_type_info(Tokenizer tokenizer,
 	struct_info.members = make_array<TypeInfo>(struct_infos->allocator);
 
 	do {
+		Tokenizer line_start = make_tokenizer(tokenizer.at, tokenizer.size);
+
 		token = next_token(tokenizer);
 
 		if (is_identifier(token, "inline")) {
-			i32 level = 0;
-			do {
-				token = next_token(tokenizer);
-				if (token.type == Token::open_curly_brace) {
-					level++;
-				} else if (token.type == Token::close_curly_brace) {
-					level--;
-				}
-			} while (level != 0 || token.type != Token::semicolon);
+			skip_struct_function(tokenizer);
 
 			token = peek_next_token(tokenizer);
 			continue;
@@ -184,6 +221,13 @@ void parse_struct_type_info(Tokenizer tokenizer,
 		do token = next_token(tokenizer);
 		while (token.type != Token::identifier);
 
+		if (is_identifier(token, "operator")) {
+			skip_struct_function(tokenizer);
+
+			token = peek_next_token(tokenizer);
+			continue;
+		}
+
 		TypeInfo tinfo = {};
 		tinfo.name = string_duplicate(token.str, token.length);
 		tinfo.type = type;
@@ -191,8 +235,14 @@ void parse_struct_type_info(Tokenizer tokenizer,
 		isize i = array_add(&struct_info.members, tinfo);
 
 		Token next = peek_next_token(tokenizer);
-		if (next.type == Token::comma ||
-		    next.type == Token::open_square_brace)
+		if (next.type == Token::open_paren) {
+			skip_struct_function(line_start);
+			tokenizer = line_start;
+
+			token = peek_next_token(tokenizer);
+			continue;
+		} else if (next.type == Token::comma ||
+		           next.type == Token::open_square_brace)
 		{
 			token = next_token(tokenizer);
 			do {

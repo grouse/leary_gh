@@ -24,11 +24,7 @@ INTROSPECT struct Vector4 {
 	f32 x, y, z, w;
 };
 
-INTROSPECT struct DummyMatrix4 {
-	Vector4 columns[4];
-};
-
-struct Matrix4 {
+INTROSPECT struct Matrix4 {
 	Vector4 columns[4];
 
 	inline Vector4& operator[] (i32 i)

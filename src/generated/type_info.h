@@ -27,21 +27,6 @@ struct StructMemberInfo {
 	ArrayTypeInfo array;
 };
 
-StructMemberInfo Resolution_members[] = {
-	{ VariableType_int32, "width", offsetof(Resolution, width), {} },
-	{ VariableType_int32, "height", offsetof(Resolution, height), {} },
-};
-
-StructMemberInfo VideoSettings_members[] = {
-	{ VariableType_resolution, "resolution", offsetof(VideoSettings, resolution), {} },
-	{ VariableType_int16, "fullscreen", offsetof(VideoSettings, fullscreen), {} },
-	{ VariableType_int16, "vsync", offsetof(VideoSettings, vsync), {} },
-};
-
-StructMemberInfo Settings_members[] = {
-	{ VariableType_video_settings, "video", offsetof(Settings, video), {} },
-};
-
 StructMemberInfo Vector2_members[] = {
 	{ VariableType_f32, "x", offsetof(Vector2, x), {} },
 	{ VariableType_f32, "y", offsetof(Vector2, y), {} },
@@ -60,8 +45,8 @@ StructMemberInfo Vector4_members[] = {
 	{ VariableType_f32, "w", offsetof(Vector4, w), {} },
 };
 
-StructMemberInfo DummyMatrix4_members[] = {
-	{ VariableType_array, "columns", offsetof(DummyMatrix4, columns), { VariableType_Vector4, 4 } },
+StructMemberInfo Matrix4_members[] = {
+	{ VariableType_array, "columns", offsetof(Matrix4, columns), { VariableType_Vector4, 4 } },
 };
 
 #endif // TYPE_INFO

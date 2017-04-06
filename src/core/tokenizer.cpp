@@ -11,6 +11,7 @@
 struct Tokenizer {
 	char *at;
 	char *end;
+	usize size;
 };
 
 struct Token {
@@ -44,11 +45,12 @@ struct Token {
 	char *str;
 };
 
-Tokenizer make_tokenizer(char *ptr, usize end)
+Tokenizer make_tokenizer(char *ptr, usize size)
 {
 	Tokenizer t = {};
-	t.at  = ptr;
-	t.end = ptr + end;
+	t.at   = ptr;
+	t.end  = ptr + size;
+	t.size = size;
 	return t;
 }
 
