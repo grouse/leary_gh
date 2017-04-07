@@ -82,6 +82,17 @@ isize array_add(Array<T, A> *a, T e)
 	return a->count++;
 }
 
+template<typename T, typename A>
+isize array_remove(Array<T, A> *a, isize i)
+{
+	if ((a->count - 1) == i) {
+		return --a->count;
+	}
+
+	a->data[a->count-1] = a->data[i];
+	return --a->count;
+}
+
 template<typename T>
 isize array_add(StaticArray<T> *a, T e)
 {

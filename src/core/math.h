@@ -22,6 +22,9 @@ INTROSPECT struct Vector3 {
 
 INTROSPECT struct Vector4 {
 	f32 x, y, z, w;
+
+	void foo() {
+	}
 };
 
 INTROSPECT struct Matrix4 {

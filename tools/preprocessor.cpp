@@ -185,7 +185,7 @@ void skip_struct_function(Tokenizer &tokenizer)
 				}
 			} while (curly > 0);
 
-			continue;
+			break;
 		}
 	} while (true);
 }
@@ -206,9 +206,13 @@ void parse_struct_type_info(Tokenizer tokenizer,
 	struct_info.members = make_array<TypeInfo>(struct_infos->allocator);
 
 	do {
-		Tokenizer line_start = make_tokenizer(tokenizer.at, tokenizer.size);
+		Tokenizer line_start = tokenizer;
 
 		token = next_token(tokenizer);
+
+		if (is_identifier(token, "static")) {
+			continue;
+		}
 
 		if (is_identifier(token, "inline")) {
 			skip_struct_function(tokenizer);
@@ -238,6 +242,8 @@ void parse_struct_type_info(Tokenizer tokenizer,
 		if (next.type == Token::open_paren) {
 			skip_struct_function(line_start);
 			tokenizer = line_start;
+
+			array_remove(&struct_info.members, i);
 
 			token = peek_next_token(tokenizer);
 			continue;
@@ -359,7 +365,7 @@ int main(int argc, char **argv)
 	std::fprintf(output_file, "};\n\n");
 
 	const char *files[] = {
-		//FILE_SEP "platform" FILE_SEP "platform.h",
+		FILE_SEP "platform" FILE_SEP "platform.h",
 		FILE_SEP "core" FILE_SEP "math.h"
 	};
 
