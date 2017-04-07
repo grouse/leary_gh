@@ -386,6 +386,10 @@ void game_quit(GameMemory *memory, PlatformState *platform)
 void game_pre_reload(GameMemory *memory)
 {
 	GameState *game = (GameState*)memory->game;
+	// NOTE(jesper): wait for the vulkan queues to be idle. Here for when I get
+	// to shader and resource reloading - I don't even want to think about what
+	// kind of fits graphics drivers will throw if we start recreating pipelines
+	// in the middle of things
 	vkQueueWaitIdle(game->vulkan.queue);
 }
 
@@ -393,6 +397,7 @@ void game_reload(GameMemory *memory)
 {
 	GameState *game = (GameState*)memory->game;
 	vulkan_set_code(&game->vulkan);
+	// TODO(jesper): reload the shaders and resources if changed
 }
 
 void game_input(GameMemory *memory, PlatformState *platform, InputEvent event)
