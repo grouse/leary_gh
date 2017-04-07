@@ -371,11 +371,12 @@ int main(int argc, char **argv)
 
 	auto struct_infos = array_create<StructInfo>(&allocator);
 
-	i32 num_files = (i32)sizeof(files) / sizeof(files[0]);
+	i32 num_files = ARRAY_SIZE(files);
 
 	for (i32 i = 0; i < num_files; ++i) {
 		char *file_path = (char*)malloc(strlen(input_root) +
 		                                strlen(files[i]) + 1);
+		defer { free(file_path); };
 
 		dst = file_path;
 
@@ -406,7 +407,6 @@ int main(int argc, char **argv)
 				}
 			}
 		}
-		free(file_path);
 	}
 
 	for (i32 i = 0; i < struct_infos.count; i++) {
