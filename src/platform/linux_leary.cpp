@@ -113,16 +113,16 @@ PLATFORM_INIT_FUNC(platform_init)
 	                      stack_size);
 
 	platform->memory = {};
-	platform->memory.frame      = make_linear_allocator(mem, frame_size);
+	platform->memory.frame      = allocator_create_linear(mem, frame_size);
 	mem += frame_size;
 
-	platform->memory.free_list  = make_free_list_allocator(mem, free_list_size);
+	platform->memory.free_list  = allocator_create_freelist(mem, free_list_size);
 	mem += free_list_size;
 
-	platform->memory.persistent = make_linear_allocator(mem, persistent_size);
+	platform->memory.persistent = allocator_create_linear(mem, persistent_size);
 	mem += persistent_size;
 
-	platform->memory.stack = make_stack_allocator(mem, stack_size);
+	platform->memory.stack = allocator_create_stack(mem, stack_size);
 
 	LinuxState *native = alloc<LinuxState>(&platform->memory.persistent);
 	platform->native   = native;

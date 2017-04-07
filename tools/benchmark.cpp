@@ -77,7 +77,7 @@ void benchmark_stack(isize alloc_size, i32 count)
 	isize size = (alloc_size + 16) * 2;
 	void *buffer = malloc(size);
 
-	StackAllocator stack = make_stack_allocator(buffer, size);
+	StackAllocator stack = allocator_create_stack(buffer, size);
 
 	timespec start = get_time();
 
@@ -99,7 +99,7 @@ void benchmark_linear(isize alloc_size, i32 count)
 	isize size = (alloc_size + 24) * count;
 	void *buffer = malloc(size);
 
-	LinearAllocator a = make_linear_allocator(buffer, size);
+	LinearAllocator a = allocator_create_linear(buffer, size);
 	timespec start = get_time();
 
 	for (i32 i = 0; i < count; i++) {
@@ -122,7 +122,7 @@ void benchmark_free_list(isize alloc_size, i32 count)
 	isize size = (alloc_size + 24) * count;
 	void *buffer = malloc(size);
 
-	auto a = make_free_list_allocator(buffer, size);
+	auto a = allocator_create_freelist(buffer, size);
 
 	timespec start = get_time();
 

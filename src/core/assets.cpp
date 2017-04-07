@@ -46,6 +46,11 @@ Texture texture_load_bmp(const char *filename)
 	char *path = platform_resolve_path(GamePath_textures, filename);
 	char *file = platform_file_read(path, &size);
 
+	defer {
+		free(path);
+		free(file);
+	};
+
 	DEBUG_ASSERT(file[0] == 'B' && file[1] == 'M');
 
 	char *ptr = file;

@@ -20,7 +20,7 @@ struct LinearAllocator {
 
 struct StackAllocator {
 	void *start;
-	void *current;
+	void *sp;
 	isize size;
 };
 

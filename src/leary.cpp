@@ -554,6 +554,10 @@ void game_update(GameMemory *memory, f32 dt)
 void game_render(GameMemory *memory)
 {
 	PROFILE_FUNCTION();
+
+	void *sp = memory->stack.sp;
+	defer { reset(&memory->stack, sp); };
+
 	GameState *game = (GameState*)memory->game;
 
 	u32 image_index = swapchain_acquire(&game->vulkan);
@@ -620,7 +624,10 @@ void game_render(GameMemory *memory)
 		// TODO(jesper): only bind pipeline descriptor set if one exists, might
 		// be such a special case that we should hardcode it?
 		auto descriptors = array_create<VkDescriptorSet>(&memory->stack);
+		defer { array_destroy(&descriptors); };
+
 		array_add(&descriptors, object.pipeline.descriptor_set);
+
 
 		if (object.material) {
 			array_add(&descriptors, object.material->descriptor_set);
@@ -641,8 +648,6 @@ void game_render(GameMemory *memory)
 		                   0, sizeof(object.transform), &object.transform);
 
 		vkCmdDrawIndexed(command, object.index_count, 1, 0, 0, 0);
-
-		array_destroy(&descriptors);
 	}
 
 
