@@ -204,11 +204,11 @@ void game_init(GameMemory *memory, PlatformState *platform)
 	view[2].z = 1.0f;
 	game->ui_camera.view = view;
 
-	game->render_objects = make_array<RenderObject>(&memory->persistent, 20);
-	game->index_render_objects = make_array<IndexRenderObject>(&memory->persistent, 20);
+	game->render_objects = array_create<RenderObject>(&memory->persistent, 20);
+	game->index_render_objects = array_create<IndexRenderObject>(&memory->persistent, 20);
 
 	VkResult result;
-	game->vulkan = create_device(memory, platform, &platform->settings);
+	game->vulkan = device_create(memory, platform, &platform->settings);
 
 	game->command_buffers = alloc_array<VkCommandBuffer>(&memory->persistent, 5);
 	VkCommandBufferAllocateInfo allocate_info = {};
@@ -235,19 +235,19 @@ void game_init(GameMemory *memory, PlatformState *platform)
 
 		VkComponentMapping components = {};
 		components.a = VK_COMPONENT_SWIZZLE_R;
-		game->textures.font = create_texture(&game->vulkan, 1024, 1024,
+		game->textures.font = texture_create(&game->vulkan, 1024, 1024,
 		                                    VK_FORMAT_R8_UNORM, bitmap,
 		                                    components);
 
 		game->text_vertices.vertex_count = 0;
-		game->text_vertices.buffer = create_vertex_buffer(&game->vulkan, 1024*1024);
+		game->text_vertices.buffer = buffer_create_vbo(&game->vulkan, 1024*1024);
 	}
 
 	{
-		Texture dummy = load_texture_bmp("dummy.bmp");
+		Texture dummy = texture_load_bmp("dummy.bmp");
 
 		// TODO(jesper): texture file loading
-		game->textures.cube = create_texture(&game->vulkan,
+		game->textures.cube = texture_create(&game->vulkan,
 		                                     dummy.width,
 		                                     dummy.height,
 		                                     dummy.format,
@@ -258,65 +258,50 @@ void game_init(GameMemory *memory, PlatformState *platform)
 
 	// create pipelines
 	{
-		game->pipelines.mesh = create_mesh_pipeline(&game->vulkan, memory);
-		game->pipelines.font = create_font_pipeline(&game->vulkan, memory);
-		game->pipelines.terrain = create_terrain_pipeline(&game->vulkan, memory);
+		game->pipelines.mesh    = pipeline_create_mesh(&game->vulkan, memory);
+		game->pipelines.font    = pipeline_create_font(&game->vulkan, memory);
+		game->pipelines.terrain = pipeline_create_terrain(&game->vulkan, memory);
 	}
 
 	// create ubos
 	{
-		game->fp_camera.ubo = create_uniform_buffer(&game->vulkan, sizeof(Matrix4));
+		game->fp_camera.ubo = buffer_create_ubo(&game->vulkan, sizeof(Matrix4));
 
 		Matrix4 view_projection = game->fp_camera.projection * game->fp_camera.view;
-		update_uniform_data(&game->vulkan, game->fp_camera.ubo,
-		                    &view_projection, 0, sizeof(view_projection));
+		buffer_data_ubo(&game->vulkan, game->fp_camera.ubo,
+		                &view_projection, 0, sizeof(view_projection));
 	}
 
 	// create materials
 	{
-		game->materials.font = create_material(&game->vulkan, memory,
+		game->materials.font = material_create(&game->vulkan, memory,
 		                                       &game->pipelines.font,
 		                                       Material_font);
 
-		game->materials.phong = create_material(&game->vulkan, memory,
+		game->materials.phong = material_create(&game->vulkan, memory,
 		                                        &game->pipelines.mesh,
 		                                        Material_phong);
 	}
 
 	// update descriptor sets
 	{
-		set_uniform(&game->vulkan, &game->pipelines.mesh,
-		            ResourceSlot_mvp, &game->fp_camera.ubo);
+		buffer_set_ubo(&game->vulkan, &game->pipelines.mesh,
+		               ResourceSlot_mvp, &game->fp_camera.ubo);
 
-		set_uniform(&game->vulkan, &game->pipelines.terrain,
-		            ResourceSlot_mvp, &game->fp_camera.ubo);
+		buffer_set_ubo(&game->vulkan, &game->pipelines.terrain,
+		               ResourceSlot_mvp, &game->fp_camera.ubo);
 
 
-		set_texture(&game->vulkan, &game->materials.font,
+		texture_set(&game->vulkan, &game->materials.font,
 		            ResourceSlot_font_atlas, &game->textures.font);
 
-		set_texture(&game->vulkan, &game->materials.phong,
+		texture_set(&game->vulkan, &game->materials.phong,
 		            ResourceSlot_texture, &game->textures.cube);
-
-
-#if 0
-		update_descriptor_sets(&game->vulkan,
-		                       game->pipelines.mesh,
-		                       game->fp_camera.ubo);
-
-		update_descriptor_sets(&game->vulkan,
-		                       game->pipelines.terrain,
-		                       game->fp_camera.ubo);
-
-		update_descriptor_sets(&game->vulkan,
-		                       game->pipelines.font,
-		                       game->textures.font);
-#endif
 	}
 
 	Mesh cube = load_mesh_obj(memory, "cube.obj");
 
-	Random r = make_random(3);
+	Random r = random_create(3);
 	for (i32 i = 0; i < 10; i++) {
 		IndexRenderObject obj = {};
 		obj.material = &game->materials.phong;
@@ -326,8 +311,8 @@ void game_init(GameMemory *memory, PlatformState *platform)
 
 		obj.pipeline    = game->pipelines.mesh;
 		obj.index_count = (i32)cube.indices.count;
-		obj.vertices    = create_vertex_buffer(&game->vulkan, cube.vertices.data, vertex_size);
-		obj.indices     = create_index_buffer(&game->vulkan, cube.indices.data, index_size);
+		obj.vertices    = buffer_create_vbo(&game->vulkan, cube.vertices.data, vertex_size);
+		obj.indices     = buffer_create_ibo(&game->vulkan, cube.indices.data, index_size);
 
 		f32 x = next_f32(&r) * 20.0f;
 		f32 y = -1.0f;
@@ -350,7 +335,7 @@ void game_init(GameMemory *memory, PlatformState *platform)
 
 		RenderObject terrain = {};
 		terrain.pipeline = game->pipelines.terrain;
-		terrain.vertices = create_vertex_buffer(&game->vulkan, vertices, sizeof(vertices));
+		terrain.vertices = buffer_create_vbo(&game->vulkan, vertices, sizeof(vertices));
 		terrain.vertex_count = sizeof(vertices) / (sizeof(vertices[0]) * 3);
 
 		array_add(&game->render_objects, terrain);
@@ -371,29 +356,29 @@ void game_quit(GameMemory *memory, PlatformState *platform)
 
 	vkQueueWaitIdle(game->vulkan.queue);
 
-	destroy(&game->vulkan, game->text_vertices.buffer);
+	buffer_destroy(&game->vulkan, game->text_vertices.buffer);
 
-	destroy(&game->vulkan, game->textures.font);
-	destroy(&game->vulkan, game->textures.cube);
+	texture_destroy(&game->vulkan, game->textures.font);
+	texture_destroy(&game->vulkan, game->textures.cube);
 
-	destroy_material(&game->vulkan, &game->materials.font);
-	destroy_material(&game->vulkan, &game->materials.phong);
+	material_destroy(&game->vulkan, &game->materials.font);
+	material_destroy(&game->vulkan, &game->materials.phong);
 
-	destroy(&game->vulkan, game->pipelines.font);
-	destroy(&game->vulkan, game->pipelines.mesh);
-	destroy(&game->vulkan, game->pipelines.terrain);
+	pipeline_destroy(&game->vulkan, game->pipelines.font);
+	pipeline_destroy(&game->vulkan, game->pipelines.mesh);
+	pipeline_destroy(&game->vulkan, game->pipelines.terrain);
 
 	for (i32 i = 0; i < game->render_objects.count; i++) {
-		destroy(&game->vulkan, game->render_objects[i].vertices);
+		buffer_destroy(&game->vulkan, game->render_objects[i].vertices);
 	}
 
 	for (i32 i = 0; i < game->index_render_objects.count; i++) {
-		destroy(&game->vulkan, game->index_render_objects[i].vertices);
-		destroy(&game->vulkan, game->index_render_objects[i].indices);
+		buffer_destroy(&game->vulkan, game->index_render_objects[i].vertices);
+		buffer_destroy(&game->vulkan, game->index_render_objects[i].indices);
 	}
 
-	destroy(&game->vulkan, game->fp_camera.ubo);
-	destroy(&game->vulkan);
+	buffer_destroy_ubo(&game->vulkan, game->fp_camera.ubo);
+	vulkan_destroy(&game->vulkan);
 
 	platform_quit(platform);
 }
@@ -562,8 +547,8 @@ void game_update(GameMemory *memory, f32 dt)
 	game->fp_camera.view = rotation * translation;
 
 	Matrix4 view_projection = game->fp_camera.projection * game->fp_camera.view;
-	update_uniform_data(&game->vulkan, game->fp_camera.ubo,
-	                    &view_projection, 0, sizeof(view_projection));
+	buffer_data_ubo(&game->vulkan, game->fp_camera.ubo,
+	                &view_projection, 0, sizeof(view_projection));
 }
 
 void game_render(GameMemory *memory)
@@ -571,7 +556,7 @@ void game_render(GameMemory *memory)
 	PROFILE_FUNCTION();
 	GameState *game = (GameState*)memory->game;
 
-	u32 image_index = acquire_swapchain_image(&game->vulkan);
+	u32 image_index = swapchain_acquire(&game->vulkan);
 
 	std::array<VkClearValue, 2> clear_values = {};
 	clear_values[0].color        = { {1.0f, 0.0f, 0.0f, 0.0f} };
@@ -598,39 +583,6 @@ void game_render(GameMemory *memory)
 	DEBUG_ASSERT(result == VK_SUCCESS);
 
 	vkCmdBeginRenderPass(command, &render_info, VK_SUBPASS_CONTENTS_INLINE);
-
-#if 0
-	vkCmdBindPipeline(command,
-	                  VK_PIPELINE_BIND_POINT_GRAPHICS,
-	                  game->pipelines.generic.handle);
-
-
-	vkCmdBindDescriptorSets(command,
-	                        VK_PIPELINE_BIND_POINT_GRAPHICS,
-	                        game->pipelines.generic.layout,
-	                        0,
-	                        1, &game->pipelines.generic.descriptor_set,
-	                        0, nullptr);
-
-	vkCmdBindVertexBuffers(command, 0, 1, &game->object.vertices.handle, offsets);
-	vkCmdBindIndexBuffer(command, game->object.indices.handle,
-	                     0, VK_INDEX_TYPE_UINT32);
-
-#if 0
-	for (i32 i = 0; i < game->num_objects; i++) {
-		vkCmdPushConstants(command,
-		                   game->pipelines.generic.layout,
-		                   VK_SHADER_STAGE_VERTEX_BIT,
-		                   0, sizeof(Matrix4),
-		                   &game->positions[i]);
-		vkCmdDrawIndexed(command, game->object.vertex_count, 1, 0, 0, 0);
-	}
-#else
-	vkCmdPushConstants(command, game->pipelines.generic.layout, VK_SHADER_STAGE_VERTEX_BIT,
-	                   0, sizeof(Matrix4), &game->positions[0]);
-	vkCmdDrawIndexed(command, game->object.vertex_count, 1, 0, 0, 0);
-#endif
-#endif
 
 	for (i32 i = 0; i < game->render_objects.count; i++) {
 		RenderObject &object = game->render_objects[i];
@@ -667,7 +619,7 @@ void game_render(GameMemory *memory)
 		// TODO(jesper): bind material descriptor set if bound
 		// TODO(jesper): only bind pipeline descriptor set if one exists, might
 		// be such a special case that we should hardcode it?
-		auto descriptors = make_array<VkDescriptorSet>(&memory->stack);
+		auto descriptors = array_create<VkDescriptorSet>(&memory->stack);
 		array_add(&descriptors, object.pipeline.descriptor_set);
 
 		if (object.material) {
@@ -690,7 +642,7 @@ void game_render(GameMemory *memory)
 
 		vkCmdDrawIndexed(command, object.index_count, 1, 0, 0, 0);
 
-		free_array(&descriptors);
+		array_destroy(&descriptors);
 	}
 
 

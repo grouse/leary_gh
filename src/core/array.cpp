@@ -9,7 +9,7 @@
 #include "array.h"
 
 template<typename T, typename A>
-Array<T, A> make_array(A *allocator)
+Array<T, A> array_create(A *allocator)
 {
 	Array<T, A> a  = {};
 	a.allocator = allocator;
@@ -17,9 +17,8 @@ Array<T, A> make_array(A *allocator)
 	return a;
 }
 
-
 template<typename T, typename A>
-Array<T, A> make_array(A *allocator, isize capacity)
+Array<T, A> array_create(A *allocator, isize capacity)
 {
 	Array<T, A> a;
 	a.allocator = allocator;
@@ -30,41 +29,10 @@ Array<T, A> make_array(A *allocator, isize capacity)
 	return a;
 }
 
-template<typename T>
-StaticArray<T> make_static_array(void *data, isize capacity)
-{
-	StaticArray<T> a;
-	a.data      = (T*)data;
-	a.count     = 0;
-	a.capacity  = capacity;
-
-	return a;
-}
-
-template<typename T>
-StaticArray<T> make_static_array(void* ptr,
-                                 isize offset,
-                                 isize capacity)
-{
-	StaticArray<T> a;
-	a.data      = (T*)((u8*)ptr + offset);
-	a.count     = 0;
-	a.capacity  = capacity;
-
-	return a;
-}
-
 template<typename T, typename A>
-void free_array(Array<T, A> *a)
+void array_destroy(Array<T, A> *a)
 {
 	dealloc(a->allocator, a->data);
-	a->capacity = 0;
-	a->count    = 0;
-}
-
-template<typename T>
-void free_array(StaticArray<T> *a)
-{
 	a->capacity = 0;
 	a->count    = 0;
 }
@@ -93,6 +61,36 @@ isize array_remove(Array<T, A> *a, isize i)
 	return --a->count;
 }
 
+
+template<typename T>
+StaticArray<T> array_create_static(void *data, isize capacity)
+{
+	StaticArray<T> a;
+	a.data      = (T*)data;
+	a.count     = 0;
+	a.capacity  = capacity;
+
+	return a;
+}
+
+template<typename T>
+StaticArray<T> array_create_static(void* ptr, isize offset, isize capacity)
+{
+	StaticArray<T> a;
+	a.data      = (T*)((u8*)ptr + offset);
+	a.count     = 0;
+	a.capacity  = capacity;
+
+	return a;
+}
+
+template<typename T>
+void array_destroy(StaticArray<T> *a)
+{
+	a->capacity = 0;
+	a->count    = 0;
+}
+
 template<typename T>
 isize array_add(StaticArray<T> *a, T e)
 {
@@ -101,3 +99,15 @@ isize array_add(StaticArray<T> *a, T e)
 	a->data[a->count] = e;
 	return a->count++;
 }
+
+template<typename T>
+isize array_remove(StaticArray<T> *a, isize i)
+{
+	if ((a->count - 1) == i) {
+		return --a->count;
+	}
+
+	a->data[a->count-1] = a->data[i];
+	return --a->count;
+}
+

@@ -38,7 +38,7 @@ struct BitmapHeader {
 	u32 colors_important;
 } __attribute__((packed));
 
-Texture load_texture_bmp(const char *filename)
+Texture texture_load_bmp(const char *filename)
 {
 	Texture texture = {};
 
