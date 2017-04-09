@@ -40,7 +40,7 @@ models: | $(MODELS_DST) $(MODELS)
 
 TEXTURES_SRC = $(ROOT)/assets/textures
 TEXTURES_DST = $(BUILD)/data/textures
-TEXTURES = $(addprefix $(TEXTURES_DST)/,dummy.bmp)
+TEXTURES = $(addprefix $(TEXTURES_DST)/,dummy.bmp player.bmp)
 
 $(TEXTURES_DST)/%.bmp: $(TEXTURES_SRC)/%.bmp
 	cp $< $@

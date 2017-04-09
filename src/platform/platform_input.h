@@ -82,6 +82,12 @@ enum VirtualKey {
 	VirtualKey_rsuper,
 	VirtualKey_menu,
 	VirtualKey_rctrl,
+
+	VirtualKey_left,
+	VirtualKey_up,
+	VirtualKey_right,
+	VirtualKey_down,
+
 	VirtualKey_unknown
 };
 

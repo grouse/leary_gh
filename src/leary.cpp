@@ -29,17 +29,23 @@
 
 #include "core/serialize.cpp"
 
+struct Entity {
+	i32 id;
+	i32 index;
+};
+
 struct RenderedText {
 	VulkanBuffer buffer;
 	i32          vertex_count;
 };
 
 struct IndexRenderObject {
+	i32            entity_id;
 	VulkanPipeline pipeline;
 	VulkanBuffer   vertices;
 	VulkanBuffer   indices;
 	i32            index_count;
-	Matrix4        transform;
+	//Matrix4        transform;
 	Material       *material;
 };
 
@@ -52,6 +58,85 @@ struct RenderObject {
 	Matrix4        transform;
 	Material       *material;
 };
+
+
+Entity entities_add(Array<Entity> *entities)
+{
+	Entity e = {};
+	e.id = entities->count;
+
+	i32 i = array_add(entities, e);
+	(*entities)[i].index = i;
+
+	return e;
+}
+
+Array<Entity> entities_create(GameMemory *memory)
+{
+	return array_create<Entity>(&memory->free_list);
+}
+
+struct Physics {
+	Array<Vector3> positions;
+	Array<Vector3> velocities;
+
+	Array<i32> entities;
+};
+
+Physics physics_create(GameMemory *memory)
+{
+	Physics p = {};
+
+	p.positions     = array_create<Vector3>(&memory->free_list);
+	p.velocities    = array_create<Vector3>(&memory->free_list);
+	p.entities      = array_create<i32>(&memory->free_list);
+
+	return p;
+}
+
+void physics_process(Physics *physics, f32 dt)
+{
+	for (i32 i = 0; i < physics->positions.count; i++) {
+		physics->positions[i]  += physics->velocities[i] * dt;
+	}
+}
+
+i32 physics_add(Physics *physics, Entity entity)
+{
+	array_add(&physics->positions,     {});
+	array_add(&physics->velocities,    {});
+
+	i32 id = array_add(&physics->entities, entity.id);
+	return id;
+}
+
+void physics_remove(Physics *physics, i32 id)
+{
+	array_remove(&physics->velocities,    id);
+	array_remove(&physics->positions,     id);
+	array_remove(&physics->entities,      id);
+}
+
+i32 physics_id(Physics *physics, i32 entity_id)
+{
+	// TODO(jesper): make a more performant look-up
+	i32 id = -1;
+	for (i32 i = 0; i < physics->entities.count; i++) {
+		if (physics->entities[i] == entity_id) {
+			id = i;
+			break;
+		}
+	}
+
+	DEBUG_ASSERT(id != -1);
+	return id;
+}
+
+Vector3 physics_position(Physics *physics, i32 i)
+{
+	DEBUG_ASSERT(i < physics->positions.count);
+	return physics->positions[i];
+}
 
 struct Camera {
 	Matrix4             view;
@@ -74,12 +159,17 @@ struct GameState {
 	struct {
 		VulkanTexture font;
 		VulkanTexture cube;
+		VulkanTexture player;
 	} textures;
 
 	struct {
 		Material font;
 		Material phong;
+		Material player;
 	} materials;
+
+	Array<Entity> entities;
+	Physics physics;
 
 	Camera fp_camera;
 	Camera ui_camera;
@@ -255,6 +345,16 @@ void game_init(GameMemory *memory, PlatformState *platform)
 		                                     VkComponentMapping{});
 	}
 
+	{
+		Texture player = texture_load_bmp("player.bmp");
+
+		// TODO(jesper): texture file loading
+		game->textures.player = texture_create(&game->vulkan,
+		                                       player.width, player.height,
+		                                       player.format, player.data,
+		                                       VkComponentMapping{});
+	}
+
 
 	// create pipelines
 	{
@@ -281,6 +381,10 @@ void game_init(GameMemory *memory, PlatformState *platform)
 		game->materials.phong = material_create(&game->vulkan, memory,
 		                                        &game->pipelines.mesh,
 		                                        Material_phong);
+
+		game->materials.player = material_create(&game->vulkan, memory,
+		                                         &game->pipelines.mesh,
+		                                         Material_phong);
 	}
 
 	// update descriptor sets
@@ -297,28 +401,68 @@ void game_init(GameMemory *memory, PlatformState *platform)
 
 		texture_set(&game->vulkan, &game->materials.phong,
 		            ResourceSlot_texture, &game->textures.cube);
+
+		texture_set(&game->vulkan, &game->materials.player,
+		            ResourceSlot_texture, &game->textures.player);
 	}
 
-	Mesh cube = load_mesh_obj(memory, "cube.obj");
+	{
+		game->entities = entities_create(memory);
+		game->physics  = physics_create(memory);
+	}
 
 	Random r = random_create(3);
+	Mesh cube = load_mesh_obj(memory, "cube.obj");
+
+	{
+		Entity player = entities_add(&game->entities);
+		i32 pid = physics_add(&game->physics, player);
+
+		f32 x = next_f32(&r) * 20.0f;
+		f32 y = -1.0f;
+		f32 z = next_f32(&r) * 20.0f;
+
+		game->physics.positions[pid] = { x, y, z };
+
+		IndexRenderObject obj = {};
+		obj.material = &game->materials.player;
+
+		usize vertex_size = cube.vertices.count * sizeof(cube.vertices[0]);
+		usize index_size  = cube.indices.count  * sizeof(cube.indices[0]);
+
+		obj.entity_id   = player.id;
+		obj.pipeline    = game->pipelines.mesh;
+		obj.index_count = (i32)cube.indices.count;
+		obj.vertices    = buffer_create_vbo(&game->vulkan, cube.vertices.data, vertex_size);
+		obj.indices     = buffer_create_ibo(&game->vulkan, cube.indices.data, index_size);
+
+		//obj.transform = translate(Matrix4::identity(), {x, y, z});
+		array_add(&game->index_render_objects, obj);
+	}
+
 	for (i32 i = 0; i < 10; i++) {
+		Entity e = entities_add(&game->entities);
+		i32 pid  = physics_add(&game->physics, e);
+
+		f32 x = next_f32(&r) * 20.0f;
+		f32 y = -1.0f;
+		f32 z = next_f32(&r) * 20.0f;
+
+		game->physics.positions[pid] = { x, y, z };
+
 		IndexRenderObject obj = {};
 		obj.material = &game->materials.phong;
 
 		usize vertex_size = cube.vertices.count * sizeof(cube.vertices[0]);
 		usize index_size  = cube.indices.count  * sizeof(cube.indices[0]);
 
+		obj.entity_id   = e.id;
 		obj.pipeline    = game->pipelines.mesh;
 		obj.index_count = (i32)cube.indices.count;
 		obj.vertices    = buffer_create_vbo(&game->vulkan, cube.vertices.data, vertex_size);
 		obj.indices     = buffer_create_ibo(&game->vulkan, cube.indices.data, index_size);
 
-		f32 x = next_f32(&r) * 20.0f;
-		f32 y = -1.0f;
-		f32 z = next_f32(&r) * 20.0f;
-
-		obj.transform = translate(Matrix4::identity(), {x, y, z});
+		//obj.transform = translate(Matrix4::identity(), {x, y, z});
 		array_add(&game->index_render_objects, obj);
 	}
 
@@ -360,9 +504,11 @@ void game_quit(GameMemory *memory, PlatformState *platform)
 
 	texture_destroy(&game->vulkan, game->textures.font);
 	texture_destroy(&game->vulkan, game->textures.cube);
+	texture_destroy(&game->vulkan, game->textures.player);
 
 	material_destroy(&game->vulkan, &game->materials.font);
 	material_destroy(&game->vulkan, &game->materials.phong);
+	material_destroy(&game->vulkan, &game->materials.player);
 
 	pipeline_destroy(&game->vulkan, game->pipelines.font);
 	pipeline_destroy(&game->vulkan, game->pipelines.mesh);
@@ -431,11 +577,27 @@ void game_input(GameMemory *memory, PlatformState *platform, InputEvent event)
 			// TODO(jesper): tweak movement speed when we have a sense of scale
 			game->velocity.x = 3.0f;
 			break;
+		case VirtualKey_left: {
+			i32 pid = physics_id(&game->physics, 0);
+			game->physics.velocities[pid].x = 5.0f;
+		} break;
+		case VirtualKey_right: {
+			i32 pid = physics_id(&game->physics, 0);
+			game->physics.velocities[pid].x = -5.0f;
+		} break;
+		case VirtualKey_up: {
+			i32 pid = physics_id(&game->physics, 0);
+			game->physics.velocities[pid].z = 5.0f;
+		} break;
+		case VirtualKey_down: {
+			i32 pid = physics_id(&game->physics, 0);
+			game->physics.velocities[pid].z = -5.0f;
+		} break;
 		case VirtualKey_C:
 			platform_toggle_raw_mouse(platform);
 			break;
 		default:
-			DEBUG_LOG("unhandled key press: %d", event.key.vkey);
+			//DEBUG_LOG("unhandled key press: %d", event.key.vkey);
 			break;
 		}
 	} break;
@@ -491,6 +653,58 @@ void game_input(GameMemory *memory, PlatformState *platform, InputEvent event)
 				game_input(memory, platform, e);
 			}
 			break;
+		case VirtualKey_left: {
+			i32 pid = physics_id(&game->physics, 0);
+			game->physics.velocities[pid].x = 0.0f;
+
+			if (game->key_state[VirtualKey_right] == InputType_key_press) {
+				InputEvent e;
+				e.type         = InputType_key_press;
+				e.key.vkey     = VirtualKey_right;
+				e.key.repeated = false;
+
+				game_input(memory, platform, e);
+			}
+		} break;
+		case VirtualKey_right: {
+			i32 pid = physics_id(&game->physics, 0);
+			game->physics.velocities[pid].x = 0.0f;
+
+			if (game->key_state[VirtualKey_left] == InputType_key_press) {
+				InputEvent e;
+				e.type         = InputType_key_press;
+				e.key.vkey     = VirtualKey_left;
+				e.key.repeated = false;
+
+				game_input(memory, platform, e);
+			}
+		} break;
+		case VirtualKey_up: {
+			i32 pid = physics_id(&game->physics, 0);
+			game->physics.velocities[pid].z = 0.0f;
+
+			if (game->key_state[VirtualKey_down] == InputType_key_press) {
+				InputEvent e;
+				e.type         = InputType_key_press;
+				e.key.vkey     = VirtualKey_down;
+				e.key.repeated = false;
+
+				game_input(memory, platform, e);
+			}
+		} break;
+		case VirtualKey_down: {
+			i32 pid = physics_id(&game->physics, 0);
+			game->physics.velocities[pid].z = 0.0f;
+
+			if (game->key_state[VirtualKey_up] == InputType_key_press) {
+				InputEvent e;
+				e.type         = InputType_key_press;
+				e.key.vkey     = VirtualKey_up;
+				e.key.repeated = false;
+
+				game_input(memory, platform, e);
+			}
+		} break;
 		default:
 			//DEBUG_LOG("unhandled key release: %d", event.key.vkey);
 			break;
@@ -502,7 +716,7 @@ void game_input(GameMemory *memory, PlatformState *platform, InputEvent event)
 		game->fp_camera.pitch += -0.001f * event.mouse.dy;
 	} break;
 	default:
-		DEBUG_LOG("unhandled input type: %d", event.type);
+		//DEBUG_LOG("unhandled input type: %d", event.type);
 		break;
 	}
 }
@@ -531,6 +745,8 @@ void game_update(GameMemory *memory, f32 dt)
 		buffer += bytes;
 		buffer_size -= bytes;
 	}
+
+	physics_process(&game->physics, dt);
 
 	render_font(memory, &game->text_vertices, game->text_buffer, -1.0f, -1.0f);
 
@@ -649,8 +865,13 @@ void game_render(GameMemory *memory)
 		vkCmdBindIndexBuffer(command, object.indices.handle,
 		                     0, VK_INDEX_TYPE_UINT32);
 
+		i32 pid = physics_id(&game->physics, object.entity_id);
+		Matrix4 transform = translate(Matrix4::identity(),
+		                              game->physics.positions[pid]);
+
+
 		vkCmdPushConstants(command, object.pipeline.layout, VK_SHADER_STAGE_VERTEX_BIT,
-		                   0, sizeof(object.transform), &object.transform);
+		                   0, sizeof(transform), &transform);
 
 		vkCmdDrawIndexed(command, object.index_count, 1, 0, 0, 0);
 	}

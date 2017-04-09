@@ -158,6 +158,13 @@ VirtualKey keycode_to_virtual(u32 code)
 	case LinuxVirtualKey_rsuper:    return VirtualKey_rsuper;
 	case LinuxVirtualKey_menu:      return VirtualKey_menu;
 	case LinuxVirtualKey_rctrl:     return VirtualKey_rctrl;
+	case 113: return VirtualKey_left;
+	case 111: return VirtualKey_up;
+	case 114: return VirtualKey_right;
+	case 116: return VirtualKey_down;
+	default:
+	    DEBUG_LOG(Log_warning, "unhandled Linux keycode: %d", code);
+	    break;
 	};
 	return VirtualKey_unknown;
 }

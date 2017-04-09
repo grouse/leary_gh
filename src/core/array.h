@@ -9,7 +9,7 @@
 #ifndef ARRAY_H
 #define ARRAY_H
 
-template<typename T, typename A>
+template<typename T, typename A = FreeListAllocator>
 struct Array {
 	T* data;
 	isize count;

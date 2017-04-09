@@ -17,7 +17,7 @@ Array<T, A> array_create(A *allocator)
 	return a;
 }
 
-template<typename T, typename A>
+template<typename T, typename A = FreeListAllocator>
 Array<T, A> array_create(A *allocator, isize capacity)
 {
 	Array<T, A> a;
