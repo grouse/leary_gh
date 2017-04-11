@@ -389,21 +389,21 @@ void game_init(GameMemory *memory, PlatformState *platform)
 
 	// update descriptor sets
 	{
-		buffer_set_ubo(&game->vulkan, &game->pipelines.mesh,
-		               ResourceSlot_mvp, &game->fp_camera.ubo);
+		pipeline_set_ubo(&game->vulkan, &game->pipelines.mesh,
+		                 ResourceSlot_mvp, &game->fp_camera.ubo);
 
-		buffer_set_ubo(&game->vulkan, &game->pipelines.terrain,
-		               ResourceSlot_mvp, &game->fp_camera.ubo);
+		pipeline_set_ubo(&game->vulkan, &game->pipelines.terrain,
+		                 ResourceSlot_mvp, &game->fp_camera.ubo);
 
 
-		texture_set(&game->vulkan, &game->materials.font,
-		            ResourceSlot_font_atlas, &game->textures.font);
+		material_set_texture(&game->vulkan, &game->materials.font,
+		                     ResourceSlot_font_atlas, &game->textures.font);
 
-		texture_set(&game->vulkan, &game->materials.phong,
-		            ResourceSlot_texture, &game->textures.cube);
+		material_set_texture(&game->vulkan, &game->materials.phong,
+		                     ResourceSlot_texture, &game->textures.cube);
 
-		texture_set(&game->vulkan, &game->materials.player,
-		            ResourceSlot_texture, &game->textures.player);
+		material_set_texture(&game->vulkan, &game->materials.player,
+		                     ResourceSlot_texture, &game->textures.player);
 	}
 
 	{

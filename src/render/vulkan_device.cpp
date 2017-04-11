@@ -25,17 +25,6 @@
 
 #include <array>
 
-void transition_image(VkCommandBuffer command,
-                      VkImage image, VkFormat format,
-                      VkImageLayout src,
-                      VkImageLayout dst);
-
-void transition_image(VulkanDevice *device,
-                      VkImage image, VkFormat format,
-                      VkImageLayout src,
-                      VkImageLayout dst);
-
-
 PFN_vkCreateDebugReportCallbackEXT   CreateDebugReportCallbackEXT;
 PFN_vkDestroyDebugReportCallbackEXT  DestroyDebugReportCallbackEXT;
 
@@ -812,6 +801,9 @@ VulkanShader create_shader(VulkanDevice *device, ShaderID id)
 
 VulkanPipeline pipeline_create_font(VulkanDevice *device, GameMemory *memory)
 {
+	void *sp = memory->stack.sp;
+	defer { reset(&memory->stack, sp); };
+
 	VkResult result;
 	VulkanPipeline pipeline = {};
 
@@ -825,19 +817,21 @@ VulkanPipeline pipeline_create_font(VulkanDevice *device, GameMemory *memory)
 	                                           pipeline.sampler_count);
 	pipeline.samplers[0] = create_sampler(device);
 
-	auto layouts = array_create<VkDescriptorSetLayout>(&memory->frame);
+	auto layouts = array_create<VkDescriptorSetLayout>(&memory->stack);
 	{ // material
-		std::array<VkDescriptorSetLayoutBinding, 1> bindings = {};
-		// texture sampler
-		bindings[0].binding         = 0;
-		bindings[0].descriptorCount = 1;
-		bindings[0].descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		bindings[0].stageFlags      = VK_SHADER_STAGE_FRAGMENT_BIT;
+		auto binds = array_create<VkDescriptorSetLayoutBinding>(&memory->stack);
+		array_add(&binds, {
+			0,
+			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+			1,
+			VK_SHADER_STAGE_FRAGMENT_BIT,
+			nullptr
+		});
 
 		VkDescriptorSetLayoutCreateInfo descriptor_layout_info = {};
 		descriptor_layout_info.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-		descriptor_layout_info.bindingCount = (u32)bindings.size();
-		descriptor_layout_info.pBindings    = bindings.data();
+		descriptor_layout_info.bindingCount = binds.count;
+		descriptor_layout_info.pBindings    = binds.data;
 
 		result = vkCreateDescriptorSetLayout(device->handle,
 		                                     &descriptor_layout_info,
@@ -858,30 +852,20 @@ VulkanPipeline pipeline_create_font(VulkanDevice *device, GameMemory *memory)
 	                                &pipeline.layout);
 	DEBUG_ASSERT(result == VK_SUCCESS);
 
-	std::array<VkVertexInputBindingDescription, 1> vertex_bindings = {};
-	vertex_bindings[0].binding   = 0;
-	vertex_bindings[0].stride    = sizeof(f32) * 5;
-	vertex_bindings[0].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+	auto vbinds = array_create<VkVertexInputBindingDescription>(&memory->stack);
+	array_add(&vbinds, { 0, sizeof(f32) * 5, VK_VERTEX_INPUT_RATE_VERTEX });
 
-	std::array<VkVertexInputAttributeDescription, 2> vertex_descriptions = {};
-	// vertices
-	vertex_descriptions[0].location = 0;
-	vertex_descriptions[0].binding  = 0;
-	vertex_descriptions[0].format   = VK_FORMAT_R32G32B32_SFLOAT;
-	vertex_descriptions[0].offset   = 0;
+	auto vdescs = array_create<VkVertexInputAttributeDescription>(&memory->stack);
+	array_add(&vdescs, { 0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0 });
+	array_add(&vdescs, { 1, 0, VK_FORMAT_R32G32_SFLOAT,    0 });
 
-	// texture coordinates
-	vertex_descriptions[1].location = 1;
-	vertex_descriptions[1].binding  = 0;
-	vertex_descriptions[1].format   = VK_FORMAT_R32G32_SFLOAT;
-	vertex_descriptions[1].offset   = sizeof(f32) * 3;
 
 	VkPipelineVertexInputStateCreateInfo vertex_input_info = {};
 	vertex_input_info.sType                           = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-	vertex_input_info.vertexBindingDescriptionCount   = (u32)vertex_bindings.size();
-	vertex_input_info.pVertexBindingDescriptions      = vertex_bindings.data();
-	vertex_input_info.vertexAttributeDescriptionCount = (u32)vertex_descriptions.size();
-	vertex_input_info.pVertexAttributeDescriptions    = vertex_descriptions.data();
+	vertex_input_info.vertexBindingDescriptionCount   = vbinds.count;
+	vertex_input_info.pVertexBindingDescriptions      = vbinds.data;
+	vertex_input_info.vertexAttributeDescriptionCount = vdescs.count;
+	vertex_input_info.pVertexAttributeDescriptions    = vdescs.data;
 
 	VkPipelineInputAssemblyStateCreateInfo input_assembly_info = {};
 	input_assembly_info.sType                  = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
@@ -951,16 +935,24 @@ VulkanPipeline pipeline_create_font(VulkanDevice *device, GameMemory *memory)
 
 	// NOTE(jesper): it seems like it'd be worth creating and caching this
 	// inside the VulkanShader objects
-	std::array<VkPipelineShaderStageCreateInfo, 2> shader_stages = {};
-	shader_stages[0].sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-	shader_stages[0].stage  = pipeline.shaders[ShaderStage_vertex].stage;
-	shader_stages[0].module = pipeline.shaders[ShaderStage_vertex].module;
-	shader_stages[0].pName  = pipeline.shaders[ShaderStage_vertex].name;
+	auto stages = array_create<VkPipelineShaderStageCreateInfo>(&memory->stack);
+	array_add(&stages, {
+		VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+		nullptr, 0,
+		pipeline.shaders[ShaderStage_vertex].stage,
+		pipeline.shaders[ShaderStage_vertex].module,
+		pipeline.shaders[ShaderStage_vertex].name,
+		nullptr
+	});
 
-	shader_stages[1].sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-	shader_stages[1].stage  = pipeline.shaders[ShaderStage_fragment].stage;
-	shader_stages[1].module = pipeline.shaders[ShaderStage_fragment].module;
-	shader_stages[1].pName  = pipeline.shaders[ShaderStage_fragment].name;
+	array_add(&stages, {
+		VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+		nullptr, 0,
+		pipeline.shaders[ShaderStage_fragment].stage,
+		pipeline.shaders[ShaderStage_fragment].module,
+		pipeline.shaders[ShaderStage_fragment].name,
+		nullptr
+	});
 
 	VkPipelineDepthStencilStateCreateInfo depth_stencil = {};
 	depth_stencil.sType                 = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
@@ -970,8 +962,8 @@ VulkanPipeline pipeline_create_font(VulkanDevice *device, GameMemory *memory)
 
 	VkGraphicsPipelineCreateInfo pipeline_info = {};
 	pipeline_info.sType               = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-	pipeline_info.stageCount          = (u32)shader_stages.size();
-	pipeline_info.pStages             = shader_stages.data();
+	pipeline_info.stageCount          = stages.count;
+	pipeline_info.pStages             = stages.data;
 	pipeline_info.pVertexInputState   = &vertex_input_info;
 	pipeline_info.pInputAssemblyState = &input_assembly_info;
 	pipeline_info.pViewportState      = &viewport_info;
@@ -996,6 +988,9 @@ VulkanPipeline pipeline_create_font(VulkanDevice *device, GameMemory *memory)
 
 VulkanPipeline pipeline_create_generic(VulkanDevice *device, GameMemory *memory)
 {
+	void *sp = memory->stack.sp;
+	defer { reset(&memory->stack, sp); };
+
 	VkResult result;
 	VulkanPipeline pipeline = {};
 
@@ -1009,16 +1004,19 @@ VulkanPipeline pipeline_create_generic(VulkanDevice *device, GameMemory *memory)
 
 	auto layouts = array_create<VkDescriptorSetLayout>(&memory->frame);
 	{ // pipeline
-		std::array<VkDescriptorSetLayoutBinding, 1> bindings = {};
-		bindings[0].binding         = 0;
-		bindings[0].descriptorCount = 1;
-		bindings[0].descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		bindings[0].stageFlags      = VK_SHADER_STAGE_VERTEX_BIT;
+		auto binds = array_create<VkDescriptorSetLayoutBinding>(&memory->stack);
+		array_add(&binds, {
+			0,
+			VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+			1,
+			VK_SHADER_STAGE_VERTEX_BIT,
+			nullptr
+		});
 
 		VkDescriptorSetLayoutCreateInfo layout_info = {};
 		layout_info.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-		layout_info.bindingCount = (u32)bindings.size();
-		layout_info.pBindings    = bindings.data();
+		layout_info.bindingCount = binds.count;
+		layout_info.pBindings    = binds.data;
 
 		result = vkCreateDescriptorSetLayout(device->handle,
 		                                     &layout_info,
@@ -1030,16 +1028,19 @@ VulkanPipeline pipeline_create_generic(VulkanDevice *device, GameMemory *memory)
 	}
 
 	{ // material
-		std::array<VkDescriptorSetLayoutBinding, 1> bindings = {};
-		bindings[0].binding         = 1;
-		bindings[0].descriptorCount = 1;
-		bindings[0].descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		bindings[0].stageFlags      = VK_SHADER_STAGE_FRAGMENT_BIT;
+		auto binds = array_create<VkDescriptorSetLayoutBinding>(&memory->stack);
+		array_add(&binds, {
+			1,
+			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+			1,
+			VK_SHADER_STAGE_FRAGMENT_BIT,
+			nullptr
+		});
 
 		VkDescriptorSetLayoutCreateInfo layout_info = {};
 		layout_info.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-		layout_info.bindingCount = (u32)bindings.size();
-		layout_info.pBindings    = bindings.data();
+		layout_info.bindingCount = binds.count;
+		layout_info.pBindings    = binds.data;
 
 		result = vkCreateDescriptorSetLayout(device->handle,
 		                                     &layout_info,
@@ -1052,14 +1053,13 @@ VulkanPipeline pipeline_create_generic(VulkanDevice *device, GameMemory *memory)
 
 	// NOTE(jesper): create a pool size descriptor for each type of
 	// descriptor this shader program uses
-	std::array<VkDescriptorPoolSize, 1> pool_sizes = {};
-	pool_sizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	pool_sizes[0].descriptorCount = 1;
+	auto psizes = array_create<VkDescriptorPoolSize>(&memory->stack);
+	array_add(&psizes, { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1 });
 
 	VkDescriptorPoolCreateInfo pool_info = {};
 	pool_info.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-	pool_info.poolSizeCount = (u32)pool_sizes.size();
-	pool_info.pPoolSizes    = pool_sizes.data();
+	pool_info.poolSizeCount = psizes.count;
+	pool_info.pPoolSizes    = psizes.data;
 	pool_info.maxSets       = 1;
 
 	result = vkCreateDescriptorPool(device->handle,
@@ -1097,36 +1097,20 @@ VulkanPipeline pipeline_create_generic(VulkanDevice *device, GameMemory *memory)
 	                                &pipeline.layout);
 	DEBUG_ASSERT(result == VK_SUCCESS);
 
-	std::array<VkVertexInputBindingDescription, 1> vertex_bindings = {};
-	vertex_bindings[0].binding   = 0;
-	vertex_bindings[0].stride    = sizeof(f32) * 9;
-	vertex_bindings[0].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+	auto vbinds = array_create<VkVertexInputBindingDescription>(&memory->stack);
+	array_add(&vbinds, { 0, sizeof(f32) * 9, VK_VERTEX_INPUT_RATE_VERTEX });
 
-	std::array<VkVertexInputAttributeDescription, 3> vertex_descriptions = {};
-	// vertices
-	vertex_descriptions[0].location = 0;
-	vertex_descriptions[0].binding  = 0;
-	vertex_descriptions[0].format   = VK_FORMAT_R32G32B32_SFLOAT;
-	vertex_descriptions[0].offset   = 0;
-
-	// color
-	vertex_descriptions[1].location = 1;
-	vertex_descriptions[1].binding  = 0;
-	vertex_descriptions[1].format   = VK_FORMAT_R32G32B32A32_SFLOAT;
-	vertex_descriptions[1].offset   = sizeof(f32) * 3;
-
-	// texture coordinates
-	vertex_descriptions[2].location = 2;
-	vertex_descriptions[2].binding  = 0;
-	vertex_descriptions[2].format   = VK_FORMAT_R32G32_SFLOAT;
-	vertex_descriptions[2].offset   = sizeof(f32) * 7;
+	auto vdescs = array_create<VkVertexInputAttributeDescription>(&memory->stack);
+	array_add(&vdescs, { 0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0 });
+	array_add(&vdescs, { 1, 0, VK_FORMAT_R32G32B32_SFLOAT, sizeof(f32) * 3 });
+	array_add(&vdescs, { 1, 0, VK_FORMAT_R32G32_SFLOAT,    sizeof(f32) * 7 });
 
 	VkPipelineVertexInputStateCreateInfo vertex_input_info = {};
 	vertex_input_info.sType                           = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-	vertex_input_info.vertexBindingDescriptionCount   = (u32)vertex_bindings.size();
-	vertex_input_info.pVertexBindingDescriptions      = vertex_bindings.data();
-	vertex_input_info.vertexAttributeDescriptionCount = (u32)vertex_descriptions.size();
-	vertex_input_info.pVertexAttributeDescriptions    = vertex_descriptions.data();
+	vertex_input_info.vertexBindingDescriptionCount   = vbinds.count;
+	vertex_input_info.pVertexBindingDescriptions      = vbinds.data;
+	vertex_input_info.vertexAttributeDescriptionCount = vdescs.count;
+	vertex_input_info.pVertexAttributeDescriptions    = vdescs.data;
 
 	VkPipelineInputAssemblyStateCreateInfo input_assembly_info = {};
 	input_assembly_info.sType                  = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
@@ -1235,6 +1219,9 @@ VulkanPipeline pipeline_create_generic(VulkanDevice *device, GameMemory *memory)
 
 VulkanPipeline pipeline_create_terrain(VulkanDevice *device, GameMemory *memory)
 {
+	void *sp = memory->stack.sp;
+	defer { reset(&memory->stack, sp); };
+
 	VkResult result;
 	VulkanPipeline pipeline = {};
 
@@ -1243,16 +1230,19 @@ VulkanPipeline pipeline_create_terrain(VulkanDevice *device, GameMemory *memory)
 
 	auto layouts = array_create<VkDescriptorSetLayout>(&memory->frame);
 	{ // pipeline
-		std::array<VkDescriptorSetLayoutBinding, 1> bindings = {};
-		bindings[0].binding         = 0;
-		bindings[0].descriptorCount = 1;
-		bindings[0].descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		bindings[0].stageFlags      = VK_SHADER_STAGE_VERTEX_BIT;
+		auto binds = array_create<VkDescriptorSetLayoutBinding>(&memory->stack);
+		array_add(&binds, {
+			0,
+			VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+			1,
+			VK_SHADER_STAGE_VERTEX_BIT,
+			nullptr
+		});
 
 		VkDescriptorSetLayoutCreateInfo layout_info = {};
 		layout_info.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-		layout_info.bindingCount = (u32)bindings.size();
-		layout_info.pBindings    = bindings.data();
+		layout_info.bindingCount = binds.count;
+		layout_info.pBindings    = binds.data;
 
 		result = vkCreateDescriptorSetLayout(device->handle,
 		                                     &layout_info,
@@ -1265,14 +1255,13 @@ VulkanPipeline pipeline_create_terrain(VulkanDevice *device, GameMemory *memory)
 
 	// NOTE(jesper): create a pool size descriptor for each type of
 	// descriptor this shader program uses
-	std::array<VkDescriptorPoolSize, 1> pool_sizes = {};
-	pool_sizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	pool_sizes[0].descriptorCount = 1;
+	auto psizes = array_create<VkDescriptorPoolSize>(&memory->stack);
+	array_add(&psizes, { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1 });
 
 	VkDescriptorPoolCreateInfo pool_info = {};
 	pool_info.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-	pool_info.poolSizeCount = (u32)pool_sizes.size();
-	pool_info.pPoolSizes    = pool_sizes.data();
+	pool_info.poolSizeCount = psizes.count;
+	pool_info.pPoolSizes    = psizes.data;
 	pool_info.maxSets       = 1;
 
 	result = vkCreateDescriptorPool(device->handle,
@@ -1310,25 +1299,18 @@ VulkanPipeline pipeline_create_terrain(VulkanDevice *device, GameMemory *memory)
 	                                &pipeline.layout);
 	DEBUG_ASSERT(result == VK_SUCCESS);
 
-	std::array<VkVertexInputBindingDescription, 1> vertex_bindings = {};
-	vertex_bindings[0].binding   = 0;
-	vertex_bindings[0].stride    = sizeof(f32) * (3);
-	vertex_bindings[0].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+	auto vbinds = array_create<VkVertexInputBindingDescription>(&memory->stack);
+	array_add(&vbinds, { 0, sizeof(f32) * 3, VK_VERTEX_INPUT_RATE_VERTEX });
 
-	std::array<VkVertexInputAttributeDescription, 1> vertex_descriptions = {};
-	// vertices
-	vertex_descriptions[0].location = 0;
-	vertex_descriptions[0].binding  = 0;
-	vertex_descriptions[0].format   = VK_FORMAT_R32G32B32_SFLOAT;
-	vertex_descriptions[0].offset   = 0;
-
+	auto vdescs = array_create<VkVertexInputAttributeDescription>(&memory->stack);
+	array_add(&vdescs, { 0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0 });
 
 	VkPipelineVertexInputStateCreateInfo vertex_input_info = {};
 	vertex_input_info.sType                           = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-	vertex_input_info.vertexBindingDescriptionCount   = (u32)vertex_bindings.size();
-	vertex_input_info.pVertexBindingDescriptions      = vertex_bindings.data();
-	vertex_input_info.vertexAttributeDescriptionCount = (u32)vertex_descriptions.size();
-	vertex_input_info.pVertexAttributeDescriptions    = vertex_descriptions.data();
+	vertex_input_info.vertexBindingDescriptionCount   = vbinds.count;
+	vertex_input_info.pVertexBindingDescriptions      = vbinds.data;
+	vertex_input_info.vertexAttributeDescriptionCount = vdescs.count;
+	vertex_input_info.pVertexAttributeDescriptions    = vdescs.data;
 
 	VkPipelineInputAssemblyStateCreateInfo input_assembly_info = {};
 	input_assembly_info.sType                  = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
@@ -1392,16 +1374,24 @@ VulkanPipeline pipeline_create_terrain(VulkanDevice *device, GameMemory *memory)
 
 	// NOTE(jesper): it seems like it'd be worth creating and caching this
 	// inside the VulkanShader objects
-	std::array<VkPipelineShaderStageCreateInfo, 2> shader_stages = {};
-	shader_stages[0].sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-	shader_stages[0].stage  = pipeline.shaders[ShaderStage_vertex].stage;
-	shader_stages[0].module = pipeline.shaders[ShaderStage_vertex].module;
-	shader_stages[0].pName  = pipeline.shaders[ShaderStage_vertex].name;
+	auto stages = array_create<VkPipelineShaderStageCreateInfo>(&memory->stack);
+	array_add(&stages, {
+		VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+		nullptr, 0,
+		pipeline.shaders[ShaderStage_vertex].stage,
+		pipeline.shaders[ShaderStage_vertex].module,
+		pipeline.shaders[ShaderStage_vertex].name,
+		nullptr
+	});
 
-	shader_stages[1].sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-	shader_stages[1].stage  = pipeline.shaders[ShaderStage_fragment].stage;
-	shader_stages[1].module = pipeline.shaders[ShaderStage_fragment].module;
-	shader_stages[1].pName  = pipeline.shaders[ShaderStage_fragment].name;
+	array_add(&stages, {
+		VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+		nullptr, 0,
+		pipeline.shaders[ShaderStage_fragment].stage,
+		pipeline.shaders[ShaderStage_fragment].module,
+		pipeline.shaders[ShaderStage_fragment].name,
+		nullptr
+	});
 
 	VkPipelineDepthStencilStateCreateInfo depth_stencil = {};
 	depth_stencil.sType                 = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
@@ -1412,8 +1402,8 @@ VulkanPipeline pipeline_create_terrain(VulkanDevice *device, GameMemory *memory)
 
 	VkGraphicsPipelineCreateInfo pipeline_info = {};
 	pipeline_info.sType               = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-	pipeline_info.stageCount          = (u32)shader_stages.size();
-	pipeline_info.pStages             = shader_stages.data();
+	pipeline_info.stageCount          = stages.count;
+	pipeline_info.pStages             = stages.data;
 	pipeline_info.pVertexInputState   = &vertex_input_info;
 	pipeline_info.pInputAssemblyState = &input_assembly_info;
 	pipeline_info.pViewportState      = &viewport_info;
@@ -1438,6 +1428,9 @@ VulkanPipeline pipeline_create_terrain(VulkanDevice *device, GameMemory *memory)
 
 VulkanPipeline pipeline_create_mesh(VulkanDevice *device, GameMemory *memory)
 {
+	void *sp = memory->stack.sp;
+	defer { reset(&memory->stack, sp); };
+
 	VkResult result;
 	VulkanPipeline pipeline = {};
 
@@ -1454,16 +1447,19 @@ VulkanPipeline pipeline_create_mesh(VulkanDevice *device, GameMemory *memory)
 
 	auto layouts = array_create<VkDescriptorSetLayout>(&memory->frame);
 	{ // pipeline
-		std::array<VkDescriptorSetLayoutBinding, 1> bindings = {};
-		bindings[0].binding         = 0;
-		bindings[0].descriptorCount = 1;
-		bindings[0].descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		bindings[0].stageFlags      = VK_SHADER_STAGE_VERTEX_BIT;
+		auto binds = array_create<VkDescriptorSetLayoutBinding>(&memory->stack);
+		array_add(&binds, {
+			0,
+			VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+			1,
+			VK_SHADER_STAGE_VERTEX_BIT,
+			nullptr
+		});
 
 		VkDescriptorSetLayoutCreateInfo layout_info = {};
 		layout_info.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-		layout_info.bindingCount = (u32)bindings.size();
-		layout_info.pBindings    = bindings.data();
+		layout_info.bindingCount = binds.count;
+		layout_info.pBindings    = binds.data;
 
 		result = vkCreateDescriptorSetLayout(device->handle,
 		                                     &layout_info,
@@ -1475,16 +1471,19 @@ VulkanPipeline pipeline_create_mesh(VulkanDevice *device, GameMemory *memory)
 	}
 
 	{ // material
-		std::array<VkDescriptorSetLayoutBinding, 1> bindings = {};
-		bindings[0].binding         = 0;
-		bindings[0].descriptorCount = 1;
-		bindings[0].descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		bindings[0].stageFlags      = VK_SHADER_STAGE_FRAGMENT_BIT;
+		auto binds = array_create<VkDescriptorSetLayoutBinding>(&memory->stack);
+		array_add(&binds, {
+			0,
+			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+			1,
+			VK_SHADER_STAGE_FRAGMENT_BIT,
+			nullptr
+		});
 
 		VkDescriptorSetLayoutCreateInfo layout_info = {};
 		layout_info.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-		layout_info.bindingCount = (u32)bindings.size();
-		layout_info.pBindings    = bindings.data();
+		layout_info.bindingCount = binds.count;
+		layout_info.pBindings    = binds.data;
 
 		result = vkCreateDescriptorSetLayout(device->handle,
 		                                     &layout_info,
@@ -1542,36 +1541,20 @@ VulkanPipeline pipeline_create_mesh(VulkanDevice *device, GameMemory *memory)
 	                                &pipeline.layout);
 	DEBUG_ASSERT(result == VK_SUCCESS);
 
-	std::array<VkVertexInputBindingDescription, 1> vertex_bindings = {};
-	vertex_bindings[0].binding   = 0;
-	vertex_bindings[0].stride    = sizeof(f32) * (3 + 3 + 2);
-	vertex_bindings[0].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+	auto vbinds = array_create<VkVertexInputBindingDescription>(&memory->stack);
+	array_add(&vbinds, { 0, sizeof(f32) * 8, VK_VERTEX_INPUT_RATE_VERTEX });
 
-	std::array<VkVertexInputAttributeDescription, 3> vertex_descriptions = {};
-	// vertices
-	vertex_descriptions[0].location = 0;
-	vertex_descriptions[0].binding  = 0;
-	vertex_descriptions[0].format   = VK_FORMAT_R32G32B32_SFLOAT;
-	vertex_descriptions[0].offset   = 0;
-
-	// normals
-	vertex_descriptions[1].location = 1;
-	vertex_descriptions[1].binding  = 0;
-	vertex_descriptions[1].format   = VK_FORMAT_R32G32B32_SFLOAT;
-	vertex_descriptions[1].offset   = sizeof(f32) * 3;
-
-	// uvs
-	vertex_descriptions[2].location = 2;
-	vertex_descriptions[2].binding  = 0;
-	vertex_descriptions[2].format   = VK_FORMAT_R32G32_SFLOAT;
-	vertex_descriptions[2].offset   = sizeof(f32) * (3 + 3);
+	auto vdescs = array_create<VkVertexInputAttributeDescription>(&memory->stack);
+	array_add(&vdescs, { 0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0 });
+	array_add(&vdescs, { 1, 0, VK_FORMAT_R32G32B32_SFLOAT, sizeof(f32) * 3 });
+	array_add(&vdescs, { 2, 0, VK_FORMAT_R32G32_SFLOAT,    sizeof(f32) * 6 });
 
 	VkPipelineVertexInputStateCreateInfo vertex_input_info = {};
 	vertex_input_info.sType                           = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-	vertex_input_info.vertexBindingDescriptionCount   = (u32)vertex_bindings.size();
-	vertex_input_info.pVertexBindingDescriptions      = vertex_bindings.data();
-	vertex_input_info.vertexAttributeDescriptionCount = (u32)vertex_descriptions.size();
-	vertex_input_info.pVertexAttributeDescriptions    = vertex_descriptions.data();
+	vertex_input_info.vertexBindingDescriptionCount   = vbinds.count;
+	vertex_input_info.pVertexBindingDescriptions      = vbinds.data;
+	vertex_input_info.vertexAttributeDescriptionCount = vdescs.count;
+	vertex_input_info.pVertexAttributeDescriptions    = vdescs.data;
 
 	VkPipelineInputAssemblyStateCreateInfo input_assembly_info = {};
 	input_assembly_info.sType                  = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
@@ -1635,16 +1618,24 @@ VulkanPipeline pipeline_create_mesh(VulkanDevice *device, GameMemory *memory)
 
 	// NOTE(jesper): it seems like it'd be worth creating and caching this
 	// inside the VulkanShader objects
-	std::array<VkPipelineShaderStageCreateInfo, 2> shader_stages = {};
-	shader_stages[0].sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-	shader_stages[0].stage  = pipeline.shaders[ShaderStage_vertex].stage;
-	shader_stages[0].module = pipeline.shaders[ShaderStage_vertex].module;
-	shader_stages[0].pName  = pipeline.shaders[ShaderStage_vertex].name;
+	auto stages = array_create<VkPipelineShaderStageCreateInfo>(&memory->stack);
+	array_add(&stages, {
+		VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+		nullptr, 0,
+		pipeline.shaders[ShaderStage_vertex].stage,
+		pipeline.shaders[ShaderStage_vertex].module,
+		pipeline.shaders[ShaderStage_vertex].name,
+		nullptr
+	});
 
-	shader_stages[1].sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-	shader_stages[1].stage  = pipeline.shaders[ShaderStage_fragment].stage;
-	shader_stages[1].module = pipeline.shaders[ShaderStage_fragment].module;
-	shader_stages[1].pName  = pipeline.shaders[ShaderStage_fragment].name;
+	array_add(&stages, {
+		VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+		nullptr, 0,
+		pipeline.shaders[ShaderStage_fragment].stage,
+		pipeline.shaders[ShaderStage_fragment].module,
+		pipeline.shaders[ShaderStage_fragment].name,
+		nullptr
+	});
 
 	VkPipelineDepthStencilStateCreateInfo depth_stencil = {};
 	depth_stencil.sType                 = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
@@ -1655,8 +1646,8 @@ VulkanPipeline pipeline_create_mesh(VulkanDevice *device, GameMemory *memory)
 
 	VkGraphicsPipelineCreateInfo pipeline_info = {};
 	pipeline_info.sType               = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-	pipeline_info.stageCount          = (u32)shader_stages.size();
-	pipeline_info.pStages             = shader_stages.data();
+	pipeline_info.stageCount          = stages.count;
+	pipeline_info.pStages             = stages.data;
 	pipeline_info.pVertexInputState   = &vertex_input_info;
 	pipeline_info.pInputAssemblyState = &input_assembly_info;
 	pipeline_info.pViewportState      = &viewport_info;
@@ -2636,10 +2627,10 @@ void material_destroy(VulkanDevice *device, Material *material)
 	vkDestroyDescriptorPool(device->handle, material->descriptor_pool, nullptr);
 }
 
-void texture_set(VulkanDevice *device,
-                 Material *material,
-                 ResourceSlot slot,
-                 VulkanTexture *texture)
+void material_set_texture(VulkanDevice *device,
+                          Material *material,
+                          ResourceSlot slot,
+                          VulkanTexture *texture)
 {
 	// TODO(jesper): use this to figure out which sampler and dstBinding to set
 	(void)slot;
@@ -2679,10 +2670,10 @@ void texture_set(VulkanDevice *device,
 	vkUpdateDescriptorSets(device->handle, 1, &writes, 0, nullptr);
 }
 
-void buffer_set_ubo(VulkanDevice *device,
-                    VulkanPipeline *pipeline,
-                    ResourceSlot slot,
-                    VulkanUniformBuffer *ubo)
+void pipeline_set_ubo(VulkanDevice *device,
+                      VulkanPipeline *pipeline,
+                      ResourceSlot slot,
+                      VulkanUniformBuffer *ubo)
 {
 	// TODO(jesper): use this to figure out the dstBinding to use
 	(void)slot;
