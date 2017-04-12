@@ -804,7 +804,7 @@ VulkanShader create_shader(VulkanDevice *device, ShaderID id)
 VulkanPipeline pipeline_create_font(VulkanDevice *device, GameMemory *memory)
 {
 	void *sp = memory->stack.stack.sp;
-	defer { reset(&memory->stack.stack, sp); };
+	defer { alloc_reset(&memory->stack, sp); };
 
 	VkResult result;
 	VulkanPipeline pipeline = {};
@@ -991,7 +991,7 @@ VulkanPipeline pipeline_create_font(VulkanDevice *device, GameMemory *memory)
 VulkanPipeline pipeline_create_generic(VulkanDevice *device, GameMemory *memory)
 {
 	void *sp = memory->stack.stack.sp;
-	defer { reset(&memory->stack.stack, sp); };
+	defer { alloc_reset(&memory->stack, sp); };
 
 	VkResult result;
 	VulkanPipeline pipeline = {};
@@ -1230,7 +1230,7 @@ VulkanPipeline pipeline_create_generic(VulkanDevice *device, GameMemory *memory)
 VulkanPipeline pipeline_create_terrain(VulkanDevice *device, GameMemory *memory)
 {
 	void *sp = memory->stack.stack.sp;
-	defer { reset(&memory->stack.stack, sp); };
+	defer { alloc_reset(&memory->stack, sp); };
 
 	VkResult result;
 	VulkanPipeline pipeline = {};
@@ -1439,7 +1439,7 @@ VulkanPipeline pipeline_create_terrain(VulkanDevice *device, GameMemory *memory)
 VulkanPipeline pipeline_create_mesh(VulkanDevice *device, GameMemory *memory)
 {
 	void *sp = memory->stack.stack.sp;
-	defer { reset(&memory->stack.stack, sp); };
+	defer { alloc_reset(&memory->stack, sp); };
 
 	VkResult result;
 	VulkanPipeline pipeline = {};
@@ -1882,7 +1882,7 @@ VulkanDevice device_create(GameMemory *memory,
                            Settings *settings)
 {
 	void *sp = memory->stack.stack.sp;
-	defer { reset(&memory->stack.stack, sp); };
+	defer { alloc_reset(&memory->stack, sp); };
 
 	VulkanDevice device = {};
 

@@ -777,7 +777,7 @@ void game_render(GameMemory *memory)
 	PROFILE_FUNCTION();
 
 	void *sp = memory->stack.stack.sp;
-	defer { reset(&memory->stack.stack, sp); };
+	defer { alloc_reset(&memory->stack, sp); };
 
 	GameState *game = (GameState*)memory->game;
 
@@ -958,5 +958,5 @@ void game_update_and_render(GameMemory *memory, f32 dt)
 	game_update(memory, dt);
 	game_render(memory);
 
-	reset(&memory->frame.linear);
+	alloc_reset(&memory->frame);
 }

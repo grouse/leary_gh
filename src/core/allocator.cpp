@@ -47,301 +47,9 @@ u8 align_address_adjustment(void *address, u8 alignment, u8 header_size)
 	return (u8)(aligned - (uptr)address);
 }
 
-/*******************************************************************************
- * LinearAllocator
- ******************************************************************************/
-LinearAllocator allocator_create_linear(void *start, isize size)
-{
-	LinearAllocator a;
-	a.start   = start;
-	a.current = a.start;
-	a.size    = size;
-	return a;
-}
-
-void *alloc(LinearAllocator *a, isize size)
-{
-	u8 header_size = sizeof(AllocationHeader);
-
-	void *unaligned = a->current;
-	void *aligned   = align_address(unaligned, 16, header_size);
-
-	a->current = (void*)((uptr)aligned + size);
-	DEBUG_ASSERT((uptr)a->current < ((uptr)a->start + a->size));
-
-	AllocationHeader *header = (AllocationHeader*)((uptr)aligned - header_size);
-	header->size      = size;
-	header->unaligned = unaligned;
-
-	return aligned;
-}
-
-void dealloc(LinearAllocator *a, void *ptr)
-{
-	if (ptr == nullptr) {
-		return;
-	}
-
-	auto header = (AllocationHeader*)((uptr)ptr - sizeof(AllocationHeader));
-	if ((uptr)ptr + header->size == (uptr)a->current) {
-		a->current = header->unaligned;
-	} else {
-		DEBUG_LOG("calling dealloc on linear allocator, leaking memory");
-	}
-}
-
-void *realloc(LinearAllocator *a, void *ptr, isize size)
-{
-	if (ptr == nullptr) {
-		return alloc(a, size);
-	}
-
-	auto header = (AllocationHeader*)((uptr)ptr - sizeof(AllocationHeader));
-	if ((uptr)ptr + header->size == (uptr)a->current) {
-		isize extra = size - header->size;
-		DEBUG_ASSERT(extra > 0); // NOTE(jesper): untested
-
-		a->current   = (void*)((uptr)a->current + extra);
-		header->size = size;
-		return ptr;
-	} else {
-		DEBUG_LOG("can't expand linear allocation, leaking memory");
-		void *nptr = alloc(a, size);
-		memcpy(nptr, ptr, header->size);
-		return nptr;
-	}
-}
-
-void reset(LinearAllocator *a)
-{
-	a->current = a->start;
-}
 
 /*******************************************************************************
  * StackAllocator
- ******************************************************************************/
-StackAllocator allocator_create_stack(void *start, isize size)
-{
-	StackAllocator a;
-	a.start = start;
-	a.sp    = a.start;
-	a.size  = size;
-	return a;
-}
-
-void *alloc(StackAllocator *a, isize size)
-{
-	u8 header_size = sizeof(AllocationHeader);
-
-	void *unaligned = a->sp;
-	void *aligned   = align_address(unaligned, 16, header_size);
-
-	a->sp = (void*)((uptr)aligned + size);
-	DEBUG_ASSERT((uptr)a->sp < ((uptr)a->start + a->size));
-
-	auto header = (AllocationHeader*)((uptr)aligned - header_size);
-	header->size      = size;
-	header->unaligned = unaligned;
-
-	return aligned;
-}
-
-void dealloc(StackAllocator *a, void *ptr)
-{
-	auto  header = (AllocationHeader*)((uptr)ptr - sizeof(AllocationHeader));
-	a->sp = header->unaligned;
-}
-
-void *realloc(StackAllocator *a, void *ptr, isize size)
-{
-	if (ptr == nullptr) {
-		return alloc(a, size);
-	}
-
-	// NOTE(jesper): reallocing can be bad as we'll almost certainly leak the
-	// memory, but for the general use case this should be fine
-	auto header = (AllocationHeader*)((uptr)ptr - sizeof(AllocationHeader));
-	if ((uptr)ptr + header->size == (uptr)a->sp) {
-		isize extra = size - header->size;
-		DEBUG_ASSERT(extra > 0); // NOTE(jesper): untested
-
-		a->sp = (void*)((uptr)a->sp + extra);
-		header->size = size;
-		return ptr;
-	} else {
-		DEBUG_LOG("can't expand stack allocation, leaking memory");
-		void *nptr = alloc(a, size);
-		memcpy(nptr, ptr, header->size);
-		return nptr;
-	}
-}
-
-void reset(StackAllocator *a, void *ptr)
-{
-	a->sp = ptr;
-}
-
-/*******************************************************************************
- * FreeListAllocator
- ******************************************************************************/
-FreeListAllocator allocator_create_freelist(void *start, isize size)
-{
-	FreeListAllocator a;
-	a.start = start;
-	a.size  = size;
-
-	a.free = (FreeBlock*)start;
-	a.free->size = size;
-	a.free->next = nullptr;
-
-	return a;
-}
-
-void *alloc(FreeListAllocator *a, isize size)
-{
-	u8 header_size = sizeof(AllocationHeader);
-	isize required = size + header_size + 16;
-
-	FreeBlock *prev = nullptr;
-	FreeBlock *free = a->free;
-	while(free != nullptr) {
-		u8 adjustment = align_address_adjustment(free, 16, header_size);
-		if (free->size > (size + adjustment)) {
-			break;
-		}
-
-		// TODO(jesper): find best fitting free block
-		prev = free;
-		free = free->next;
-	}
-
-	DEBUG_ASSERT(((uptr)free + size) < ((uptr)a->start + a->size));
-	DEBUG_ASSERT(free && free->size >= required);
-	if (free == nullptr || free->size < required) {
-		return nullptr;
-	}
-
-	void *unaligned = (void*)free;
-	void *aligned   = align_address(unaligned, 16, header_size);
-
-	isize free_size = free->size;
-	isize remaining = free_size - size;
-
-	// TODO(jesper): double check suitable value of minimum remaining
-	if (remaining < (header_size + 48)) {
-		size = free_size;
-
-		if (prev != nullptr) {
-			prev->next = free->next;
-		} else {
-			a->free = a->free->next;
-		}
-	} else {
-		FreeBlock *nfree = (FreeBlock*)((uptr)aligned + size);
-		nfree->size = remaining;
-		nfree->next = free->next;
-
-		if (prev != nullptr) {
-			prev->next = nfree;
-		} else {
-			a->free = nfree;
-		}
-	}
-
-	auto header = (AllocationHeader*)((uptr)aligned - header_size);
-	header->size      = size;
-	header->unaligned = unaligned;
-
-	return aligned;
-}
-
-void dealloc(FreeListAllocator *a, void *ptr)
-{
-	auto  header     = (AllocationHeader*)((uptr)ptr - sizeof(AllocationHeader));
-	isize size       = header->size;
-
-	uptr start = (uptr)header->unaligned;
-	uptr end   = start + size;
-
-	FreeBlock *nfree = (FreeBlock*)start;
-	nfree->size      = size;
-
-	bool expanded = false;
-	bool insert   = false;
-	FreeBlock *prev = nullptr;
-	FreeBlock *free = a->free;
-	FreeBlock *next = nullptr;
-
-	while (free != nullptr) {
-		if (end == (uptr)free) {
-			nfree->size = nfree->size + free->size;
-			nfree->next = free->next;
-
-			if (prev != nullptr) {
-				prev->next = nfree;
-			}
-			expanded = true;
-			break;
-		} else if (((uptr)free + free->size) == start) {
-			free->size = free->size + nfree->size;
-			expanded = true;
-			break;
-		} else if ((uptr)free > start) {
-			prev = free;
-			next = free->next;
-			insert = true;
-			break;
-		}
-
-		prev = free;
-		free = free->next;
-	}
-
-	DEBUG_ASSERT(insert || expanded);
-	if (!expanded) {
-		prev->next  = nfree;
-		nfree->next = next;
-	}
-}
-
-
-void *realloc(FreeListAllocator *a, void *ptr, isize size)
-{
-	if (ptr == nullptr) {
-		return alloc(a, size);
-	}
-
-	auto header = (AllocationHeader*)((uptr)ptr - sizeof(AllocationHeader));
-
-	// TODO(jesper): try to find neighbour FreeBlock and expand
-	void *nptr = alloc(a, size);
-	memcpy(nptr, ptr, header->size);
-	dealloc(a, ptr);
-
-	return nptr;
-}
-
-/*******************************************************************************
- * SystemAllocator
- ******************************************************************************/
-void *alloc(SystemAllocator *, isize size)
-{
-	return malloc(size);
-}
-
-void dealloc(SystemAllocator *, void *ptr)
-{
-	free(ptr);
-}
-
-void *realloc(SystemAllocator *, void *ptr, isize size)
-{
-	return realloc(ptr, size);
-}
-
-
-/*******************************************************************************
- * Templated allocator helpers
  ******************************************************************************/
 Allocator allocator_create(AllocatorType type)
 {
@@ -354,6 +62,8 @@ Allocator allocator_create(AllocatorType type)
 }
 Allocator allocator_create(AllocatorType type, void *data, isize size)
 {
+	DEBUG_ASSERT(type != Allocator_System);
+
 	Allocator a;
 	a.type = type;
 	switch (type) {
@@ -388,13 +98,93 @@ void *alloc(Allocator *a, isize size)
 {
 	switch (a->type) {
 	case Allocator_Linear: {
-		return alloc(&a->linear, size);
+		u8 header_size = sizeof(AllocationHeader);
+
+		void *unaligned = a->linear.current;
+		void *aligned   = align_address(unaligned, 16, header_size);
+
+		a->linear.current = (void*)((uptr)aligned + size);
+		DEBUG_ASSERT((uptr)a->linear.current < ((uptr)a->linear.start + a->linear.size));
+
+		AllocationHeader *header = (AllocationHeader*)((uptr)aligned - header_size);
+		header->size      = size;
+		header->unaligned = unaligned;
+
+		return aligned;
 	} break;
 	case Allocator_Stack: {
-		return alloc(&a->stack, size);
+		u8 header_size = sizeof(AllocationHeader);
+
+		void *unaligned = a->stack.sp;
+		void *aligned   = align_address(unaligned, 16, header_size);
+
+		a->stack.sp = (void*)((uptr)aligned + size);
+		DEBUG_ASSERT((uptr)a->stack.sp < ((uptr)a->stack.start + a->stack.size));
+
+		auto header = (AllocationHeader*)((uptr)aligned - header_size);
+		header->size      = size;
+		header->unaligned = unaligned;
+
+		return aligned;
 	} break;
 	case Allocator_FreeList: {
-		return alloc(&a->free_list, size);
+		u8 header_size = sizeof(AllocationHeader);
+		isize required = size + header_size + 16;
+
+		FreeBlock *prev = nullptr;
+		FreeBlock *free = a->free_list.free;
+		while(free != nullptr) {
+			u8 adjustment = align_address_adjustment(free, 16, header_size);
+			if (free->size > (size + adjustment)) {
+				break;
+			}
+
+			// TODO(jesper): find best fitting free block
+			prev = free;
+			free = free->next;
+		}
+
+		DEBUG_ASSERT(((uptr)free + size) < ((uptr)a->free_list.start + a->free_list.size));
+		DEBUG_ASSERT(free && free->size >= required);
+		if (free == nullptr || free->size < required) {
+			return nullptr;
+		}
+
+		void *unaligned = (void*)free;
+		void *aligned   = align_address(unaligned, 16, header_size);
+
+		isize free_size = free->size;
+		isize remaining = free_size - size;
+
+		// TODO(jesper): double check suitable value of minimum remaining
+		if (remaining < (header_size + 48)) {
+			size = free_size;
+
+			if (prev != nullptr) {
+				prev->next = free->next;
+			} else {
+				a->free_list.free = a->free_list.free->next;
+			}
+		} else {
+			FreeBlock *nfree = (FreeBlock*)((uptr)aligned + size);
+			nfree->size = remaining;
+			nfree->next = free->next;
+
+			if (prev != nullptr) {
+				prev->next = nfree;
+			} else {
+				a->free_list.free = nfree;
+			}
+		}
+
+		auto header = (AllocationHeader*)((uptr)aligned - header_size);
+		header->size      = size;
+		header->unaligned = unaligned;
+
+		return aligned;
+	} break;
+	case Allocator_System: {
+		return malloc(size);
 	} break;
 	default:
 		DEBUG_LOG(Log_error, "unknown allocator type: %d", a->type);
@@ -409,13 +199,70 @@ void dealloc(Allocator *a, void *ptr)
 {
 	switch (a->type) {
 	case Allocator_Linear: {
-		dealloc(&a->linear, ptr);
+		if (ptr == nullptr) {
+			return;
+		}
+
+		auto header = (AllocationHeader*)((uptr)ptr - sizeof(AllocationHeader));
+		if ((uptr)ptr + header->size == (uptr)a->linear.current) {
+			a->linear.current = header->unaligned;
+		} else {
+			DEBUG_LOG("calling dealloc on linear allocator, leaking memory");
+		}
 	} break;
 	case Allocator_Stack: {
-		dealloc(&a->stack, ptr);
+		auto header = (AllocationHeader*)((uptr)ptr - sizeof(AllocationHeader));
+		a->stack.sp = header->unaligned;
 	} break;
 	case Allocator_FreeList: {
-		dealloc(&a->free_list, ptr);
+		auto  header     = (AllocationHeader*)((uptr)ptr - sizeof(AllocationHeader));
+		isize size       = header->size;
+
+		uptr start = (uptr)header->unaligned;
+		uptr end   = start + size;
+
+		FreeBlock *nfree = (FreeBlock*)start;
+		nfree->size      = size;
+
+		bool expanded = false;
+		bool insert   = false;
+		FreeBlock *prev = nullptr;
+		FreeBlock *free = a->free_list.free;
+		FreeBlock *next = nullptr;
+
+		while (free != nullptr) {
+			if (end == (uptr)free) {
+				nfree->size = nfree->size + free->size;
+				nfree->next = free->next;
+
+				if (prev != nullptr) {
+					prev->next = nfree;
+				}
+				expanded = true;
+				break;
+			} else if (((uptr)free + free->size) == start) {
+				free->size = free->size + nfree->size;
+				expanded = true;
+				break;
+			} else if ((uptr)free > start) {
+				prev = free;
+				next = free->next;
+				insert = true;
+				break;
+			}
+
+			prev = free;
+			free = free->next;
+		}
+
+		DEBUG_ASSERT(insert || expanded);
+		if (!expanded) {
+			prev->next  = nfree;
+			nfree->next = next;
+		}
+	} break;
+	case Allocator_System: {
+		free(ptr);
 	} break;
 	default:
 		DEBUG_LOG(Log_error, "unknown allocator type: %d", a->type);
@@ -426,15 +273,57 @@ void dealloc(Allocator *a, void *ptr)
 
 void *realloc(Allocator *a, void *ptr, isize size)
 {
+	if (ptr == nullptr) {
+		return alloc(a, size);
+	}
+
 	switch (a->type) {
 	case Allocator_Linear: {
-		return realloc(&a->linear, ptr, size);
+		auto header = (AllocationHeader*)((uptr)ptr - sizeof(AllocationHeader));
+		if ((uptr)ptr + header->size == (uptr)a->linear.current) {
+			isize extra = size - header->size;
+			DEBUG_ASSERT(extra > 0); // NOTE(jesper): untested
+
+			a->linear.current   = (void*)((uptr)a->linear.current + extra);
+			header->size = size;
+			return ptr;
+		} else {
+			DEBUG_LOG("can't expand linear allocation, leaking memory");
+			void *nptr = alloc(a, size);
+			memcpy(nptr, ptr, header->size);
+			return nptr;
+		}
 	} break;
 	case Allocator_Stack: {
-		return realloc(&a->stack, ptr, size);
+		// NOTE(jesper): reallocing can be bad as we'll almost certainly leak the
+		// memory, but for the general use case this should be fine
+		auto header = (AllocationHeader*)((uptr)ptr - sizeof(AllocationHeader));
+		if ((uptr)ptr + header->size == (uptr)a->stack.sp) {
+			isize extra = size - header->size;
+			DEBUG_ASSERT(extra > 0); // NOTE(jesper): untested
+
+			a->stack.sp = (void*)((uptr)a->stack.sp + extra);
+			header->size = size;
+			return ptr;
+		} else {
+			DEBUG_LOG("can't expand stack allocation, leaking memory");
+			void *nptr = alloc(a, size);
+			memcpy(nptr, ptr, header->size);
+			return nptr;
+		}
 	} break;
 	case Allocator_FreeList: {
-		return realloc(&a->free_list, ptr, size);
+		auto header = (AllocationHeader*)((uptr)ptr - sizeof(AllocationHeader));
+
+		// TODO(jesper): try to find neighbour FreeBlock and expand
+		void *nptr = alloc(a, size);
+		memcpy(nptr, ptr, header->size);
+		dealloc(a, ptr);
+
+		return nptr;
+	} break;
+	case Allocator_System: {
+		return realloc(ptr, size);
 	} break;
 	default:
 		DEBUG_LOG(Log_error, "unknown allocator type: %d", a->type);
@@ -445,6 +334,22 @@ void *realloc(Allocator *a, void *ptr, isize size)
 	return nullptr;
 }
 
+void alloc_reset(Allocator *a)
+{
+	DEBUG_ASSERT(a->type == Allocator_Linear);
+	a->linear.current = a->linear.start;
+}
+
+void alloc_reset(Allocator *a, void *ptr)
+{
+	DEBUG_ASSERT(a->type == Allocator_Stack);
+	a->stack.sp = ptr;
+}
+
+
+/*******************************************************************************
+ * Templated allocator helpers
+ ******************************************************************************/
 template <typename T, typename A>
 T *alloc(A *a)
 {

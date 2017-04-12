@@ -77,7 +77,7 @@ $(BUILD)/preprocessor: FORCE
 $(BUILD)/benchmark: FORCE
 	$(CXX) $(TOOLS_FLAGS) -O2 $(ROOT)/tools/benchmark.cpp -o $@
 
-tools: $(BUILD)/preprocessor $(BUILD)/benchmark
+tools: $(BUILD)/preprocessor
 
 
 all: shaders fonts models tools leary textures
