@@ -9,13 +9,13 @@
 #ifndef ARRAY_H
 #define ARRAY_H
 
-template<typename T, typename A = FreeListAllocator>
+template<typename T>
 struct Array {
 	T* data;
 	isize count;
 	isize capacity;
 
-	A* allocator;
+	Allocator *allocator;
 
 	T& operator[] (isize i)
 	{

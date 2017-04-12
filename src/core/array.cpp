@@ -8,19 +8,19 @@
 
 #include "array.h"
 
-template<typename T, typename A>
-Array<T, A> array_create(A *allocator)
+template<typename T>
+Array<T> array_create(Allocator *allocator)
 {
-	Array<T, A> a  = {};
+	Array<T> a  = {};
 	a.allocator = allocator;
 
 	return a;
 }
 
-template<typename T, typename A = FreeListAllocator>
-Array<T, A> array_create(A *allocator, isize capacity)
+template<typename T>
+Array<T> array_create(Allocator *allocator, isize capacity)
 {
-	Array<T, A> a;
+	Array<T> a;
 	a.allocator = allocator;
 	a.data      = alloc_array<T>(allocator, capacity);
 	a.count     = 0;
@@ -29,16 +29,16 @@ Array<T, A> array_create(A *allocator, isize capacity)
 	return a;
 }
 
-template<typename T, typename A>
-void array_destroy(Array<T, A> *a)
+template<typename T>
+void array_destroy(Array<T> *a)
 {
 	dealloc(a->allocator, a->data);
 	a->capacity = 0;
 	a->count    = 0;
 }
 
-template<typename T, typename A>
-isize array_add(Array<T, A> *a, T e)
+template<typename T>
+isize array_add(Array<T> *a, T e)
 {
 	if (a->count >= a->capacity) {
 		isize capacity = a->capacity == 0 ? 1 : a->capacity * 2;
@@ -50,8 +50,8 @@ isize array_add(Array<T, A> *a, T e)
 	return a->count++;
 }
 
-template<typename T, typename A>
-isize array_remove(Array<T, A> *a, isize i)
+template<typename T>
+isize array_remove(Array<T> *a, isize i)
 {
 	if ((a->count - 1) == i) {
 		return --a->count;

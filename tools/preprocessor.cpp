@@ -66,7 +66,7 @@ struct TypeInfo {
 
 struct StructInfo {
 	char *name;
-	Array<TypeInfo, SystemAllocator> members;
+	Array<TypeInfo> members;
 };
 
 char *string_duplicate(char *src, usize size)
@@ -191,7 +191,7 @@ void skip_struct_function(Tokenizer &tokenizer)
 }
 
 void parse_struct_type_info(Tokenizer tokenizer,
-                            Array<StructInfo, SystemAllocator> *struct_infos)
+                            Array<StructInfo> *struct_infos)
 {
 	StructInfo struct_info = {};
 
@@ -287,7 +287,7 @@ void parse_struct_type_info(Tokenizer tokenizer,
 
 int main(int argc, char **argv)
 {
-	SystemAllocator allocator = {};
+	Allocator allocator = allocator_create(Allocator_System);
 
 	char *output_path = nullptr;
 	char *input_root  = nullptr;

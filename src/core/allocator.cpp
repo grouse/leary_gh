@@ -343,6 +343,108 @@ void *realloc(SystemAllocator *, void *ptr, isize size)
 /*******************************************************************************
  * Templated allocator helpers
  ******************************************************************************/
+Allocator allocator_create(AllocatorType type)
+{
+	DEBUG_ASSERT(type == Allocator_System);
+
+	Allocator a;
+	a.type = type;
+
+	return a;
+}
+Allocator allocator_create(AllocatorType type, void *data, isize size)
+{
+	Allocator a;
+	a.type = type;
+	switch (type) {
+	case Allocator_Linear: {
+		a.linear.start   = data;
+		a.linear.current = data;
+		a.linear.last    = nullptr;
+		a.linear.size    = size;
+	} break;
+	case Allocator_Stack: {
+		a.stack.start = data;
+		a.stack.sp    = data;
+		a.linear.size = size;
+	} break;
+	case Allocator_FreeList: {
+		a.free_list.start      = data;
+		a.free_list.size       = size;
+		a.free_list.free       = (FreeBlock*)data;
+		a.free_list.free->size = size;
+		a.free_list.free->next = nullptr;
+	} break;
+	default:
+		DEBUG_LOG(Log_error, "unknown allocator type: %d", type);
+		DEBUG_ASSERT(false);
+		break;
+	}
+
+	return a;
+}
+
+void *alloc(Allocator *a, isize size)
+{
+	switch (a->type) {
+	case Allocator_Linear: {
+		return alloc(&a->linear, size);
+	} break;
+	case Allocator_Stack: {
+		return alloc(&a->stack, size);
+	} break;
+	case Allocator_FreeList: {
+		return alloc(&a->free_list, size);
+	} break;
+	default:
+		DEBUG_LOG(Log_error, "unknown allocator type: %d", a->type);
+		DEBUG_ASSERT(false);
+		break;
+	}
+
+	return nullptr;
+}
+
+void dealloc(Allocator *a, void *ptr)
+{
+	switch (a->type) {
+	case Allocator_Linear: {
+		dealloc(&a->linear, ptr);
+	} break;
+	case Allocator_Stack: {
+		dealloc(&a->stack, ptr);
+	} break;
+	case Allocator_FreeList: {
+		dealloc(&a->free_list, ptr);
+	} break;
+	default:
+		DEBUG_LOG(Log_error, "unknown allocator type: %d", a->type);
+		DEBUG_ASSERT(false);
+		break;
+	}
+}
+
+void *realloc(Allocator *a, void *ptr, isize size)
+{
+	switch (a->type) {
+	case Allocator_Linear: {
+		return realloc(&a->linear, ptr, size);
+	} break;
+	case Allocator_Stack: {
+		return realloc(&a->stack, ptr, size);
+	} break;
+	case Allocator_FreeList: {
+		return realloc(&a->free_list, ptr, size);
+	} break;
+	default:
+		DEBUG_LOG(Log_error, "unknown allocator type: %d", a->type);
+		DEBUG_ASSERT(false);
+		break;
+	}
+
+	return nullptr;
+}
+
 template <typename T, typename A>
 T *alloc(A *a)
 {

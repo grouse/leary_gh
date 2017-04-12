@@ -174,8 +174,8 @@ struct GameState {
 	Camera fp_camera;
 	Camera ui_camera;
 
-	Array<RenderObject, LinearAllocator> render_objects;
-	Array<IndexRenderObject, LinearAllocator> index_render_objects;
+	Array<RenderObject> render_objects;
+	Array<IndexRenderObject> index_render_objects;
 
 	VkCommandBuffer     *command_buffers;
 
@@ -776,8 +776,8 @@ void game_render(GameMemory *memory)
 {
 	PROFILE_FUNCTION();
 
-	void *sp = memory->stack.sp;
-	defer { reset(&memory->stack, sp); };
+	void *sp = memory->stack.stack.sp;
+	defer { reset(&memory->stack.stack, sp); };
 
 	GameState *game = (GameState*)memory->game;
 
@@ -958,5 +958,5 @@ void game_update_and_render(GameMemory *memory, f32 dt)
 	game_update(memory, dt);
 	game_render(memory);
 
-	reset(&memory->frame);
+	reset(&memory->frame.linear);
 }

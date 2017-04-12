@@ -53,10 +53,10 @@ Defer<F> operator+ (DeferDummy, F&& f)
 
 struct GameMemory {
 	void *game;
-	LinearAllocator   frame;
-	LinearAllocator   persistent;
-	StackAllocator    stack;
-	FreeListAllocator free_list;
+	Allocator frame;
+	Allocator persistent;
+	Allocator stack;
+	Allocator free_list;
 };
 
 #endif /* LEARY_H */

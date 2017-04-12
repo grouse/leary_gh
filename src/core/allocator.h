@@ -36,5 +36,22 @@ struct FreeListAllocator {
 	FreeBlock *free;
 };
 
+enum AllocatorType {
+	Allocator_Linear,
+	Allocator_Stack,
+	Allocator_FreeList,
+	Allocator_System
+};
+
+struct Allocator {
+	AllocatorType type;
+
+	union {
+		LinearAllocator   linear;
+		StackAllocator    stack;
+		FreeListAllocator free_list;
+	};
+};
+
 #endif /* ALLOCATOR_H */
 
