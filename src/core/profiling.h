@@ -16,10 +16,10 @@
 #include "core/array.h"
 
 struct ProfileTimers {
-	StaticArray<const char*> names;
-	StaticArray<u64>         cycles;
-	StaticArray<u64>         cycles_last;
-	StaticArray<bool>        open;
+	SARRAY(const char*) names;
+	SARRAY(u64)         cycles;
+	SARRAY(u64)         cycles_last;
+	SARRAY(bool)        open;
 };
 
 struct ProfileState {

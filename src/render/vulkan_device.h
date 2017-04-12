@@ -131,7 +131,7 @@ struct VulkanDevice {
 
 	VkRenderPass             renderpass;
 
-	StaticArray<VkFramebuffer> framebuffers;
+	SARRAY(VkFramebuffer) framebuffers;
 };
 
 enum MaterialID {

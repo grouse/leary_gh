@@ -60,7 +60,7 @@ struct RenderObject {
 };
 
 
-Entity entities_add(Array<Entity> *entities)
+Entity entities_add(ARRAY(Entity) *entities)
 {
 	Entity e = {};
 	e.id = entities->count;
@@ -71,16 +71,16 @@ Entity entities_add(Array<Entity> *entities)
 	return e;
 }
 
-Array<Entity> entities_create(GameMemory *memory)
+ARRAY(Entity) entities_create(GameMemory *memory)
 {
 	return array_create<Entity>(&memory->free_list);
 }
 
 struct Physics {
-	Array<Vector3> positions;
-	Array<Vector3> velocities;
+	ARRAY(Vector3) positions;
+	ARRAY(Vector3) velocities;
 
-	Array<i32> entities;
+	ARRAY(i32) entities;
 };
 
 Physics physics_create(GameMemory *memory)
@@ -168,14 +168,14 @@ struct GameState {
 		Material player;
 	} materials;
 
-	Array<Entity> entities;
+	ARRAY(Entity) entities;
 	Physics physics;
 
 	Camera fp_camera;
 	Camera ui_camera;
 
-	Array<RenderObject> render_objects;
-	Array<IndexRenderObject> index_render_objects;
+	ARRAY(RenderObject) render_objects;
+	ARRAY(IndexRenderObject) index_render_objects;
 
 	VkCommandBuffer     *command_buffers;
 

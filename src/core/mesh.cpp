@@ -20,8 +20,8 @@ bool operator == (Vertex &lhs, Vertex &rhs)
 }
 
 struct Mesh {
-	Array<Vertex> vertices;
-	Array<u32>    indices;
+	ARRAY(Vertex) vertices;
+	ARRAY(u32)    indices;
 };
 
 Mesh load_mesh_obj(GameMemory *memory, const char *filename)

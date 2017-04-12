@@ -9,6 +9,9 @@
 #ifndef ARRAY_H
 #define ARRAY_H
 
+#define ARRAY(type) Array<type>
+#define SARRAY(type) StaticArray<type>
+
 template<typename T>
 struct Array {
 	T* data;
