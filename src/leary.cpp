@@ -783,7 +783,7 @@ void game_render(GameMemory *memory)
 
 	u32 image_index = swapchain_acquire(&game->vulkan);
 
-	std::array<VkClearValue, 2> clear_values = {};
+	auto clear_values = alloc_array<VkClearValue>(&memory->stack, 2);
 	clear_values[0].color        = { {1.0f, 0.0f, 0.0f, 0.0f} };
 	clear_values[1].depthStencil = { 1.0f, 0 };
 
@@ -793,8 +793,8 @@ void game_render(GameMemory *memory)
 	render_info.framebuffer       = game->vulkan.framebuffers[image_index];
 	render_info.renderArea.offset = { 0, 0 };
 	render_info.renderArea.extent = game->vulkan.swapchain.extent;
-	render_info.clearValueCount   = (u32)clear_values.size();
-	render_info.pClearValues      = clear_values.data();
+	render_info.clearValueCount   = 2;
+	render_info.pClearValues      = clear_values;
 
 	VkDeviceSize offsets[] = { 0 };
 	VkResult result;
@@ -882,8 +882,8 @@ void game_render(GameMemory *memory)
 	                  game->pipelines.font.handle);
 
 
-	std::array<VkDescriptorSet, 1> descriptors = {};
-	descriptors[0] = game->materials.font.descriptor_set;
+	auto descriptors = array_create<VkDescriptorSet>(&memory->stack);
+	array_add(&descriptors, game->materials.font.descriptor_set);
 
 	// TODO(jesper): bind material descriptor set if bound
 	// TODO(jesper): only bind pipeline descriptor set if one exists, might
@@ -892,7 +892,7 @@ void game_render(GameMemory *memory)
 	                        VK_PIPELINE_BIND_POINT_GRAPHICS,
 	                        game->pipelines.font.layout,
 	                        0,
-	                        (u32)descriptors.size(), descriptors.data(),
+	                        descriptors.count, descriptors.data,
 	                        0, nullptr);
 
 
