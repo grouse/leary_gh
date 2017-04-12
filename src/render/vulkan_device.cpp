@@ -859,7 +859,7 @@ VulkanPipeline pipeline_create_font(VulkanDevice *device, GameMemory *memory)
 
 	auto vdescs = array_create<VkVertexInputAttributeDescription>(&memory->stack);
 	array_add(&vdescs, { 0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0 });
-	array_add(&vdescs, { 1, 0, VK_FORMAT_R32G32_SFLOAT,    0 });
+	array_add(&vdescs, { 1, 0, VK_FORMAT_R32G32_SFLOAT,    sizeof(f32) * 3 });
 
 
 	VkPipelineVertexInputStateCreateInfo vii = {};
