@@ -12,16 +12,12 @@
 struct SystemAllocator {};
 
 struct LinearAllocator {
-	void *start;
 	void *current;
 	void *last;
-	isize size;
 };
 
 struct StackAllocator {
-	void *start;
 	void *sp;
-	isize size;
 };
 
 struct FreeBlock {
@@ -30,9 +26,6 @@ struct FreeBlock {
 };
 
 struct FreeListAllocator {
-	void *start;
-	isize size;
-
 	FreeBlock *free;
 };
 
@@ -45,6 +38,9 @@ enum AllocatorType {
 
 struct Allocator {
 	AllocatorType type;
+
+	void *start;
+	isize size;
 
 	union {
 		LinearAllocator   linear;

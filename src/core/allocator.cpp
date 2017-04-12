@@ -65,22 +65,18 @@ Allocator allocator_create(AllocatorType type, void *data, isize size)
 	DEBUG_ASSERT(type != Allocator_System);
 
 	Allocator a;
-	a.type = type;
+	a.type  = type;
+	a.start = data;
+	a.size  = size;
 	switch (type) {
 	case Allocator_Linear: {
-		a.linear.start   = data;
 		a.linear.current = data;
 		a.linear.last    = nullptr;
-		a.linear.size    = size;
 	} break;
 	case Allocator_Stack: {
-		a.stack.start = data;
 		a.stack.sp    = data;
-		a.linear.size = size;
 	} break;
 	case Allocator_FreeList: {
-		a.free_list.start      = data;
-		a.free_list.size       = size;
 		a.free_list.free       = (FreeBlock*)data;
 		a.free_list.free->size = size;
 		a.free_list.free->next = nullptr;
@@ -104,7 +100,7 @@ void *alloc(Allocator *a, isize size)
 		void *aligned   = align_address(unaligned, 16, header_size);
 
 		a->linear.current = (void*)((uptr)aligned + size);
-		DEBUG_ASSERT((uptr)a->linear.current < ((uptr)a->linear.start + a->linear.size));
+		DEBUG_ASSERT((uptr)a->linear.current < ((uptr)a->start + a->size));
 
 		AllocationHeader *header = (AllocationHeader*)((uptr)aligned - header_size);
 		header->size      = size;
@@ -119,7 +115,7 @@ void *alloc(Allocator *a, isize size)
 		void *aligned   = align_address(unaligned, 16, header_size);
 
 		a->stack.sp = (void*)((uptr)aligned + size);
-		DEBUG_ASSERT((uptr)a->stack.sp < ((uptr)a->stack.start + a->stack.size));
+		DEBUG_ASSERT((uptr)a->stack.sp < ((uptr)a->start + a->size));
 
 		auto header = (AllocationHeader*)((uptr)aligned - header_size);
 		header->size      = size;
@@ -144,7 +140,7 @@ void *alloc(Allocator *a, isize size)
 			free = free->next;
 		}
 
-		DEBUG_ASSERT(((uptr)free + size) < ((uptr)a->free_list.start + a->free_list.size));
+		DEBUG_ASSERT(((uptr)free + size) < ((uptr)a->start + a->size));
 		DEBUG_ASSERT(free && free->size >= required);
 		if (free == nullptr || free->size < required) {
 			return nullptr;
@@ -337,7 +333,7 @@ void *realloc(Allocator *a, void *ptr, isize size)
 void alloc_reset(Allocator *a)
 {
 	DEBUG_ASSERT(a->type == Allocator_Linear);
-	a->linear.current = a->linear.start;
+	a->linear.current = a->start;
 }
 
 void alloc_reset(Allocator *a, void *ptr)
