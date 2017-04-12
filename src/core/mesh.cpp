@@ -41,9 +41,9 @@ Mesh load_mesh_obj(GameMemory *memory, const char *filename)
 
 	i32 num_faces   = 0;
 
-	auto vectors = array_create<Vector3>(&memory->free_list);
-	auto normals = array_create<Vector3>(&memory->frame);
-	auto uvs     = array_create<Vector2>(&memory->frame);
+	auto vectors = ARRAY_CREATE(Vector3, &memory->free_list);
+	auto normals = ARRAY_CREATE(Vector3, &memory->frame);
+	auto uvs     = ARRAY_CREATE(Vector2, &memory->frame);
 
 	char *ptr = file;
 	while (ptr < end) {
@@ -103,7 +103,7 @@ Mesh load_mesh_obj(GameMemory *memory, const char *filename)
 	DEBUG_LOG("-- uvs     : %d", uvs.count);
 	DEBUG_LOG("-- faces   : %d", num_faces);
 
-	auto vertices = array_create<Vertex>(&memory->frame);
+	auto vertices = ARRAY_CREATE(Vertex, &memory->frame);
 
 	ptr = file;
 	while (ptr < end) {
@@ -150,8 +150,8 @@ Mesh load_mesh_obj(GameMemory *memory, const char *filename)
 		while (ptr < end && is_newline(ptr[0]));
 	}
 
-	mesh.vertices = array_create<Vertex>(&memory->persistent);
-	mesh.indices  = array_create<u32>(&memory->persistent);
+	mesh.vertices = ARRAY_CREATE(Vertex, &memory->persistent);
+	mesh.indices  = ARRAY_CREATE(u32, &memory->persistent);
 
 	i32 j = 0;
 	for (i32 i = 0; i < vertices.count; i++) {

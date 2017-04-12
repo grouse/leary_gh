@@ -203,7 +203,7 @@ void parse_struct_type_info(Tokenizer tokenizer,
 	do token = next_token(tokenizer);
 	while (token.type != Token::open_curly_brace);
 
-	struct_info.members = array_create<TypeInfo>(struct_infos->allocator);
+	struct_info.members = ARRAY_CREATE(TypeInfo, struct_infos->allocator);
 
 	do {
 		Tokenizer line_start = tokenizer;
@@ -369,7 +369,7 @@ int main(int argc, char **argv)
 		FILE_SEP "core" FILE_SEP "math.h"
 	};
 
-	auto struct_infos = array_create<StructInfo>(&allocator);
+	auto struct_infos = ARRAY_CREATE(StructInfo, &allocator);
 
 	i32 num_files = ARRAY_SIZE(files);
 

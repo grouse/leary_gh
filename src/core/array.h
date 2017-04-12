@@ -10,7 +10,11 @@
 #define ARRAY_H
 
 #define ARRAY(type) Array<type>
+#define ARRAY_CREATE(type, ...) array_create<type>(__VA_ARGS__)
+
 #define SARRAY(type) StaticArray<type>
+#define SARRAY_CREATE(type, ...) array_create_static<type>(__VA_ARGS__)
+
 
 template<typename T>
 struct Array {

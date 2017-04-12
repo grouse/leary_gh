@@ -32,32 +32,32 @@ ProfileState profile_init(GameMemory *memory)
 	u8 *buffer0 = (u8*)alloc(&memory->persistent, buffer_size);
 	u8 *buffer1 = (u8*)alloc(&memory->persistent, buffer_size);
 
-	auto names        = array_create_static<const char*>(buffer0, NUM_PROFILE_TIMERS);
+	auto names        = SARRAY_CREATE(const char*, buffer0, NUM_PROFILE_TIMERS);
 	buffer0          += names_size;
 
-	auto cycles       = array_create_static<u64>(buffer0, NUM_PROFILE_TIMERS);
+	auto cycles       = SARRAY_CREATE(u64, buffer0, NUM_PROFILE_TIMERS);
 	buffer0          += cycles_size;
 
-	auto cycles_last  = array_create_static<u64>(buffer0, NUM_PROFILE_TIMERS);
+	auto cycles_last  = SARRAY_CREATE(u64, buffer0, NUM_PROFILE_TIMERS);
 	buffer0          += cycles_size;
 
-	auto open         = array_create_static<bool>(buffer0, NUM_PROFILE_TIMERS);
+	auto open         = SARRAY_CREATE(bool, buffer0, NUM_PROFILE_TIMERS);
 
 	state.timers.names       = names;
 	state.timers.cycles      = cycles;
 	state.timers.cycles_last = cycles_last;
 	state.timers.open        = open;
 
-	names        = array_create_static<const char*>(buffer1, NUM_PROFILE_TIMERS);
+	names        = SARRAY_CREATE(const char*, buffer1, NUM_PROFILE_TIMERS);
 	buffer1     += names_size;
 
-	cycles       = array_create_static<u64>(buffer1, NUM_PROFILE_TIMERS);
+	cycles       = SARRAY_CREATE(u64, buffer1, NUM_PROFILE_TIMERS);
 	buffer1     += cycles_size;
 
-	cycles_last  = array_create_static<u64>(buffer1, NUM_PROFILE_TIMERS);
+	cycles_last  = SARRAY_CREATE(u64, buffer1, NUM_PROFILE_TIMERS);
 	buffer1     += cycles_size;
 
-	open         = array_create_static<bool>(buffer1, NUM_PROFILE_TIMERS);
+	open         = SARRAY_CREATE(bool, buffer1, NUM_PROFILE_TIMERS);
 
 	state.prev_timers.names       = names;
 	state.prev_timers.cycles      = cycles;

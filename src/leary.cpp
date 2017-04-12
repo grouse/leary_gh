@@ -73,7 +73,7 @@ Entity entities_add(ARRAY(Entity) *entities)
 
 ARRAY(Entity) entities_create(GameMemory *memory)
 {
-	return array_create<Entity>(&memory->free_list);
+	return ARRAY_CREATE(Entity, &memory->free_list);
 }
 
 struct Physics {
@@ -87,9 +87,9 @@ Physics physics_create(GameMemory *memory)
 {
 	Physics p = {};
 
-	p.positions     = array_create<Vector3>(&memory->free_list);
-	p.velocities    = array_create<Vector3>(&memory->free_list);
-	p.entities      = array_create<i32>(&memory->free_list);
+	p.positions     = ARRAY_CREATE(Vector3, &memory->free_list);
+	p.velocities    = ARRAY_CREATE(Vector3, &memory->free_list);
+	p.entities      = ARRAY_CREATE(i32, &memory->free_list);
 
 	return p;
 }
@@ -294,8 +294,8 @@ void game_init(GameMemory *memory, PlatformState *platform)
 	view[2].z = 1.0f;
 	game->ui_camera.view = view;
 
-	game->render_objects = array_create<RenderObject>(&memory->persistent, 20);
-	game->index_render_objects = array_create<IndexRenderObject>(&memory->persistent, 20);
+	game->render_objects = ARRAY_CREATE(RenderObject, &memory->persistent, 20);
+	game->index_render_objects = ARRAY_CREATE(IndexRenderObject, &memory->persistent, 20);
 
 	VkResult result;
 	game->vulkan = device_create(memory, platform, &platform->settings);
@@ -844,7 +844,7 @@ void game_render(GameMemory *memory)
 		// TODO(jesper): bind material descriptor set if bound
 		// TODO(jesper): only bind pipeline descriptor set if one exists, might
 		// be such a special case that we should hardcode it?
-		auto descriptors = array_create<VkDescriptorSet>(&memory->stack);
+		auto descriptors = ARRAY_CREATE(VkDescriptorSet, &memory->stack);
 		defer { array_destroy(&descriptors); };
 
 		array_add(&descriptors, object.pipeline.descriptor_set);
@@ -882,7 +882,7 @@ void game_render(GameMemory *memory)
 	                  game->pipelines.font.handle);
 
 
-	auto descriptors = array_create<VkDescriptorSet>(&memory->stack);
+	auto descriptors = ARRAY_CREATE(VkDescriptorSet, &memory->stack);
 	array_add(&descriptors, game->materials.font.descriptor_set);
 
 	// TODO(jesper): bind material descriptor set if bound
