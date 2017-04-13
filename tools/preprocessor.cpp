@@ -38,6 +38,7 @@ enum VariableType {
 
 	VariableType_f32,
 
+	VariableType_carray,
 	VariableType_array,
 
 	// TODO(jesper): come up with a better system for these.
@@ -134,6 +135,7 @@ const char *variable_type_str(VariableType type)
 	CASE_RETURN_ENUM_STR(VariableType_f32);
 
 
+	CASE_RETURN_ENUM_STR(VariableType_carray);
 	CASE_RETURN_ENUM_STR(VariableType_array);
 
 	// TODO(jesper): come up with a better system for these.
@@ -189,9 +191,27 @@ void skip_struct_function(Tokenizer &tokenizer)
 		}
 	} while (true);
 }
+void parse_array_type(Tokenizer tokenizer, ARRAY(char*) *types)
+{
+	Token token = next_token(tokenizer);
+	DEBUG_ASSERT(token.type == Token::open_paren);
+
+	Token t = next_token(tokenizer);
+
+	for (i32 i = 0; i < types->count; i++) {
+		if (strncmp((*types)[i], t.str, t.length) == 0) {
+			return;
+		}
+	}
+
+	char *tn = string_duplicate(t.str, t.length);
+	array_add(types, tn);
+}
 
 void parse_struct_type_info(Tokenizer tokenizer,
-                            ARRAY(StructInfo) *struct_infos)
+                            ARRAY(StructInfo) *struct_infos,
+                            ARRAY(char*) *array_types,
+                            ARRAY(char*) *sarray_types)
 {
 	StructInfo struct_info = {};
 
@@ -232,6 +252,20 @@ void parse_struct_type_info(Tokenizer tokenizer,
 			continue;
 		}
 
+		if (is_identifier(token, "ARRAY")) {
+			parse_array_type(line_start, array_types);
+			do token = next_token(tokenizer);
+			while (token.type != Token::semicolon);
+			continue;
+		}
+
+		if (is_identifier(token, "SARRAY")) {
+			parse_array_type(line_start, sarray_types);
+			do token = next_token(tokenizer);
+			while (token.type != Token::semicolon);
+			continue;
+		}
+
 		TypeInfo tinfo = {};
 		tinfo.name = string_duplicate(token.str, token.length);
 		tinfo.type = type;
@@ -264,7 +298,7 @@ void parse_struct_type_info(Tokenizer tokenizer,
 					i64 size = read_integer(token);
 
 					VariableType underlying = struct_info.members[i].type;
-					struct_info.members[i].type             = VariableType_array;
+					struct_info.members[i].type             = VariableType_carray;
 					struct_info.members[i].array.underlying = underlying;
 					struct_info.members[i].array.size       = size;
 
@@ -366,10 +400,13 @@ int main(int argc, char **argv)
 
 	const char *files[] = {
 		FILE_SEP "platform" FILE_SEP "platform.h",
-		FILE_SEP "core" FILE_SEP "math.h"
+		FILE_SEP "core" FILE_SEP "math.h",
+		FILE_SEP "leary.cpp"
 	};
 
 	auto struct_infos = ARRAY_CREATE(StructInfo, &allocator);
+	auto array_types  = ARRAY_CREATE(char *, &allocator);
+	auto sarray_types = ARRAY_CREATE(char *, &allocator);
 
 	i32 num_files = ARRAY_SIZE(files);
 
@@ -403,7 +440,14 @@ int main(int argc, char **argv)
 				if (is_identifier(token, "INTROSPECT") &&
 				    is_identifier(next_token(tokenizer), "struct"))
 				{
-					parse_struct_type_info(tokenizer, &struct_infos);
+					parse_struct_type_info(tokenizer,
+					                       &struct_infos,
+					                       &array_types,
+					                       &sarray_types);
+				} else if (is_identifier(token, "ARRAY")) {
+					parse_array_type(tokenizer, &array_types);
+				} else if (is_identifier(token, "SARRAY")) {
+					parse_array_type(tokenizer, &sarray_types);
 				}
 			}
 		}
@@ -418,7 +462,7 @@ int main(int argc, char **argv)
 		for (i32 j = 0; j < struct_info.members.count; ++j) {
 			TypeInfo &type_info = struct_info.members[j];
 
-			if (type_info.type == VariableType_array) {
+			if (type_info.type == VariableType_carray) {
 				std::fprintf(output_file,
 				             "\t{ %s, \"%s\", offsetof(%s, %s), { %s, %d } },\n",
 				             variable_type_str(type_info.type),
@@ -438,6 +482,10 @@ int main(int argc, char **argv)
 		}
 
 		std::fprintf(output_file, "};\n\n");
+	}
+
+	for (i32 i = 0; i < array_types.count; i++) {
+		printf("Array_%s\n", array_types[i]);
 	}
 
 	std::fprintf(output_file, "#endif // TYPE_INFO\n");

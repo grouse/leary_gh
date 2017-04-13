@@ -7,6 +7,7 @@ enum VariableType {
 	VariableType_int16,
 	VariableType_uint16,
 	VariableType_f32,
+	VariableType_carray,
 	VariableType_array,
 	VariableType_resolution,
 	VariableType_video_settings,
@@ -61,7 +62,7 @@ StructMemberInfo Vector4_members[] = {
 };
 
 StructMemberInfo Matrix4_members[] = {
-	{ VariableType_array, "columns", offsetof(Matrix4, columns), { VariableType_Vector4, 4 } },
+	{ VariableType_carray, "columns", offsetof(Matrix4, columns), { VariableType_Vector4, 4 } },
 };
 
 #endif // TYPE_INFO
