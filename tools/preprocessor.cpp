@@ -344,13 +344,13 @@ int main(int argc, char **argv)
 		{
 			input_root = platform_resolve_relative(argv[++i]);
 		} else {
-			std::printf("%s: invalid option: %s\n", exe_name, argv[i]);
+			printf("%s: invalid option: %s\n", exe_name, argv[i]);
 			break;
 		}
 	}
 
 	if (output_path == nullptr || input_root == nullptr) {
-		std::printf("Usage: %s -o|--output PATH -r|--root PATH\n", exe_name);
+		printf("Usage: %s -o|--output PATH -r|--root PATH\n", exe_name);
 		return 0;
 	}
 
@@ -371,32 +371,32 @@ int main(int argc, char **argv)
 		return 0;
 	}
 
-	std::fprintf(output_file, "#ifndef TYPE_INFO_H\n");
-	std::fprintf(output_file, "#define TYPE_INFO_H\n\n");
+	fprintf(output_file, "#ifndef TYPE_INFO_H\n");
+	fprintf(output_file, "#define TYPE_INFO_H\n\n");
 
-	std::fprintf(output_file, "enum VariableType {\n");
+	fprintf(output_file, "enum VariableType {\n");
 	for (i32 i = 0; i < VariableType_num; i++) {
-		std::fprintf(output_file, "\t%s", variable_type_str((VariableType)i));
+		fprintf(output_file, "\t%s", variable_type_str((VariableType)i));
 
 		if (i == (VariableType_num - 1)) {
-			std::fprintf(output_file, "\n");
+			fprintf(output_file, "\n");
 		} else {
-			std::fprintf(output_file, ",\n");
+			fprintf(output_file, ",\n");
 		}
 	}
-	std::fprintf(output_file, "};\n\n");
+	fprintf(output_file, "};\n\n");
 
-	std::fprintf(output_file, "struct ArrayTypeInfo {\n");
-	std::fprintf(output_file, "\tVariableType underlying;\n");
-	std::fprintf(output_file, "\tisize size;\n");
-	std::fprintf(output_file, "};\n\n");
+	fprintf(output_file, "struct ArrayTypeInfo {\n");
+	fprintf(output_file, "\tVariableType underlying;\n");
+	fprintf(output_file, "\tisize size;\n");
+	fprintf(output_file, "};\n\n");
 
-	std::fprintf(output_file, "struct StructMemberInfo {\n");
-	std::fprintf(output_file, "\tVariableType type;\n");
-	std::fprintf(output_file, "\tconst char   *name;\n");
-	std::fprintf(output_file, "\tusize        offset;\n");
-	std::fprintf(output_file, "\tArrayTypeInfo array;\n");
-	std::fprintf(output_file, "};\n\n");
+	fprintf(output_file, "struct StructMemberInfo {\n");
+	fprintf(output_file, "\tVariableType type;\n");
+	fprintf(output_file, "\tconst char   *name;\n");
+	fprintf(output_file, "\tusize        offset;\n");
+	fprintf(output_file, "\tArrayTypeInfo array;\n");
+	fprintf(output_file, "};\n\n");
 
 	const char *files[] = {
 		FILE_SEP "platform" FILE_SEP "platform.h",
@@ -456,39 +456,39 @@ int main(int argc, char **argv)
 	for (i32 i = 0; i < struct_infos.count; i++) {
 		StructInfo &struct_info = struct_infos[i];
 
-		std::fprintf(output_file,
-		             "StructMemberInfo %s_members[] = {\n",
-		             struct_info.name);
+		fprintf(output_file,
+		        "StructMemberInfo %s_members[] = {\n",
+		        struct_info.name);
 		for (i32 j = 0; j < struct_info.members.count; ++j) {
 			TypeInfo &type_info = struct_info.members[j];
 
 			if (type_info.type == VariableType_carray) {
-				std::fprintf(output_file,
-				             "\t{ %s, \"%s\", offsetof(%s, %s), { %s, %d } },\n",
-				             variable_type_str(type_info.type),
-				             type_info.name,
-				             struct_info.name,
-				             type_info.name,
-				             variable_type_str(type_info.array.underlying),
-				             type_info.array.size);
+				fprintf(output_file,
+				        "\t{ %s, \"%s\", offsetof(%s, %s), { %s, %d } },\n",
+				        variable_type_str(type_info.type),
+				        type_info.name,
+				        struct_info.name,
+				        type_info.name,
+				        variable_type_str(type_info.array.underlying),
+				        type_info.array.size);
 			} else {
-				std::fprintf(output_file,
-				             "\t{ %s, \"%s\", offsetof(%s, %s), {} },\n",
-				             variable_type_str(type_info.type),
-				             type_info.name,
-				             struct_info.name,
-				             type_info.name);
+				fprintf(output_file,
+				        "\t{ %s, \"%s\", offsetof(%s, %s), {} },\n",
+				        variable_type_str(type_info.type),
+				        type_info.name,
+				        struct_info.name,
+				        type_info.name);
 			}
 		}
 
-		std::fprintf(output_file, "};\n\n");
+		fprintf(output_file, "};\n\n");
 	}
 
 	for (i32 i = 0; i < array_types.count; i++) {
 		printf("Array_%s\n", array_types[i]);
 	}
 
-	std::fprintf(output_file, "#endif // TYPE_INFO\n");
+	fprintf(output_file, "#endif // TYPE_INFO\n");
 	fclose(output_file);
 
 	return 0;
