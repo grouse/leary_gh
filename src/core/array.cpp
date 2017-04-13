@@ -8,7 +8,9 @@
 
 #include "array.h"
 
-template<typename T>
+#if ARRAY_USE_TEMPLATES
+
+ARRAY_TEMPLATE
 ARRAY(T) array_create(Allocator *allocator)
 {
 	ARRAY(T) a  = {};
@@ -17,7 +19,7 @@ ARRAY(T) array_create(Allocator *allocator)
 	return a;
 }
 
-template<typename T>
+ARRAY_TEMPLATE
 ARRAY(T) array_create(Allocator *allocator, isize capacity)
 {
 	ARRAY(T) a;
@@ -29,7 +31,7 @@ ARRAY(T) array_create(Allocator *allocator, isize capacity)
 	return a;
 }
 
-template<typename T>
+ARRAY_TEMPLATE
 void array_destroy(ARRAY(T) *a)
 {
 	dealloc(a->allocator, a->data);
@@ -37,7 +39,7 @@ void array_destroy(ARRAY(T) *a)
 	a->count    = 0;
 }
 
-template<typename T>
+ARRAY_TEMPLATE
 isize array_add(ARRAY(T) *a, T e)
 {
 	if (a->count >= a->capacity) {
@@ -50,7 +52,7 @@ isize array_add(ARRAY(T) *a, T e)
 	return a->count++;
 }
 
-template<typename T>
+ARRAY_TEMPLATE
 isize array_remove(ARRAY(T) *a, isize i)
 {
 	if ((a->count - 1) == i) {
@@ -62,7 +64,7 @@ isize array_remove(ARRAY(T) *a, isize i)
 }
 
 
-template<typename T>
+SARRAY_TEMPLATE
 SARRAY(T) array_create_static(void *data, isize capacity)
 {
 	SARRAY(T) a;
@@ -73,7 +75,7 @@ SARRAY(T) array_create_static(void *data, isize capacity)
 	return a;
 }
 
-template<typename T>
+SARRAY_TEMPLATE
 SARRAY(T) array_create_static(void* ptr, isize offset, isize capacity)
 {
 	SARRAY(T) a;
@@ -84,14 +86,14 @@ SARRAY(T) array_create_static(void* ptr, isize offset, isize capacity)
 	return a;
 }
 
-template<typename T>
+SARRAY_TEMPLATE
 void array_destroy(SARRAY(T) *a)
 {
 	a->capacity = 0;
 	a->count    = 0;
 }
 
-template<typename T>
+SARRAY_TEMPLATE
 isize array_add(SARRAY(T) *a, T e)
 {
 	DEBUG_ASSERT(a->count <= a->capacity);
@@ -100,7 +102,7 @@ isize array_add(SARRAY(T) *a, T e)
 	return a->count++;
 }
 
-template<typename T>
+SARRAY_TEMPLATE
 isize array_remove(SARRAY(T) *a, isize i)
 {
 	if ((a->count - 1) == i) {
@@ -110,4 +112,10 @@ isize array_remove(SARRAY(T) *a, isize i)
 	a->data[a->count-1] = a->data[i];
 	return --a->count;
 }
+
+#else
+
+#include "generated/array.cpp"
+
+#endif /* ARRAY_USE_TEMPLATES */
 
