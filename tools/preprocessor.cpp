@@ -70,6 +70,12 @@ struct StructInfo {
 	ARRAY(TypeInfo) members;
 };
 
+struct PreprocessorOutput {
+	ARRAY(StructInfo) structs;
+	ARRAY(char*)      arrays;
+	ARRAY(char*)      sarrays;
+};
+
 char *string_duplicate(char *src, usize size)
 {
 	char *result = (char*)malloc(size + 1);
@@ -208,10 +214,7 @@ void parse_array_type(Tokenizer tokenizer, ARRAY(char*) *types)
 	array_add(types, tn);
 }
 
-void parse_struct_type_info(Tokenizer tokenizer,
-                            ARRAY(StructInfo) *struct_infos,
-                            ARRAY(char*) *array_types,
-                            ARRAY(char*) *sarray_types)
+void parse_struct_type_info(Tokenizer tokenizer, PreprocessorOutput *output)
 {
 	StructInfo struct_info = {};
 
@@ -223,7 +226,7 @@ void parse_struct_type_info(Tokenizer tokenizer,
 	do token = next_token(tokenizer);
 	while (token.type != Token::open_curly_brace);
 
-	struct_info.members = ARRAY_CREATE(TypeInfo, struct_infos->allocator);
+	struct_info.members = ARRAY_CREATE(TypeInfo, output->structs.allocator);
 
 	do {
 		Tokenizer line_start = tokenizer;
@@ -253,14 +256,14 @@ void parse_struct_type_info(Tokenizer tokenizer,
 		}
 
 		if (is_identifier(token, "ARRAY")) {
-			parse_array_type(line_start, array_types);
+			parse_array_type(line_start, &output->arrays);
 			do token = next_token(tokenizer);
 			while (token.type != Token::semicolon);
 			continue;
 		}
 
 		if (is_identifier(token, "SARRAY")) {
-			parse_array_type(line_start, sarray_types);
+			parse_array_type(line_start, &output->arrays);
 			do token = next_token(tokenizer);
 			while (token.type != Token::semicolon);
 			continue;
@@ -316,7 +319,7 @@ void parse_struct_type_info(Tokenizer tokenizer,
 		token = peek_next_token(tokenizer);
 	} while (token.type == Token::identifier);
 
-	array_add(struct_infos, struct_info);
+	array_add(&output->structs, struct_info);
 }
 
 int main(int argc, char **argv)
@@ -404,9 +407,11 @@ int main(int argc, char **argv)
 		FILE_SEP "leary.cpp"
 	};
 
-	auto struct_infos = ARRAY_CREATE(StructInfo, &allocator);
-	auto array_types  = ARRAY_CREATE(char *, &allocator);
-	auto sarray_types = ARRAY_CREATE(char *, &allocator);
+	PreprocessorOutput output = {};
+	output.structs = ARRAY_CREATE(StructInfo, &allocator);
+	output.arrays  = ARRAY_CREATE(char*, &allocator);
+	output.sarrays = ARRAY_CREATE(char*, &allocator);
+
 
 	i32 num_files = ARRAY_SIZE(files);
 
@@ -440,21 +445,18 @@ int main(int argc, char **argv)
 				if (is_identifier(token, "INTROSPECT") &&
 				    is_identifier(next_token(tokenizer), "struct"))
 				{
-					parse_struct_type_info(tokenizer,
-					                       &struct_infos,
-					                       &array_types,
-					                       &sarray_types);
+					parse_struct_type_info(tokenizer, &output);
 				} else if (is_identifier(token, "ARRAY")) {
-					parse_array_type(tokenizer, &array_types);
+					parse_array_type(tokenizer, &output.arrays);
 				} else if (is_identifier(token, "SARRAY")) {
-					parse_array_type(tokenizer, &sarray_types);
+					parse_array_type(tokenizer, &output.sarrays);
 				}
 			}
 		}
 	}
 
-	for (i32 i = 0; i < struct_infos.count; i++) {
-		StructInfo &struct_info = struct_infos[i];
+	for (i32 i = 0; i < output.structs.count; i++) {
+		StructInfo &struct_info = output.structs[i];
 
 		fprintf(output_file,
 		        "StructMemberInfo %s_members[] = {\n",
@@ -484,8 +486,12 @@ int main(int argc, char **argv)
 		fprintf(output_file, "};\n\n");
 	}
 
-	for (i32 i = 0; i < array_types.count; i++) {
-		printf("Array_%s\n", array_types[i]);
+	for (i32 i = 0; i < output.arrays.count; i++) {
+		printf("Array_%s\n", output.arrays[i]);
+	}
+
+	for (i32 i = 0; i < output.sarrays.count; i++) {
+		printf("StaticArray_%s\n", output.sarrays[i]);
 	}
 
 	fprintf(output_file, "#endif // TYPE_INFO\n");
