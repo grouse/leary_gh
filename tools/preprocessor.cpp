@@ -214,6 +214,11 @@ void parse_array_type(Tokenizer tokenizer, ARRAY(char*) *types)
 	array_add(types, tn);
 }
 
+void parse_array_struct(Tokenizer , PreprocessorOutput *)
+{
+	// TODO(jesper)
+}
+
 void parse_struct_type_info(Tokenizer tokenizer, PreprocessorOutput *output)
 {
 	StructInfo struct_info = {};
@@ -459,6 +464,11 @@ int main(int argc, char **argv)
 					    !is_identifier(prev, "define"))
 					{
 						parse_array_type(tokenizer, &output.sarrays);
+					}
+				} else if (is_identifier(token, "ARRAY_TEMPLATE")) {
+					token = next_token(tokenizer);
+					if (is_identifier(token, "struct")) {
+						parse_array_struct(tokenizer, &output);
 					}
 				}
 			}
