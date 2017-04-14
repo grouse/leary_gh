@@ -404,6 +404,7 @@ int main(int argc, char **argv)
 	const char *files[] = {
 		FILE_SEP "platform" FILE_SEP "platform.h",
 		FILE_SEP "core" FILE_SEP "math.h",
+		FILE_SEP "core" FILE_SEP "array.h",
 		FILE_SEP "leary.cpp"
 	};
 
@@ -438,6 +439,7 @@ int main(int argc, char **argv)
 
 		Tokenizer tokenizer = make_tokenizer(file, size);
 
+		Token prev;
 		while (tokenizer.at < tokenizer.end) {
 			Token token = next_token(tokenizer);
 
@@ -447,11 +449,21 @@ int main(int argc, char **argv)
 				{
 					parse_struct_type_info(tokenizer, &output);
 				} else if (is_identifier(token, "ARRAY")) {
-					parse_array_type(tokenizer, &output.arrays);
+					if (prev.type != Token::identifier ||
+					    !is_identifier(prev, "define"))
+					{
+						parse_array_type(tokenizer, &output.arrays);
+					}
 				} else if (is_identifier(token, "SARRAY")) {
-					parse_array_type(tokenizer, &output.sarrays);
+					if (prev.type != Token::identifier ||
+					    !is_identifier(prev, "define"))
+					{
+						parse_array_type(tokenizer, &output.sarrays);
+					}
 				}
 			}
+
+			prev = token;
 		}
 	}
 
