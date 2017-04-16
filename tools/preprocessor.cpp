@@ -471,8 +471,8 @@ int main(int argc, char **argv)
 						parse_array_type(tokenizer, &output.sarrays);
 					}
 				} else if (is_identifier(token, "ARRAY_TEMPLATE")) {
-					token = next_token(tokenizer);
-					if (is_identifier(token, "struct")) {
+					Token next = peek_next_token(tokenizer);
+					if (is_identifier(next, "struct")) {
 						parse_array_struct(tokenizer, &output);
 					} else {
 						parse_array_function(tokenizer, &output);
