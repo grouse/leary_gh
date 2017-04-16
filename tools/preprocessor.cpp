@@ -219,6 +219,11 @@ void parse_array_struct(Tokenizer , PreprocessorOutput *)
 	// TODO(jesper)
 }
 
+void parse_array_function(Tokenizer , PreprocessorOutput *)
+{
+	// TODO(jesper)
+}
+
 void parse_struct_type_info(Tokenizer tokenizer, PreprocessorOutput *output)
 {
 	StructInfo struct_info = {};
@@ -469,6 +474,8 @@ int main(int argc, char **argv)
 					token = next_token(tokenizer);
 					if (is_identifier(token, "struct")) {
 						parse_array_struct(tokenizer, &output);
+					} else {
+						parse_array_function(tokenizer, &output);
 					}
 				}
 			}
