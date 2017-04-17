@@ -70,10 +70,24 @@ struct StructInfo {
 	ARRAY(TypeInfo) members;
 };
 
+struct Parameter {
+	char *type;
+	char *name;
+};
+
+struct ArrayFunction {
+	char *ret;
+	char *fname;
+	ARRAY(Parameter) params;
+	char *body;
+};
+
+
 struct PreprocessorOutput {
-	ARRAY(StructInfo) structs;
-	ARRAY(char*)      arrays;
-	ARRAY(char*)      sarrays;
+	ARRAY(StructInfo)    structs;
+	ARRAY(char*)         arrays;
+	ARRAY(char*)         sarrays;
+	ARRAY(ArrayFunction) afuncs;
 };
 
 char *string_duplicate(char *src, usize size)
@@ -197,12 +211,17 @@ void skip_struct_function(Tokenizer &tokenizer)
 		}
 	} while (true);
 }
+
 void parse_array_type(Tokenizer tokenizer, ARRAY(char*) *types)
 {
 	Token token = next_token(tokenizer);
 	DEBUG_ASSERT(token.type == Token::open_paren);
 
 	Token t = next_token(tokenizer);
+
+	if (t.str[0] == 'T') {
+		return;
+	}
 
 	for (i32 i = 0; i < types->count; i++) {
 		if (strncmp((*types)[i], t.str, t.length) == 0) {
@@ -219,17 +238,14 @@ void parse_array_struct(Tokenizer , PreprocessorOutput *)
 	// TODO(jesper)
 }
 
-struct Parameter {
-	char *type;
-	char *name;
-};
-
 void parse_array_function(Tokenizer tokenizer,
-                          PreprocessorOutput *,
+                          PreprocessorOutput *output,
                           Allocator *allocator)
 {
-	auto params = ARRAY_CREATE(Parameter, allocator);
-	Token t, rettype, fname;
+	Token t, rettype;
+
+	ArrayFunction f = {};
+	f.params = ARRAY_CREATE(Parameter, allocator);
 
 	rettype = next_token(tokenizer);
 	if (is_identifier(rettype, "ARRAY")) {
@@ -240,9 +256,13 @@ void parse_array_function(Tokenizer tokenizer,
 
 		t = next_token(tokenizer);
 		DEBUG_ASSERT(t.type == Token::close_paren);
-	}
 
-	fname = next_token(tokenizer);
+		rettype.length = (isize)((uptr)t.str + t.length - (uptr)rettype.str);
+	}
+	f.ret = string_duplicate(rettype.str, rettype.length);
+
+	t = next_token(tokenizer);
+	f.fname = string_duplicate(t.str, t.length);
 
 	t = next_token(tokenizer);
 	DEBUG_ASSERT(t.type == Token::open_paren);
@@ -252,19 +272,23 @@ void parse_array_function(Tokenizer tokenizer,
 		Token type = t;
 
 		t = next_token(tokenizer);
+
+		if (t.type == Token::open_paren) {
+			do t = next_token(tokenizer);
+			while (t.type != Token::close_paren);
+			t = next_token(tokenizer);
+		}
+
 		if (t.type == Token::asterisk) {
 			type.length = (isize)((uptr)t.str + t.length - (uptr)type.str);
 			t = next_token(tokenizer);
-		} else if (t.type == Token::open_paren) {
-			do t = next_token(tokenizer);
-			while (t.type != Token::close_paren);
 		}
 
 		Token name = t;
 		Parameter p = {};
 		p.type = string_duplicate(type.str, type.length);
 		p.name = string_duplicate(name.str, name.length);
-		array_add(&params, p);
+		array_add(&f.params, p);
 
 		t = next_token(tokenizer);
 		while (t.type != Token::comma && t.type != Token::close_paren) {
@@ -272,13 +296,24 @@ void parse_array_function(Tokenizer tokenizer,
 		}
 	}
 
-	printf("return type: %.*s\n", rettype.length, rettype.str);
-	printf("function name: %.*s\n", fname.length, fname.str);
+	t = next_token(tokenizer);
+	DEBUG_ASSERT(t.type == Token::open_curly_brace);
 
-	for (i32 i = 0; i < params.count; i++) {
-		printf("param: %s, %s\n", params[i].type, params[i].name);
-	}
-	printf("\n");
+	i32 curly = 1;
+
+	Token body = t;
+	do {
+		t = next_token(tokenizer);
+		if (t.type == Token::open_curly_brace) {
+			curly++;
+		} else if (t.type == Token::close_curly_brace) {
+			curly--;
+		}
+	} while (curly > 0);
+	body.length = (isize)((uptr)t.str + t.length - (uptr)body.str);
+	f.body = string_duplicate(body.str, body.length);
+
+	array_add(&output->afuncs, f);
 }
 
 void parse_struct_type_info(Tokenizer tokenizer, PreprocessorOutput *output)
@@ -480,6 +515,7 @@ int main(int argc, char **argv)
 	output.structs = ARRAY_CREATE(StructInfo, &allocator);
 	output.arrays  = ARRAY_CREATE(char*, &allocator);
 	output.sarrays = ARRAY_CREATE(char*, &allocator);
+	output.afuncs  = ARRAY_CREATE(ArrayFunction, &allocator);
 
 
 	i32 num_files = ARRAY_SIZE(files);
@@ -573,6 +609,29 @@ int main(int argc, char **argv)
 		}
 
 		fprintf(output_file, "};\n\n");
+	}
+
+	for (i32 i = 0; i < output.arrays.count; i++) {
+		char *t = output.arrays[i];
+
+		for (i32 j = 0; j < output.afuncs.count; j++) {
+			ArrayFunction &f = output.afuncs[j];
+
+			if (strcmp("ARRAY", f.ret) == 0) {
+				printf("Array_%s ", t);
+			} else {
+				printf("%s ", f.ret);
+			}
+
+			printf("%s(", f.fname);
+
+			for (i32 k = 0; k < f.params.count; k++) {
+				Parameter &p = f.params[k];
+				printf("%s %s, ", p.type, p.name);
+			}
+			printf(")\n");
+			printf("%s\n", f.body);
+		}
 	}
 
 	for (i32 i = 0; i < output.arrays.count; i++) {
