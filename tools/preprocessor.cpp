@@ -253,8 +253,11 @@ void parse_array_function(Tokenizer tokenizer,
 
 		t = next_token(tokenizer);
 		if (t.type == Token::asterisk) {
-			type.length = (isize)((uptr)t.str + t.length - (uptr)t.str);
+			type.length = (isize)((uptr)t.str + t.length - (uptr)type.str);
 			t = next_token(tokenizer);
+		} else if (t.type == Token::open_paren) {
+			do t = next_token(tokenizer);
+			while (t.type != Token::close_paren);
 		}
 
 		Token name = t;
@@ -263,15 +266,19 @@ void parse_array_function(Tokenizer tokenizer,
 		p.name = string_duplicate(name.str, name.length);
 		array_add(&params, p);
 
-		Token next = peek_next_token(tokenizer);
-		if (next.type == Token::comma) {
+		t = next_token(tokenizer);
+		while (t.type != Token::comma && t.type != Token::close_paren) {
 			t = next_token(tokenizer);
 		}
 	}
 
+	printf("return type: %.*s\n", rettype.length, rettype.str);
+	printf("function name: %.*s\n", fname.length, fname.str);
+
 	for (i32 i = 0; i < params.count; i++) {
 		printf("param: %s, %s\n", params[i].type, params[i].name);
 	}
+	printf("\n");
 }
 
 void parse_struct_type_info(Tokenizer tokenizer, PreprocessorOutput *output)
