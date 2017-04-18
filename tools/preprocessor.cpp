@@ -617,20 +617,70 @@ int main(int argc, char **argv)
 		for (i32 j = 0; j < output.afuncs.count; j++) {
 			ArrayFunction &f = output.afuncs[j];
 
-			if (strcmp("ARRAY", f.ret) == 0) {
+			if (strncmp("ARRAY", f.ret, strlen("ARRAY")) == 0) {
 				printf("Array_%s ", t);
 			} else {
 				printf("%s ", f.ret);
 			}
 
-			printf("%s(", f.fname);
-
-			for (i32 k = 0; k < f.params.count; k++) {
-				Parameter &p = f.params[k];
-				printf("%s %s, ", p.type, p.name);
+			if (strcmp("array_create", f.fname) == 0) {
+				printf("%s_%s(", f.fname, t);
+			} else {
+				printf("%s(", f.fname);
 			}
+
+			if (f.params.count > 1) {
+				for (i32 k = 0; k < f.params.count - 1; k++) {
+					Parameter &p = f.params[k];
+
+					if (strncmp("ARRAY", p.type, strlen("ARRAY")) == 0) {
+						printf("Array_%s *%s, ", t, p.name);
+					} else if (strcmp("T", p.type) == 0) {
+						printf("%s %s", t, p.name);
+					} else {
+						printf("%s %s, ", p.type, p.name);
+					}
+				}
+			}
+
+			Parameter &p = f.params[f.params.count - 1];
+
+			if (strncmp("ARRAY", p.type, strlen("ARRAY")) == 0) {
+				printf("Array_%s *%s", t, p.name);
+			} else if (strcmp("T", p.type) == 0) {
+				printf("%s %s", t, p.name);
+			} else {
+				printf("%s %s", p.type, p.name);
+			}
+
 			printf(")\n");
-			printf("%s\n", f.body);
+
+			Tokenizer tn = make_tokenizer(f.body, strlen(f.body));
+
+			Token tk = next_token(tn);
+			DEBUG_ASSERT(tk.type == Token::open_curly_brace);
+
+			char *s = f.body;
+			i32 curly = 1;
+
+			while (curly > 0) {
+				tk = next_token(tn);
+
+				if (is_identifier(tk, "ARRAY")) {
+					printf("%.*s", (i32)((uptr)tk.str - (uptr)s), s);
+					printf("Array_%s", t);
+
+					s = tk.str + tk.length + strlen("(T)");
+				}
+
+				if (tk.type == Token::open_curly_brace) {
+					curly++;
+				} else if (tk.type == Token::close_curly_brace) {
+					curly--;
+				}
+			}
+
+			printf("%.*s\n\n", (i32)((uptr)f.body + strlen(f.body) - (uptr)s), s);
 		}
 	}
 
