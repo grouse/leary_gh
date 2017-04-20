@@ -82,12 +82,17 @@ struct ArrayFunction {
 	char *body;
 };
 
+struct ArrayStruct {
+	char *name;
+	char *body;
+};
 
 struct PreprocessorOutput {
 	ARRAY(StructInfo)    structs;
 	ARRAY(char*)         arrays;
 	ARRAY(char*)         sarrays;
 	ARRAY(ArrayFunction) afuncs;
+	ARRAY(ArrayStruct )  astructs;
 };
 
 char *string_duplicate(char *src, usize size)
@@ -233,9 +238,35 @@ void parse_array_type(Tokenizer tokenizer, ARRAY(char*) *types)
 	array_add(types, tn);
 }
 
-void parse_array_struct(Tokenizer , PreprocessorOutput *)
+void parse_array_struct(Tokenizer tk, PreprocessorOutput *out)
 {
-	// TODO(jesper)
+	Token t;
+	ArrayStruct s = {};
+
+	t = next_token(tk);
+	DEBUG_ASSERT(is_identifier(t, "struct"));
+
+	t = next_token(tk);
+	s.name = string_duplicate(t.str, t.length);
+
+	t = next_token(tk);
+	DEBUG_ASSERT(t.type == Token::open_curly_brace);
+
+	Token start = t;
+
+	i32 curly = 1;
+	while (curly > 0) {
+		t = next_token(tk);
+
+		if (t.type == Token::open_curly_brace) {
+			curly++;
+		} else if (t.type == Token::close_curly_brace) {
+			curly--;
+		}
+	}
+
+	s.body = string_duplicate(start.str, (isize)((uptr)t.str + t.length - (uptr)start.str));
+	array_add(&out->astructs, s);
 }
 
 void parse_array_function(Tokenizer tokenizer,
@@ -459,49 +490,42 @@ int main(int argc, char **argv)
 		return 0;
 	}
 
-	char *output_file_path = (char*)malloc(strlen(output_path) +
-	                                       strlen(FILE_SEP "type_info.h") + 1);
+	char *type_info_path = (char*)malloc(strlen(output_path) +
+	                                     strlen(FILE_SEP "type_info.h") + 1);
+	strcpy(type_info_path, output_path);
+	strcat(type_info_path, FILE_SEP "type_info.h");
 
-	char *dst = output_file_path;
-
-	const char *src = output_path;
-	while (*src) *dst++ = *src++;
-
-	src = FILE_SEP "type_info.h";
-	while (*src) *dst++ = *src++;
-	*(dst+1) = '\0';
-
-	FILE *output_file = fopen(output_file_path, "w");
-	if (!output_file) {
+	FILE *type_info_file = fopen(type_info_path, "w");
+	if (!type_info_file) {
 		return 0;
 	}
 
-	fprintf(output_file, "#ifndef TYPE_INFO_H\n");
-	fprintf(output_file, "#define TYPE_INFO_H\n\n");
+	fprintf(type_info_file, "#ifndef TYPE_INFO_H\n");
+	fprintf(type_info_file, "#define TYPE_INFO_H\n\n");
 
-	fprintf(output_file, "enum VariableType {\n");
+	fprintf(type_info_file, "enum VariableType {\n");
 	for (i32 i = 0; i < VariableType_num; i++) {
-		fprintf(output_file, "\t%s", variable_type_str((VariableType)i));
+		fprintf(type_info_file, "\t%s", variable_type_str((VariableType)i));
 
 		if (i == (VariableType_num - 1)) {
-			fprintf(output_file, "\n");
+			fprintf(type_info_file, "\n");
 		} else {
-			fprintf(output_file, ",\n");
+			fprintf(type_info_file, ",\n");
 		}
 	}
-	fprintf(output_file, "};\n\n");
+	fprintf(type_info_file, "};\n\n");
 
-	fprintf(output_file, "struct ArrayTypeInfo {\n");
-	fprintf(output_file, "\tVariableType underlying;\n");
-	fprintf(output_file, "\tisize size;\n");
-	fprintf(output_file, "};\n\n");
+	fprintf(type_info_file, "struct ArrayTypeInfo {\n");
+	fprintf(type_info_file, "\tVariableType underlying;\n");
+	fprintf(type_info_file, "\tisize size;\n");
+	fprintf(type_info_file, "};\n\n");
 
-	fprintf(output_file, "struct StructMemberInfo {\n");
-	fprintf(output_file, "\tVariableType type;\n");
-	fprintf(output_file, "\tconst char   *name;\n");
-	fprintf(output_file, "\tusize        offset;\n");
-	fprintf(output_file, "\tArrayTypeInfo array;\n");
-	fprintf(output_file, "};\n\n");
+	fprintf(type_info_file, "struct StructMemberInfo {\n");
+	fprintf(type_info_file, "\tVariableType type;\n");
+	fprintf(type_info_file, "\tconst char   *name;\n");
+	fprintf(type_info_file, "\tusize        offset;\n");
+	fprintf(type_info_file, "\tArrayTypeInfo array;\n");
+	fprintf(type_info_file, "};\n\n");
 
 	const char *files[] = {
 		FILE_SEP "platform" FILE_SEP "platform.h",
@@ -514,10 +538,11 @@ int main(int argc, char **argv)
 	};
 
 	PreprocessorOutput output = {};
-	output.structs = ARRAY_CREATE(StructInfo, &allocator);
-	output.arrays  = ARRAY_CREATE(char*, &allocator);
-	output.sarrays = ARRAY_CREATE(char*, &allocator);
-	output.afuncs  = ARRAY_CREATE(ArrayFunction, &allocator);
+	output.structs  = ARRAY_CREATE(StructInfo, &allocator);
+	output.arrays   = ARRAY_CREATE(char*, &allocator);
+	output.sarrays  = ARRAY_CREATE(char*, &allocator);
+	output.afuncs   = ARRAY_CREATE(ArrayFunction, &allocator);
+	output.astructs = ARRAY_CREATE(ArrayStruct, &allocator);
 
 
 	i32 num_files = ARRAY_SIZE(files);
@@ -527,14 +552,8 @@ int main(int argc, char **argv)
 		                                strlen(files[i]) + 1);
 		defer { free(file_path); };
 
-		dst = file_path;
-
-		src = input_root;
-		while(*src) *dst++ = *src++;
-
-		src = files[i];
-		while(*src) *dst++ = *src++;
-		*(dst) = '\0';
+		strcpy(file_path, input_root);
+		strcat(file_path, files[i]);
 
 		usize size;
 		char *file = platform_file_read(file_path, &size);
@@ -582,14 +601,14 @@ int main(int argc, char **argv)
 	for (i32 i = 0; i < output.structs.count; i++) {
 		StructInfo &struct_info = output.structs[i];
 
-		fprintf(output_file,
+		fprintf(type_info_file,
 		        "StructMemberInfo %s_members[] = {\n",
 		        struct_info.name);
 		for (i32 j = 0; j < struct_info.members.count; ++j) {
 			TypeInfo &type_info = struct_info.members[j];
 
 			if (type_info.type == VariableType_carray) {
-				fprintf(output_file,
+				fprintf(type_info_file,
 				        "\t{ %s, \"%s\", offsetof(%s, %s), { %s, %d } },\n",
 				        variable_type_str(type_info.type),
 				        type_info.name,
@@ -598,7 +617,7 @@ int main(int argc, char **argv)
 				        variable_type_str(type_info.array.underlying),
 				        type_info.array.size);
 			} else {
-				fprintf(output_file,
+				fprintf(type_info_file,
 				        "\t{ %s, \"%s\", offsetof(%s, %s), {} },\n",
 				        variable_type_str(type_info.type),
 				        type_info.name,
@@ -607,8 +626,31 @@ int main(int argc, char **argv)
 			}
 		}
 
-		fprintf(output_file, "};\n\n");
+		fprintf(type_info_file, "};\n\n");
 	}
+
+	char *ah_path = (char*)malloc(strlen(output_path) + strlen(FILE_SEP "array.h") + 1);
+	char *ac_path = (char*)malloc(strlen(output_path) + strlen(FILE_SEP "array.cpp") + 1);
+
+	defer {
+		free(ah_path);
+		free(ac_path);
+	};
+
+	strcpy(ah_path, output_path);
+	strcat(ah_path, FILE_SEP "array.h");
+
+	strcpy(ac_path, output_path);
+	strcat(ac_path, FILE_SEP "array.cpp");
+
+	FILE *ah_file = fopen(ah_path, "w");
+	if (!ah_file) return 0;
+	defer { fclose(ah_file); };
+
+	FILE *ac_file = fopen(ac_path, "w");
+	if (!ac_file) return 0;
+	defer { fclose(ac_file); };
+
 
 	for (i32 i = 0; i < output.arrays.count; i++) {
 		char *t = output.arrays[i];
@@ -617,15 +659,15 @@ int main(int argc, char **argv)
 			ArrayFunction &f = output.afuncs[j];
 
 			if (strncmp("ARRAY", f.ret, strlen("ARRAY")) == 0) {
-				printf("Array_%s ", t);
+				fprintf(ac_file, "Array_%s ", t);
 			} else {
-				printf("%s ", f.ret);
+				fprintf(ac_file, "%s ", f.ret);
 			}
 
 			if (strcmp("array_create", f.fname) == 0) {
-				printf("%s_%s(", f.fname, t);
+				fprintf(ac_file, "%s_%s(", f.fname, t);
 			} else {
-				printf("%s(", f.fname);
+				fprintf(ac_file, "%s(", f.fname);
 			}
 
 			if (f.params.count > 1) {
@@ -633,11 +675,11 @@ int main(int argc, char **argv)
 					Parameter &p = f.params[k];
 
 					if (strncmp("ARRAY", p.type, strlen("ARRAY")) == 0) {
-						printf("Array_%s *%s, ", t, p.name);
+						fprintf(ac_file, "Array_%s *%s, ", t, p.name);
 					} else if (strcmp("T", p.type) == 0) {
-						printf("%s %s", t, p.name);
+						fprintf(ac_file, "%s %s", t, p.name);
 					} else {
-						printf("%s %s, ", p.type, p.name);
+						fprintf(ac_file, "%s %s, ", p.type, p.name);
 					}
 				}
 			}
@@ -645,14 +687,14 @@ int main(int argc, char **argv)
 			Parameter &p = f.params[f.params.count - 1];
 
 			if (strncmp("ARRAY", p.type, strlen("ARRAY")) == 0) {
-				printf("Array_%s *%s", t, p.name);
+				fprintf(ac_file, "Array_%s *%s", t, p.name);
 			} else if (strcmp("T", p.type) == 0) {
-				printf("%s %s", t, p.name);
+				fprintf(ac_file, "%s %s", t, p.name);
 			} else {
-				printf("%s %s", p.type, p.name);
+				fprintf(ac_file, "%s %s", p.type, p.name);
 			}
 
-			printf(")\n");
+			fprintf(ac_file, ")\n");
 
 			Tokenizer tn = make_tokenizer(f.body, strlen(f.body));
 
@@ -666,8 +708,8 @@ int main(int argc, char **argv)
 				tk = next_token(tn);
 
 				if (is_identifier(tk, "ARRAY")) {
-					printf("%.*s", (i32)((uptr)tk.str - (uptr)s), s);
-					printf("Array_%s", t);
+					fprintf(ac_file, "%.*s", (i32)((uptr)tk.str - (uptr)s), s);
+					fprintf(ac_file, "Array_%s", t);
 
 					s = tk.str + tk.length + strlen("(T)");
 				}
@@ -679,7 +721,39 @@ int main(int argc, char **argv)
 				}
 			}
 
-			printf("%.*s\n\n", (i32)((uptr)f.body + strlen(f.body) - (uptr)s), s);
+			fprintf(ac_file, "%.*s\n\n", (i32)((uptr)f.body + strlen(f.body) - (uptr)s), s);
+		}
+
+		for (i32 j = 0; j < output.astructs.count; j++) {
+			ArrayStruct &s = output.astructs[j];
+
+			fprintf(ah_file, "struct %s_%s ", s.name, t);
+
+			Tokenizer tn = make_tokenizer(s.body, strlen(s.body));
+
+			Token tk = next_token(tn);
+			DEBUG_ASSERT(tk.type == Token::open_curly_brace);
+
+			char *str = s.body;
+			i32 curly = 1;
+			while (curly > 0) {
+				tk = next_token(tn);
+
+				if (is_identifier(tk, "T")) {
+					fprintf(ah_file, "%.*s", (i32)((uptr)tk.str - (uptr)str), str);
+					fprintf(ah_file, "%s", t);
+
+					str = tk.str + tk.length;
+				}
+
+				if (tk.type == Token::open_curly_brace) {
+					curly++;
+				} else if (tk.type == Token::close_curly_brace) {
+					curly--;
+				}
+			}
+
+			fprintf(ah_file, "%.*s;\n\n", (i32)((uptr)s.body + strlen(s.body) - (uptr)str), str);
 		}
 	}
 
@@ -691,8 +765,8 @@ int main(int argc, char **argv)
 		printf("StaticArray_%s\n", output.sarrays[i]);
 	}
 
-	fprintf(output_file, "#endif // TYPE_INFO\n");
-	fclose(output_file);
+	fprintf(type_info_file, "#endif // TYPE_INFO\n");
+	fclose(type_info_file);
 
 	return 0;
 }
