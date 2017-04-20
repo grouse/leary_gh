@@ -508,6 +508,8 @@ int main(int argc, char **argv)
 		FILE_SEP "core" FILE_SEP "math.h",
 		FILE_SEP "core" FILE_SEP "array.h",
 		FILE_SEP "core" FILE_SEP "array.cpp",
+		FILE_SEP "render" FILE_SEP "vulkan_device.cpp",
+		FILE_SEP "render" FILE_SEP "vulkan_device.h",
 		FILE_SEP "leary.cpp"
 	};
 
@@ -544,39 +546,36 @@ int main(int argc, char **argv)
 		Tokenizer tokenizer = make_tokenizer(file, size);
 
 		Token prev;
-		while (tokenizer.at < tokenizer.end) {
-			Token token = next_token(tokenizer);
+		Token token = next_token(tokenizer);
 
-			if (token.type != Token::eof) {
-				if (is_identifier(token, "INTROSPECT") &&
-				    is_identifier(next_token(tokenizer), "struct"))
-				{
-					parse_struct_type_info(tokenizer, &output);
-				} else if (is_identifier(token, "ARRAY")) {
-					if (prev.type != Token::identifier ||
-					    !is_identifier(prev, "define"))
-					{
-						parse_array_type(tokenizer, &output.arrays);
-					}
-				} else if (is_identifier(token, "SARRAY")) {
-					if (prev.type != Token::identifier ||
-					    !is_identifier(prev, "define"))
-					{
-						parse_array_type(tokenizer, &output.sarrays);
-					}
-				} else if (is_identifier(token, "ARRAY_TEMPLATE") &&
-				           !is_identifier(prev, "define"))
-				{
-					Token next = peek_next_token(tokenizer);
-					if (is_identifier(next, "struct")) {
-						parse_array_struct(tokenizer, &output);
-					} else {
-						parse_array_function(tokenizer, &output, &allocator);
-					}
+		while (tokenizer.at < tokenizer.end) {
+
+			if (is_identifier(token, "INTROSPECT") &&
+				is_identifier(next_token(tokenizer), "struct"))
+			{
+				parse_struct_type_info(tokenizer, &output);
+			} else if ((is_identifier(token, "ARRAY") ||
+			            is_identifier(token, "ARRAY_CREATE")) &&
+			           !is_identifier(prev, "define"))
+			{
+				parse_array_type(tokenizer, &output.arrays);
+			} else if ((is_identifier(token, "SARRAY") ||
+			            is_identifier(token, "SARRAY_CREATE")) &&
+			           !is_identifier(prev, "define"))
+			{
+				parse_array_type(tokenizer, &output.sarrays);
+			} else if (is_identifier(token, "ARRAY_TEMPLATE") &&
+			           !is_identifier(prev, "define"))
+			{
+				if (is_identifier(peek_next_token(tokenizer), "struct")) {
+					parse_array_struct(tokenizer, &output);
+				} else {
+					parse_array_function(tokenizer, &output, &allocator);
 				}
 			}
 
 			prev = token;
+			token = next_token(tokenizer);
 		}
 	}
 
