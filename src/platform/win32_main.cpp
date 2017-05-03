@@ -93,10 +93,12 @@ HMODULE reload_code(PlatformState *platform, HMODULE current)
 }
 #else
 
+#include "win32_leary.cpp"
+
 // TODO(jesper): include the game code .cpp files directly
-void* reload_code(PlatformState *, char *, void *)
+HMODULE reload_code(PlatformState *, HMODULE)
 {
-	return nullptr;
+	return NULL;
 }
 
 #endif

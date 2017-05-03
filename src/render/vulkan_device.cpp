@@ -832,7 +832,7 @@ VulkanPipeline pipeline_create_font(VulkanDevice *device, GameMemory *memory)
 
 		VkDescriptorSetLayoutCreateInfo descriptor_layout_info = {};
 		descriptor_layout_info.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-		descriptor_layout_info.bindingCount = binds.count;
+		descriptor_layout_info.bindingCount = (i32)binds.count;
 		descriptor_layout_info.pBindings    = binds.data;
 
 		result = vkCreateDescriptorSetLayout(device->handle,
@@ -845,7 +845,7 @@ VulkanPipeline pipeline_create_font(VulkanDevice *device, GameMemory *memory)
 
 	VkPipelineLayoutCreateInfo layout_info = {};
 	layout_info.sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-	layout_info.setLayoutCount         = layouts.count;
+	layout_info.setLayoutCount         = (i32)layouts.count;
 	layout_info.pSetLayouts            = layouts.data;
 
 	result = vkCreatePipelineLayout(device->handle,
@@ -864,9 +864,9 @@ VulkanPipeline pipeline_create_font(VulkanDevice *device, GameMemory *memory)
 
 	VkPipelineVertexInputStateCreateInfo vii = {};
 	vii.sType                           = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-	vii.vertexBindingDescriptionCount   = vbinds.count;
+	vii.vertexBindingDescriptionCount   = (i32)vbinds.count;
 	vii.pVertexBindingDescriptions      = vbinds.data;
-	vii.vertexAttributeDescriptionCount = vdescs.count;
+	vii.vertexAttributeDescriptionCount = (i32)vdescs.count;
 	vii.pVertexAttributeDescriptions    = vdescs.data;
 
 	VkPipelineInputAssemblyStateCreateInfo iai = {};
@@ -964,7 +964,7 @@ VulkanPipeline pipeline_create_font(VulkanDevice *device, GameMemory *memory)
 
 	VkGraphicsPipelineCreateInfo pinfo = {};
 	pinfo.sType               = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-	pinfo.stageCount          = stages.count;
+	pinfo.stageCount          = (i32)stages.count;
 	pinfo.pStages             = stages.data;
 	pinfo.pVertexInputState   = &vii;
 	pinfo.pInputAssemblyState = &iai;
@@ -1017,7 +1017,7 @@ VulkanPipeline pipeline_create_generic(VulkanDevice *device, GameMemory *memory)
 
 		VkDescriptorSetLayoutCreateInfo layout_info = {};
 		layout_info.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-		layout_info.bindingCount = binds.count;
+		layout_info.bindingCount = (i32)binds.count;
 		layout_info.pBindings    = binds.data;
 
 		result = vkCreateDescriptorSetLayout(device->handle,
@@ -1041,7 +1041,7 @@ VulkanPipeline pipeline_create_generic(VulkanDevice *device, GameMemory *memory)
 
 		VkDescriptorSetLayoutCreateInfo layout_info = {};
 		layout_info.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-		layout_info.bindingCount = binds.count;
+		layout_info.bindingCount = (i32)binds.count;
 		layout_info.pBindings    = binds.data;
 
 		result = vkCreateDescriptorSetLayout(device->handle,
@@ -1060,7 +1060,7 @@ VulkanPipeline pipeline_create_generic(VulkanDevice *device, GameMemory *memory)
 
 	VkDescriptorPoolCreateInfo pool_info = {};
 	pool_info.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-	pool_info.poolSizeCount = psizes.count;
+	pool_info.poolSizeCount = (i32)psizes.count;
 	pool_info.pPoolSizes    = psizes.data;
 	pool_info.maxSets       = 1;
 
@@ -1088,7 +1088,7 @@ VulkanPipeline pipeline_create_generic(VulkanDevice *device, GameMemory *memory)
 
 	VkPipelineLayoutCreateInfo layout_info = {};
 	layout_info.sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-	layout_info.setLayoutCount         = layouts.count;
+	layout_info.setLayoutCount         = (i32)layouts.count;
 	layout_info.pSetLayouts            = layouts.data;
 	layout_info.pushConstantRangeCount = 1;
 	layout_info.pPushConstantRanges    = &push_constants;
@@ -1109,9 +1109,9 @@ VulkanPipeline pipeline_create_generic(VulkanDevice *device, GameMemory *memory)
 
 	VkPipelineVertexInputStateCreateInfo vii = {};
 	vii.sType                           = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-	vii.vertexBindingDescriptionCount   = vbinds.count;
+	vii.vertexBindingDescriptionCount   = (i32)vbinds.count;
 	vii.pVertexBindingDescriptions      = vbinds.data;
-	vii.vertexAttributeDescriptionCount = vdescs.count;
+	vii.vertexAttributeDescriptionCount = (i32)vdescs.count;
 	vii.pVertexAttributeDescriptions    = vdescs.data;
 
 	VkPipelineInputAssemblyStateCreateInfo iai = {};
@@ -1203,7 +1203,7 @@ VulkanPipeline pipeline_create_generic(VulkanDevice *device, GameMemory *memory)
 
 	VkGraphicsPipelineCreateInfo pinfo = {};
 	pinfo.sType               = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-	pinfo.stageCount          = stages.count;
+	pinfo.stageCount          = (i32)stages.count;
 	pinfo.pStages             = stages.data;
 	pinfo.pVertexInputState   = &vii;
 	pinfo.pInputAssemblyState = &iai;
@@ -1251,7 +1251,7 @@ VulkanPipeline pipeline_create_terrain(VulkanDevice *device, GameMemory *memory)
 
 		VkDescriptorSetLayoutCreateInfo layout_info = {};
 		layout_info.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-		layout_info.bindingCount = binds.count;
+		layout_info.bindingCount = (u32)binds.count;
 		layout_info.pBindings    = binds.data;
 
 		result = vkCreateDescriptorSetLayout(device->handle,
@@ -1270,7 +1270,7 @@ VulkanPipeline pipeline_create_terrain(VulkanDevice *device, GameMemory *memory)
 
 	VkDescriptorPoolCreateInfo pool_info = {};
 	pool_info.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-	pool_info.poolSizeCount = psizes.count;
+	pool_info.poolSizeCount = (u32)psizes.count;
 	pool_info.pPoolSizes    = psizes.data;
 	pool_info.maxSets       = 1;
 
@@ -1298,7 +1298,7 @@ VulkanPipeline pipeline_create_terrain(VulkanDevice *device, GameMemory *memory)
 
 	VkPipelineLayoutCreateInfo layout_info = {};
 	layout_info.sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-	layout_info.setLayoutCount         = layouts.count;
+	layout_info.setLayoutCount         = (u32)layouts.count;
 	layout_info.pSetLayouts            = layouts.data;
 	layout_info.pushConstantRangeCount = 1;
 	layout_info.pPushConstantRanges    = &push_constants;
@@ -1317,9 +1317,9 @@ VulkanPipeline pipeline_create_terrain(VulkanDevice *device, GameMemory *memory)
 
 	VkPipelineVertexInputStateCreateInfo vii = {};
 	vii.sType                           = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-	vii.vertexBindingDescriptionCount   = vbinds.count;
+	vii.vertexBindingDescriptionCount   = (u32)vbinds.count;
 	vii.pVertexBindingDescriptions      = vbinds.data;
-	vii.vertexAttributeDescriptionCount = vdescs.count;
+	vii.vertexAttributeDescriptionCount = (u32)vdescs.count;
 	vii.pVertexAttributeDescriptions    = vdescs.data;
 
 	VkPipelineInputAssemblyStateCreateInfo iai = {};
@@ -1412,7 +1412,7 @@ VulkanPipeline pipeline_create_terrain(VulkanDevice *device, GameMemory *memory)
 
 	VkGraphicsPipelineCreateInfo pinfo = {};
 	pinfo.sType               = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-	pinfo.stageCount          = stages.count;
+	pinfo.stageCount          = (u32)stages.count;
 	pinfo.pStages             = stages.data;
 	pinfo.pVertexInputState   = &vii;
 	pinfo.pInputAssemblyState = &iai;
@@ -1468,7 +1468,7 @@ VulkanPipeline pipeline_create_mesh(VulkanDevice *device, GameMemory *memory)
 
 		VkDescriptorSetLayoutCreateInfo layout_info = {};
 		layout_info.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-		layout_info.bindingCount = binds.count;
+		layout_info.bindingCount = (u32)binds.count;
 		layout_info.pBindings    = binds.data;
 
 		result = vkCreateDescriptorSetLayout(device->handle,
@@ -1492,7 +1492,7 @@ VulkanPipeline pipeline_create_mesh(VulkanDevice *device, GameMemory *memory)
 
 		VkDescriptorSetLayoutCreateInfo layout_info = {};
 		layout_info.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-		layout_info.bindingCount = binds.count;
+		layout_info.bindingCount = (u32)binds.count;
 		layout_info.pBindings    = binds.data;
 
 		result = vkCreateDescriptorSetLayout(device->handle,
@@ -1512,7 +1512,7 @@ VulkanPipeline pipeline_create_mesh(VulkanDevice *device, GameMemory *memory)
 
 	VkDescriptorPoolCreateInfo pool_info = {};
 	pool_info.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-	pool_info.poolSizeCount = pool_sizes.count;
+	pool_info.poolSizeCount = (u32)pool_sizes.count;
 	pool_info.pPoolSizes    = pool_sizes.data;
 	pool_info.maxSets       = 1;
 
@@ -1540,7 +1540,7 @@ VulkanPipeline pipeline_create_mesh(VulkanDevice *device, GameMemory *memory)
 
 	VkPipelineLayoutCreateInfo layout_info = {};
 	layout_info.sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-	layout_info.setLayoutCount         = layouts.count;
+	layout_info.setLayoutCount         = (u32)layouts.count;
 	layout_info.pSetLayouts            = layouts.data;
 	layout_info.pushConstantRangeCount = 1;
 	layout_info.pPushConstantRanges    = &push_constants;
@@ -1561,9 +1561,9 @@ VulkanPipeline pipeline_create_mesh(VulkanDevice *device, GameMemory *memory)
 
 	VkPipelineVertexInputStateCreateInfo vii = {};
 	vii.sType                           = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-	vii.vertexBindingDescriptionCount   = vbinds.count;
+	vii.vertexBindingDescriptionCount   = (u32)vbinds.count;
 	vii.pVertexBindingDescriptions      = vbinds.data;
-	vii.vertexAttributeDescriptionCount = vdescs.count;
+	vii.vertexAttributeDescriptionCount = (u32)vdescs.count;
 	vii.pVertexAttributeDescriptions    = vdescs.data;
 
 	VkPipelineInputAssemblyStateCreateInfo iai = {};
@@ -1656,7 +1656,7 @@ VulkanPipeline pipeline_create_mesh(VulkanDevice *device, GameMemory *memory)
 
 	VkGraphicsPipelineCreateInfo pinfo = {};
 	pinfo.sType               = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-	pinfo.stageCount          = stages.count;
+	pinfo.stageCount          = (u32)stages.count;
 	pinfo.pStages             = stages.data;
 	pinfo.pVertexInputState   = &vii;
 	pinfo.pInputAssemblyState = &iai;
@@ -2236,13 +2236,13 @@ VulkanDevice device_create(GameMemory *memory,
 
 		VkSubpassDescription subpass_description = {};
 		subpass_description.pipelineBindPoint       = VK_PIPELINE_BIND_POINT_GRAPHICS;
-		subpass_description.colorAttachmentCount    = color.count;
+		subpass_description.colorAttachmentCount    = (u32)color.count;
 		subpass_description.pColorAttachments       = color.data;
 		subpass_description.pDepthStencilAttachment = &depth;
 
 		VkRenderPassCreateInfo create_info = {};
 		create_info.sType           = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-		create_info.attachmentCount = descs.count;
+		create_info.attachmentCount = (u32)descs.count;
 		create_info.pAttachments    = descs.data;
 		create_info.subpassCount    = 1;
 		create_info.pSubpasses      = &subpass_description;
@@ -2617,7 +2617,7 @@ Material material_create(VulkanDevice *device, GameMemory *memory,
 
 	VkDescriptorPoolCreateInfo pool_info = {};
 	pool_info.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-	pool_info.poolSizeCount = pool_sizes.count;
+	pool_info.poolSizeCount = (u32)pool_sizes.count;
 	pool_info.pPoolSizes    = pool_sizes.data;
 	pool_info.maxSets       = 1;
 

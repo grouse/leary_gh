@@ -16,15 +16,15 @@ struct Texture {
 };
 
 // NOTE(jesper): only Microsoft BMP version 3 is supported
-struct BitmapFileHeader {
+PACKED(struct BitmapFileHeader {
 	u16 type;
 	u32 size;
 	u16 reserved0;
 	u16 reserved1;
 	u32 offset;
-} __attribute__((packed));
+});
 
-struct BitmapHeader {
+PACKED(struct BitmapHeader {
 	u32 header_size;
 	i32 width;
 	i32 height;
@@ -36,7 +36,7 @@ struct BitmapHeader {
 	i32 res_vert;
 	u32 colors_used;
 	u32 colors_important;
-} __attribute__((packed));
+});
 
 Texture texture_load_bmp(const char *filename)
 {

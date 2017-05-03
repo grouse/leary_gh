@@ -63,9 +63,9 @@ struct RenderObject {
 Entity entities_add(ARRAY(Entity) *entities)
 {
 	Entity e = {};
-	e.id = entities->count;
+	e.id = (i32)entities->count;
 
-	i32 i = array_add(entities, e);
+	i32 i = (i32)array_add(entities, e);
 	(*entities)[i].index = i;
 
 	return e;
@@ -106,7 +106,7 @@ i32 physics_add(Physics *physics, Entity entity)
 	array_add(&physics->positions,     {});
 	array_add(&physics->velocities,    {});
 
-	i32 id = array_add(&physics->entities, entity.id);
+	i32 id = (i32)array_add(&physics->entities, entity.id);
 	return id;
 }
 
@@ -858,7 +858,7 @@ void game_render(GameMemory *memory)
 		                        VK_PIPELINE_BIND_POINT_GRAPHICS,
 		                        object.pipeline.layout,
 		                        0,
-		                        descriptors.count, descriptors.data,
+		                        (i32)descriptors.count, descriptors.data,
 		                        0, nullptr);
 
 		vkCmdBindVertexBuffers(command, 0, 1, &object.vertices.handle, offsets);
@@ -892,7 +892,7 @@ void game_render(GameMemory *memory)
 	                        VK_PIPELINE_BIND_POINT_GRAPHICS,
 	                        game->pipelines.font.layout,
 	                        0,
-	                        descriptors.count, descriptors.data,
+	                        (i32)descriptors.count, descriptors.data,
 	                        0, nullptr);
 
 

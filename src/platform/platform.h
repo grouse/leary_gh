@@ -39,6 +39,8 @@
 	#define FILE_EOL "\n"
 
 	#define VK_USE_PLATFORM_XLIB_KHR
+
+	#define PACKED(decl) decl __attribute__((__packed__))
 #elif defined(_WIN32)
 	#include <Windows.h>
 	#include <Shlobj.h>
@@ -53,6 +55,8 @@
 
 	#define FILE_SEP "\\"
 	#define FILE_EOL "\r\n"
+
+	#define PACKED(decl) __pragma(pack(push, 1)) decl __pragma(pack(pop))
 #else
 	#error "unsupported platform"
 #endif
@@ -64,7 +68,7 @@
 #endif
 
 #ifndef LEARY_DYNAMIC
-	#define LEARY_DYNAMIC 0
+	#define LEARY_DYNAMIC 1
 #endif
 
 #if !LEARY_DYNAMIC
