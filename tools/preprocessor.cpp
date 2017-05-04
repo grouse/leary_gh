@@ -573,6 +573,7 @@ int main(int argc, char **argv)
 				is_identifier(next_token(tokenizer), "struct"))
 			{
 				parse_struct_type_info(tokenizer, &output);
+#if 0
 			} else if ((is_identifier(token, "ARRAY") ||
 			            is_identifier(token, "ARRAY_CREATE")) &&
 			           !is_identifier(prev, "define"))
@@ -591,6 +592,7 @@ int main(int argc, char **argv)
 				} else {
 					parse_array_function(tokenizer, &output, &allocator);
 				}
+#endif
 			}
 
 			prev = token;
@@ -629,6 +631,7 @@ int main(int argc, char **argv)
 		fprintf(type_info_file, "};\n\n");
 	}
 
+#if 0
 	char *ah_path = (char*)malloc(strlen(output_path) + strlen(FILE_SEP "array.h") + 1);
 	char *ac_path = (char*)malloc(strlen(output_path) + strlen(FILE_SEP "array.cpp") + 1);
 
@@ -764,6 +767,7 @@ int main(int argc, char **argv)
 	for (i32 i = 0; i < output.sarrays.count; i++) {
 		printf("StaticArray_%s\n", output.sarrays[i]);
 	}
+#endif
 
 	fprintf(type_info_file, "#endif // TYPE_INFO\n");
 	fclose(type_info_file);
