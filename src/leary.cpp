@@ -59,6 +59,66 @@ struct RenderObject {
 	Material       *material;
 };
 
+struct Camera {
+	Matrix4             view;
+	Matrix4             projection;
+	VulkanUniformBuffer ubo;
+
+	Vector3             position;
+	f32                 yaw, pitch, roll;
+};
+
+struct Physics {
+	ARRAY(Vector3) positions;
+	ARRAY(Vector3) velocities;
+
+	ARRAY(i32) entities;
+};
+
+struct DebugOverlay {
+	char            *buffer;
+	RenderedText    text;
+	stbtt_bakedchar font[256];
+};
+
+struct GameState {
+	VulkanDevice        vulkan;
+
+	struct {
+		VulkanPipeline font;
+		VulkanPipeline mesh;
+		VulkanPipeline terrain;
+	} pipelines;
+
+	struct {
+		VulkanTexture font;
+		VulkanTexture cube;
+		VulkanTexture player;
+	} textures;
+
+	struct {
+		Material font;
+		Material phong;
+		Material player;
+	} materials;
+
+	DebugOverlay overlay;
+
+	ARRAY(Entity) entities;
+	Physics physics;
+
+	Camera fp_camera;
+	Camera ui_camera;
+
+	ARRAY(RenderObject) render_objects;
+	ARRAY(IndexRenderObject) index_render_objects;
+
+	VkCommandBuffer     *command_buffers;
+
+	Vector3 velocity = {};
+
+	i32 *key_state;
+};
 
 Entity entities_add(ARRAY(Entity) *entities)
 {
@@ -75,13 +135,6 @@ ARRAY(Entity) entities_create(GameMemory *memory)
 {
 	return ARRAY_CREATE(Entity, &memory->free_list);
 }
-
-struct Physics {
-	ARRAY(Vector3) positions;
-	ARRAY(Vector3) velocities;
-
-	ARRAY(i32) entities;
-};
 
 Physics physics_create(GameMemory *memory)
 {
@@ -138,59 +191,11 @@ Vector3 physics_position(Physics *physics, i32 i)
 	return physics->positions[i];
 }
 
-struct Camera {
-	Matrix4             view;
-	Matrix4             projection;
-	VulkanUniformBuffer ubo;
-
-	Vector3             position;
-	f32                 yaw, pitch, roll;
-};
-
-struct GameState {
-	VulkanDevice        vulkan;
-
-	struct {
-		VulkanPipeline font;
-		VulkanPipeline mesh;
-		VulkanPipeline terrain;
-	} pipelines;
-
-	struct {
-		VulkanTexture font;
-		VulkanTexture cube;
-		VulkanTexture player;
-	} textures;
-
-	struct {
-		Material font;
-		Material phong;
-		Material player;
-	} materials;
-
-	ARRAY(Entity) entities;
-	Physics physics;
-
-	Camera fp_camera;
-	Camera ui_camera;
-
-	ARRAY(RenderObject) render_objects;
-	ARRAY(IndexRenderObject) index_render_objects;
-
-	VkCommandBuffer     *command_buffers;
-
-	Vector3 velocity = {};
-
-	stbtt_bakedchar     baked_font[256];
-
-	char                *text_buffer;
-	RenderedText        text_vertices;
-
-	i32 *key_state;
-};
-
-void render_font(GameMemory *memory, RenderedText *text,
-                 const char *str, float x, float y)
+void render_font(GameMemory *memory,
+                 stbtt_bakedchar *font,
+                 const char *str,
+                 float x, float y,
+                 RenderedText *text)
 {
 	GameState *game = (GameState*)memory->game;
 	i32 offset = 0;
@@ -218,7 +223,7 @@ void render_font(GameMemory *memory, RenderedText *text,
 		text->vertex_count += 6;
 
 		stbtt_aligned_quad q = {};
-		stbtt_GetBakedQuad(game->baked_font, 1024, 1024, c, &tmp_x, &tmp_y, &q, 1);
+		stbtt_GetBakedQuad(font, 1024, 1024, c, &tmp_x, &tmp_y, &q, 1);
 
 		Vector3 tl = camera * Vector3{q.x0, q.y0 + 15.0f, 0.0f};
 		Vector3 tr = camera * Vector3{q.x1, q.y0 + 15.0f, 0.0f};
@@ -276,7 +281,7 @@ void game_init(GameMemory *memory, PlatformState *platform)
 	GameState *game = ialloc<GameState>(&memory->persistent);
 	memory->game = game;
 
-	game->text_buffer = (char*)alloc(&memory->persistent, 1024 * 1024);
+	game->overlay.buffer = (char*)alloc(&memory->persistent, 1024 * 1024);
 
 	f32 width = (f32)platform->settings.video.resolution.width;
 	f32 height = (f32)platform->settings.video.resolution.height;
@@ -321,7 +326,7 @@ void game_init(GameMemory *memory, PlatformState *platform)
 
 		u8 *bitmap = alloc_array<u8>(&memory->frame, 1024*1024);
 		stbtt_BakeFontBitmap(font_data, 0, 20.0, bitmap, 1024, 1024, 0,
-		                     256, game->baked_font);
+		                     256, game->overlay.font);
 
 		VkComponentMapping components = {};
 		components.a = VK_COMPONENT_SWIZZLE_R;
@@ -329,8 +334,8 @@ void game_init(GameMemory *memory, PlatformState *platform)
 		                                    VK_FORMAT_R8_UNORM, bitmap,
 		                                    components);
 
-		game->text_vertices.vertex_count = 0;
-		game->text_vertices.buffer = buffer_create_vbo(&game->vulkan, 1024*1024);
+		game->overlay.text.vertex_count = 0;
+		game->overlay.text.buffer = buffer_create_vbo(&game->vulkan, 1024*1024);
 	}
 
 	{
@@ -500,7 +505,7 @@ void game_quit(GameMemory *memory, PlatformState *platform)
 
 	vkQueueWaitIdle(game->vulkan.queue);
 
-	buffer_destroy(&game->vulkan, game->text_vertices.buffer);
+	buffer_destroy(&game->vulkan, game->overlay.text.buffer);
 
 	texture_destroy(&game->vulkan, game->textures.font);
 	texture_destroy(&game->vulkan, game->textures.cube);
@@ -721,13 +726,12 @@ void game_input(GameMemory *memory, PlatformState *platform, InputEvent event)
 	}
 }
 
-void game_update(GameMemory *memory, f32 dt)
+void debug_overlay_update(DebugOverlay *overlay, f32 dt)
 {
 	PROFILE_FUNCTION();
-	GameState *game = (GameState*)memory->game;
 
 	isize buffer_size = 1024*1024;
-	char *buffer = game->text_buffer;
+	char *buffer = overlay->buffer;
 	buffer[0] = '\0';
 
 	f32 dt_ms = dt * 1000.0f;
@@ -735,7 +739,6 @@ void game_update(GameMemory *memory, f32 dt)
 	                     dt_ms, 1000.0f / dt_ms);
 	buffer += bytes;
 	buffer_size -= bytes;
-
 
 	for (i32 i = 0; i < g_profile_timers_prev->names.count; i++) {
 		bytes = snprintf(buffer, buffer_size, "%s: %" PRIu64 " cy (%" PRIu64 " cy)\n",
@@ -745,10 +748,26 @@ void game_update(GameMemory *memory, f32 dt)
 		buffer += bytes;
 		buffer_size -= bytes;
 	}
+}
+
+void debug_overlay_render(DebugOverlay *overlay, GameMemory *memory)
+{
+	PROFILE_FUNCTION();
+
+	render_font(memory,
+	            overlay->font,
+	            overlay->buffer, -1.0f, -1.0,
+	            &overlay->text);
+}
+
+void game_update(GameMemory *memory, f32 dt)
+{
+	PROFILE_FUNCTION();
+	GameState *game = (GameState*)memory->game;
+
+	debug_overlay_update(&game->overlay, dt);
 
 	physics_process(&game->physics, dt);
-
-	render_font(memory, &game->text_vertices, game->text_buffer, -1.0f, -1.0f);
 
 	Matrix4 pitch = rotate_x(Matrix4::identity(), game->fp_camera.pitch);
 	Matrix4 yaw   = rotate_y(Matrix4::identity(), game->fp_camera.yaw);
@@ -775,11 +794,12 @@ void game_update(GameMemory *memory, f32 dt)
 void game_render(GameMemory *memory)
 {
 	PROFILE_FUNCTION();
-
 	void *sp = memory->stack.stack.sp;
 	defer { alloc_reset(&memory->stack, sp); };
 
 	GameState *game = (GameState*)memory->game;
+
+	debug_overlay_render(&game->overlay, memory);
 
 	u32 image_index = swapchain_acquire(&game->vulkan);
 
@@ -896,10 +916,10 @@ void game_render(GameMemory *memory)
 	                        0, nullptr);
 
 
-	if (game->text_vertices.vertex_count > 0) {
+	if (game->overlay.text.vertex_count > 0) {
 		vkCmdBindVertexBuffers(command, 0, 1,
-		                       &game->text_vertices.buffer.handle, offsets);
-		vkCmdDraw(command, game->text_vertices.vertex_count, 1, 0, 0);
+		                       &game->overlay.text.buffer.handle, offsets);
+		vkCmdDraw(command, game->overlay.text.vertex_count, 1, 0, 0);
 	}
 
 
