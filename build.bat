@@ -19,7 +19,7 @@ if not exist %BUILD_DIR%\data\shaders mkdir %BUILD_DIR%\data\shaders
 
 SET INCLUDE_DIR=%INCLUDE_DIR% -I%VULKAN_LOCATION%\Include
 
-SET LIBS=User32.lib Shlwapi.lib Shell32.lib %VULKAN_LOCATION%\Bin\vulkan-1.lib
+SET LIBS=User32.lib Shlwapi.lib Shell32.lib %VULKAN_LOCATION%\Lib\vulkan-1.lib
 
 PUSHD %BUILD_DIR%
 REM TODO(jesper): move this into a separate build script; we won't need to and
