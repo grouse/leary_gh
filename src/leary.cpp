@@ -32,6 +32,7 @@
 struct Entity {
 	i32 id;
 	i32 index;
+	Vector3 position;
 };
 
 struct RenderedText {
@@ -69,9 +70,7 @@ struct Camera {
 };
 
 struct Physics {
-	ARRAY(Vector3) positions;
 	ARRAY(Vector3) velocities;
-
 	ARRAY(i32) entities;
 };
 
@@ -120,10 +119,11 @@ struct GameState {
 	i32 *key_state;
 };
 
-Entity entities_add(ARRAY(Entity) *entities)
+Entity entities_add(ARRAY(Entity) *entities, Vector3 pos)
 {
-	Entity e = {};
-	e.id = (i32)entities->count;
+	Entity e   = {};
+	e.id       = (i32)entities->count;
+	e.position = pos;
 
 	i32 i = (i32)array_add(entities, e);
 	(*entities)[i].index = i;
@@ -136,27 +136,38 @@ ARRAY(Entity) entities_create(GameMemory *memory)
 	return ARRAY_CREATE(Entity, &memory->free_list);
 }
 
+Entity* entity_find(GameState *game, i32 id)
+{
+	for (i32 i = 0; i < game->entities.count; i++) {
+		if (game->entities[i].id == id) {
+			return &game->entities[i];
+		}
+	}
+
+	DEBUG_ASSERT(false);
+	return nullptr;
+}
+
 Physics physics_create(GameMemory *memory)
 {
 	Physics p = {};
 
-	p.positions     = ARRAY_CREATE(Vector3, &memory->free_list);
 	p.velocities    = ARRAY_CREATE(Vector3, &memory->free_list);
 	p.entities      = ARRAY_CREATE(i32, &memory->free_list);
 
 	return p;
 }
 
-void physics_process(Physics *physics, f32 dt)
+void physics_process(Physics *physics, GameState *game, f32 dt)
 {
-	for (i32 i = 0; i < physics->positions.count; i++) {
-		physics->positions[i]  += physics->velocities[i] * dt;
+	for (i32 i = 0; i < physics->velocities.count; i++) {
+		Entity *e    = entity_find(game, physics->entities[i]);
+		e->position += physics->velocities[i] * dt;
 	}
 }
 
 i32 physics_add(Physics *physics, Entity entity)
 {
-	array_add(&physics->positions,     {});
 	array_add(&physics->velocities,    {});
 
 	i32 id = (i32)array_add(&physics->entities, entity.id);
@@ -166,7 +177,6 @@ i32 physics_add(Physics *physics, Entity entity)
 void physics_remove(Physics *physics, i32 id)
 {
 	array_remove(&physics->velocities,    id);
-	array_remove(&physics->positions,     id);
 	array_remove(&physics->entities,      id);
 }
 
@@ -183,12 +193,6 @@ i32 physics_id(Physics *physics, i32 entity_id)
 
 	DEBUG_ASSERT(id != -1);
 	return id;
-}
-
-Vector3 physics_position(Physics *physics, i32 i)
-{
-	DEBUG_ASSERT(i < physics->positions.count);
-	return physics->positions[i];
 }
 
 void render_font(GameMemory *memory,
@@ -420,14 +424,13 @@ void game_init(GameMemory *memory, PlatformState *platform)
 	Mesh cube = load_mesh_obj(memory, "cube.obj");
 
 	{
-		Entity player = entities_add(&game->entities);
-		i32 pid = physics_add(&game->physics, player);
-
 		f32 x = next_f32(&r) * 20.0f;
 		f32 y = -1.0f;
 		f32 z = next_f32(&r) * 20.0f;
 
-		game->physics.positions[pid] = { x, y, z };
+		Entity player = entities_add(&game->entities, {x, y, z});
+		i32 pid = physics_add(&game->physics, player);
+		(void)pid;
 
 		IndexRenderObject obj = {};
 		obj.material = &game->materials.player;
@@ -446,14 +449,13 @@ void game_init(GameMemory *memory, PlatformState *platform)
 	}
 
 	for (i32 i = 0; i < 10; i++) {
-		Entity e = entities_add(&game->entities);
-		i32 pid  = physics_add(&game->physics, e);
-
 		f32 x = next_f32(&r) * 20.0f;
 		f32 y = -1.0f;
 		f32 z = next_f32(&r) * 20.0f;
 
-		game->physics.positions[pid] = { x, y, z };
+		Entity e = entities_add(&game->entities, {x, y, z});
+		i32 pid  = physics_add(&game->physics, e);
+		(void)pid;
 
 		IndexRenderObject obj = {};
 		obj.material = &game->materials.phong;
@@ -767,7 +769,7 @@ void game_update(GameMemory *memory, f32 dt)
 
 	debug_overlay_update(&game->overlay, dt);
 
-	physics_process(&game->physics, dt);
+	physics_process(&game->physics, game, dt);
 
 	Matrix4 pitch = rotate_x(Matrix4::identity(), game->fp_camera.pitch);
 	Matrix4 yaw   = rotate_y(Matrix4::identity(), game->fp_camera.yaw);
@@ -885,9 +887,9 @@ void game_render(GameMemory *memory)
 		vkCmdBindIndexBuffer(command, object.indices.handle,
 		                     0, VK_INDEX_TYPE_UINT32);
 
-		i32 pid = physics_id(&game->physics, object.entity_id);
-		Matrix4 transform = translate(Matrix4::identity(),
-		                              game->physics.positions[pid]);
+
+		Entity *e = entity_find(game, object.entity_id);
+		Matrix4 transform = translate(Matrix4::identity(), e->position);
 
 
 		vkCmdPushConstants(command, object.pipeline.layout, VK_SHADER_STAGE_VERTEX_BIT,
