@@ -16,11 +16,6 @@ struct AllocationHeader {
 	void *unaligned;
 };
 
-void *align_address(void *address, uptr alignment)
-{
-	return (void*)(((uptr)address + alignment) & ~(alignment - 1));
-}
-
 void *align_address(void *address, u8 alignment, u8 header_size)
 {
 	u8 adjustment = alignment - ((uptr)address & ((uptr)alignment - 1));
@@ -65,16 +60,18 @@ Allocator allocator_create(AllocatorType type, void *data, isize size)
 	DEBUG_ASSERT(type != Allocator_System);
 
 	Allocator a;
-	a.type  = type;
-	a.start = data;
-	a.size  = size;
+	a.type      = type;
+	a.start     = data;
+	a.size      = size;
+	a.remaining = a.size;
+
 	switch (type) {
 	case Allocator_Linear: {
 		a.linear.current = data;
 		a.linear.last    = nullptr;
 	} break;
 	case Allocator_Stack: {
-		a.stack.sp    = data;
+		a.stack.sp  = data;
 	} break;
 	case Allocator_FreeList: {
 		a.free_list.free       = (FreeBlock*)data;
@@ -100,6 +97,7 @@ void *alloc(Allocator *a, isize size)
 		void *aligned   = align_address(unaligned, 16, header_size);
 
 		a->linear.current = (void*)((uptr)aligned + size);
+		a->remaining = a->size - (isize)((uptr)a->linear.current - (uptr)a->start);
 		DEBUG_ASSERT((uptr)a->linear.current < ((uptr)a->start + a->size));
 
 		AllocationHeader *header = (AllocationHeader*)((uptr)aligned - header_size);
@@ -115,7 +113,9 @@ void *alloc(Allocator *a, isize size)
 		void *aligned   = align_address(unaligned, 16, header_size);
 
 		a->stack.sp = (void*)((uptr)aligned + size);
-		DEBUG_ASSERT((uptr)a->stack.sp < ((uptr)a->start + a->size));
+		a->remaining = a->size - (isize)((uptr)a->stack.sp - (uptr)a->start);
+
+		DEBUG_ASSERT(a->remaining > 0);
 
 		auto header = (AllocationHeader*)((uptr)aligned - header_size);
 		header->size      = size;
@@ -154,6 +154,8 @@ void *alloc(Allocator *a, isize size)
 
 		// TODO(jesper): double check suitable value of minimum remaining
 		if (remaining < (header_size + 48)) {
+			a->remaining -= free_size;
+
 			size = free_size;
 
 			if (prev != nullptr) {
@@ -162,6 +164,8 @@ void *alloc(Allocator *a, isize size)
 				a->free_list.free = a->free_list.free->next;
 			}
 		} else {
+			a->remaining -= size;
+
 			FreeBlock *nfree = (FreeBlock*)((uptr)aligned + size);
 			nfree->size = remaining;
 			nfree->next = free->next;
@@ -202,17 +206,21 @@ void dealloc(Allocator *a, void *ptr)
 		auto header = (AllocationHeader*)((uptr)ptr - sizeof(AllocationHeader));
 		if ((uptr)ptr + header->size == (uptr)a->linear.current) {
 			a->linear.current = header->unaligned;
+			a->remaining = a->size - (isize)((uptr)a->linear.current - (uptr)a->start);
 		} else {
 			DEBUG_LOG("calling dealloc on linear allocator, leaking memory");
 		}
 	} break;
 	case Allocator_Stack: {
-		auto header = (AllocationHeader*)((uptr)ptr - sizeof(AllocationHeader));
-		a->stack.sp = header->unaligned;
+		auto header  = (AllocationHeader*)((uptr)ptr - sizeof(AllocationHeader));
+		a->stack.sp  = header->unaligned;
+		a->remaining = a->size - (isize)((uptr)a->stack.sp - (uptr)a->start);
 	} break;
 	case Allocator_FreeList: {
 		auto  header     = (AllocationHeader*)((uptr)ptr - sizeof(AllocationHeader));
 		isize size       = header->size;
+
+		a->remaining += size;
 
 		uptr start = (uptr)header->unaligned;
 		uptr end   = start + size;
@@ -281,6 +289,7 @@ void *realloc(Allocator *a, void *ptr, isize size)
 			DEBUG_ASSERT(extra > 0); // NOTE(jesper): untested
 
 			a->linear.current   = (void*)((uptr)a->linear.current + extra);
+			a->remaining = a->size - (isize)((uptr)a->linear.current - (uptr)a->start);
 			header->size = size;
 			return ptr;
 		} else {
@@ -299,6 +308,9 @@ void *realloc(Allocator *a, void *ptr, isize size)
 			DEBUG_ASSERT(extra > 0); // NOTE(jesper): untested
 
 			a->stack.sp = (void*)((uptr)a->stack.sp + extra);
+			a->remaining = a->size - (isize)((uptr)a->stack.sp - (uptr)a->start);
+			DEBUG_ASSERT(a->remaining > 0);
+
 			header->size = size;
 			return ptr;
 		} else {
@@ -334,12 +346,14 @@ void alloc_reset(Allocator *a)
 {
 	DEBUG_ASSERT(a->type == Allocator_Linear);
 	a->linear.current = a->start;
+	a->remaining = a->size - (isize)((uptr)a->linear.current - (uptr)a->start);
 }
 
 void alloc_reset(Allocator *a, void *ptr)
 {
 	DEBUG_ASSERT(a->type == Allocator_Stack);
 	a->stack.sp = ptr;
+	a->remaining = a->size - (isize)((uptr)a->stack.sp - (uptr)a->start);
 }
 
 

@@ -79,6 +79,9 @@ struct DebugOverlay {
 	char            *buffer;
 	RenderedText    text;
 	stbtt_bakedchar font[256];
+
+	bool profile_timers = true;
+	bool allocators = true;
 };
 
 struct GameState {
@@ -726,7 +729,7 @@ void game_input(GameMemory *memory, PlatformState *platform, InputEvent event)
 	}
 }
 
-void debug_overlay_update(DebugOverlay *overlay, f32 dt)
+void debug_overlay_update(GameMemory *memory, DebugOverlay *overlay, f32 dt)
 {
 	PROFILE_FUNCTION();
 
@@ -740,12 +743,62 @@ void debug_overlay_update(DebugOverlay *overlay, f32 dt)
 	buffer += bytes;
 	buffer_size -= bytes;
 
-	for (i32 i = 0; i < g_profile_timers_prev->names.count; i++) {
-		bytes = snprintf(buffer, buffer_size, "%s: %" PRIu64 " cy (%" PRIu64 " cy)\n",
-		                 g_profile_timers_prev->names[i],
-		                 g_profile_timers_prev->cycles[i],
-		                 g_profile_timers_prev->cycles_last[i]);
+	if (overlay->profile_timers) {
+		bytes        = snprintf(buffer, buffer_size, "Profile Timers\n");
+		buffer      += bytes;
+		buffer_size -= bytes;
+
+		for (i32 i = 0; i < g_profile_timers_prev->names.count; i++) {
+			bytes = snprintf(buffer, buffer_size,
+			                 "  %s: %" PRIu64 " cy (%" PRIu64 " cy)\n",
+			                 g_profile_timers_prev->names[i],
+			                 g_profile_timers_prev->cycles[i],
+			                 g_profile_timers_prev->cycles_last[i]);
+			buffer += bytes;
+			buffer_size -= bytes;
+		}
+	} else {
+		bytes        = snprintf(buffer, buffer_size, "Profile Timers...\n");
+		buffer      += bytes;
+		buffer_size -= bytes;
+	}
+
+	if (overlay->allocators) {
+		bytes        = snprintf(buffer, buffer_size, "Allocators\n");
+		buffer      += bytes;
+		buffer_size -= bytes;
+
+		bytes = snprintf(buffer, buffer_size,
+		                 "  stack: { sp: %p, size: %ld, remaining: %ld }\n",
+		                 memory->stack.stack.sp, memory->stack.size,
+		                 memory->stack.remaining);
 		buffer += bytes;
+		buffer_size -= bytes;
+
+		bytes = snprintf(buffer, buffer_size,
+		                 "  frame: { current: %p, size: %ld, remaining: %ld }\n",
+		                 memory->frame.linear.current, memory->frame.size,
+		                 memory->frame.remaining);
+		buffer += bytes;
+		buffer_size -= bytes;
+
+		bytes = snprintf(buffer, buffer_size,
+		                 "  persistent: { current: %p, size: %ld, remaining: %ld }\n",
+		                 memory->persistent.linear.current,
+		                 memory->persistent.size,
+		                 memory->persistent.remaining);
+		buffer += bytes;
+		buffer_size -= bytes;
+
+		bytes = snprintf(buffer, buffer_size,
+		                 "  free list: { size: %ld, remaining: %ld }\n",
+		                 memory->free_list.size,
+		                 memory->free_list.remaining);
+		buffer += bytes;
+		buffer_size -= bytes;
+	} else {
+		bytes        = snprintf(buffer, buffer_size, "Allocators...\n");
+		buffer      += bytes;
 		buffer_size -= bytes;
 	}
 }
@@ -765,7 +818,7 @@ void game_update(GameMemory *memory, f32 dt)
 	PROFILE_FUNCTION();
 	GameState *game = (GameState*)memory->game;
 
-	debug_overlay_update(&game->overlay, dt);
+	debug_overlay_update(memory, &game->overlay, dt);
 
 	physics_process(&game->physics, dt);
 

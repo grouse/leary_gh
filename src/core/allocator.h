@@ -41,6 +41,7 @@ struct Allocator {
 
 	void *start;
 	isize size;
+	isize remaining;
 
 	union {
 		LinearAllocator   linear;
