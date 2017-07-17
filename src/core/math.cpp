@@ -488,3 +488,46 @@ inline Vector4& operator *= (Vector4 &lhs, f32 rhs)
 	return lhs;
 }
 
+/*******************************************************************************
+ * Quaternion operations
+ ******************************************************************************/
+inline f32 length(Quaternion q)
+{
+	return sqrtf(q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w);
+}
+
+inline Quaternion inverse(Quaternion q)
+{
+	// q^(-1) = q^* = [ -qv, qs ] when |q| = 1
+	// TODO(jesper): investigate appropriate epsilon
+	DEBUG_ASSERT(length(q) == 1.0f);
+
+	Quaternion r;
+	r = { -q.x, -q.y, -q.z, q.w };
+	return r;
+}
+
+inline Quaternion operator* (Quaternion p, Quaternion q)
+{
+	Quaternion r;
+
+	Vector3 pv = { p.x, p.y, p.z };
+	Vector3 qv = { q.x, q.y, q.z };
+
+	Vector3 rv = p.w * qv + q.w * pv + cross(pv, qv);
+
+	r = { rv.x, rv.y, rv.z, p.w * q.w - dot(pv, qv) };
+
+	return r;
+}
+
+inline Vector3 rotate(Quaternion q, Vector3 v)
+{
+	Vector3 r;
+
+	Quaternion vq = Quaternion::make(v);
+	Quaternion rq = q * vq * inverse(q);
+
+	r = { rq.x, rq.y, rq.z };
+	return r;
+}

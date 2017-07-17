@@ -27,6 +27,33 @@ INTROSPECT struct Vector4 {
 	}
 };
 
+struct Quaternion {
+	f32 x, y, z, w;
+
+	static inline Quaternion make(Vector3 v)
+	{
+		Quaternion q;
+		q = { v.x, v.y, v.z, 0.0f };
+		return q;
+	}
+
+	static inline Quaternion make(Vector3 a, f32 theta)
+	{
+		Quaternion q;
+
+		f32 ht  = theta / 2.0f;
+		f32 sht = sinf(ht);
+		f32 cht = cosf(ht);
+
+		q.x = a.x * sht;
+		q.y = a.y * sht;
+		q.z = a.z * sht;
+		q.w = cht;
+
+		return q;
+	}
+};
+
 INTROSPECT struct Matrix4 {
 	Vector4 columns[4];
 
@@ -70,6 +97,30 @@ INTROSPECT struct Matrix4 {
 		result[2].z = far / (near - far);
 		result[3].z = -(far * near) / (far - near);
 		return result;
+	}
+
+	static inline Matrix4 make(Quaternion q)
+	{
+		Matrix4 r;
+
+		r[0].x = 1 - 2 * q.y * q.y - 2 * q.z * q.z;
+		r[0].y = 2 * q.x * q.y - 2 * q.z * q.w;
+		r[0].z = 2 * q.x * q.z + 2 * q.y * q.w;
+		r[0].w = 0.0f;
+
+		r[1].x = 2 * q.x * q.y + 2 * q.z * q.w;
+		r[1].y = 1 - 2 * q.x * q.x - 2 * q.z * q.z;
+		r[1].z = 2 * q.y * q.z - 2 * q.x * q.w;
+		r[1].w = 0.0f;
+
+		r[2].x = 2 * q.x * q.z - 2 * q.y * q.w;
+		r[2].y = 2 * q.y * q.z + 2 * q.x * q.w;
+		r[2].z = 1 - 2 * q.x * q.x - 2 * q.y * q.y;
+		r[2].w = 0.0f;
+
+		r[3] = { 0.0f, 0.0f, 0.0f, 1.0f };
+
+		return r;
 	}
 };
 

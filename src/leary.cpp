@@ -32,7 +32,8 @@
 struct Entity {
 	i32 id;
 	i32 index;
-	Vector3 position;
+	Vector3    position;
+	Quaternion rotation;
 };
 
 struct RenderedText {
@@ -127,6 +128,7 @@ Entity entities_add(ARRAY(Entity) *entities, Vector3 pos)
 	Entity e   = {};
 	e.id       = (i32)entities->count;
 	e.position = pos;
+	e.rotation = Quaternion::make({ 0.0f, 1.0f, 0.0f });
 
 	i32 i = (i32)array_add(entities, e);
 	(*entities)[i].index = i;
@@ -285,6 +287,14 @@ void render_font(GameMemory *memory,
 
 void game_init(GameMemory *memory, PlatformState *platform)
 {
+	Quaternion p = Quaternion::make({ 1.0f, 0.0f, 0.0f });
+	Quaternion q = Quaternion::make({ 0.0f, 0.0f, 1.0f }, 0.5f);
+
+	Vector3 v = rotate(q, { 1.0f, 0.0f, 0.0f });
+	(void)v;
+	Quaternion pq = p * q;
+	(void)pq;
+
 	GameState *game = ialloc<GameState>(&memory->persistent);
 	memory->game = game;
 
@@ -820,6 +830,10 @@ void game_update(GameMemory *memory, f32 dt)
 	PROFILE_FUNCTION();
 	GameState *game = (GameState*)memory->game;
 
+	Entity &player = game->entities[0];
+	Quaternion q = Quaternion::make({0.0f, 1.0f, 0.0f}, 0.5f * dt);
+	player.rotation = player.rotation * q;
+
 	debug_overlay_update(memory, &game->overlay, dt);
 
 	physics_process(&game->physics, game, dt);
@@ -942,11 +956,13 @@ void game_render(GameMemory *memory)
 
 
 		Entity *e = entity_find(game, object.entity_id);
-		Matrix4 transform = translate(Matrix4::identity(), e->position);
 
+		Matrix4 t = translate(Matrix4::identity(), e->position);
+		Matrix4 r = Matrix4::make(e->rotation);
+		t = t * r;
 
 		vkCmdPushConstants(command, object.pipeline.layout, VK_SHADER_STAGE_VERTEX_BIT,
-		                   0, sizeof(transform), &transform);
+		                   0, sizeof(t), &t);
 
 		vkCmdDrawIndexed(command, object.index_count, 1, 0, 0, 0);
 	}
