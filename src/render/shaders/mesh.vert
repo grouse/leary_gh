@@ -2,9 +2,9 @@
 #extension GL_ARB_separate_shader_objects : enable
 #extension GL_ARB_shading_language_420pack : enable
 
-layout(binding = 0) uniform UBO {
+layout(binding = 0) uniform Camera {
 	mat4 view_projection;
-} ubo;
+} camera;
 
 layout(push_constant) uniform Model {
 	mat4 transform;
@@ -23,9 +23,9 @@ layout(location = 4) out vec2 frag_uv;
 
 void main()
 {
-	gl_Position = ubo.view_projection * model.transform * vec4(v, 1.0);
+	vec4 pos    = model.transform * vec4(v, 1.0);
+	gl_Position = camera.view_projection * pos;
 
-	vec4 pos   = model.transform * vec4(v, 1.0);
 	vec3 light = mat3(model.transform) * vec3(0.0, -30.0, 0.0);
 
 	frag_normal = mat3(model.transform) * normal;

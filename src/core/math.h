@@ -52,6 +52,16 @@ struct Quaternion {
 
 		return q;
 	}
+
+	static inline Quaternion yaw(f32 theta)
+	{
+		return Quaternion::make({ 0.0f, 1.0f, 0.0f }, theta);
+	}
+
+	static inline Quaternion pitch(f32 theta)
+	{
+		return Quaternion::make({ 0.0f, 0.0f, 1.0f }, theta);
+	}
 };
 
 INTROSPECT struct Matrix4 {

@@ -67,7 +67,8 @@ struct Camera {
 	VulkanUniformBuffer ubo;
 
 	Vector3             position;
-	f32                 yaw, pitch, roll;
+	f32 yaw   = 0.0f;
+	f32 pitch = 0.0f;
 };
 
 struct Physics {
@@ -287,14 +288,6 @@ void render_font(GameMemory *memory,
 
 void game_init(GameMemory *memory, PlatformState *platform)
 {
-	Quaternion p = Quaternion::make({ 1.0f, 0.0f, 0.0f });
-	Quaternion q = Quaternion::make({ 0.0f, 0.0f, 1.0f }, 0.5f);
-
-	Vector3 v = rotate(q, { 1.0f, 0.0f, 0.0f });
-	(void)v;
-	Quaternion pq = p * q;
-	(void)pq;
-
 	GameState *game = ialloc<GameState>(&memory->persistent);
 	memory->game = game;
 
@@ -307,7 +300,7 @@ void game_init(GameMemory *memory, PlatformState *platform)
 
 	game->fp_camera.view = Matrix4::identity();
 	game->fp_camera.position = Vector3{0.0f, 5.0f, 0.0f};
-	game->fp_camera.yaw = -0.5f * PI;
+	//game->fp_camera.rotation = Quaternion::make({0.0f, 1.0f, 0.0f}, -0.5f * PI);
 	game->fp_camera.projection = Matrix4::perspective(vfov, aspect, 0.1f, 100.0f);
 
 	Matrix4 view = Matrix4::identity();
@@ -831,33 +824,42 @@ void game_update(GameMemory *memory, f32 dt)
 	GameState *game = (GameState*)memory->game;
 
 	Entity &player = game->entities[0];
-	Quaternion q = Quaternion::make({0.0f, 1.0f, 0.0f}, 0.5f * dt);
-	player.rotation = player.rotation * q;
+
+	{
+		Quaternion r = Quaternion::make({0.0f, 1.0f, 0.0f}, 0.5f * dt);
+		player.rotation = player.rotation * r;
+
+		r = Quaternion::make({1.0f, 0.0f, 0.0f}, 0.5f * dt);
+		player.rotation = player.rotation * r;
+	}
 
 	debug_overlay_update(memory, &game->overlay, dt);
 
 	physics_process(&game->physics, game, dt);
 
-	Matrix4 pitch = rotate_x(Matrix4::identity(), game->fp_camera.pitch);
-	Matrix4 yaw   = rotate_y(Matrix4::identity(), game->fp_camera.yaw);
-	Matrix4 roll  = rotate_z(Matrix4::identity(), game->fp_camera.roll);
 
-	Matrix4 rotation = roll * pitch * yaw;
+	{
+		Vector3 &pos  = game->fp_camera.position;
+		Matrix4 &view = game->fp_camera.view;
 
-	Matrix4 view = game->fp_camera.view;
+		Vector3 f = { view[0].z, view[1].z, view[2].z };
+		Vector3 r = -Vector3{ view[0].x, view[1].x, view[2].x };
 
-	Vector3 forward = { view[0].z, view[1].z, view[2].z };
-	Vector3 strafe  = -Vector3{ view[0].x, view[1].x, view[2].x };
+		pos += dt * (game->velocity.z * f + game->velocity.x * r);
 
-	game->fp_camera.position += dt * (game->velocity.z * forward +
-	                                  game->velocity.x * strafe);
-	Matrix4 translation = translate(Matrix4::identity(), game->fp_camera.position);
+		Quaternion qpitch = Quaternion::make(r, game->fp_camera.pitch);
+		Quaternion qyaw   = Quaternion::make({ 0.0f, 1.0f, 0.0f }, game->fp_camera.yaw);
 
-	game->fp_camera.view = rotation * translation;
+		Quaternion rq = normalise(qpitch * qyaw);
 
-	Matrix4 view_projection = game->fp_camera.projection * game->fp_camera.view;
-	buffer_data_ubo(&game->vulkan, game->fp_camera.ubo,
-	                &view_projection, 0, sizeof(view_projection));
+		Matrix4 rm = Matrix4::make(rq);
+		Matrix4 tm = translate(Matrix4::identity(), pos);
+		view       = rm * tm;
+
+		Matrix4 vp = game->fp_camera.projection * view;
+		buffer_data_ubo(&game->vulkan, game->fp_camera.ubo, &vp, 0, sizeof(vp));
+	}
+
 }
 
 void game_render(GameMemory *memory)
