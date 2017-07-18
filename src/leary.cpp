@@ -69,6 +69,7 @@ struct Camera {
 	Vector3             position;
 	f32 yaw   = 0.0f;
 	f32 pitch = 0.0f;
+	Quaternion rotation = Quaternion::make({ 0.0f, 1.0f, 0.0f }, 0.5f * PI);
 };
 
 struct Physics {
@@ -725,8 +726,8 @@ void game_input(GameMemory *memory, PlatformState *platform, InputEvent event)
 	} break;
 	case InputType_mouse_move: {
 		// TODO(jesper): move mouse sensitivity into settings
-		game->fp_camera.yaw   += -0.001f * event.mouse.dx;
-		game->fp_camera.pitch += -0.001f * event.mouse.dy;
+		game->fp_camera.yaw   += 0.001f * event.mouse.dx;
+		game->fp_camera.pitch += 0.001f * event.mouse.dy;
 	} break;
 	default:
 		//DEBUG_LOG("unhandled input type: %d", event.type);
@@ -848,11 +849,14 @@ void game_update(GameMemory *memory, f32 dt)
 		pos += dt * (game->velocity.z * f + game->velocity.x * r);
 
 		Quaternion qpitch = Quaternion::make(r, game->fp_camera.pitch);
-		Quaternion qyaw   = Quaternion::make({ 0.0f, 1.0f, 0.0f }, game->fp_camera.yaw);
+		Quaternion qyaw   = Quaternion::make({0.0f, 1.0f, 0.0f}, game->fp_camera.yaw);
 
-		Quaternion rq = normalise(qpitch * qyaw);
+		game->fp_camera.pitch = game->fp_camera.yaw = 0.0f;
 
-		Matrix4 rm = Matrix4::make(rq);
+		Quaternion rq            = normalise(qpitch * qyaw);
+		game->fp_camera.rotation = normalise(game->fp_camera.rotation * rq);
+
+		Matrix4 rm = Matrix4::make(game->fp_camera.rotation);
 		Matrix4 tm = translate(Matrix4::identity(), pos);
 		view       = rm * tm;
 

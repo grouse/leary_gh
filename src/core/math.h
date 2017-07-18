@@ -113,19 +113,29 @@ INTROSPECT struct Matrix4 {
 	{
 		Matrix4 r;
 
-		r[0].x = 1 - 2 * q.y * q.y - 2 * q.z * q.z;
-		r[0].y = 2 * q.x * q.y - 2 * q.z * q.w;
-		r[0].z = 2 * q.x * q.z + 2 * q.y * q.w;
+		f32 qxx = q.x * q.x;
+		f32 qyy = q.y * q.y;
+		f32 qzz = q.z * q.z;
+		f32 qxz = q.x * q.z;
+		f32 qxy = q.x * q.y;
+		f32 qyz = q.y * q.z;
+		f32 qwx = q.w * q.x;
+		f32 qwy = q.w * q.y;
+		f32 qwz = q.w * q.z;
+
+		r[0].x = 1.0f - 2.0f * (qyy +  qzz);
+		r[0].y = 2.0f * (qxy + qwz);
+		r[0].z = 2.0f * (qxz - qwy);
 		r[0].w = 0.0f;
 
-		r[1].x = 2 * q.x * q.y + 2 * q.z * q.w;
-		r[1].y = 1 - 2 * q.x * q.x - 2 * q.z * q.z;
-		r[1].z = 2 * q.y * q.z - 2 * q.x * q.w;
+		r[1].x = 2.0f * (qxy - qwz);
+		r[1].y = 1.0f - 2.0f * (qxx +  qzz);
+		r[1].z = 2.0f * (qyz + qwx);
 		r[1].w = 0.0f;
 
-		r[2].x = 2 * q.x * q.z - 2 * q.y * q.w;
-		r[2].y = 2 * q.y * q.z + 2 * q.x * q.w;
-		r[2].z = 1 - 2 * q.x * q.x - 2 * q.y * q.y;
+		r[2].x = 2.0f * (qxz + qwy);
+		r[2].y = 2.0f * (qyz - qwx);
+		r[2].z = 1.0f - 2.0f * (qxx +  qyy);
 		r[2].w = 0.0f;
 
 		r[3] = { 0.0f, 0.0f, 0.0f, 1.0f };
