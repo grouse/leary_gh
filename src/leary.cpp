@@ -77,10 +77,31 @@ struct Physics {
 	Array<i32>     entities;
 };
 
+enum DebugOverlayItemType {
+	Debug_timer,
+	Debug_allocator_stack,
+	Debug_allocator_free_list
+};
+
+struct DebugOverlayItem {
+	DebugOverlayItemType type;
+	const char *name;
+	void *data;
+};
+
+struct DebugOverlayMenu {
+	const char *title;
+	bool collapsed = false;
+	Array<DebugOverlayItem> items;
+};
+
+
 struct DebugOverlay {
 	char            *buffer;
 	RenderedText    text;
 	stbtt_bakedchar font[256];
+
+	Array<DebugOverlayMenu> menus;
 
 	bool profile_timers = true;
 	bool allocators = true;
@@ -292,6 +313,38 @@ void game_init(GameMemory *memory, PlatformState *platform)
 	memory->game = game;
 
 	game->overlay.buffer = (char*)alloc(&memory->persistent, 1024 * 1024);
+	game->overlay.menus  = array_create<DebugOverlayMenu>(&memory->free_list);
+	{
+		DebugOverlayMenu allocators;
+		allocators.title = "Allocators";
+		allocators.items = array_create<DebugOverlayItem>(&memory->free_list);
+
+		DebugOverlayItem stack;
+		stack.type = Debug_allocator_stack;
+		stack.name = "stack";
+		stack.data = (void*)&memory->stack;
+		array_add(&allocators.items, stack);
+
+		DebugOverlayItem frame;
+		frame.type = Debug_allocator_stack;
+		frame.name = "frame";
+		frame.data = (void*)&memory->frame;
+		array_add(&allocators.items, frame);
+
+		DebugOverlayItem persistent;
+		persistent.type = Debug_allocator_stack;
+		persistent.name = "persistent";
+		persistent.data = (void*)&memory->persistent;
+		array_add(&allocators.items, persistent);
+
+		DebugOverlayItem free_list;
+		free_list.type = Debug_allocator_free_list;
+		free_list.name = "free list";
+		free_list.data = (void*)&memory->free_list;
+		array_add(&allocators.items, free_list);
+
+		array_add(&game->overlay.menus, allocators);
+	}
 
 	f32 width = (f32)platform->settings.video.resolution.width;
 	f32 height = (f32)platform->settings.video.resolution.height;
@@ -734,7 +787,7 @@ void game_input(GameMemory *memory, PlatformState *platform, InputEvent event)
 	}
 }
 
-void debug_overlay_update(GameMemory *memory, DebugOverlay *overlay, f32 dt)
+void debug_overlay_update(DebugOverlay *overlay, f32 dt)
 {
 	PROFILE_FUNCTION();
 
@@ -748,6 +801,43 @@ void debug_overlay_update(GameMemory *memory, DebugOverlay *overlay, f32 dt)
 	buffer += bytes;
 	buffer_size -= bytes;
 
+	for (int i = 0; i < overlay->menus.count; i++) {
+		DebugOverlayMenu &menu = overlay->menus[i];
+
+		bytes        = snprintf(buffer, buffer_size, "%s\n", menu.title);
+		buffer      += bytes;
+		buffer_size -= bytes;
+
+		if (!menu.collapsed) {
+			for (int i = 0; i < menu.items.count; i++) {
+				DebugOverlayItem &item = menu.items[i];
+
+				switch (item.type) {
+				case Debug_allocator_stack: {
+					Allocator *a = (Allocator*)item.data;
+					bytes = snprintf(buffer, buffer_size,
+					                 "  %s: { sp: %p, size: %ld, remaining: %ld }\n",
+					                 item.name, a->stack.sp, a->size, a->remaining);
+					buffer += bytes;
+					buffer_size -= bytes;
+				} break;
+				case Debug_allocator_free_list: {
+					Allocator *a = (Allocator*)item.data;
+					bytes = snprintf(buffer, buffer_size,
+					                 "  %s: { size: %ld, remaining: %ld }\n",
+					                 item.name, a->size, a->remaining);
+					buffer += bytes;
+					buffer_size -= bytes;
+				} break;
+				default:
+					DEBUG_LOG("unhandled case: %d", item.type);
+					break;
+				}
+			}
+		}
+	}
+
+#if 0
 	if (overlay->profile_timers) {
 		bytes        = snprintf(buffer, buffer_size, "Profile Timers\n");
 		buffer      += bytes;
@@ -806,6 +896,7 @@ void debug_overlay_update(GameMemory *memory, DebugOverlay *overlay, f32 dt)
 		buffer      += bytes;
 		buffer_size -= bytes;
 	}
+#endif
 }
 
 void debug_overlay_render(DebugOverlay *overlay, GameMemory *memory)
@@ -833,7 +924,7 @@ void game_update(GameMemory *memory, f32 dt)
 		player.rotation = player.rotation * r;
 	}
 
-	debug_overlay_update(memory, &game->overlay, dt);
+	debug_overlay_update(&game->overlay, dt);
 
 	physics_process(&game->physics, game, dt);
 
