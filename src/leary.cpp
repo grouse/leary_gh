@@ -30,10 +30,10 @@
 #include "core/serialize.cpp"
 
 struct Entity {
-	i32 id;
-	i32 index;
+	i32        id;
+	i32        index;
 	Vector3    position;
-	Quaternion rotation;
+	Quaternion rotation = Quaternion::make({ 0.0f, 1.0f, 0.0f });
 };
 
 struct RenderedText {
@@ -130,7 +130,6 @@ Entity entities_add(ARRAY(Entity) *entities, Vector3 pos)
 	Entity e   = {};
 	e.id       = (i32)entities->count;
 	e.position = pos;
-	e.rotation = Quaternion::make({ 0.0f, 1.0f, 0.0f });
 
 	i32 i = (i32)array_add(entities, e);
 	(*entities)[i].index = i;
@@ -1025,7 +1024,6 @@ void game_render(GameMemory *memory)
 
 	result = vkQueueSubmit(game->vulkan.queue, 1, &present_submit_info, VK_NULL_HANDLE);
 	DEBUG_ASSERT(result == VK_SUCCESS);
-
 
 	VkSemaphore wait_semaphores[] = {
 		game->vulkan.render_completed

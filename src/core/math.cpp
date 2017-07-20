@@ -507,10 +507,6 @@ inline Quaternion normalise(Quaternion q)
 
 inline Quaternion inverse(Quaternion q)
 {
-	// q^(-1) = q^* = [ -qv, qs ] when |q| = 1
-	// TODO(jesper): investigate appropriate epsilon
-	//DEBUG_ASSERT(length(q) == 1.0f);
-
 	Quaternion r;
 	r = { -q.x, -q.y, -q.z, q.w };
 	return r;
@@ -519,24 +515,14 @@ inline Quaternion inverse(Quaternion q)
 inline Quaternion operator* (Quaternion p, Quaternion q)
 {
 	Quaternion r;
-#if 0
-	Vector3 pv = { p.x, p.y, p.z };
-	Vector3 qv = { q.x, q.y, q.z };
-
-	Vector3 rv = p.w * qv + q.w * pv + cross(pv, qv);
-
-	r = { rv.x, rv.y, rv.z, p.w * q.w - dot(pv, qv) };
-#else
 	r.x = p.w * q.x + p.x * q.w + p.y * q.z - p.z * q.y;
 	r.y = p.w * q.y + p.y * q.w + p.z * q.x - p.x * q.z;
 	r.z = p.w * q.z + p.z * q.w + p.x * q.y - p.y * q.x;
 	r.w = p.w * q.w - p.x * q.x - p.y * q.y - p.z * q.z;
-#endif
-
 	return r;
 }
 
-inline Vector3 rotate(Quaternion p, Vector3 v)
+inline Vector3 rotate(Vector3 v, Quaternion p)
 {
 	Vector3 r;
 
