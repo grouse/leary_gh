@@ -8,21 +8,19 @@
 
 #include "array.h"
 
-#if ARRAY_USE_TEMPLATES
-
-ARRAY_TEMPLATE
-ARRAY(T) array_create(Allocator *allocator)
+template<typename T>
+Array<T> array_create(Allocator *allocator)
 {
-	ARRAY(T) a  = {};
+	Array<T> a  = {};
 	a.allocator = allocator;
 
 	return a;
 }
 
-ARRAY_TEMPLATE
-ARRAY(T) array_create(Allocator *allocator, isize capacity)
+template<typename T>
+Array<T> array_create(Allocator *allocator, isize capacity)
 {
-	ARRAY(T) a;
+	Array<T> a;
 	a.allocator = allocator;
 	a.data      = alloc_array<T>(allocator, capacity);
 	a.count     = 0;
@@ -31,16 +29,16 @@ ARRAY(T) array_create(Allocator *allocator, isize capacity)
 	return a;
 }
 
-ARRAY_TEMPLATE
-void array_destroy(ARRAY(T) *a)
+template<typename T>
+void array_destroy(Array<T> *a)
 {
 	dealloc(a->allocator, a->data);
 	a->capacity = 0;
 	a->count    = 0;
 }
 
-ARRAY_TEMPLATE
-isize array_add(ARRAY(T) *a, T e)
+template<typename T>
+isize array_add(Array<T> *a, T e)
 {
 	if (a->count >= a->capacity) {
 		isize capacity = a->capacity == 0 ? 1 : a->capacity * 2;
@@ -52,8 +50,8 @@ isize array_add(ARRAY(T) *a, T e)
 	return a->count++;
 }
 
-ARRAY_TEMPLATE
-isize array_remove(ARRAY(T) *a, isize i)
+template<typename T>
+isize array_remove(Array<T> *a, isize i)
 {
 	if ((a->count - 1) == i) {
 		return --a->count;
@@ -64,10 +62,10 @@ isize array_remove(ARRAY(T) *a, isize i)
 }
 
 
-SARRAY_TEMPLATE
-SARRAY(T) array_create_static(void *data, isize capacity)
+template<typename T>
+StaticArray<T> array_create_static(void *data, isize capacity)
 {
-	SARRAY(T) a;
+	StaticArray<T> a;
 	a.data      = (T*)data;
 	a.count     = 0;
 	a.capacity  = capacity;
@@ -75,10 +73,10 @@ SARRAY(T) array_create_static(void *data, isize capacity)
 	return a;
 }
 
-SARRAY_TEMPLATE
-SARRAY(T) array_create_static(void* ptr, isize offset, isize capacity)
+template<typename T>
+StaticArray<T> array_create_static(void* ptr, isize offset, isize capacity)
 {
-	SARRAY(T) a;
+	StaticArray<T> a;
 	a.data      = (T*)((u8*)ptr + offset);
 	a.count     = 0;
 	a.capacity  = capacity;
@@ -86,15 +84,15 @@ SARRAY(T) array_create_static(void* ptr, isize offset, isize capacity)
 	return a;
 }
 
-SARRAY_TEMPLATE
-void array_destroy(SARRAY(T) *a)
+template<typename T>
+void array_destroy(StaticArray<T> *a)
 {
 	a->capacity = 0;
 	a->count    = 0;
 }
 
-SARRAY_TEMPLATE
-isize array_add(SARRAY(T) *a, T e)
+template<typename T>
+isize array_add(StaticArray<T> *a, T e)
 {
 	DEBUG_ASSERT(a->count <= a->capacity);
 
@@ -102,8 +100,8 @@ isize array_add(SARRAY(T) *a, T e)
 	return a->count++;
 }
 
-SARRAY_TEMPLATE
-isize array_remove(SARRAY(T) *a, isize i)
+template<typename T>
+isize array_remove(StaticArray<T> *a, isize i)
 {
 	if ((a->count - 1) == i) {
 		return --a->count;
@@ -112,10 +110,4 @@ isize array_remove(SARRAY(T) *a, isize i)
 	a->data[a->count-1] = a->data[i];
 	return --a->count;
 }
-
-#else
-
-#include "generated/array.cpp"
-
-#endif /* ARRAY_USE_TEMPLATES */
 

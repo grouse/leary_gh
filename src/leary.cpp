@@ -73,8 +73,8 @@ struct Camera {
 };
 
 struct Physics {
-	ARRAY(Vector3) velocities;
-	ARRAY(i32) entities;
+	Array<Vector3> velocities;
+	Array<i32>     entities;
 };
 
 struct DebugOverlay {
@@ -109,14 +109,14 @@ struct GameState {
 
 	DebugOverlay overlay;
 
-	ARRAY(Entity) entities;
+	Array<Entity> entities;
 	Physics physics;
 
 	Camera fp_camera;
 	Camera ui_camera;
 
-	ARRAY(RenderObject) render_objects;
-	ARRAY(IndexRenderObject) index_render_objects;
+	Array<RenderObject> render_objects;
+	Array<IndexRenderObject> index_render_objects;
 
 	VkCommandBuffer     *command_buffers;
 
@@ -125,7 +125,7 @@ struct GameState {
 	i32 *key_state;
 };
 
-Entity entities_add(ARRAY(Entity) *entities, Vector3 pos)
+Entity entities_add(Array<Entity> *entities, Vector3 pos)
 {
 	Entity e   = {};
 	e.id       = (i32)entities->count;
@@ -137,9 +137,9 @@ Entity entities_add(ARRAY(Entity) *entities, Vector3 pos)
 	return e;
 }
 
-ARRAY(Entity) entities_create(GameMemory *memory)
+Array<Entity> entities_create(GameMemory *memory)
 {
-	return ARRAY_CREATE(Entity, &memory->free_list);
+	return array_create<Entity>(&memory->free_list);
 }
 
 Entity* entity_find(GameState *game, i32 id)
@@ -158,8 +158,8 @@ Physics physics_create(GameMemory *memory)
 {
 	Physics p = {};
 
-	p.velocities    = ARRAY_CREATE(Vector3, &memory->free_list);
-	p.entities      = ARRAY_CREATE(i32, &memory->free_list);
+	p.velocities    = array_create<Vector3>(&memory->free_list);
+	p.entities      = array_create<i32>(&memory->free_list);
 
 	return p;
 }
@@ -309,8 +309,8 @@ void game_init(GameMemory *memory, PlatformState *platform)
 	view[2].z = 1.0f;
 	game->ui_camera.view = view;
 
-	game->render_objects = ARRAY_CREATE(RenderObject, &memory->persistent, 20);
-	game->index_render_objects = ARRAY_CREATE(IndexRenderObject, &memory->persistent, 20);
+	game->render_objects = array_create<RenderObject>(&memory->persistent, 20);
+	game->index_render_objects = array_create<IndexRenderObject>(&memory->persistent, 20);
 
 	VkResult result;
 	game->vulkan = device_create(memory, platform, &platform->settings);
@@ -938,7 +938,7 @@ void game_render(GameMemory *memory)
 		// TODO(jesper): bind material descriptor set if bound
 		// TODO(jesper): only bind pipeline descriptor set if one exists, might
 		// be such a special case that we should hardcode it?
-		auto descriptors = ARRAY_CREATE(VkDescriptorSet, &memory->stack);
+		auto descriptors = array_create<VkDescriptorSet>(&memory->stack);
 		defer { array_destroy(&descriptors); };
 
 		array_add(&descriptors, object.pipeline.descriptor_set);
@@ -978,7 +978,7 @@ void game_render(GameMemory *memory)
 	                  game->pipelines.font.handle);
 
 
-	auto descriptors = ARRAY_CREATE(VkDescriptorSet, &memory->stack);
+	auto descriptors = array_create<VkDescriptorSet>(&memory->stack);
 	array_add(&descriptors, game->materials.font.descriptor_set);
 
 	// TODO(jesper): bind material descriptor set if bound

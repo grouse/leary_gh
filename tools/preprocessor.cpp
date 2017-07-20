@@ -67,7 +67,7 @@ struct TypeInfo {
 
 struct StructInfo {
 	char *name;
-	ARRAY(TypeInfo) members;
+	Array<TypeInfo> members;
 };
 
 struct Parameter {
@@ -78,7 +78,7 @@ struct Parameter {
 struct ArrayFunction {
 	char *ret;
 	char *fname;
-	ARRAY(Parameter) params;
+	Array<Parameter> params;
 	char *body;
 };
 
@@ -88,11 +88,11 @@ struct ArrayStruct {
 };
 
 struct PreprocessorOutput {
-	ARRAY(StructInfo)    structs;
-	ARRAY(char*)         arrays;
-	ARRAY(char*)         sarrays;
-	ARRAY(ArrayFunction) afuncs;
-	ARRAY(ArrayStruct )  astructs;
+	Array<StructInfo>    structs;
+	Array<char*>         arrays;
+	Array<char*>         sarrays;
+	Array<ArrayFunction> afuncs;
+	Array<ArrayStruct>   astructs;
 };
 
 char *string_duplicate(char *src, usize size)
@@ -217,7 +217,7 @@ void skip_struct_function(Tokenizer &tokenizer)
 	} while (true);
 }
 
-void parse_array_type(Tokenizer tokenizer, ARRAY(char*) *types)
+void parse_array_type(Tokenizer tokenizer, Array<char*> *types)
 {
 	Token token = next_token(tokenizer);
 	DEBUG_ASSERT(token.type == Token::open_paren);
@@ -276,7 +276,7 @@ void parse_array_function(Tokenizer tokenizer,
 	Token t, rettype;
 
 	ArrayFunction f = {};
-	f.params = ARRAY_CREATE(Parameter, allocator);
+	f.params = array_create<Parameter>(allocator);
 
 	rettype = next_token(tokenizer);
 	if (is_identifier(rettype, "ARRAY")) {
@@ -359,7 +359,7 @@ void parse_struct_type_info(Tokenizer tokenizer, PreprocessorOutput *output)
 	do token = next_token(tokenizer);
 	while (token.type != Token::open_curly_brace);
 
-	struct_info.members = ARRAY_CREATE(TypeInfo, output->structs.allocator);
+	struct_info.members = array_create<TypeInfo>(output->structs.allocator);
 
 	do {
 		Tokenizer line_start = tokenizer;
@@ -538,11 +538,11 @@ int main(int argc, char **argv)
 	};
 
 	PreprocessorOutput output = {};
-	output.structs  = ARRAY_CREATE(StructInfo, &allocator);
-	output.arrays   = ARRAY_CREATE(char*, &allocator);
-	output.sarrays  = ARRAY_CREATE(char*, &allocator);
-	output.afuncs   = ARRAY_CREATE(ArrayFunction, &allocator);
-	output.astructs = ARRAY_CREATE(ArrayStruct, &allocator);
+	output.structs  = array_create<StructInfo>(&allocator);
+	output.arrays   = array_create<char*>(&allocator);
+	output.sarrays  = array_create<char*>(&allocator);
+	output.afuncs   = array_create<ArrayFunction>(&allocator);
+	output.astructs = array_create<ArrayStruct>(&allocator);
 
 
 	i32 num_files = ARRAY_SIZE(files);
