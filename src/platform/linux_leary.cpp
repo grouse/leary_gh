@@ -131,8 +131,6 @@ PLATFORM_INIT_FUNC(platform_init)
 	serialize_load_conf(settings_path, Settings_members,
 	                    ARRAY_SIZE(Settings_members), &platform->settings);
 
-	platform->profile = profile_init(&platform->memory);
-
 	native->display = XOpenDisplay(nullptr);
 	i32 screen     = DefaultScreen(native->display);
 	native->window  = XCreateSimpleWindow(native->display,
@@ -227,7 +225,6 @@ PLATFORM_PRE_RELOAD_FUNC(platform_pre_reload)
 DL_EXPORT
 PLATFORM_RELOAD_FUNC(platform_reload)
 {
-	profile_set_state(&platform->profile);
 	game_reload(&platform->memory);
 }
 

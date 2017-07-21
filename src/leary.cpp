@@ -107,7 +107,14 @@ struct DebugOverlay {
 	bool allocators = true;
 };
 
+struct GameReloadState {
+	StaticArray<ProfileTimer> profile_timers;
+	StaticArray<ProfileTimer> profile_timers_prev;
+};
+
 struct GameState {
+	GameReloadState reload_state = {};
+
 	VulkanDevice        vulkan;
 
 	struct {
@@ -311,6 +318,8 @@ void game_init(GameMemory *memory, PlatformState *platform)
 {
 	GameState *game = ialloc<GameState>(&memory->persistent);
 	memory->game = game;
+
+	profile_init(&platform->memory);
 
 	game->overlay.buffer = (char*)alloc(&memory->persistent, 1024 * 1024);
 	game->overlay.menus  = array_create<DebugOverlayMenu>(&memory->free_list);
@@ -598,18 +607,31 @@ void game_quit(GameMemory *memory, PlatformState *platform)
 void game_pre_reload(GameMemory *memory)
 {
 	GameState *game = (GameState*)memory->game;
+
+	// TODO(jesper): I feel like this could be quite nicely preprocessed and
+	// generated. look into
+	GameReloadState state     = {};
+	state.profile_timers      = g_profile_timers;
+	state.profile_timers_prev = g_profile_timers_prev;
+
 	// NOTE(jesper): wait for the vulkan queues to be idle. Here for when I get
 	// to shader and resource reloading - I don't even want to think about what
 	// kind of fits graphics drivers will throw if we start recreating pipelines
 	// in the middle of things
 	vkQueueWaitIdle(game->vulkan.queue);
+
+	game->reload_state = state;
 }
 
 void game_reload(GameMemory *memory)
 {
 	GameState *game = (GameState*)memory->game;
 	vulkan_set_code(&game->vulkan);
-	// TODO(jesper): reload the shaders and resources if changed
+
+	// TODO(jesper): I feel like this could be quite nicely preprocessed and
+	// generated. look into
+	g_profile_timers      = game->reload_state.profile_timers;
+	g_profile_timers_prev = game->reload_state.profile_timers_prev;
 }
 
 void game_input(GameMemory *memory, PlatformState *platform, InputEvent event)

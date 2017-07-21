@@ -116,7 +116,10 @@ INTROSPECT struct Settings
 struct PlatformState {
 	Settings     settings  = {};
 	GameMemory   memory    = {};
-	ProfileState profile   = {};
+
+	StaticArray<ProfileTimer> profile      = {};
+	StaticArray<ProfileTimer> profile_prev = {};
+
 	bool         raw_mouse = false;
 	void         *native   = nullptr;
 };

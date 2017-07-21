@@ -171,12 +171,6 @@ int main()
 	PlatformState platform = {};
 	platform_init(&platform);
 
-#if !LEARY_DYMAMIC
-	// TODO(jesper): this is only needed because I don't properly set the global
-	// profiling state in profile_init. Which is very dumb
-	platform_reload(&platform);
-#endif
-
 	timespec last_time = get_time();
 	while (true) {
 		timespec current_time = get_time();

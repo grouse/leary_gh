@@ -15,18 +15,15 @@
 
 #include "core/array.h"
 
-struct ProfileTimers {
-	StaticArray<const char*> names;
-	StaticArray<u64>         cycles;
-	StaticArray<u64>         cycles_last;
-	StaticArray<bool>        open;
+struct ProfileTimer {
+	const char *name;
+	u64 cycles;
+	u64 cycles_prev;
+	bool open;
 };
 
-struct ProfileState {
-	ProfileTimers timers;
-	ProfileTimers prev_timers;
-};
-
+extern StaticArray<ProfileTimer> g_profile_timers;
+extern StaticArray<ProfileTimer> g_profile_timers_prev;
 
 #if PROFILE_TIMERS_ENABLE
 

@@ -224,9 +224,6 @@ PLATFORM_INIT_FUNC(platform_init)
 	Win32State *native = alloc<Win32State>(&platform->memory.persistent);
 	platform->native = native;
 
-	platform->profile = profile_init(&platform->memory);
-	profile_set_state(&platform->profile);
-
 	native->hinstance = instance;
 
 	WNDCLASS wc = {};
@@ -266,7 +263,6 @@ PLATFORM_RELOAD_FUNC(platform_reload)
 {
 	g_platform = platform;
 
-	profile_set_state(&platform->profile);
 	game_reload(&platform->memory);
 }
 
