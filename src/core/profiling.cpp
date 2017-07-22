@@ -100,7 +100,7 @@ void profile_start_frame()
 
 		if (jMax != j) {
 			ProfileTimer tmp            = g_profile_timers_prev[i];
-			g_profile_timers_prev[i]    = g_profile_timers[jMax];
+			g_profile_timers_prev[i]    = g_profile_timers_prev[jMax];
 			g_profile_timers_prev[jMax] = tmp;
 		}
 	}
@@ -108,8 +108,13 @@ void profile_start_frame()
 
 void profile_end_frame()
 {
-	g_profile_timers_prev  = g_profile_timers;
-	g_profile_timers.count = 0;
+	StaticArray<ProfileTimer> tmp = g_profile_timers_prev;
+	g_profile_timers_prev         = g_profile_timers;
+	g_profile_timers              = tmp;
+
+	for (int i = 0; i < g_profile_timers.count; i++) {
+		g_profile_timers[i].cycles = 0;
+	}
 }
 
 
