@@ -78,9 +78,13 @@ struct Physics {
 };
 
 enum DebugOverlayItemType {
-	Debug_timer,
 	Debug_allocator_stack,
 	Debug_allocator_free_list
+};
+
+enum DebugOverlayMenuType {
+	DebugMenu_profile_timers,
+	DebugMenu_allocators
 };
 
 struct DebugOverlayItem {
@@ -90,8 +94,9 @@ struct DebugOverlayItem {
 };
 
 struct DebugOverlayMenu {
-	const char *title;
-	bool collapsed = false;
+	const char              *title;
+	bool                    collapsed = false;
+	DebugOverlayMenuType    type;
 	Array<DebugOverlayItem> items;
 };
 
@@ -327,6 +332,7 @@ void game_init(GameMemory *memory, PlatformState *platform)
 		DebugOverlayMenu allocators;
 		allocators.title = "Allocators";
 		allocators.items = array_create<DebugOverlayItem>(&memory->free_list);
+		allocators.type  = DebugMenu_allocators;
 
 		DebugOverlayItem stack;
 		stack.type = Debug_allocator_stack;
@@ -351,8 +357,13 @@ void game_init(GameMemory *memory, PlatformState *platform)
 		free_list.name = "free list";
 		free_list.data = (void*)&memory->free_list;
 		array_add(&allocators.items, free_list);
-
 		array_add(&game->overlay.menus, allocators);
+
+		DebugOverlayMenu timers;
+		timers.title = "Profile Timers";
+		timers.items = array_create<DebugOverlayItem>(&memory->free_list);
+		timers.type  = DebugMenu_profile_timers;
+		array_add(&game->overlay.menus, timers);
 	}
 
 	f32 width = (f32)platform->settings.video.resolution.width;
@@ -826,11 +837,19 @@ void debug_overlay_update(DebugOverlay *overlay, f32 dt)
 	for (int i = 0; i < overlay->menus.count; i++) {
 		DebugOverlayMenu &menu = overlay->menus[i];
 
+		if (menu.collapsed) {
+			bytes        = snprintf(buffer, buffer_size, "%s...\n", menu.title);
+			buffer += bytes;
+			buffer_size -= bytes;
+			continue;
+		}
+
 		bytes        = snprintf(buffer, buffer_size, "%s\n", menu.title);
 		buffer      += bytes;
 		buffer_size -= bytes;
 
-		if (!menu.collapsed) {
+		switch (menu.type) {
+		case DebugMenu_allocators: {
 			for (int i = 0; i < menu.items.count; i++) {
 				DebugOverlayItem &item = menu.items[i];
 
@@ -856,6 +875,21 @@ void debug_overlay_update(DebugOverlay *overlay, f32 dt)
 					break;
 				}
 			}
+		} break;
+		case DebugMenu_profile_timers: {
+			for (int i = 0; i < g_profile_timers_prev.count; i++) {
+				ProfileTimer &timer = g_profile_timers[i];
+
+				bytes = snprintf(buffer, buffer_size,
+				                 "  %s: %" PRIu64 " cy (%" PRIu64 " cy)\n",
+				                 timer.name, timer.cycles, timer.cycles_prev);
+				buffer += bytes;
+				buffer_size -= bytes;
+			}
+		} break;
+		default:
+			DEBUG_LOG("unknown debug menu type: %d", menu.type);
+			break;
 		}
 	}
 
