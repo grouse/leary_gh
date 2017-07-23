@@ -39,6 +39,7 @@ struct Entity {
 struct RenderedText {
 	VulkanBuffer buffer;
 	i32          vertex_count;
+	Vector3      position;
 };
 
 struct IndexRenderObject {
@@ -106,6 +107,12 @@ struct DebugOverlay {
 	RenderedText    text;
 	stbtt_bakedchar font[256];
 
+	struct {
+		VulkanBuffer buffer;
+		i32          vertex_count;
+		Vector3      position;
+	} texture;
+
 	Array<DebugOverlayMenu> menus;
 
 	bool profile_timers = true;
@@ -132,6 +139,7 @@ struct GameState {
 		VulkanTexture font;
 		VulkanTexture cube;
 		VulkanTexture player;
+		VulkanTexture heightmap;
 	} textures;
 
 	struct {
@@ -150,8 +158,6 @@ struct GameState {
 
 	Array<RenderObject> render_objects;
 	Array<IndexRenderObject> index_render_objects;
-
-	VkCommandBuffer     *command_buffers;
 
 	Vector3 velocity = {};
 
@@ -385,20 +391,7 @@ void game_init(GameMemory *memory, PlatformState *platform)
 	game->render_objects = array_create<RenderObject>(&memory->persistent, 20);
 	game->index_render_objects = array_create<IndexRenderObject>(&memory->persistent, 20);
 
-	VkResult result;
 	game->vulkan = device_create(memory, platform, &platform->settings);
-
-	game->command_buffers = alloc_array<VkCommandBuffer>(&memory->persistent, 5);
-	VkCommandBufferAllocateInfo allocate_info = {};
-	allocate_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-	allocate_info.commandPool        = game->vulkan.command_pool;
-	allocate_info.level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-	allocate_info.commandBufferCount = 1;
-
-	result = vkAllocateCommandBuffers(game->vulkan.handle,
-	                                  &allocate_info,
-	                                  game->command_buffers);
-	DEBUG_ASSERT(result == VK_SUCCESS);
 
 	// create font atlas
 	{
@@ -418,7 +411,25 @@ void game_init(GameMemory *memory, PlatformState *platform)
 		                                    components);
 
 		game->overlay.text.vertex_count = 0;
+		// TODO(jesper): this size is really wrong
 		game->overlay.text.buffer = buffer_create_vbo(&game->vulkan, 1024*1024);
+	}
+
+	{
+		f32 vertices[] = {
+			0.0f, 0.0f, 0.2f,  0.0f, 0.0f,
+			1.0f, 0.0f, 0.2f,  1.0f, 0.0f,
+			1.0f, 1.0f, 0.2f,  1.0f, 1.0f,
+
+			1.0f, 1.0f, 0.2f,  1.0f, 1.0f,
+			0.0f, 1.0f, 0.2f,  0.0f, 1.0f,
+			0.0f, 0.0f, 0.2f,  0.0f, 0.0f,
+		};
+
+		game->overlay.texture.vertex_count = 6;
+		game->overlay.texture.buffer = buffer_create_vbo(&game->vulkan,
+		                                                 vertices,
+		                                                 sizeof(vertices) * sizeof(f32));
 	}
 
 	{
@@ -441,6 +452,18 @@ void game_init(GameMemory *memory, PlatformState *platform)
 		                                       player.width, player.height,
 		                                       player.format, player.data,
 		                                       VkComponentMapping{});
+	}
+
+	{
+		Texture heightmap = texture_load_bmp("player.bmp");
+		DEBUG_ASSERT(heightmap.size > 0);
+
+		game->textures.heightmap = texture_create(&game->vulkan,
+		                                          heightmap.width,
+		                                          heightmap.height,
+		                                          heightmap.format,
+		                                          heightmap.data,
+		                                          VkComponentMapping{});
 	}
 
 
@@ -587,10 +610,12 @@ void game_quit(GameMemory *memory, PlatformState *platform)
 	vkQueueWaitIdle(game->vulkan.queue);
 
 	buffer_destroy(&game->vulkan, game->overlay.text.buffer);
+	buffer_destroy(&game->vulkan, game->overlay.texture.buffer);
 
 	texture_destroy(&game->vulkan, game->textures.font);
 	texture_destroy(&game->vulkan, game->textures.cube);
 	texture_destroy(&game->vulkan, game->textures.player);
+	texture_destroy(&game->vulkan, game->textures.heightmap);
 
 	material_destroy(&game->vulkan, &game->materials.font);
 	material_destroy(&game->vulkan, &game->materials.phong);
@@ -963,31 +988,12 @@ void game_render(GameMemory *memory)
 
 	u32 image_index = swapchain_acquire(&game->vulkan);
 
-	auto clear_values = alloc_array<VkClearValue>(&memory->stack, 2);
-	clear_values[0].color        = { {1.0f, 0.0f, 0.0f, 0.0f} };
-	clear_values[1].depthStencil = { 1.0f, 0 };
-
-	VkRenderPassBeginInfo render_info = {};
-	render_info.sType             = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-	render_info.renderPass        = game->vulkan.renderpass;
-	render_info.framebuffer       = game->vulkan.framebuffers[image_index];
-	render_info.renderArea.offset = { 0, 0 };
-	render_info.renderArea.extent = game->vulkan.swapchain.extent;
-	render_info.clearValueCount   = 2;
-	render_info.pClearValues      = clear_values;
 
 	VkDeviceSize offsets[] = { 0 };
 	VkResult result;
 
-	VkCommandBufferBeginInfo begin_info = {};
-	begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	begin_info.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
-
-	VkCommandBuffer command = game->command_buffers[0];
-	result = vkBeginCommandBuffer(command, &begin_info);
-	DEBUG_ASSERT(result == VK_SUCCESS);
-
-	vkCmdBeginRenderPass(command, &render_info, VK_SUBPASS_CONTENTS_INLINE);
+	VkCommandBuffer command = command_buffer_begin(&game->vulkan);
+	renderpass_begin(&game->vulkan, command, image_index);
 
 	for (i32 i = 0; i < game->render_objects.count; i++) {
 		RenderObject &object = game->render_objects[i];
@@ -1052,8 +1058,8 @@ void game_render(GameMemory *memory)
 		Matrix4 r = Matrix4::make(e->rotation);
 		t = t * r;
 
-		vkCmdPushConstants(command, object.pipeline.layout, VK_SHADER_STAGE_VERTEX_BIT,
-		                   0, sizeof(t), &t);
+		vkCmdPushConstants(command, object.pipeline.layout,
+		                   VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(t), &t);
 
 		vkCmdDrawIndexed(command, object.index_count, 1, 0, 0, 0);
 	}
@@ -1084,49 +1090,48 @@ void game_render(GameMemory *memory)
 		vkCmdDraw(command, game->overlay.text.vertex_count, 1, 0, 0);
 	}
 
+	renderpass_end(command);
+	command_buffer_end(&game->vulkan, command, false);
 
-	vkCmdEndRenderPass(command);
+#if 0
+	// TODO(jesper): we need a new render pass here that doesn't clear the
+	// screen, or something along those lines.
+	command = command_buffer_begin(&game->vulkan);
+	renderpass_begin(&game->vulkan, command, image_index);
+	{
+		vkCmdBindPipeline(command,
+		                  VK_PIPELINE_BIND_POINT_GRAPHICS,
+		                  game->pipelines.font.handle);
 
-	result = vkEndCommandBuffer(command);
-	DEBUG_ASSERT(result == VK_SUCCESS);
 
-	VkPipelineStageFlags wait_stages[] = {
-		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
-	};
+		auto descriptors = array_create<VkDescriptorSet>(&memory->stack);
+		array_add(&descriptors, game->materials.font.descriptor_set);
 
-	VkSemaphore signal_semaphores[] = {
-		game->vulkan.render_completed
-	};
+		vkCmdBindDescriptorSets(command,
+		                        VK_PIPELINE_BIND_POINT_GRAPHICS,
+		                        game->pipelines.font.layout,
+		                        0,
+		                        (i32)descriptors.count, descriptors.data,
+		                        0, nullptr);
+		vkCmdBindVertexBuffers(command, 0, 1,
+		                       &game->overlay.texture.buffer.handle, offsets);
+		vkCmdDraw(command, game->overlay.texture.vertex_count, 1, 0, 0);
+	}
+	renderpass_end(command);
+	command_buffer_end(&game->vulkan, command, false);
+#endif
 
-	VkSubmitInfo present_submit_info = {};
-	present_submit_info.sType                = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-	present_submit_info.waitSemaphoreCount   = 1;
-	present_submit_info.pWaitSemaphores      = &game->vulkan.swapchain.available;
-	present_submit_info.pWaitDstStageMask    = wait_stages;
-	present_submit_info.commandBufferCount   = 1;
-	present_submit_info.pCommandBuffers      = game->command_buffers;
-	present_submit_info.signalSemaphoreCount = 1;
-	present_submit_info.pSignalSemaphores    = signal_semaphores;
 
-	result = vkQueueSubmit(game->vulkan.queue, 1, &present_submit_info, VK_NULL_HANDLE);
-	DEBUG_ASSERT(result == VK_SUCCESS);
 
-	VkSemaphore wait_semaphores[] = {
-		game->vulkan.render_completed
-	};
+	submit_semaphore_wait(&game->vulkan,
+	                      game->vulkan.swapchain.available,
+	                      VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+	submit_semaphore_signal(&game->vulkan, game->vulkan.render_completed);
+	submit_frame(&game->vulkan);
 
-	VkSwapchainKHR swapchains[] = {
-		game->vulkan.swapchain.handle
-	};
-	VkPresentInfoKHR present_info = {};
-	present_info.sType              = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-	present_info.waitSemaphoreCount = 1;
-	present_info.pWaitSemaphores    = wait_semaphores; present_info.swapchainCount     = 1;
-	present_info.pSwapchains        = swapchains;
-	present_info.pImageIndices      = &image_index;
+	present_semaphore(&game->vulkan, game->vulkan.render_completed);
+	present_frame(&game->vulkan, image_index);
 
-	result = vkQueuePresentKHR(game->vulkan.queue, &present_info);
-	DEBUG_ASSERT(result == VK_SUCCESS);
 
 	PROFILE_START(vulkan_swap);
 	result = vkQueueWaitIdle(game->vulkan.queue);

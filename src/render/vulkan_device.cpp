@@ -216,7 +216,7 @@ bool has_stencil(VkFormat format)
 	       format == VK_FORMAT_D24_UNORM_S8_UINT;
 }
 
-VkCommandBuffer begin_command_buffer(VulkanDevice *device)
+VkCommandBuffer command_buffer_begin(VulkanDevice *device)
 {
 	// TODO(jesper): don't allocate command buffers on demand; allocate a big
 	// pool of them in the device init and keep a freelist if unused ones, or
@@ -241,27 +241,106 @@ VkCommandBuffer begin_command_buffer(VulkanDevice *device)
 	return buffer;
 }
 
-void end_command_buffer(VulkanDevice *device, VkCommandBuffer buffer)
+void present_semaphore(VulkanDevice *device, VkSemaphore semaphore)
+{
+	array_add(&device->present_semaphores, semaphore);
+}
+
+void present_frame(VulkanDevice *device, u32 image)
+{
+	VkPresentInfoKHR info = {};
+	info.sType              = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+	info.waitSemaphoreCount = device->present_semaphores.count;
+	info.pWaitSemaphores    = device->present_semaphores.data;
+	info.swapchainCount     = 1;
+	info.pSwapchains        = &device->swapchain.handle;
+	info.pImageIndices      = &image;
+
+	VkResult result = vkQueuePresentKHR(device->queue, &info);
+	DEBUG_ASSERT(result == VK_SUCCESS);
+
+	device->present_semaphores.count = 0;
+}
+
+void submit_semaphore_wait(VulkanDevice *device,
+                           VkSemaphore semaphore,
+                           VkPipelineStageFlags stage)
+{
+	array_add(&device->semaphores_submit_wait,        semaphore);
+	array_add(&device->semaphores_submit_wait_stages, stage);
+}
+
+void submit_semaphore_signal(VulkanDevice *device, VkSemaphore semaphore)
+{
+	array_add(&device->semaphores_submit_signal, semaphore);
+}
+
+void submit_frame(VulkanDevice *device)
+{
+	VkSubmitInfo info = {};
+	info.sType                = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+
+	info.commandBufferCount   = device->commands_queued.count;
+	info.pCommandBuffers      = device->commands_queued.data;
+
+	info.waitSemaphoreCount   = device->semaphores_submit_wait.count;
+	info.pWaitSemaphores      = device->semaphores_submit_wait.data;
+	info.pWaitDstStageMask    = device->semaphores_submit_wait_stages.data;
+
+	info.signalSemaphoreCount = device->semaphores_submit_signal.count;
+	info.pSignalSemaphores    = device->semaphores_submit_signal.data;
+
+
+	vkQueueSubmit(device->queue, 1, &info, VK_NULL_HANDLE);
+	vkQueueWaitIdle(device->queue);
+
+	// TODO(jesper): move the command buffers into a free list instead of
+	// actually freeing them, to be reset and reused with
+	// command_buffer_begin
+	vkFreeCommandBuffers(device->handle, device->command_pool,
+		                 device->commands_queued.count,
+		                 device->commands_queued.data);
+
+	device->commands_queued.count          = 0;
+	device->semaphores_submit_wait.count   = 0;
+	device->semaphores_submit_signal.count = 0;
+}
+
+void renderpass_end(VkCommandBuffer cmd)
+{
+	vkCmdEndRenderPass(cmd);
+}
+
+void renderpass_begin(VulkanDevice *device, VkCommandBuffer cmd, u32 image)
+{
+	VkClearValue clear_values[2];
+	clear_values[0].color        = { {1.0f, 0.0f, 0.0f, 0.0f} };
+	clear_values[1].depthStencil = { 1.0f, 0 };
+
+	VkRenderPassBeginInfo info = {};
+	info.sType             = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+	info.renderPass        = device->renderpass;
+	info.framebuffer       = device->framebuffers[image];
+	info.renderArea.offset = { 0, 0 };
+	info.renderArea.extent = device->swapchain.extent;
+	info.clearValueCount   = 2;
+	info.pClearValues      = clear_values;
+
+	vkCmdBeginRenderPass(cmd, &info, VK_SUBPASS_CONTENTS_INLINE);
+}
+
+void command_buffer_end(VulkanDevice *device,
+                        VkCommandBuffer buffer,
+                        bool submit = true)
 {
 	VkResult result = vkEndCommandBuffer(buffer);
 	DEBUG_ASSERT(result == VK_SUCCESS);
 
-	VkSubmitInfo info = {};
-	info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-	info.commandBufferCount = 1;
-	info.pCommandBuffers = &buffer;
+	array_add(&device->commands_queued, buffer);
 
-	// TODO(jesper): we just submit to the graphics queue right now, good enough
-	// for the forseable future but eventually there'll be compute
-	// TODO(jesper): look into pooling up ready-to-submit command buffers and
-	// submit them in a big batch, might be faster?
-	vkQueueSubmit(device->queue, 1, &info, VK_NULL_HANDLE);
-	// TODO(jesper): this seems like a bad idea, a better idea is probably to be
-	// using semaphores and barriers, or let the caller decide whether it needs
-	// to wait for everything to finish
-	vkQueueWaitIdle(device->queue);
-
-	vkFreeCommandBuffers(device->handle, device->command_pool, 1, &buffer);
+	if (submit) {
+		submit_frame(device);
+	}
 }
 
 void image_transition(VkCommandBuffer command,
@@ -349,9 +428,9 @@ void image_transition_immediate(VulkanDevice *device,
                                 VkImageLayout src,
                                 VkImageLayout dst)
 {
-	VkCommandBuffer command = begin_command_buffer(device);
+	VkCommandBuffer command = command_buffer_begin(device);
 	image_transition(command, image, format, src, dst);
-	end_command_buffer(device, command);
+	command_buffer_end(device, command);
 }
 
 VkImage image_create(VulkanDevice *device,
@@ -1684,7 +1763,7 @@ void image_copy(VulkanDevice *device,
                 u32 width, u32 height,
                 VkImage src, VkImage dst)
 {
-	VkCommandBuffer command = begin_command_buffer(device);
+	VkCommandBuffer command = command_buffer_begin(device);
 
 	// TODO(jesper): support mip layers
 	VkImageSubresourceLayers subresource = {};
@@ -1709,7 +1788,7 @@ void image_copy(VulkanDevice *device,
 	               dst, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 	               1, &region);
 
-	end_command_buffer(device, command);
+	command_buffer_end(device, command);
 }
 
 
@@ -2184,6 +2263,15 @@ VulkanDevice device_create(GameMemory *memory,
 		                             nullptr,
 		                             &device.command_pool);
 		DEBUG_ASSERT(result == VK_SUCCESS);
+
+		device.commands_queued               = array_create<VkCommandBuffer>(&memory->free_list);
+
+		device.semaphores_submit_wait        = array_create<VkSemaphore>(&memory->free_list);
+		device.semaphores_submit_wait_stages = array_create<VkPipelineStageFlags>(&memory->free_list);
+
+		device.semaphores_submit_signal      = array_create<VkSemaphore>(&memory->free_list);
+
+		device.present_semaphores = array_create<VkSemaphore>(&memory->free_list);
 	}
 
 
@@ -2308,22 +2396,6 @@ VulkanDevice device_create(GameMemory *memory,
 	                           &device.render_completed);
 	DEBUG_ASSERT(result == VK_SUCCESS);
 
-	/**************************************************************************
-	 * Create VkCommandBuffer for frame
-	 *************************************************************************/
-	{
-		// NOTE: we want to allocate all the command buffers we're going to need
-		// in the game at once.
-		VkCommandBufferAllocateInfo allocate_info = {};
-		allocate_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-		allocate_info.commandPool        = device.command_pool;
-		allocate_info.level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-		allocate_info.commandBufferCount = 1;
-
-		result = vkAllocateCommandBuffers(device.handle, &allocate_info, &device.cmd_present);
-		DEBUG_ASSERT(result == VK_SUCCESS);
-	}
-
 	return device;
 }
 
@@ -2393,7 +2465,6 @@ void vulkan_destroy(VulkanDevice *device)
 	vkDestroyRenderPass(device->handle, device->renderpass, nullptr);
 
 
-	vkFreeCommandBuffers(device->handle, device->command_pool, 1, &device->cmd_present);
 	vkDestroyCommandPool(device->handle, device->command_pool, nullptr);
 
 
@@ -2462,7 +2533,7 @@ VulkanBuffer buffer_create(VulkanDevice *device,
 
 void buffer_copy(VulkanDevice *device, VkBuffer src, VkBuffer dst, VkDeviceSize size)
 {
-	VkCommandBuffer command = begin_command_buffer(device);
+	VkCommandBuffer command = command_buffer_begin(device);
 
 	VkBufferCopy region = {};
 	region.srcOffset    = 0;
@@ -2471,7 +2542,7 @@ void buffer_copy(VulkanDevice *device, VkBuffer src, VkBuffer dst, VkDeviceSize 
 
 	vkCmdCopyBuffer(command, src, dst, 1, &region);
 
-	end_command_buffer(device, command);
+	command_buffer_end(device, command, true);
 }
 
 VulkanBuffer buffer_create_vbo(VulkanDevice *device, void *data, usize size)

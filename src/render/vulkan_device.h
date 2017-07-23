@@ -127,9 +127,14 @@ struct VulkanDevice {
 	VkSemaphore              render_completed;
 
 	VkCommandPool            command_pool;
-	VkCommandBuffer          cmd_present;
-
 	VkRenderPass             renderpass;
+
+	Array<VkCommandBuffer>      commands_queued;
+	Array<VkSemaphore>          semaphores_submit_wait;
+	Array<VkPipelineStageFlags> semaphores_submit_wait_stages;
+	Array<VkSemaphore>          semaphores_submit_signal;
+
+	Array<VkSemaphore>          present_semaphores;
 
 	StaticArray<VkFramebuffer> framebuffers;
 };

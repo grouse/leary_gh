@@ -38,6 +38,28 @@ PACKED(struct BitmapHeader {
 	u32 colors_important;
 });
 
+Texture texture_load_r16(const char *filename, u32 width, u32 height)
+{
+	Texture texture = {};
+
+	usize size;
+	char *path = platform_resolve_path(GamePath_textures, filename);
+	defer { free(path); };
+
+	char *file = platform_file_read(path, &size);
+	if (!file) {
+		return texture;
+	}
+
+	texture.width  = width;
+	texture.height = height;
+	texture.size   = size;
+	texture.data   = file;
+	texture.format = VK_FORMAT_R16_UNORM;
+
+	return texture;
+}
+
 Texture texture_load_bmp(const char *filename)
 {
 	Texture texture = {};
@@ -146,4 +168,3 @@ Texture texture_load_bmp(const char *filename)
 
 	return texture;
 }
-
