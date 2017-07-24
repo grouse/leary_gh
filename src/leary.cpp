@@ -29,6 +29,9 @@
 
 #include "core/serialize.cpp"
 
+Matrix4 g_screen_to_view;
+Matrix4 g_view_to_screen;
+
 struct Entity {
 	i32        id;
 	i32        index;
@@ -38,7 +41,6 @@ struct Entity {
 
 struct RenderedText {
 	VulkanBuffer buffer;
-	i32          vertex_count;
 	Vector3      position;
 };
 
@@ -104,6 +106,7 @@ struct DebugOverlayMenu {
 
 struct DebugOverlay {
 	char            *buffer;
+	i32 vertex_count = 0;
 	RenderedText    text;
 	stbtt_bakedchar font[256];
 
@@ -154,7 +157,6 @@ struct GameState {
 	Physics physics;
 
 	Camera fp_camera;
-	Camera ui_camera;
 
 	Array<RenderObject> render_objects;
 	Array<IndexRenderObject> index_render_objects;
@@ -240,27 +242,26 @@ i32 physics_id(Physics *physics, i32 entity_id)
 	return id;
 }
 
-void render_font(GameMemory *memory,
-                 stbtt_bakedchar *font,
-                 const char *str,
-                 float x, float y,
-                 RenderedText *text)
+usize render_font(GameMemory *memory,
+                  stbtt_bakedchar *font,
+                  const char *str,
+                  Vector3 pos,
+                  i32 *out_vertex_count,
+                  void *buffer, usize offset)
 {
-	GameState *game = (GameState*)memory->game;
-	i32 offset = 0;
+	i32 vertex_count = 0;
 
 	usize text_length = strlen(str);
-	if (text_length == 0) return;
+	if (text_length == 0) return 0;
 
 	usize vertices_size = sizeof(f32)*30*text_length;
 	auto vertices = (f32*)alloc(&memory->frame, vertices_size);
 
-	text->vertex_count = 0;
-
-	Matrix4 camera = translate(game->ui_camera.view, {x, y, 0.0f});
+	Matrix4 t = translate(g_screen_to_view, pos);
 
 	float tmp_x = 0.0f, tmp_y = 0.0f;
 
+	i32 vi = 0;
 	while (*str) {
 		char c = *str++;
 		if (c == '\n') {
@@ -269,60 +270,57 @@ void render_font(GameMemory *memory,
 			continue;
 		}
 
-		text->vertex_count += 6;
+		vertex_count += 6;
 
 		stbtt_aligned_quad q = {};
 		stbtt_GetBakedQuad(font, 1024, 1024, c, &tmp_x, &tmp_y, &q, 1);
 
-		Vector3 tl = camera * Vector3{q.x0, q.y0 + 15.0f, 0.0f};
-		Vector3 tr = camera * Vector3{q.x1, q.y0 + 15.0f, 0.0f};
-		Vector3 br = camera * Vector3{q.x1, q.y1 + 15.0f, 0.0f};
-		Vector3 bl = camera * Vector3{q.x0, q.y1 + 15.0f, 0.0f};
+		Vector3 tl = t * Vector3{q.x0, q.y0 + 15.0f, 0.0f};
+		Vector3 tr = t * Vector3{q.x1, q.y0 + 15.0f, 0.0f};
+		Vector3 br = t * Vector3{q.x1, q.y1 + 15.0f, 0.0f};
+		Vector3 bl = t * Vector3{q.x0, q.y1 + 15.0f, 0.0f};
 
-		vertices[offset++] = tl.x;
-		vertices[offset++] = tl.y;
-		vertices[offset++] = 0.2f;
-		vertices[offset++] = q.s0;
-		vertices[offset++] = q.t0;
+		vertices[vi++] = tl.x;
+		vertices[vi++] = tl.y;
+		vertices[vi++] = tl.z;
+		vertices[vi++] = q.s0;
+		vertices[vi++] = q.t0;
 
-		vertices[offset++] = tr.x;
-		vertices[offset++] = tr.y;
-		vertices[offset++] = 0.2f;
-		vertices[offset++] = q.s1;
-		vertices[offset++] = q.t0;
+		vertices[vi++] = tr.x;
+		vertices[vi++] = tr.y;
+		vertices[vi++] = tr.z;
+		vertices[vi++] = q.s1;
+		vertices[vi++] = q.t0;
 
-		vertices[offset++] = br.x;
-		vertices[offset++] = br.y;
-		vertices[offset++] = 0.2f;
-		vertices[offset++] = q.s1;
-		vertices[offset++] = q.t1;
+		vertices[vi++] = br.x;
+		vertices[vi++] = br.y;
+		vertices[vi++] = br.z;
+		vertices[vi++] = q.s1;
+		vertices[vi++] = q.t1;
 
-		vertices[offset++] = br.x;
-		vertices[offset++] = br.y;
-		vertices[offset++] = 0.2f;
-		vertices[offset++] = q.s1;
-		vertices[offset++] = q.t1;
+		vertices[vi++] = br.x;
+		vertices[vi++] = br.y;
+		vertices[vi++] = br.z;
+		vertices[vi++] = q.s1;
+		vertices[vi++] = q.t1;
 
-		vertices[offset++] = bl.x;
-		vertices[offset++] = bl.y;
-		vertices[offset++] = 0.2f;
-		vertices[offset++] = q.s0;
-		vertices[offset++] = q.t1;
+		vertices[vi++] = bl.x;
+		vertices[vi++] = bl.y;
+		vertices[vi++] = bl.z;
+		vertices[vi++] = q.s0;
+		vertices[vi++] = q.t1;
 
-		vertices[offset++] = tl.x;
-		vertices[offset++] = tl.y;
-		vertices[offset++] = 0.2f;
-		vertices[offset++] = q.s0;
-		vertices[offset++] = q.t0;
+		vertices[vi++] = tl.x;
+		vertices[vi++] = tl.y;
+		vertices[vi++] = tl.z;
+		vertices[vi++] = q.s0;
+		vertices[vi++] = q.t0;
 	}
 
-	void *mapped;
-	vkMapMemory(game->vulkan.handle, text->buffer.memory,
-	            0, VK_WHOLE_SIZE,
-	            0, &mapped);
+	*out_vertex_count = vertex_count;
 
-	memcpy(mapped, vertices, vertices_size);
-	vkUnmapMemory(game->vulkan.handle, text->buffer.memory);
+	memcpy((void*)((uptr)buffer + offset), vertices, vertices_size);
+	return vertices_size;
 }
 
 void game_init(GameMemory *memory, PlatformState *platform)
@@ -382,16 +380,27 @@ void game_init(GameMemory *memory, PlatformState *platform)
 	//game->fp_camera.rotation = Quaternion::make({0.0f, 1.0f, 0.0f}, -0.5f * PI);
 	game->fp_camera.projection = Matrix4::perspective(vfov, aspect, 0.1f, 100.0f);
 
-	Matrix4 view = Matrix4::identity();
-	view[0].x = 2.0f / width;
-	view[1].y = 2.0f / height;
-	view[2].z = 1.0f;
-	game->ui_camera.view = view;
-
 	game->render_objects = array_create<RenderObject>(&memory->persistent, 20);
 	game->index_render_objects = array_create<IndexRenderObject>(&memory->persistent, 20);
 
 	game->vulkan = device_create(memory, platform, &platform->settings);
+
+	{
+		Matrix4 view = Matrix4::identity();
+		view[0].x = 2.0f / width;
+		view[1].y = 2.0f / height;
+		view[2].z = 1.0f;
+		g_screen_to_view = view;
+
+
+		view[0].x = width / 2.0f;
+		view[3].x = width / 2.0f;
+		view[1].y = height / 2.0f;
+		view[3].y = height/ 2.0f;
+		view[2].z = 1.0f;
+		g_view_to_screen = view;
+	}
+
 
 	// create font atlas
 	{
@@ -410,7 +419,6 @@ void game_init(GameMemory *memory, PlatformState *platform)
 		                                    VK_FORMAT_R8_UNORM, bitmap,
 		                                    components);
 
-		game->overlay.text.vertex_count = 0;
 		// TODO(jesper): this size is really wrong
 		game->overlay.text.buffer = buffer_create_vbo(&game->vulkan, 1024*1024);
 	}
@@ -845,7 +853,10 @@ void game_input(GameMemory *memory, PlatformState *platform, InputEvent event)
 	}
 }
 
-void debug_overlay_update(DebugOverlay *overlay, f32 dt)
+void debug_overlay_update(DebugOverlay *overlay,
+                          VulkanDevice *vulkan,
+                          GameMemory *memory,
+                          f32 dt)
 {
 	PROFILE_FUNCTION();
 
@@ -923,16 +934,23 @@ void debug_overlay_update(DebugOverlay *overlay, f32 dt)
 			break;
 		}
 	}
-}
 
-void debug_overlay_render(DebugOverlay *overlay, GameMemory *memory)
-{
-	PROFILE_FUNCTION();
+	usize offset = 0;
+	Vector3 pos = { -1.0f, -1.0f, 0.2f };
 
-	render_font(memory,
-	            overlay->font,
-	            overlay->buffer, -1.0f, -1.0,
-	            &overlay->text);
+	void *mapped;
+	vkMapMemory(vulkan->handle, overlay->text.buffer.memory,
+	            0, VK_WHOLE_SIZE,
+	            0, &mapped);
+
+	offset += render_font(memory,
+	                      overlay->font,
+	                      overlay->buffer,
+	                      pos,
+	                      &overlay->vertex_count,
+	                      mapped, offset);
+
+	vkUnmapMemory(vulkan->handle, overlay->text.buffer.memory);
 }
 
 void game_update(GameMemory *memory, f32 dt)
@@ -950,7 +968,7 @@ void game_update(GameMemory *memory, f32 dt)
 		player.rotation = player.rotation * r;
 	}
 
-	debug_overlay_update(&game->overlay, dt);
+	debug_overlay_update(&game->overlay, &game->vulkan, memory, dt);
 
 	physics_process(&game->physics, game, dt);
 
@@ -989,8 +1007,6 @@ void game_render(GameMemory *memory)
 	defer { alloc_reset(&memory->stack, sp); };
 
 	GameState *game = (GameState*)memory->game;
-
-	debug_overlay_render(&game->overlay, memory);
 
 	u32 image_index = swapchain_acquire(&game->vulkan);
 
@@ -1090,10 +1106,10 @@ void game_render(GameMemory *memory)
 	                        0, nullptr);
 
 
-	if (game->overlay.text.vertex_count > 0) {
+	if (game->overlay.vertex_count > 0) {
 		vkCmdBindVertexBuffers(command, 0, 1,
 		                       &game->overlay.text.buffer.handle, offsets);
-		vkCmdDraw(command, game->overlay.text.vertex_count, 1, 0, 0);
+		vkCmdDraw(command, game->overlay.vertex_count, 1, 0, 0);
 	}
 
 	renderpass_end(command);
