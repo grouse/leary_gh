@@ -267,6 +267,7 @@ void render_font(GameMemory *memory,
 		if (c == '\n') {
 			*y += 20.0f;
 			*x  = bx;
+			vertices_size -= sizeof(f32)*5*6;
 			continue;
 		}
 
