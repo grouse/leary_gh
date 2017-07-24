@@ -902,12 +902,18 @@ void debug_overlay_update(DebugOverlay *overlay, f32 dt)
 			}
 		} break;
 		case DebugMenu_profile_timers: {
+			bytes = snprintf(buffer, buffer_size,
+			                 "  name | cycles | # calls | cy/calls\n");
+			buffer += bytes;
+			buffer_size -= bytes;
+
 			for (int i = 0; i < g_profile_timers_prev.count; i++) {
 				ProfileTimer &timer = g_profile_timers_prev[i];
 
 				bytes = snprintf(buffer, buffer_size,
-				                 "  %s: %" PRIu64 " cy (%" PRIu64 " cy)\n",
-				                 timer.name, timer.cycles, timer.cycles_prev);
+				                 "  %s: %" PRIu64 " cy | %u | %f\n",
+				                 timer.name, timer.cycles, timer.calls,
+				                 timer.cycles / (f32)timer.calls);
 				buffer += bytes;
 				buffer_size -= bytes;
 			}

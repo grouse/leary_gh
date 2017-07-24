@@ -18,7 +18,7 @@
 struct ProfileTimer {
 	const char *name;
 	u64 cycles;
-	u64 cycles_prev;
+	u32 calls;
 	bool open;
 };
 

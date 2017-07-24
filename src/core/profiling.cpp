@@ -28,8 +28,8 @@ i32 profile_start_timer(const char *name)
 	for (i32 i = 0; i < g_profile_timers.count; i++) {
 		// TODO(jesper): hash the name and use as identifier
 		if (strcmp(name, g_profile_timers[i].name) == 0) {
-			g_profile_timers[i].open        = true;
-			g_profile_timers[i].cycles_prev = 0;
+			g_profile_timers[i].open = true;
+			g_profile_timers[i].calls++;
 			return i;
 		}
 	}
@@ -43,8 +43,9 @@ i32 profile_start_timer(const char *name)
 	// NOTE(jesper): assume the passed in string won't be deallocated, I don't
 	// see a use case for these functions where name isn't a pointer to a string
 	// literal, so it'll be fine
-	g_profile_timers[index].name = name;
-	g_profile_timers[index].open = true;
+	g_profile_timers[index].name  = name;
+	g_profile_timers[index].open  = true;
+	g_profile_timers[index].calls = 1;
 
 	DEBUG_LOG("new profile timer added: %d - %s", index, name);
 	return index;
@@ -54,7 +55,6 @@ void profile_end_timer(i32 index, i64 cycles)
 {
 	g_profile_timers[index].open         = false;
 	g_profile_timers[index].cycles      += cycles;
-	g_profile_timers[index].cycles_prev += cycles;
 
 	// TODO(jesper): this doesn't seem like the best solution for a hierarchical
 	// profile timer system. An O(n) look-up at both start and end is rather...
@@ -62,7 +62,6 @@ void profile_end_timer(i32 index, i64 cycles)
 	for (i32 i = 0; i < g_profile_timers.count; i++) {
 		if (g_profile_timers[i].open == true && i != index) {
 			g_profile_timers[i].cycles      -= cycles;
-			g_profile_timers[i].cycles_prev -= cycles;
 		}
 	}
 }
@@ -114,6 +113,7 @@ void profile_end_frame()
 
 	for (int i = 0; i < g_profile_timers.count; i++) {
 		g_profile_timers[i].cycles = 0;
+		g_profile_timers[i].calls  = 0;
 	}
 }
 
