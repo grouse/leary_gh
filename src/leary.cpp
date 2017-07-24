@@ -242,38 +242,38 @@ i32 physics_id(Physics *physics, i32 entity_id)
 	return id;
 }
 
-usize render_font(GameMemory *memory,
-                  stbtt_bakedchar *font,
-                  const char *str,
-                  Vector3 pos,
-                  i32 *out_vertex_count,
-                  void *buffer, usize offset)
+void render_font(GameMemory *memory,
+                 stbtt_bakedchar *font,
+                 const char *str,
+                 f32 *x, float *y,
+                 i32 *out_vertex_count,
+                 void *buffer, usize *offset)
 {
 	i32 vertex_count = 0;
 
 	usize text_length = strlen(str);
-	if (text_length == 0) return 0;
+	if (text_length == 0) return;
 
 	usize vertices_size = sizeof(f32)*30*text_length;
 	auto vertices = (f32*)alloc(&memory->frame, vertices_size);
 
-	Matrix4 t = translate(g_screen_to_view, pos);
+	Matrix4 t = g_screen_to_view;
 
-	float tmp_x = 0.0f, tmp_y = 0.0f;
+	f32 bx = *x;
 
 	i32 vi = 0;
 	while (*str) {
 		char c = *str++;
 		if (c == '\n') {
-			tmp_y += 20.0f;
-			tmp_x  = 0.0f;
+			*y += 20.0f;
+			*x  = bx;
 			continue;
 		}
 
 		vertex_count += 6;
 
 		stbtt_aligned_quad q = {};
-		stbtt_GetBakedQuad(font, 1024, 1024, c, &tmp_x, &tmp_y, &q, 1);
+		stbtt_GetBakedQuad(font, 1024, 1024, c, x, y, &q, 1);
 
 		Vector3 tl = t * Vector3{q.x0, q.y0 + 15.0f, 0.0f};
 		Vector3 tr = t * Vector3{q.x1, q.y0 + 15.0f, 0.0f};
@@ -317,10 +317,10 @@ usize render_font(GameMemory *memory,
 		vertices[vi++] = q.t0;
 	}
 
-	*out_vertex_count = vertex_count;
+	*out_vertex_count += vertex_count;
 
-	memcpy((void*)((uptr)buffer + offset), vertices, vertices_size);
-	return vertices_size;
+	memcpy((void*)((uptr)buffer + *offset), vertices, vertices_size);
+	*offset += vertices_size;
 }
 
 void game_init(GameMemory *memory, PlatformState *platform)
@@ -330,7 +330,6 @@ void game_init(GameMemory *memory, PlatformState *platform)
 
 	profile_init(&platform->memory);
 
-	game->overlay.buffer = (char*)alloc(&memory->persistent, 1024 * 1024);
 	game->overlay.menus  = array_create<DebugOverlayMenu>(&memory->free_list);
 	{
 		DebugOverlayMenu allocators;
@@ -394,9 +393,7 @@ void game_init(GameMemory *memory, PlatformState *platform)
 
 
 		view[0].x = width / 2.0f;
-		view[3].x = width / 2.0f;
 		view[1].y = height / 2.0f;
-		view[3].y = height/ 2.0f;
 		view[2].z = 1.0f;
 		g_view_to_screen = view;
 	}
@@ -859,30 +856,44 @@ void debug_overlay_update(DebugOverlay *overlay,
                           f32 dt)
 {
 	PROFILE_FUNCTION();
+	void *sp = memory->stack.stack.sp;
+	defer { alloc_reset(&memory->stack, sp); };
+
+	usize offset = 0;
+	Vector3 pos = { -1.0f, -1.0f, 0.2f };
+	pos = g_view_to_screen * pos;
+
+	overlay->vertex_count = 0;
+
+	void *mapped;
+	vkMapMemory(vulkan->handle, overlay->text.buffer.memory,
+	            0, VK_WHOLE_SIZE,
+	            0, &mapped);
+
 
 	isize buffer_size = 1024*1024;
-	char *buffer = overlay->buffer;
+	char *buffer = (char*)alloc(&memory->stack, buffer_size);
 	buffer[0] = '\0';
 
 	f32 dt_ms = dt * 1000.0f;
-	i32 bytes = snprintf(buffer, buffer_size, "frametime: %f ms, %f fps\n",
-	                     dt_ms, 1000.0f / dt_ms);
-	buffer += bytes;
-	buffer_size -= bytes;
+	snprintf(buffer, buffer_size, "frametime: %f ms, %f fps\n",
+	         dt_ms, 1000.0f / dt_ms);
+	render_font(memory, overlay->font, buffer, &pos.x, &pos.y,
+	            &overlay->vertex_count, mapped, &offset);
 
 	for (int i = 0; i < overlay->menus.count; i++) {
 		DebugOverlayMenu &menu = overlay->menus[i];
 
 		if (menu.collapsed) {
-			bytes        = snprintf(buffer, buffer_size, "%s...\n", menu.title);
-			buffer += bytes;
-			buffer_size -= bytes;
+			snprintf(buffer, buffer_size, "%s...\n", menu.title);
+			render_font(memory, overlay->font, buffer, &pos.x, &pos.y,
+			            &overlay->vertex_count, mapped, &offset);
 			continue;
 		}
 
-		bytes        = snprintf(buffer, buffer_size, "%s\n", menu.title);
-		buffer      += bytes;
-		buffer_size -= bytes;
+		snprintf(buffer, buffer_size, "%s\n", menu.title);
+		render_font(memory, overlay->font, buffer, &pos.x, &pos.y,
+		            &overlay->vertex_count, mapped, &offset);
 
 		switch (menu.type) {
 		case DebugMenu_allocators: {
@@ -892,19 +903,23 @@ void debug_overlay_update(DebugOverlay *overlay,
 				switch (item.type) {
 				case Debug_allocator_stack: {
 					Allocator *a = (Allocator*)item.data;
-					bytes = snprintf(buffer, buffer_size,
-					                 "  %s: { sp: %p, size: %ld, remaining: %ld }\n",
-					                 item.name, a->stack.sp, a->size, a->remaining);
-					buffer += bytes;
-					buffer_size -= bytes;
+					snprintf(buffer, buffer_size,
+					         "  %s: { sp: %p, size: %ld, remaining: %ld }\n",
+					         item.name, a->stack.sp, a->size, a->remaining);
+					render_font(memory, overlay->font, buffer,
+					            &pos.x, &pos.y,
+					            &overlay->vertex_count,
+					            mapped, &offset);
 				} break;
 				case Debug_allocator_free_list: {
 					Allocator *a = (Allocator*)item.data;
-					bytes = snprintf(buffer, buffer_size,
-					                 "  %s: { size: %ld, remaining: %ld }\n",
-					                 item.name, a->size, a->remaining);
-					buffer += bytes;
-					buffer_size -= bytes;
+					snprintf(buffer, buffer_size,
+					         "  %s: { size: %ld, remaining: %ld }\n",
+					         item.name, a->size, a->remaining);
+					render_font(memory, overlay->font, buffer,
+					            &pos.x, &pos.y,
+					            &overlay->vertex_count,
+					            mapped, &offset);
 				} break;
 				default:
 					DEBUG_LOG("unhandled case: %d", item.type);
@@ -913,20 +928,21 @@ void debug_overlay_update(DebugOverlay *overlay,
 			}
 		} break;
 		case DebugMenu_profile_timers: {
-			bytes = snprintf(buffer, buffer_size,
-			                 "  name | cycles | # calls | cy/calls\n");
-			buffer += bytes;
-			buffer_size -= bytes;
+			snprintf(buffer, buffer_size,
+			         "  name | cycles | # calls | cy/calls\n");
+			render_font(memory, overlay->font, buffer, &pos.x, &pos.y,
+			            &overlay->vertex_count, mapped, &offset);
 
 			for (int i = 0; i < g_profile_timers_prev.count; i++) {
 				ProfileTimer &timer = g_profile_timers_prev[i];
 
-				bytes = snprintf(buffer, buffer_size,
-				                 "  %s: %" PRIu64 " cy | %u | %f\n",
-				                 timer.name, timer.cycles, timer.calls,
-				                 timer.cycles / (f32)timer.calls);
-				buffer += bytes;
-				buffer_size -= bytes;
+				snprintf(buffer, buffer_size,
+				         "  %s: %" PRIu64 " cy | %u | %f\n",
+				         timer.name, timer.cycles, timer.calls,
+				         timer.cycles / (f32)timer.calls);
+				render_font(memory, overlay->font, buffer,
+				            &pos.x, &pos.y, &overlay->vertex_count,
+				            mapped, &offset);
 			}
 		} break;
 		default:
@@ -934,21 +950,6 @@ void debug_overlay_update(DebugOverlay *overlay,
 			break;
 		}
 	}
-
-	usize offset = 0;
-	Vector3 pos = { -1.0f, -1.0f, 0.2f };
-
-	void *mapped;
-	vkMapMemory(vulkan->handle, overlay->text.buffer.memory,
-	            0, VK_WHOLE_SIZE,
-	            0, &mapped);
-
-	offset += render_font(memory,
-	                      overlay->font,
-	                      overlay->buffer,
-	                      pos,
-	                      &overlay->vertex_count,
-	                      mapped, offset);
 
 	vkUnmapMemory(vulkan->handle, overlay->text.buffer.memory);
 }
