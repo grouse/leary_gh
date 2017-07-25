@@ -105,9 +105,10 @@ struct DebugOverlayMenu {
 
 
 struct DebugOverlay {
-	char            *buffer;
-	i32 vertex_count = 0;
-	RenderedText    text;
+	VulkanBuffer vbo;
+	i32          vertex_count = 0;
+
+	f32             fsize = 20.0f;
 	stbtt_bakedchar font[256];
 
 	struct {
@@ -117,9 +118,6 @@ struct DebugOverlay {
 	} texture;
 
 	Array<DebugOverlayMenu> menus;
-
-	bool profile_timers = true;
-	bool allocators = true;
 };
 
 struct GameReloadState {
@@ -380,25 +378,23 @@ void game_init(GameMemory *memory, PlatformState *platform)
 	//game->fp_camera.rotation = Quaternion::make({0.0f, 1.0f, 0.0f}, -0.5f * PI);
 	game->fp_camera.projection = Matrix4::perspective(vfov, aspect, 0.1f, 100.0f);
 
-	game->render_objects = array_create<RenderObject>(&memory->persistent, 20);
+	game->render_objects       = array_create<RenderObject>(&memory->persistent, 20);
 	game->index_render_objects = array_create<IndexRenderObject>(&memory->persistent, 20);
 
 	game->vulkan = device_create(memory, platform, &platform->settings);
 
-	{
+	{ // coordinate bases
 		Matrix4 view = Matrix4::identity();
 		view[0].x = 2.0f / width;
 		view[1].y = 2.0f / height;
 		view[2].z = 1.0f;
 		g_screen_to_view = view;
 
-
 		view[0].x = width / 2.0f;
 		view[1].y = height / 2.0f;
 		view[2].z = 1.0f;
 		g_view_to_screen = view;
 	}
-
 
 	// create font atlas
 	{
@@ -408,8 +404,8 @@ void game_init(GameMemory *memory, PlatformState *platform)
 		u8 *font_data = (u8*)platform_file_read(font_path, &font_size);
 
 		u8 *bitmap = alloc_array<u8>(&memory->frame, 1024*1024);
-		stbtt_BakeFontBitmap(font_data, 0, 20.0, bitmap, 1024, 1024, 0,
-		                     256, game->overlay.font);
+		stbtt_BakeFontBitmap(font_data, 0, game->overlay.fsize, bitmap,
+		                     1024, 1024, 0, 256, game->overlay.font);
 
 		VkComponentMapping components = {};
 		components.a = VK_COMPONENT_SWIZZLE_R;
@@ -418,7 +414,7 @@ void game_init(GameMemory *memory, PlatformState *platform)
 		                                    components);
 
 		// TODO(jesper): this size is really wrong
-		game->overlay.text.buffer = buffer_create_vbo(&game->vulkan, 1024*1024);
+		game->overlay.vbo = buffer_create_vbo(&game->vulkan, 1024*1024);
 	}
 
 	{
@@ -615,7 +611,7 @@ void game_quit(GameMemory *memory, PlatformState *platform)
 
 	vkQueueWaitIdle(game->vulkan.queue);
 
-	buffer_destroy(&game->vulkan, game->overlay.text.buffer);
+	buffer_destroy(&game->vulkan, game->overlay.vbo);
 	buffer_destroy(&game->vulkan, game->overlay.texture.buffer);
 
 	texture_destroy(&game->vulkan, game->textures.font);
@@ -867,7 +863,7 @@ void debug_overlay_update(DebugOverlay *overlay,
 	overlay->vertex_count = 0;
 
 	void *mapped;
-	vkMapMemory(vulkan->handle, overlay->text.buffer.memory,
+	vkMapMemory(vulkan->handle, overlay->vbo.memory,
 	            0, VK_WHOLE_SIZE,
 	            0, &mapped);
 
@@ -929,22 +925,110 @@ void debug_overlay_update(DebugOverlay *overlay,
 			}
 		} break;
 		case DebugMenu_profile_timers: {
-			snprintf(buffer, buffer_size,
-			         "  name | cycles | # calls | cy/calls\n");
-			render_font(memory, overlay->font, buffer, &pos.x, &pos.y,
-			            &overlay->vertex_count, mapped, &offset);
+			f32 marginx   = 10.0f;
+			f32 min_width = 40.0f;
+
+			f32 c0x = pos.x + marginx;
+			f32 c1x, c2x, c3x;
+
+			f32 header_y = pos.y;
+			pos.y += overlay->fsize;
+
+			pos.x = c0x;
+			c0x   = pos.x;
+
+			f32 base_x = pos.x;
+			f32 base_y = pos.y;
+
+			f32 max_x  = base_x;
 
 			for (int i = 0; i < g_profile_timers_prev.count; i++) {
 				ProfileTimer &timer = g_profile_timers_prev[i];
 
-				snprintf(buffer, buffer_size,
-				         "  %s: %" PRIu64 " cy | %u | %f\n",
-				         timer.name, timer.cycles, timer.calls,
-				         timer.cycles / (f32)timer.calls);
-				render_font(memory, overlay->font, buffer,
-				            &pos.x, &pos.y, &overlay->vertex_count,
-				            mapped, &offset);
+				snprintf(buffer, buffer_size, "%s: ", timer.name);
+				render_font(memory, overlay->font, buffer, &pos.x, &pos.y,
+				            &overlay->vertex_count, mapped, &offset);
+
+				if (pos.x >= max_x) {
+					max_x = pos.x;
+				}
+
+				pos.x = base_x;
+				pos.y += overlay->fsize;
 			}
+			pos.y = base_y;
+
+			max_x += min_width;
+			pos.x  = max_x + marginx;
+			c1x    = pos.x;
+
+			base_x = pos.x;
+			for (int i = 0; i < g_profile_timers_prev.count; i++) {
+				ProfileTimer &timer = g_profile_timers_prev[i];
+
+				snprintf(buffer, buffer_size, "%" PRIu64, timer.cycles);
+				render_font(memory, overlay->font, buffer, &pos.x, &pos.y,
+				            &overlay->vertex_count, mapped, &offset);
+
+				if (pos.x >= max_x) {
+					max_x = pos.x;
+				}
+
+				pos.x = base_x;
+				pos.y += overlay->fsize;
+			}
+			pos.y = base_y;
+
+			max_x += min_width;
+			pos.x  = max_x + marginx;
+			c2x    = pos.x;
+
+			base_x = pos.x;
+			for (int i = 0; i < g_profile_timers_prev.count; i++) {
+				ProfileTimer &timer = g_profile_timers_prev[i];
+
+				snprintf(buffer, buffer_size, "%u", timer.calls);
+				render_font(memory, overlay->font, buffer, &pos.x, &pos.y,
+				            &overlay->vertex_count, mapped, &offset);
+
+				if (pos.x >= max_x) {
+					max_x = pos.x;
+				}
+
+				pos.x = base_x;
+				pos.y += overlay->fsize;
+			}
+			pos.y = base_y;
+
+			max_x += min_width;
+			pos.x  = max_x + marginx;
+			c3x    = pos.x;
+
+			base_x = pos.x;
+			for (int i = 0; i < g_profile_timers_prev.count; i++) {
+				ProfileTimer &timer = g_profile_timers_prev[i];
+
+				snprintf(buffer, buffer_size, "%f", timer.cycles / (f32)timer.calls);
+				render_font(memory, overlay->font, buffer, &pos.x, &pos.y,
+				            &overlay->vertex_count, mapped, &offset);
+
+				if (pos.x >= max_x) {
+					max_x = pos.x;
+				}
+
+				pos.x = base_x;
+				pos.y += overlay->fsize;
+			}
+
+			render_font(memory, overlay->font, "name", &c0x, &header_y,
+			            &overlay->vertex_count, mapped, &offset);
+			render_font(memory, overlay->font, "cycles", &c1x, &header_y,
+			            &overlay->vertex_count, mapped, &offset);
+			render_font(memory, overlay->font, "calls", &c2x, &header_y,
+			            &overlay->vertex_count, mapped, &offset);
+			render_font(memory, overlay->font, "cy/calls", &c3x, &header_y,
+			            &overlay->vertex_count, mapped, &offset);
+
 		} break;
 		default:
 			DEBUG_LOG("unknown debug menu type: %d", menu.type);
@@ -952,7 +1036,7 @@ void debug_overlay_update(DebugOverlay *overlay,
 		}
 	}
 
-	vkUnmapMemory(vulkan->handle, overlay->text.buffer.memory);
+	vkUnmapMemory(vulkan->handle, overlay->vbo.memory);
 }
 
 void game_update(GameMemory *memory, f32 dt)
@@ -1110,7 +1194,7 @@ void game_render(GameMemory *memory)
 
 	if (game->overlay.vertex_count > 0) {
 		vkCmdBindVertexBuffers(command, 0, 1,
-		                       &game->overlay.text.buffer.handle, offsets);
+		                       &game->overlay.vbo.handle, offsets);
 		vkCmdDraw(command, game->overlay.vertex_count, 1, 0, 0);
 	}
 
