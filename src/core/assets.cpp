@@ -55,7 +55,7 @@ Texture texture_load_r16(const char *filename, u32 width, u32 height)
 	texture.height = height;
 	texture.size   = size;
 	texture.data   = file;
-	texture.format = VK_FORMAT_R16_UNORM;
+	texture.format = VK_FORMAT_R16_SFLOAT;
 
 	return texture;
 }

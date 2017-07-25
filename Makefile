@@ -6,8 +6,8 @@ BUILD = ./build
 
 SPV_SRC = $(ROOT)/src/render/shaders
 SPV_DST = $(BUILD)/data/shaders
-SPV_VERT = $(addprefix $(SPV_DST)/,$(addsuffix .vert.spv,generic font mesh terrain))
-SPV_FRAG = $(addprefix $(SPV_DST)/,$(addsuffix .frag.spv,generic font mesh terrain))
+SPV_VERT = $(addprefix $(SPV_DST)/,$(addsuffix .vert.spv,generic basic2d mesh terrain))
+SPV_FRAG = $(addprefix $(SPV_DST)/,$(addsuffix .frag.spv,generic font basic2d mesh terrain))
 
 $(SPV_DST)/%.vert.spv: $(SPV_SRC)/%.vert
 	glslangValidator -V $< -o $@
@@ -40,9 +40,12 @@ models: | $(MODELS_DST) $(MODELS)
 
 TEXTURES_SRC = $(ROOT)/assets/textures
 TEXTURES_DST = $(BUILD)/data/textures
-TEXTURES = $(addprefix $(TEXTURES_DST)/,dummy.bmp player.bmp)
+TEXTURES = $(addprefix $(TEXTURES_DST)/,dummy.bmp player.bmp terrain.r16)
 
 $(TEXTURES_DST)/%.bmp: $(TEXTURES_SRC)/%.bmp
+	cp $< $@
+
+$(TEXTURES_DST)/%.r16: $(TEXTURES_SRC)/%.r16
 	cp $< $@
 
 textures: | $(TEXTURES_DST) $(TEXTURES)

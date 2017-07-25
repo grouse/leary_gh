@@ -28,7 +28,8 @@ enum ShaderID {
 	ShaderID_generic_frag,
 	ShaderID_mesh_vert,
 	ShaderID_mesh_frag,
-	ShaderID_font_vert,
+	ShaderID_basic2d_vert,
+	ShaderID_basic2d_frag,
 	ShaderID_font_frag,
 	ShaderID_terrain_vert,
 	ShaderID_terrain_frag
@@ -140,13 +141,13 @@ struct VulkanDevice {
 };
 
 enum MaterialID {
-	Material_font,
+	Material_basic2d,
 	Material_phong
 };
 
 enum ResourceSlot {
 	ResourceSlot_mvp,
-	ResourceSlot_font_atlas,
+	ResourceSlot_diffuse,
 	ResourceSlot_texture
 };
 

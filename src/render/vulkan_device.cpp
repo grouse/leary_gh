@@ -831,8 +831,8 @@ VulkanShader create_shader(VulkanDevice *device, ShaderID id)
 		free(source);
 		free(path);
 	} break;
-	case ShaderID_font_vert: {
-		char *path = platform_resolve_path(GamePath_shaders, "font.vert.spv");
+	case ShaderID_basic2d_vert: {
+		char *path = platform_resolve_path(GamePath_shaders, "basic2d.vert.spv");
 
 		usize size;
 		u32 *source = (u32*)platform_file_read(path, &size);
@@ -840,6 +840,26 @@ VulkanShader create_shader(VulkanDevice *device, ShaderID id)
 
 		shader.name   = "main";
 		shader.stage  = VK_SHADER_STAGE_VERTEX_BIT;
+
+		info.codeSize = size;
+		info.pCode    = source;
+
+		VkResult result = vkCreateShaderModule(device->handle, &info,
+		                                       nullptr, &shader.module);
+		DEBUG_ASSERT(result == VK_SUCCESS);
+
+		free(source);
+		free(path);
+	} break;
+	case ShaderID_basic2d_frag: {
+		char *path = platform_resolve_path(GamePath_shaders, "basic2d.frag.spv");
+
+		usize size;
+		u32 *source = (u32*)platform_file_read(path, &size);
+		DEBUG_ASSERT(source != nullptr);
+
+		shader.name   = "main";
+		shader.stage  = VK_SHADER_STAGE_FRAGMENT_BIT;
 
 		info.codeSize = size;
 		info.pCode    = source;
@@ -888,8 +908,195 @@ VulkanPipeline pipeline_create_font(VulkanDevice *device, GameMemory *memory)
 	VkResult result;
 	VulkanPipeline pipeline = {};
 
-	pipeline.shaders[ShaderStage_vertex]   = create_shader(device, ShaderID_font_vert);
+	pipeline.shaders[ShaderStage_vertex]   = create_shader(device, ShaderID_basic2d_vert);
 	pipeline.shaders[ShaderStage_fragment] = create_shader(device, ShaderID_font_frag);
+
+	// TODO(jesper): i think it probably makes sense to move this into the
+	// material, but unsure
+	pipeline.sampler_count = 1;
+	pipeline.samplers = alloc_array<VkSampler>(&memory->persistent,
+	                                           pipeline.sampler_count);
+	pipeline.samplers[0] = create_sampler(device);
+
+	auto layouts = array_create<VkDescriptorSetLayout>(&memory->stack);
+	{ // material
+		auto binds = array_create<VkDescriptorSetLayoutBinding>(&memory->stack);
+		array_add(&binds, {
+			0,
+			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+			1,
+			VK_SHADER_STAGE_FRAGMENT_BIT,
+			nullptr
+		});
+
+		VkDescriptorSetLayoutCreateInfo descriptor_layout_info = {};
+		descriptor_layout_info.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+		descriptor_layout_info.bindingCount = (i32)binds.count;
+		descriptor_layout_info.pBindings    = binds.data;
+
+		result = vkCreateDescriptorSetLayout(device->handle,
+		                                     &descriptor_layout_info,
+		                                     nullptr,
+		                                     &pipeline.descriptor_layout_material);
+		DEBUG_ASSERT(result == VK_SUCCESS);
+		array_add(&layouts, pipeline.descriptor_layout_material);
+	}
+
+	VkPipelineLayoutCreateInfo layout_info = {};
+	layout_info.sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+	layout_info.setLayoutCount         = (i32)layouts.count;
+	layout_info.pSetLayouts            = layouts.data;
+
+	result = vkCreatePipelineLayout(device->handle,
+	                                &layout_info,
+	                                nullptr,
+	                                &pipeline.layout);
+	DEBUG_ASSERT(result == VK_SUCCESS);
+
+	auto vbinds = array_create<VkVertexInputBindingDescription>(&memory->stack);
+	array_add(&vbinds, { 0, sizeof(f32) * 5, VK_VERTEX_INPUT_RATE_VERTEX });
+
+	auto vdescs = array_create<VkVertexInputAttributeDescription>(&memory->stack);
+	array_add(&vdescs, { 0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0 });
+	array_add(&vdescs, { 1, 0, VK_FORMAT_R32G32_SFLOAT,    sizeof(f32) * 3 });
+
+
+	VkPipelineVertexInputStateCreateInfo vii = {};
+	vii.sType                           = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+	vii.vertexBindingDescriptionCount   = (i32)vbinds.count;
+	vii.pVertexBindingDescriptions      = vbinds.data;
+	vii.vertexAttributeDescriptionCount = (i32)vdescs.count;
+	vii.pVertexAttributeDescriptions    = vdescs.data;
+
+	VkPipelineInputAssemblyStateCreateInfo iai = {};
+	iai.sType                  = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+	iai.topology               = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+	iai.primitiveRestartEnable = VK_FALSE;
+
+	VkViewport viewport = {};
+	viewport.x        = 0.0f;
+	viewport.y        = 0.0f;
+	viewport.width    = (f32) device->swapchain.extent.width;
+	viewport.height   = (f32) device->swapchain.extent.height;
+	viewport.minDepth = 0.0f;
+	viewport.maxDepth = 1.0f;
+
+	VkRect2D scissor = {};
+	scissor.offset = {0, 0};
+	scissor.extent = device->swapchain.extent;
+
+	VkPipelineViewportStateCreateInfo viewport_info = {};
+	viewport_info.sType         = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+	viewport_info.viewportCount = 1;
+	viewport_info.pViewports    = &viewport;
+	viewport_info.scissorCount  = 1;
+	viewport_info.pScissors     = &scissor;
+
+	VkPipelineRasterizationStateCreateInfo raster = {};
+	raster.sType                   = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+	raster.depthClampEnable        = VK_FALSE;
+	raster.rasterizerDiscardEnable = VK_FALSE;
+	raster.polygonMode             = VK_POLYGON_MODE_FILL;
+	raster.cullMode                = VK_CULL_MODE_NONE;
+	raster.depthBiasEnable         = VK_FALSE;
+	raster.lineWidth               = 1.0;
+
+	VkPipelineColorBlendAttachmentState cba = {};
+	cba.blendEnable         = VK_TRUE;
+	cba.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+	cba.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+	cba.colorBlendOp        = VK_BLEND_OP_ADD;
+	cba.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+	cba.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+	cba.alphaBlendOp        = VK_BLEND_OP_ADD;
+	cba.colorWriteMask      = VK_COLOR_COMPONENT_R_BIT |
+	                                             VK_COLOR_COMPONENT_G_BIT |
+	                                             VK_COLOR_COMPONENT_B_BIT |
+	                                             VK_COLOR_COMPONENT_A_BIT;
+
+	VkPipelineColorBlendStateCreateInfo cbi = {};
+	cbi.sType             = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+	cbi.logicOpEnable     = VK_FALSE;
+	cbi.logicOp           = VK_LOGIC_OP_CLEAR;
+	cbi.attachmentCount   = 1;
+	cbi.pAttachments      = &cba;
+	cbi.blendConstants[0] = 0.0f;
+	cbi.blendConstants[1] = 0.0f;
+	cbi.blendConstants[2] = 0.0f;
+	cbi.blendConstants[3] = 0.0f;
+
+	VkPipelineMultisampleStateCreateInfo msi = {};
+	msi.sType                 = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+	msi.rasterizationSamples  = VK_SAMPLE_COUNT_1_BIT;
+	msi.sampleShadingEnable   = VK_FALSE;
+	msi.minSampleShading      = 0;
+	msi.pSampleMask           = nullptr;
+	msi.alphaToCoverageEnable = VK_FALSE;
+	msi.alphaToOneEnable      = VK_FALSE;
+
+	// NOTE(jesper): it seems like it'd be worth creating and caching this
+	// inside the VulkanShader objects
+	auto stages = array_create<VkPipelineShaderStageCreateInfo>(&memory->stack);
+	array_add(&stages, {
+		VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+		nullptr, 0,
+		pipeline.shaders[ShaderStage_vertex].stage,
+		pipeline.shaders[ShaderStage_vertex].module,
+		pipeline.shaders[ShaderStage_vertex].name,
+		nullptr
+	});
+
+	array_add(&stages, {
+		VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+		nullptr, 0,
+		pipeline.shaders[ShaderStage_fragment].stage,
+		pipeline.shaders[ShaderStage_fragment].module,
+		pipeline.shaders[ShaderStage_fragment].name,
+		nullptr
+	});
+
+	VkPipelineDepthStencilStateCreateInfo ds = {};
+	ds.sType                 = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+	ds.depthTestEnable       = VK_FALSE;
+	ds.depthWriteEnable      = VK_FALSE;
+	ds.depthBoundsTestEnable = VK_FALSE;
+
+	VkGraphicsPipelineCreateInfo pinfo = {};
+	pinfo.sType               = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+	pinfo.stageCount          = (i32)stages.count;
+	pinfo.pStages             = stages.data;
+	pinfo.pVertexInputState   = &vii;
+	pinfo.pInputAssemblyState = &iai;
+	pinfo.pViewportState      = &viewport_info;
+	pinfo.pRasterizationState = &raster;
+	pinfo.pMultisampleState   = &msi;
+	pinfo.pColorBlendState    = &cbi;
+	pinfo.pDepthStencilState  = &ds;
+	pinfo.layout              = pipeline.layout;
+	pinfo.renderPass          = device->renderpass;
+	pinfo.basePipelineHandle  = VK_NULL_HANDLE;
+	pinfo.basePipelineIndex   = -1;
+
+	result = vkCreateGraphicsPipelines(device->handle,
+	                                   VK_NULL_HANDLE,
+	                                   1,
+	                                   &pinfo,
+	                                   nullptr,
+	                                   &pipeline.handle);
+	DEBUG_ASSERT(result == VK_SUCCESS);
+	return pipeline;
+}
+
+VulkanPipeline pipeline_create_basic2d(VulkanDevice *device, GameMemory *memory)
+{
+	void *sp = memory->stack.stack.sp;
+	defer { alloc_reset(&memory->stack, sp); };
+
+	VkResult result;
+	VulkanPipeline pipeline = {};
+
+	pipeline.shaders[ShaderStage_vertex]   = create_shader(device, ShaderID_basic2d_vert);
+	pipeline.shaders[ShaderStage_fragment] = create_shader(device, ShaderID_basic2d_frag);
 
 	// TODO(jesper): i think it probably makes sense to move this into the
 	// material, but unsure
@@ -1840,11 +2047,17 @@ VulkanTexture texture_create(VulkanDevice *device, u32 width, u32 height,
 		num_channels      = 4;
 		bytes_per_channel = 1;
 		break;
+	case VK_FORMAT_R16_UNORM:
+	case VK_FORMAT_R16_SNORM:
+	case VK_FORMAT_R16_SFLOAT:
+	case VK_FORMAT_R16_SINT:
+		num_channels      = 1;
+		bytes_per_channel = 2;
+		break;
 	default:
-		DEBUG_LOG(Log_warning, "unhandled format in determining number of bytes "
-		          "per channel and number of channels");
-		num_channels      = 4;
-		bytes_per_channel = 4;
+		DEBUG_ASSERT(false);
+		num_channels      = 1;
+		bytes_per_channel = 2;
 		break;
 	}
 
@@ -2661,7 +2874,6 @@ u32 swapchain_acquire(VulkanDevice *device)
 Material material_create(VulkanDevice *device, GameMemory *memory,
                          VulkanPipeline *pipeline, MaterialID id)
 {
-	// TODO(jesper): hardcoded font material for now
 	Material mat = {};
 	mat.id       = id;
 	mat.pipeline = pipeline;
@@ -2674,7 +2886,7 @@ Material material_create(VulkanDevice *device, GameMemory *memory,
 			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1
 		});
 	} break;
-	case Material_font: {
+	case Material_basic2d: {
 		array_add(&pool_sizes, VkDescriptorPoolSize{
 			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1
 		});
@@ -2740,9 +2952,7 @@ void material_set_texture(VulkanDevice *device,
 	// TODO(jesper): the dstBinding depends on ResourceSlot and MaterialID
 	switch (slot) {
 	case ResourceSlot_texture:
-		writes.dstBinding      = 0;
-		break;
-	case ResourceSlot_font_atlas:
+	case ResourceSlot_diffuse:
 		writes.dstBinding      = 0;
 		break;
 	default:

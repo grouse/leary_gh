@@ -112,7 +112,7 @@ struct DebugOverlay {
 	stbtt_bakedchar font[256];
 
 	struct {
-		VulkanBuffer buffer;
+		VulkanBuffer vbo;
 		i32          vertex_count;
 		Vector3      position;
 	} texture;
@@ -131,6 +131,7 @@ struct GameState {
 	VulkanDevice        vulkan;
 
 	struct {
+		VulkanPipeline basic2d;
 		VulkanPipeline font;
 		VulkanPipeline mesh;
 		VulkanPipeline terrain;
@@ -145,6 +146,7 @@ struct GameState {
 
 	struct {
 		Material font;
+		Material heightmap;
 		Material phong;
 		Material player;
 	} materials;
@@ -419,19 +421,19 @@ void game_init(GameMemory *memory, PlatformState *platform)
 
 	{
 		f32 vertices[] = {
-			0.0f, 0.0f, 0.2f,  0.0f, 0.0f,
-			1.0f, 0.0f, 0.2f,  1.0f, 0.0f,
-			1.0f, 1.0f, 0.2f,  1.0f, 1.0f,
+			-0.5f, -0.5f, 0.2f,  0.0f, 0.0f,
+			0.5f, -0.5f, 0.2f,  1.0f, 0.0f,
+			0.5f, 0.5f, 0.2f,  1.0f, 1.0f,
 
-			1.0f, 1.0f, 0.2f,  1.0f, 1.0f,
-			0.0f, 1.0f, 0.2f,  0.0f, 1.0f,
-			0.0f, 0.0f, 0.2f,  0.0f, 0.0f,
+			0.5f, 0.5f, 0.2f,  1.0f, 1.0f,
+			-0.5f, 0.5f, 0.2f,  0.0f, 1.0f,
+			-0.5f, -0.5f, 0.2f,  0.0f, 0.0f,
 		};
 
 		game->overlay.texture.vertex_count = 6;
-		game->overlay.texture.buffer = buffer_create_vbo(&game->vulkan,
-		                                                 vertices,
-		                                                 sizeof(vertices) * sizeof(f32));
+		game->overlay.texture.vbo = buffer_create_vbo(&game->vulkan,
+		                                              vertices,
+		                                              sizeof(vertices) * sizeof(f32));
 	}
 
 	{
@@ -457,21 +459,28 @@ void game_init(GameMemory *memory, PlatformState *platform)
 	}
 
 	{
-		Texture heightmap = texture_load_bmp("player.bmp");
+		Texture heightmap = texture_load_r16("terrain.r16", 128, 128);
 		DEBUG_ASSERT(heightmap.size > 0);
+
+		VkComponentMapping components = {};
+		components.b = VK_COMPONENT_SWIZZLE_R;
+		components.g = VK_COMPONENT_SWIZZLE_R;
+		components.a = VK_COMPONENT_SWIZZLE_ONE;
+
 
 		game->textures.heightmap = texture_create(&game->vulkan,
 		                                          heightmap.width,
 		                                          heightmap.height,
 		                                          heightmap.format,
 		                                          heightmap.data,
-		                                          VkComponentMapping{});
+		                                          components);
 	}
 
 
 	// create pipelines
 	{
 		game->pipelines.mesh    = pipeline_create_mesh(&game->vulkan, memory);
+		game->pipelines.basic2d = pipeline_create_basic2d(&game->vulkan, memory);
 		game->pipelines.font    = pipeline_create_font(&game->vulkan, memory);
 		game->pipelines.terrain = pipeline_create_terrain(&game->vulkan, memory);
 	}
@@ -489,7 +498,11 @@ void game_init(GameMemory *memory, PlatformState *platform)
 	{
 		game->materials.font = material_create(&game->vulkan, memory,
 		                                       &game->pipelines.font,
-		                                       Material_font);
+		                                       Material_basic2d);
+
+		game->materials.heightmap = material_create(&game->vulkan, memory,
+		                                            &game->pipelines.basic2d,
+		                                            Material_basic2d);
 
 		game->materials.phong = material_create(&game->vulkan, memory,
 		                                        &game->pipelines.mesh,
@@ -510,7 +523,10 @@ void game_init(GameMemory *memory, PlatformState *platform)
 
 
 		material_set_texture(&game->vulkan, &game->materials.font,
-		                     ResourceSlot_font_atlas, &game->textures.font);
+		                     ResourceSlot_diffuse, &game->textures.font);
+
+		material_set_texture(&game->vulkan, &game->materials.heightmap,
+		                     ResourceSlot_diffuse, &game->textures.heightmap);
 
 		material_set_texture(&game->vulkan, &game->materials.phong,
 		                     ResourceSlot_texture, &game->textures.cube);
@@ -612,7 +628,7 @@ void game_quit(GameMemory *memory, PlatformState *platform)
 	vkQueueWaitIdle(game->vulkan.queue);
 
 	buffer_destroy(&game->vulkan, game->overlay.vbo);
-	buffer_destroy(&game->vulkan, game->overlay.texture.buffer);
+	buffer_destroy(&game->vulkan, game->overlay.texture.vbo);
 
 	texture_destroy(&game->vulkan, game->textures.font);
 	texture_destroy(&game->vulkan, game->textures.cube);
@@ -620,9 +636,11 @@ void game_quit(GameMemory *memory, PlatformState *platform)
 	texture_destroy(&game->vulkan, game->textures.heightmap);
 
 	material_destroy(&game->vulkan, &game->materials.font);
+	material_destroy(&game->vulkan, &game->materials.heightmap);
 	material_destroy(&game->vulkan, &game->materials.phong);
 	material_destroy(&game->vulkan, &game->materials.player);
 
+	pipeline_destroy(&game->vulkan, game->pipelines.basic2d);
 	pipeline_destroy(&game->vulkan, game->pipelines.font);
 	pipeline_destroy(&game->vulkan, game->pipelines.mesh);
 	pipeline_destroy(&game->vulkan, game->pipelines.terrain);
@@ -1150,9 +1168,6 @@ void game_render(GameMemory *memory)
 	auto descriptors = array_create<VkDescriptorSet>(&memory->stack);
 	array_add(&descriptors, game->materials.font.descriptor_set);
 
-	// TODO(jesper): bind material descriptor set if bound
-	// TODO(jesper): only bind pipeline descriptor set if one exists, might
-	// be such a special case that we should hardcode it?
 	vkCmdBindDescriptorSets(command,
 	                        VK_PIPELINE_BIND_POINT_GRAPHICS,
 	                        game->pipelines.font.layout,
@@ -1166,6 +1181,22 @@ void game_render(GameMemory *memory)
 		                       &game->overlay.vbo.handle, offsets);
 		vkCmdDraw(command, game->overlay.vertex_count, 1, 0, 0);
 	}
+
+	vkCmdBindPipeline(command,
+	                  VK_PIPELINE_BIND_POINT_GRAPHICS,
+	                  game->pipelines.basic2d.handle);
+
+	descriptors[0] = game->materials.heightmap.descriptor_set;
+	vkCmdBindDescriptorSets(command,
+	                        VK_PIPELINE_BIND_POINT_GRAPHICS,
+	                        game->pipelines.basic2d.layout,
+	                        0,
+	                        (i32)descriptors.count, descriptors.data,
+	                        0, nullptr);
+
+
+	vkCmdBindVertexBuffers(command, 0, 1, &game->overlay.texture.vbo.handle, offsets);
+	vkCmdDraw(command, game->overlay.texture.vertex_count, 1, 0, 0);
 
 	renderpass_end(command);
 	command_buffer_end(&game->vulkan, command, false);
