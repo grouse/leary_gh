@@ -243,7 +243,7 @@ i32 physics_id(Physics *physics, i32 entity_id)
 void render_font(GameMemory *memory,
                  stbtt_bakedchar *font,
                  const char *str,
-                 f32 *x, float *y,
+                 Vector3 *pos,
                  i32 *out_vertex_count,
                  void *buffer, usize *offset)
 {
@@ -257,14 +257,14 @@ void render_font(GameMemory *memory,
 
 	Matrix4 t = g_screen_to_view;
 
-	f32 bx = *x;
+	f32 bx = pos->x;
 
 	i32 vi = 0;
 	while (*str) {
 		char c = *str++;
 		if (c == '\n') {
-			*y += 20.0f;
-			*x  = bx;
+			pos->y += 20.0f;
+			pos->x  = bx;
 			vertices_size -= sizeof(f32)*5*6;
 			continue;
 		}
@@ -272,7 +272,7 @@ void render_font(GameMemory *memory,
 		vertex_count += 6;
 
 		stbtt_aligned_quad q = {};
-		stbtt_GetBakedQuad(font, 1024, 1024, c, x, y, &q, 1);
+		stbtt_GetBakedQuad(font, 1024, 1024, c, &pos->x, &pos->y, &q, 1);
 
 		Vector3 tl = t * Vector3{q.x0, q.y0 + 15.0f, 0.0f};
 		Vector3 tr = t * Vector3{q.x1, q.y0 + 15.0f, 0.0f};
@@ -856,11 +856,14 @@ void debug_overlay_update(DebugOverlay *overlay,
 	void *sp = memory->stack.stack.sp;
 	defer { alloc_reset(&memory->stack, sp); };
 
+	stbtt_bakedchar *font = overlay->font;
+	i32 *vcount           = &overlay->vertex_count;
+
 	usize offset = 0;
 	Vector3 pos = { -1.0f, -1.0f, 0.2f };
 	pos = g_view_to_screen * pos;
 
-	overlay->vertex_count = 0;
+	*vcount = 0;
 
 	void *mapped;
 	vkMapMemory(vulkan->handle, overlay->vbo.memory,
@@ -875,22 +878,19 @@ void debug_overlay_update(DebugOverlay *overlay,
 	f32 dt_ms = dt * 1000.0f;
 	snprintf(buffer, buffer_size, "frametime: %f ms, %f fps\n",
 	         dt_ms, 1000.0f / dt_ms);
-	render_font(memory, overlay->font, buffer, &pos.x, &pos.y,
-	            &overlay->vertex_count, mapped, &offset);
+	render_font(memory, font, buffer, &pos, vcount, mapped, &offset);
 
 	for (int i = 0; i < overlay->menus.count; i++) {
 		DebugOverlayMenu &menu = overlay->menus[i];
 
 		if (menu.collapsed) {
 			snprintf(buffer, buffer_size, "%s...\n", menu.title);
-			render_font(memory, overlay->font, buffer, &pos.x, &pos.y,
-			            &overlay->vertex_count, mapped, &offset);
+			render_font(memory, font, buffer, &pos, vcount, mapped, &offset);
 			continue;
 		}
 
 		snprintf(buffer, buffer_size, "%s\n", menu.title);
-		render_font(memory, overlay->font, buffer, &pos.x, &pos.y,
-		            &overlay->vertex_count, mapped, &offset);
+		render_font(memory, font, buffer, &pos, vcount, mapped, &offset);
 
 		switch (menu.type) {
 		case DebugMenu_allocators: {
@@ -903,20 +903,14 @@ void debug_overlay_update(DebugOverlay *overlay,
 					snprintf(buffer, buffer_size,
 					         "  %s: { sp: %p, size: %ld, remaining: %ld }\n",
 					         item.name, a->stack.sp, a->size, a->remaining);
-					render_font(memory, overlay->font, buffer,
-					            &pos.x, &pos.y,
-					            &overlay->vertex_count,
-					            mapped, &offset);
+					render_font(memory, font, buffer, &pos, vcount, mapped, &offset);
 				} break;
 				case Debug_allocator_free_list: {
 					Allocator *a = (Allocator*)item.data;
 					snprintf(buffer, buffer_size,
 					         "  %s: { size: %ld, remaining: %ld }\n",
 					         item.name, a->size, a->remaining);
-					render_font(memory, overlay->font, buffer,
-					            &pos.x, &pos.y,
-					            &overlay->vertex_count,
-					            mapped, &offset);
+					render_font(memory, font, buffer, &pos, vcount, mapped, &offset);
 				} break;
 				default:
 					DEBUG_LOG("unhandled case: %d", item.type);
@@ -925,109 +919,84 @@ void debug_overlay_update(DebugOverlay *overlay,
 			}
 		} break;
 		case DebugMenu_profile_timers: {
-			f32 marginx   = 10.0f;
+			f32 margin   = 10.0f;
 			f32 min_width = 40.0f;
 
-			f32 c0x = pos.x + marginx;
-			f32 c1x, c2x, c3x;
+			f32 hy  = pos.y;
+			pos.y  += overlay->fsize;
 
-			f32 header_y = pos.y;
-			pos.y += overlay->fsize;
+			Vector3 c0, c1, c2, c3;
+			c0.x = c1.x = c2.x = c3.x = pos.x + margin;
+			c0.y = c1.y = c2.y = c3.y = hy;
 
-			pos.x = c0x;
-			c0x   = pos.x;
+			pos.x  = c0.x;
 
-			f32 base_x = pos.x;
 			f32 base_y = pos.y;
-
-			f32 max_x  = base_x;
-
 			for (int i = 0; i < g_profile_timers_prev.count; i++) {
 				ProfileTimer &timer = g_profile_timers_prev[i];
 
 				snprintf(buffer, buffer_size, "%s: ", timer.name);
-				render_font(memory, overlay->font, buffer, &pos.x, &pos.y,
-				            &overlay->vertex_count, mapped, &offset);
+				render_font(memory, font, buffer, &pos, vcount, mapped, &offset);
 
-				if (pos.x >= max_x) {
-					max_x = pos.x;
+				if (pos.x >= c1.x) {
+					c1.x = pos.x;
 				}
 
-				pos.x = base_x;
+				pos.x  = c0.x;
 				pos.y += overlay->fsize;
 			}
 			pos.y = base_y;
 
-			max_x += min_width;
-			pos.x  = max_x + marginx;
-			c1x    = pos.x;
-
-			base_x = pos.x;
+			c1.x  += min_width + margin;
+			pos.x  = c1.x;
 			for (int i = 0; i < g_profile_timers_prev.count; i++) {
 				ProfileTimer &timer = g_profile_timers_prev[i];
 
 				snprintf(buffer, buffer_size, "%" PRIu64, timer.cycles);
-				render_font(memory, overlay->font, buffer, &pos.x, &pos.y,
-				            &overlay->vertex_count, mapped, &offset);
+				render_font(memory, font, buffer, &pos, vcount, mapped, &offset);
 
-				if (pos.x >= max_x) {
-					max_x = pos.x;
+				if (pos.x >= c2.x) {
+					c2.x = pos.x;
 				}
 
-				pos.x = base_x;
+				pos.x  = c1.x;
 				pos.y += overlay->fsize;
 			}
 			pos.y = base_y;
 
-			max_x += min_width;
-			pos.x  = max_x + marginx;
-			c2x    = pos.x;
-
-			base_x = pos.x;
+			c2.x  += min_width + margin;
+			pos.x  = c2.x;
 			for (int i = 0; i < g_profile_timers_prev.count; i++) {
 				ProfileTimer &timer = g_profile_timers_prev[i];
 
 				snprintf(buffer, buffer_size, "%u", timer.calls);
-				render_font(memory, overlay->font, buffer, &pos.x, &pos.y,
-				            &overlay->vertex_count, mapped, &offset);
+				render_font(memory, font, buffer, &pos, vcount, mapped, &offset);
 
-				if (pos.x >= max_x) {
-					max_x = pos.x;
+				if (pos.x >= c3.x) {
+					c3.x = pos.x;
 				}
 
-				pos.x = base_x;
+				pos.x  = c2.x;
 				pos.y += overlay->fsize;
 			}
 			pos.y = base_y;
 
-			max_x += min_width;
-			pos.x  = max_x + marginx;
-			c3x    = pos.x;
-
-			base_x = pos.x;
+			c3.x  += min_width + margin;
+			pos.x  = c3.x;
 			for (int i = 0; i < g_profile_timers_prev.count; i++) {
 				ProfileTimer &timer = g_profile_timers_prev[i];
 
 				snprintf(buffer, buffer_size, "%f", timer.cycles / (f32)timer.calls);
-				render_font(memory, overlay->font, buffer, &pos.x, &pos.y,
-				            &overlay->vertex_count, mapped, &offset);
+				render_font(memory, font, buffer, &pos, vcount, mapped, &offset);
 
-				if (pos.x >= max_x) {
-					max_x = pos.x;
-				}
-
-				pos.x = base_x;
+				pos.x  = c3.x;
 				pos.y += overlay->fsize;
 			}
 
-			render_font(memory, overlay->font, "name", &c0x, &header_y,
-			            &overlay->vertex_count, mapped, &offset);
-			render_font(memory, overlay->font, "cycles", &c1x, &header_y,
-			            &overlay->vertex_count, mapped, &offset);
-			render_font(memory, overlay->font, "calls", &c2x, &header_y,
-			            &overlay->vertex_count, mapped, &offset);
-			render_font(memory, overlay->font, "cy/calls", &c3x, &header_y,
-			            &overlay->vertex_count, mapped, &offset);
+			render_font(memory, font, "name",     &c0, vcount, mapped, &offset);
+			render_font(memory, font, "cycles",   &c1, vcount, mapped, &offset);
+			render_font(memory, font, "calls",    &c2, vcount, mapped, &offset);
+			render_font(memory, font, "cy/calls", &c3, vcount, mapped, &offset);
 
 		} break;
 		default:
