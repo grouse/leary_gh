@@ -82,27 +82,25 @@ struct Physics {
 
 enum DebugOverlayItemType {
 	Debug_allocator_stack,
-	Debug_allocator_free_list
+	Debug_allocator_free_list,
+	Debug_texture,
+	Debug_profile_timers,
+	Debug_allocators
 };
 
 enum DebugOverlayMenuType {
-	DebugMenu_profile_timers,
-	DebugMenu_allocators
 };
 
 struct DebugOverlayItem {
-	DebugOverlayItemType type;
-	const char *name;
-	void *data;
+	const char               *title;
+	Array<DebugOverlayItem*> children  = {};
+	bool                     collapsed = false;
+	DebugOverlayItemType     type;
+	union {
+		void *data;
+		VulkanTexture texture;
+	};
 };
-
-struct DebugOverlayMenu {
-	const char              *title;
-	bool                    collapsed = false;
-	DebugOverlayMenuType    type;
-	Array<DebugOverlayItem> items;
-};
-
 
 struct DebugOverlay {
 	VulkanBuffer vbo;
@@ -117,7 +115,7 @@ struct DebugOverlay {
 		Vector3      position;
 	} texture;
 
-	Array<DebugOverlayMenu> menus;
+	Array<DebugOverlayItem> items;
 };
 
 struct GameReloadState {
@@ -331,44 +329,6 @@ void game_init(GameMemory *memory, PlatformState *platform)
 
 	profile_init(&platform->memory);
 
-	game->overlay.menus  = array_create<DebugOverlayMenu>(&memory->free_list);
-	{
-		DebugOverlayMenu allocators;
-		allocators.title = "Allocators";
-		allocators.items = array_create<DebugOverlayItem>(&memory->free_list);
-		allocators.type  = DebugMenu_allocators;
-
-		DebugOverlayItem stack;
-		stack.type = Debug_allocator_stack;
-		stack.name = "stack";
-		stack.data = (void*)&memory->stack;
-		array_add(&allocators.items, stack);
-
-		DebugOverlayItem frame;
-		frame.type = Debug_allocator_stack;
-		frame.name = "frame";
-		frame.data = (void*)&memory->frame;
-		array_add(&allocators.items, frame);
-
-		DebugOverlayItem persistent;
-		persistent.type = Debug_allocator_stack;
-		persistent.name = "persistent";
-		persistent.data = (void*)&memory->persistent;
-		array_add(&allocators.items, persistent);
-
-		DebugOverlayItem free_list;
-		free_list.type = Debug_allocator_free_list;
-		free_list.name = "free list";
-		free_list.data = (void*)&memory->free_list;
-		array_add(&allocators.items, free_list);
-		array_add(&game->overlay.menus, allocators);
-
-		DebugOverlayMenu timers;
-		timers.title = "Profile Timers";
-		timers.items = array_create<DebugOverlayItem>(&memory->free_list);
-		timers.type  = DebugMenu_profile_timers;
-		array_add(&game->overlay.menus, timers);
-	}
 
 	f32 width = (f32)platform->settings.video.resolution.width;
 	f32 height = (f32)platform->settings.video.resolution.height;
@@ -610,6 +570,51 @@ void game_init(GameMemory *memory, PlatformState *platform)
 	for (i32 i = 0; i < 0xFF; i++) {
 		game->key_state[i] = InputType_key_release;
 	}
+
+	game->overlay.items = array_create<DebugOverlayItem>(&memory->free_list);
+	{
+		DebugOverlayItem allocators;
+		allocators.title    = "Allocators";
+		allocators.children = array_create<DebugOverlayItem*>(&memory->free_list);
+		allocators.type     = Debug_allocators;
+
+		auto stack = alloc<DebugOverlayItem>(&memory->free_list);
+		stack->type  = Debug_allocator_stack;
+		stack->title = "stack";
+		stack->data  = (void*)&memory->stack;
+		array_add(&allocators.children, stack);
+
+		auto frame = alloc<DebugOverlayItem>(&memory->free_list);
+		frame->type  = Debug_allocator_stack;
+		frame->title = "frame";
+		frame->data  = (void*)&memory->frame;
+		array_add(&allocators.children, frame);
+
+		auto persistent = alloc<DebugOverlayItem>(&memory->free_list);
+		persistent->type  = Debug_allocator_stack;
+		persistent->title = "persistent";
+		persistent->data  = (void*)&memory->persistent;
+		array_add(&allocators.children, persistent);
+
+		auto free_list = alloc<DebugOverlayItem>(&memory->free_list);
+		free_list->type  = Debug_allocator_free_list;
+		free_list->title = "free list";
+		free_list->data  = (void*)&memory->free_list;
+		array_add(&allocators.children, free_list);
+
+		array_add(&game->overlay.items, allocators);
+
+
+		DebugOverlayItem timers;
+		timers.title = "Profile Timers";
+		timers.type  = Debug_profile_timers;
+		array_add(&game->overlay.items, timers);
+
+		DebugOverlayItem terrain;
+		terrain.title = "Terrain";
+		terrain.type  = Debug_texture;
+		array_add(&game->overlay.items, terrain);
+	}
 }
 
 void game_quit(GameMemory *memory, PlatformState *platform)
@@ -714,6 +719,11 @@ void game_input(GameMemory *memory, PlatformState *platform, InputEvent event)
 		case VirtualKey_D:
 			// TODO(jesper): tweak movement speed when we have a sense of scale
 			game->velocity.x = 3.0f;
+			break;
+		case VirtualKey_F:
+			for (int i = 0; i < game->overlay.items.count; i++) {
+				game->overlay.items[i].collapsed = !game->overlay.items[i].collapsed;
+			}
 			break;
 		case VirtualKey_left: {
 			i32 pid = physics_id(&game->physics, 0);
@@ -892,36 +902,36 @@ void debug_overlay_update(DebugOverlay *overlay,
 	         dt_ms, 1000.0f / dt_ms);
 	render_font(memory, font, buffer, &pos, vcount, mapped, &offset);
 
-	for (int i = 0; i < overlay->menus.count; i++) {
-		DebugOverlayMenu &menu = overlay->menus[i];
+	for (int i = 0; i < overlay->items.count; i++) {
+		DebugOverlayItem &item = overlay->items[i];
 
-		if (menu.collapsed) {
-			snprintf(buffer, buffer_size, "%s...\n", menu.title);
+		if (item.collapsed) {
+			snprintf(buffer, buffer_size, "%s...\n", item.title);
 			render_font(memory, font, buffer, &pos, vcount, mapped, &offset);
 			continue;
 		}
 
-		snprintf(buffer, buffer_size, "%s\n", menu.title);
+		snprintf(buffer, buffer_size, "%s\n", item.title);
 		render_font(memory, font, buffer, &pos, vcount, mapped, &offset);
 
-		switch (menu.type) {
-		case DebugMenu_allocators: {
-			for (int i = 0; i < menu.items.count; i++) {
-				DebugOverlayItem &item = menu.items[i];
+		switch (item.type) {
+		case Debug_allocators: {
+			for (int i = 0; i < item.children.count; i++) {
+				DebugOverlayItem &child = *item.children[i];
 
-				switch (item.type) {
+				switch (child.type) {
 				case Debug_allocator_stack: {
-					Allocator *a = (Allocator*)item.data;
+					Allocator *a = (Allocator*)child.data;
 					snprintf(buffer, buffer_size,
 					         "  %s: { sp: %p, size: %ld, remaining: %ld }\n",
-					         item.name, a->stack.sp, a->size, a->remaining);
+					         child.title, a->stack.sp, a->size, a->remaining);
 					render_font(memory, font, buffer, &pos, vcount, mapped, &offset);
 				} break;
 				case Debug_allocator_free_list: {
-					Allocator *a = (Allocator*)item.data;
+					Allocator *a = (Allocator*)child.data;
 					snprintf(buffer, buffer_size,
 					         "  %s: { size: %ld, remaining: %ld }\n",
-					         item.name, a->size, a->remaining);
+					         child.title, a->size, a->remaining);
 					render_font(memory, font, buffer, &pos, vcount, mapped, &offset);
 				} break;
 				default:
@@ -930,7 +940,7 @@ void debug_overlay_update(DebugOverlay *overlay,
 				}
 			}
 		} break;
-		case DebugMenu_profile_timers: {
+		case Debug_profile_timers: {
 			f32 margin   = 10.0f;
 			f32 min_width = 40.0f;
 
@@ -1012,7 +1022,7 @@ void debug_overlay_update(DebugOverlay *overlay,
 
 		} break;
 		default:
-			DEBUG_LOG("unknown debug menu type: %d", menu.type);
+			DEBUG_LOG("unknown debug menu type: %d", item.type);
 			break;
 		}
 	}

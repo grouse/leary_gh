@@ -11,11 +11,11 @@
 
 template<typename T>
 struct Array {
-	T* data;
-	isize count;
-	isize capacity;
+	T* data        = nullptr;
+	isize count    = 0;
+	isize capacity = 0;
 
-	Allocator *allocator;
+	Allocator *allocator = nullptr;
 
 	T& operator[] (isize i)
 	{
@@ -25,9 +25,9 @@ struct Array {
 
 template<typename T>
 struct StaticArray {
-	T* data;
-	isize count;
-	isize capacity;
+	T* data        = nullptr;
+	isize count    = 0;
+	isize capacity = 0;
 
 	T& operator[] (isize i)
 	{

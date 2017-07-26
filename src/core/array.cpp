@@ -40,6 +40,8 @@ void array_destroy(Array<T> *a)
 template<typename T>
 isize array_add(Array<T> *a, T e)
 {
+	DEBUG_ASSERT(a->allocator != nullptr);
+
 	if (a->count >= a->capacity) {
 		isize capacity = a->capacity == 0 ? 1 : a->capacity * 2;
 		a->data        = realloc_array(a->allocator, a->data, capacity);
@@ -67,7 +69,6 @@ StaticArray<T> array_create_static(void *data, isize capacity)
 {
 	StaticArray<T> a;
 	a.data      = (T*)data;
-	a.count     = 0;
 	a.capacity  = capacity;
 
 	return a;
@@ -78,7 +79,6 @@ StaticArray<T> array_create_static(void* ptr, isize offset, isize capacity)
 {
 	StaticArray<T> a;
 	a.data      = (T*)((u8*)ptr + offset);
-	a.count     = 0;
 	a.capacity  = capacity;
 
 	return a;
