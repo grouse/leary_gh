@@ -10,5 +10,6 @@ layout(location = 0) out vec4 out_color;
 
 void main()
 {
-	out_color = texture(texture_sampler, texture_coordinate);
+	float r = texture(texture_sampler, texture_coordinate).r;
+	out_color = vec4(r, r, r, 1.0f);
 }

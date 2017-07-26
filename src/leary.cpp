@@ -459,21 +459,15 @@ void game_init(GameMemory *memory, PlatformState *platform)
 	}
 
 	{
-		Texture heightmap = texture_load_r16("terrain.r16", 128, 128);
+		Texture heightmap = texture_load_bmp("terrain.bmp");
 		DEBUG_ASSERT(heightmap.size > 0);
-
-		VkComponentMapping components = {};
-		components.b = VK_COMPONENT_SWIZZLE_R;
-		components.g = VK_COMPONENT_SWIZZLE_R;
-		components.a = VK_COMPONENT_SWIZZLE_ONE;
-
 
 		game->textures.heightmap = texture_create(&game->vulkan,
 		                                          heightmap.width,
 		                                          heightmap.height,
 		                                          heightmap.format,
 		                                          heightmap.data,
-		                                          components);
+		                                          VkComponentMapping{});
 	}
 
 

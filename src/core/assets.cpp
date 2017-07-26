@@ -38,35 +38,16 @@ PACKED(struct BitmapHeader {
 	u32 colors_important;
 });
 
-Texture texture_load_r16(const char *filename, u32 width, u32 height)
-{
-	Texture texture = {};
-
-	usize size;
-	char *path = platform_resolve_path(GamePath_textures, filename);
-	defer { free(path); };
-
-	char *file = platform_file_read(path, &size);
-	if (!file) {
-		return texture;
-	}
-
-	texture.width  = width;
-	texture.height = height;
-	texture.size   = size;
-	texture.data   = file;
-	texture.format = VK_FORMAT_R16_SFLOAT;
-
-	return texture;
-}
-
 Texture texture_load_bmp(const char *filename)
 {
 	Texture texture = {};
 
-	usize size;
 	char *path = platform_resolve_path(GamePath_textures, filename);
+	DEBUG_LOG("Loading bmp: %s", path);
+
+	usize size;
 	char *file = platform_file_read(path, &size);
+	DEBUG_LOG("-- file size: %llu bytes", size);
 
 	defer {
 		free(path);
@@ -94,6 +75,10 @@ Texture texture_load_bmp(const char *filename)
 		return Texture{};
 	}
 
+	if (h->header_size == 40) {
+		DEBUG_LOG("-- version 3");
+	}
+
 	DEBUG_ASSERT(h->header_size == 40);
 	ptr += sizeof(BitmapHeader);
 
@@ -102,6 +87,11 @@ Texture texture_load_bmp(const char *filename)
 		DEBUG_UNIMPLEMENTED();
 		return Texture{};
 	}
+
+	if (h->compression == 0) {
+		DEBUG_LOG("-- uncompressed");
+	}
+
 
 	if (h->colors_used == 0 && h->bpp < 16) {
 		h->colors_used = 1 << h->bpp;
@@ -115,6 +105,10 @@ Texture texture_load_bmp(const char *filename)
 	if (h->height < 0) {
 		flip = false;
 		h->height = -h->height;
+	}
+
+	if (flip) {
+		DEBUG_LOG("-- bottom-up");
 	}
 
 	// NOTE(jesper): bmp's with bbp > 16 doesn't have a color palette
@@ -155,7 +149,7 @@ Texture texture_load_bmp(const char *filename)
 	// NOTE(jesper): flip bottom-up textures
 	if (flip) {
 		dst = (u8*)texture.data;
-		for (i32 i = 0; i < h->height >> 2; i++) {
+		for (i32 i = 0; i < h->height >> 1; i++) {
 			u8 *p1 = &dst[i * h->width * channels];
 			u8 *p2 = &dst[(h->height - 1 - i) * h->width * channels];
 			for (i32 j = 0; j < h->width * channels; j++) {

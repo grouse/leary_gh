@@ -2054,6 +2054,20 @@ VulkanTexture texture_create(VulkanDevice *device, u32 width, u32 height,
 		num_channels      = 1;
 		bytes_per_channel = 2;
 		break;
+	case VK_FORMAT_R32_SFLOAT:
+	case VK_FORMAT_R32_UINT:
+	case VK_FORMAT_R32_SINT:
+		num_channels      = 1;
+		bytes_per_channel = 4;
+		break;
+	case VK_FORMAT_R32G32_SFLOAT:
+		num_channels      = 2;
+		bytes_per_channel = 4;
+		break;
+	case VK_FORMAT_R16G16_SFLOAT:
+		num_channels      = 2;
+		bytes_per_channel = 2;
+		break;
 	default:
 		DEBUG_ASSERT(false);
 		num_channels      = 1;
