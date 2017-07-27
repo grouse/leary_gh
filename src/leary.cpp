@@ -39,11 +39,6 @@ struct Entity {
 	Quaternion rotation = Quaternion::make({ 0.0f, 1.0f, 0.0f });
 };
 
-struct RenderedText {
-	VulkanBuffer buffer;
-	Vector3      position;
-};
-
 struct IndexRenderObject {
 	i32            entity_id;
 	VulkanPipeline pipeline;
@@ -83,12 +78,18 @@ struct Physics {
 enum DebugOverlayItemType {
 	Debug_allocator_stack,
 	Debug_allocator_free_list,
-	Debug_texture,
+	Debug_render_item,
 	Debug_profile_timers,
 	Debug_allocators
 };
 
-enum DebugOverlayMenuType {
+struct DebugRenderItem {
+	Vector3                position;
+	VulkanPipeline         *pipeline    = nullptr;
+	VulkanTexture          *texture     = nullptr;
+	Array<VkDescriptorSet> descriptors  = {};
+	VulkanBuffer           vbo;
+	i32                    vertex_count = 0;
 };
 
 struct DebugOverlayItem {
@@ -97,8 +98,8 @@ struct DebugOverlayItem {
 	bool                     collapsed = false;
 	DebugOverlayItemType     type;
 	union {
-		void *data;
-		VulkanTexture texture;
+		void            *data;
+		DebugRenderItem ritem = {};
 	};
 };
 
@@ -116,6 +117,7 @@ struct DebugOverlay {
 	} texture;
 
 	Array<DebugOverlayItem> items;
+	Array<DebugRenderItem>  render_queue;
 };
 
 struct GameReloadState {
@@ -380,20 +382,6 @@ void game_init(GameMemory *memory, PlatformState *platform)
 	}
 
 	{
-		f32 vertices[] = {
-			-0.5f, -0.5f, 0.2f,  0.0f, 0.0f,
-			0.5f, -0.5f, 0.2f,  1.0f, 0.0f,
-			0.5f, 0.5f, 0.2f,  1.0f, 1.0f,
-
-			0.5f, 0.5f, 0.2f,  1.0f, 1.0f,
-			-0.5f, 0.5f, 0.2f,  0.0f, 1.0f,
-			-0.5f, -0.5f, 0.2f,  0.0f, 0.0f,
-		};
-
-		game->overlay.texture.vertex_count = 6;
-		game->overlay.texture.vbo = buffer_create_vbo(&game->vulkan,
-		                                              vertices,
-		                                              sizeof(vertices) * sizeof(f32));
 	}
 
 	{
@@ -571,7 +559,8 @@ void game_init(GameMemory *memory, PlatformState *platform)
 		game->key_state[i] = InputType_key_release;
 	}
 
-	game->overlay.items = array_create<DebugOverlayItem>(&memory->free_list);
+	game->overlay.items        = array_create<DebugOverlayItem>(&memory->free_list);
+	game->overlay.render_queue = array_create<DebugRenderItem>(&memory->free_list);
 	{
 		DebugOverlayItem allocators;
 		allocators.title    = "Allocators";
@@ -611,8 +600,28 @@ void game_init(GameMemory *memory, PlatformState *platform)
 		array_add(&game->overlay.items, timers);
 
 		DebugOverlayItem terrain;
-		terrain.title = "Terrain";
-		terrain.type  = Debug_texture;
+		terrain.title   = "Terrain";
+		terrain.type    = Debug_render_item;
+		terrain.ritem.pipeline = &game->pipelines.basic2d;
+		terrain.ritem.texture  = &game->textures.heightmap;
+
+		f32 vertices[] = {
+			-0.5f, -0.5f, 0.2f,  0.0f, 0.0f,
+			0.5f, -0.5f, 0.2f,  1.0f, 0.0f,
+			0.5f, 0.5f, 0.2f,  1.0f, 1.0f,
+
+			0.5f, 0.5f, 0.2f,  1.0f, 1.0f,
+			-0.5f, 0.5f, 0.2f,  0.0f, 1.0f,
+			-0.5f, -0.5f, 0.2f,  0.0f, 0.0f,
+		};
+
+		terrain.ritem.vbo = buffer_create_vbo(&game->vulkan, vertices,
+		                                      sizeof(vertices) * sizeof(f32));
+		terrain.ritem.vertex_count = 6;
+
+		terrain.ritem.descriptors = array_create<VkDescriptorSet>(&memory->free_list, 1);
+		array_add(&terrain.ritem.descriptors, game->materials.heightmap.descriptor_set);
+
 		array_add(&game->overlay.items, terrain);
 	}
 }
@@ -625,6 +634,13 @@ void game_quit(GameMemory *memory, PlatformState *platform)
 	platform_set_raw_mouse(platform, false);
 
 	vkQueueWaitIdle(game->vulkan.queue);
+
+	for (int i = 0; i < game->overlay.items.count; i++) {
+		DebugOverlayItem &item = game->overlay.items[i];
+		if (item.type == Debug_render_item) {
+			buffer_destroy(&game->vulkan, item.ritem.vbo);
+		}
+	}
 
 	buffer_destroy(&game->vulkan, game->overlay.vbo);
 	buffer_destroy(&game->vulkan, game->overlay.texture.vbo);
@@ -947,13 +963,15 @@ void debug_overlay_update(DebugOverlay *overlay,
 			f32 hy  = pos.y;
 			pos.y  += overlay->fsize;
 
+			f32 base_x = pos.x;
+			f32 base_y = pos.y;
+
 			Vector3 c0, c1, c2, c3;
 			c0.x = c1.x = c2.x = c3.x = pos.x + margin;
 			c0.y = c1.y = c2.y = c3.y = hy;
 
 			pos.x  = c0.x;
 
-			f32 base_y = pos.y;
 
 			ProfileTimers &timers = g_profile_timers_prev;
 			for (int i = 0; i < timers.count; i++) {
@@ -1014,6 +1032,12 @@ void debug_overlay_update(DebugOverlay *overlay,
 			render_font(memory, font, "calls",    &c2, vcount, mapped, &offset);
 			render_font(memory, font, "cy/calls", &c3, vcount, mapped, &offset);
 
+			pos.x = base_x;
+		} break;
+		case Debug_render_item: {
+			render_font(memory, font, "texture", &pos, vcount, mapped, &offset);
+			item.ritem.position = pos;
+			array_add(&overlay->render_queue, item.ritem);
 		} break;
 		default:
 			DEBUG_LOG("unknown debug menu type: %d", item.type);
@@ -1180,21 +1204,32 @@ void game_render(GameMemory *memory)
 		vkCmdDraw(command, game->overlay.vertex_count, 1, 0, 0);
 	}
 
-	vkCmdBindPipeline(command,
-	                  VK_PIPELINE_BIND_POINT_GRAPHICS,
-	                  game->pipelines.basic2d.handle);
+	for (int i = 0; i < game->overlay.render_queue.count; i++) {
+		auto &item = game->overlay.render_queue[i];
 
-	descriptors[0] = game->materials.heightmap.descriptor_set;
-	vkCmdBindDescriptorSets(command,
-	                        VK_PIPELINE_BIND_POINT_GRAPHICS,
-	                        game->pipelines.basic2d.layout,
-	                        0,
-	                        (i32)descriptors.count, descriptors.data,
-	                        0, nullptr);
+		vkCmdBindPipeline(command,
+		                  VK_PIPELINE_BIND_POINT_GRAPHICS,
+		                  item.pipeline->handle);
 
+		descriptors[0] = game->materials.heightmap.descriptor_set;
+		vkCmdBindDescriptorSets(command,
+		                        VK_PIPELINE_BIND_POINT_GRAPHICS,
+		                        item.pipeline->layout,
+		                        0,
+		                        item.descriptors.count,
+		                        item.descriptors.data,
+		                        0, nullptr);
 
-	vkCmdBindVertexBuffers(command, 0, 1, &game->overlay.texture.vbo.handle, offsets);
-	vkCmdDraw(command, game->overlay.texture.vertex_count, 1, 0, 0);
+#if 0
+		Matrix4 t = translate(Matrix4::identity(), item.position);
+		vkCmdPushConstants(command, item.pipeline->layout,
+		                   VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(t), &t);
+#endif
+
+		vkCmdBindVertexBuffers(command, 0, 1, &item.vbo.handle, offsets);
+		vkCmdDraw(command, item.vertex_count, 1, 0, 0);
+	}
+	game->overlay.render_queue.count = 0;
 
 	renderpass_end(command);
 	command_buffer_end(&game->vulkan, command, false);
