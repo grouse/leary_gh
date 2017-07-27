@@ -10,16 +10,24 @@
 
 #if PROFILE_TIMERS_ENABLE
 
-StaticArray<ProfileTimer> g_profile_timers;
-StaticArray<ProfileTimer> g_profile_timers_prev;
+ProfileTimers g_profile_timers;
+ProfileTimers g_profile_timers_prev;
 
 void profile_init(GameMemory *memory)
 {
-	void *buffer0 = alloc(&memory->persistent, sizeof(ProfileTimer) * NUM_PROFILE_TIMERS);
-	void *buffer1 = alloc(&memory->persistent, sizeof(ProfileTimer) * NUM_PROFILE_TIMERS);
+	g_profile_timers.count    = 0;
+	g_profile_timers.capacity = NUM_PROFILE_TIMERS;
+	g_profile_timers.name     = alloc_array<const char*>(&memory->persistent, NUM_PROFILE_TIMERS);
+	g_profile_timers.cycles   = alloc_array<u64>(&memory->persistent,        NUM_PROFILE_TIMERS);
+	g_profile_timers.calls    = alloc_array<u32>(&memory->persistent,        NUM_PROFILE_TIMERS);
+	g_profile_timers.open     = alloc_array<bool>(&memory->persistent,       NUM_PROFILE_TIMERS);
 
-	g_profile_timers      = array_create_static<ProfileTimer>(buffer0, NUM_PROFILE_TIMERS);
-	g_profile_timers_prev = array_create_static<ProfileTimer>(buffer1, NUM_PROFILE_TIMERS);
+	g_profile_timers_prev.count    = 0;
+	g_profile_timers_prev.capacity = NUM_PROFILE_TIMERS;
+	g_profile_timers_prev.name     = alloc_array<const char*>(&memory->persistent, NUM_PROFILE_TIMERS);
+	g_profile_timers_prev.cycles   = alloc_array<u64>(&memory->persistent,        NUM_PROFILE_TIMERS);
+	g_profile_timers_prev.calls    = alloc_array<u32>(&memory->persistent,        NUM_PROFILE_TIMERS);
+	g_profile_timers_prev.open     = alloc_array<bool>(&memory->persistent,       NUM_PROFILE_TIMERS);
 }
 
 
@@ -27,9 +35,9 @@ i32 profile_start_timer(const char *name)
 {
 	for (i32 i = 0; i < g_profile_timers.count; i++) {
 		// TODO(jesper): hash the name and use as identifier
-		if (strcmp(name, g_profile_timers[i].name) == 0) {
-			g_profile_timers[i].open = true;
-			g_profile_timers[i].calls++;
+		if (strcmp(name, g_profile_timers.name[i]) == 0) {
+			g_profile_timers.open[i] = true;
+			g_profile_timers.calls[i]++;
 			return i;
 		}
 	}
@@ -43,9 +51,9 @@ i32 profile_start_timer(const char *name)
 	// NOTE(jesper): assume the passed in string won't be deallocated, I don't
 	// see a use case for these functions where name isn't a pointer to a string
 	// literal, so it'll be fine
-	g_profile_timers[index].name  = name;
-	g_profile_timers[index].open  = true;
-	g_profile_timers[index].calls = 1;
+	g_profile_timers.name[index]  = name;
+	g_profile_timers.open[index]  = true;
+	g_profile_timers.calls[index] = 1;
 
 	DEBUG_LOG("new profile timer added: %d - %s", index, name);
 	return index;
@@ -53,15 +61,15 @@ i32 profile_start_timer(const char *name)
 
 void profile_end_timer(i32 index, i64 cycles)
 {
-	g_profile_timers[index].open         = false;
-	g_profile_timers[index].cycles      += cycles;
+	g_profile_timers.open[index]    = false;
+	g_profile_timers.cycles[index] += cycles;
 
 	// TODO(jesper): this doesn't seem like the best solution for a hierarchical
 	// profile timer system. An O(n) look-up at both start and end is rather...
 	// terrible
 	for (i32 i = 0; i < g_profile_timers.count; i++) {
-		if (g_profile_timers[i].open == true && i != index) {
-			g_profile_timers[i].cycles      -= cycles;
+		if (g_profile_timers.open[i] == true && i != index) {
+			g_profile_timers.cycles[i] -= cycles;
 		}
 	}
 }
@@ -90,30 +98,29 @@ void profile_start_frame()
 
 	for (int i = 0; i < g_profile_timers_prev.count - 1; i++) {
 		int j;
-		int jMax = i;
+		int jmax = i;
 		for (j = i+1; j < g_profile_timers_prev.count; j++) {
-			if (g_profile_timers_prev[j].cycles > g_profile_timers_prev[i].cycles) {
-				jMax = j;
+			if (g_profile_timers_prev.cycles[i] > g_profile_timers_prev.cycles[i]) {
+				jmax = j;
 			}
 		}
 
-		if (jMax != j) {
-			ProfileTimer tmp            = g_profile_timers_prev[i];
-			g_profile_timers_prev[i]    = g_profile_timers_prev[jMax];
-			g_profile_timers_prev[jMax] = tmp;
+		if (jmax != j) {
+			std::swap(g_profile_timers_prev.name[i],   g_profile_timers_prev.name[jmax]);
+			std::swap(g_profile_timers_prev.cycles[i], g_profile_timers_prev.cycles[jmax]);
+			std::swap(g_profile_timers_prev.calls[i],  g_profile_timers_prev.calls[jmax]);
+			std::swap(g_profile_timers_prev.open[i],   g_profile_timers_prev.open[jmax]);
 		}
 	}
 }
 
 void profile_end_frame()
 {
-	StaticArray<ProfileTimer> tmp = g_profile_timers_prev;
-	g_profile_timers_prev         = g_profile_timers;
-	g_profile_timers              = tmp;
+	std::swap(g_profile_timers_prev, g_profile_timers);
 
 	for (int i = 0; i < g_profile_timers.count; i++) {
-		g_profile_timers[i].cycles = 0;
-		g_profile_timers[i].calls  = 0;
+		g_profile_timers.cycles[i] = 0;
+		g_profile_timers.calls[i]  = 0;
 	}
 }
 

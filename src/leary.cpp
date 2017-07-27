@@ -119,8 +119,8 @@ struct DebugOverlay {
 };
 
 struct GameReloadState {
-	StaticArray<ProfileTimer> profile_timers;
-	StaticArray<ProfileTimer> profile_timers_prev;
+	ProfileTimers profile_timers;
+	ProfileTimers profile_timers_prev;
 };
 
 struct GameState {
@@ -954,10 +954,10 @@ void debug_overlay_update(DebugOverlay *overlay,
 			pos.x  = c0.x;
 
 			f32 base_y = pos.y;
-			for (int i = 0; i < g_profile_timers_prev.count; i++) {
-				ProfileTimer &timer = g_profile_timers_prev[i];
 
-				snprintf(buffer, buffer_size, "%s: ", timer.name);
+			ProfileTimers &timers = g_profile_timers_prev;
+			for (int i = 0; i < timers.count; i++) {
+				snprintf(buffer, buffer_size, "%s: ", timers.name[i]);
 				render_font(memory, font, buffer, &pos, vcount, mapped, &offset);
 
 				if (pos.x >= c1.x) {
@@ -971,10 +971,8 @@ void debug_overlay_update(DebugOverlay *overlay,
 
 			c1.x  += min_width + margin;
 			pos.x  = c1.x;
-			for (int i = 0; i < g_profile_timers_prev.count; i++) {
-				ProfileTimer &timer = g_profile_timers_prev[i];
-
-				snprintf(buffer, buffer_size, "%" PRIu64, timer.cycles);
+			for (int i = 0; i < timers.count; i++) {
+				snprintf(buffer, buffer_size, "%" PRIu64, timers.cycles[i]);
 				render_font(memory, font, buffer, &pos, vcount, mapped, &offset);
 
 				if (pos.x >= c2.x) {
@@ -988,10 +986,8 @@ void debug_overlay_update(DebugOverlay *overlay,
 
 			c2.x  += min_width + margin;
 			pos.x  = c2.x;
-			for (int i = 0; i < g_profile_timers_prev.count; i++) {
-				ProfileTimer &timer = g_profile_timers_prev[i];
-
-				snprintf(buffer, buffer_size, "%u", timer.calls);
+			for (int i = 0; i < timers.count; i++) {
+				snprintf(buffer, buffer_size, "%u", timers.calls[i]);
 				render_font(memory, font, buffer, &pos, vcount, mapped, &offset);
 
 				if (pos.x >= c3.x) {
@@ -1005,10 +1001,8 @@ void debug_overlay_update(DebugOverlay *overlay,
 
 			c3.x  += min_width + margin;
 			pos.x  = c3.x;
-			for (int i = 0; i < g_profile_timers_prev.count; i++) {
-				ProfileTimer &timer = g_profile_timers_prev[i];
-
-				snprintf(buffer, buffer_size, "%f", timer.cycles / (f32)timer.calls);
+			for (int i = 0; i < timers.count; i++) {
+				snprintf(buffer, buffer_size, "%f", timers.cycles[i] / (f32)timers.calls[i]);
 				render_font(memory, font, buffer, &pos, vcount, mapped, &offset);
 
 				pos.x  = c3.x;

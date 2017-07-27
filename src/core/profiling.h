@@ -22,8 +22,17 @@ struct ProfileTimer {
 	bool open;
 };
 
-extern StaticArray<ProfileTimer> g_profile_timers;
-extern StaticArray<ProfileTimer> g_profile_timers_prev;
+struct ProfileTimers {
+	i32        count;
+	i32        capacity;
+	const char **name;
+	u64        *cycles;
+	u32        *calls;
+	bool       *open;
+};
+
+extern ProfileTimers g_profile_timers;
+extern ProfileTimers g_profile_timers_prev;
 
 #if PROFILE_TIMERS_ENABLE
 
