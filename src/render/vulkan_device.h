@@ -12,11 +12,6 @@
 #include "platform/platform.h"
 #include "core/array.h"
 
-struct VulkanCode {
-	PFN_vkCreateDebugReportCallbackEXT   CreateDebugReportCallbackEXT;
-	PFN_vkDestroyDebugReportCallbackEXT  DestroyDebugReportCallbackEXT;
-};
-
 enum ShaderStage {
 	ShaderStage_vertex,
 	ShaderStage_fragment,
@@ -112,8 +107,6 @@ struct VulkanPhysicalDevice {
 
 struct VulkanDevice {
 	VkDevice                 handle;
-
-	VulkanCode               code;
 
 	VkInstance               instance;
 	VkDebugReportCallbackEXT debug_callback;

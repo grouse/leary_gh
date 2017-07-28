@@ -2137,28 +2137,6 @@ VulkanTexture texture_create(VulkanDevice *device, u32 width, u32 height,
 	return texture;
 }
 
-void vulkan_set_code(VulkanDevice *device)
-{
-	CreateDebugReportCallbackEXT  = device->code.CreateDebugReportCallbackEXT;
-	DestroyDebugReportCallbackEXT = device->code.DestroyDebugReportCallbackEXT;
-}
-
-VulkanCode vulkan_load(VulkanDevice *device)
-{
-	VulkanCode code = {};
-	code.CreateDebugReportCallbackEXT =
-		(PFN_vkCreateDebugReportCallbackEXT)
-		vkGetInstanceProcAddr(device->instance,
-			                  "vkCreateDebugReportCallbackEXT");
-
-	code.DestroyDebugReportCallbackEXT =
-		(PFN_vkDestroyDebugReportCallbackEXT)
-		vkGetInstanceProcAddr(device->instance,
-			                  "vkDestroyDebugReportCallbackEXT");
-
-	return code;
-}
-
 void vkdebug_create(VulkanDevice *device)
 {
 	VkDebugReportCallbackCreateInfoEXT create_info = {};
@@ -2301,9 +2279,15 @@ VulkanDevice device_create(GameMemory *memory,
 	 * Create debug callbacks
 	 *************************************************************************/
 	{
-		VulkanCode code = vulkan_load(&device);
-		device.code     = code;
-		vulkan_set_code(&device);
+		CreateDebugReportCallbackEXT =
+			(PFN_vkCreateDebugReportCallbackEXT)
+			vkGetInstanceProcAddr(device.instance,
+			                      "vkCreateDebugReportCallbackEXT");
+
+		DestroyDebugReportCallbackEXT =
+			(PFN_vkDestroyDebugReportCallbackEXT)
+			vkGetInstanceProcAddr(device.instance,
+			                      "vkDestroyDebugReportCallbackEXT");
 
 		vkdebug_create(&device);
 	}

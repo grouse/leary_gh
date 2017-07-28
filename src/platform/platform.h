@@ -68,7 +68,7 @@
 #endif
 
 #ifndef LEARY_DYNAMIC
-	#define LEARY_DYNAMIC 0
+#define LEARY_DYNAMIC 1
 #endif
 
 #if !LEARY_DYNAMIC

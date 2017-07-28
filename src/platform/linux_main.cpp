@@ -88,7 +88,7 @@ DynamicLib load_code(char *path)
 	DEBUG_ASSERT(result == 0);
 
 	lib.load_time = st.st_mtime;
-	lib.handle    = dlopen(path, RTLD_LAZY | RTLD_GLOBAL);
+	lib.handle    = dlopen(path, RTLD_NOW | RTLD_LOCAL);
 
 	if (lib.handle) {
 		platform_init       = DLOAD_FUNC(lib.handle, platform_init);

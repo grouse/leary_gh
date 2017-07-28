@@ -123,6 +123,9 @@ struct DebugOverlay {
 struct GameReloadState {
 	ProfileTimers profile_timers;
 	ProfileTimers profile_timers_prev;
+
+	PFN_vkCreateDebugReportCallbackEXT   CreateDebugReportCallbackEXT;
+	PFN_vkDestroyDebugReportCallbackEXT  DestroyDebugReportCallbackEXT;
 };
 
 struct GameState {
@@ -685,10 +688,16 @@ void game_pre_reload(GameMemory *memory)
 	state.profile_timers      = g_profile_timers;
 	state.profile_timers_prev = g_profile_timers_prev;
 
+	game->reload_state.CreateDebugReportCallbackEXT  = CreateDebugReportCallbackEXT;
+	game->reload_state.DestroyDebugReportCallbackEXT = DestroyDebugReportCallbackEXT;
+
 	// NOTE(jesper): wait for the vulkan queues to be idle. Here for when I get
 	// to shader and resource reloading - I don't even want to think about what
 	// kind of fits graphics drivers will throw if we start recreating pipelines
 	// in the middle of things
+	vkQueueWaitIdle(game->vulkan.queue);
+
+	vkdebug_destroy(&game->vulkan);
 	vkQueueWaitIdle(game->vulkan.queue);
 
 	game->reload_state = state;
@@ -697,12 +706,16 @@ void game_pre_reload(GameMemory *memory)
 void game_reload(GameMemory *memory)
 {
 	GameState *game = (GameState*)memory->game;
-	vulkan_set_code(&game->vulkan);
 
 	// TODO(jesper): I feel like this could be quite nicely preprocessed and
 	// generated. look into
 	g_profile_timers      = game->reload_state.profile_timers;
 	g_profile_timers_prev = game->reload_state.profile_timers_prev;
+
+	CreateDebugReportCallbackEXT  = game->reload_state.CreateDebugReportCallbackEXT;
+	DestroyDebugReportCallbackEXT = game->reload_state.DestroyDebugReportCallbackEXT;
+
+	vkdebug_create(&game->vulkan);
 }
 
 void game_input(GameMemory *memory, PlatformState *platform, InputEvent event)
@@ -1056,7 +1069,7 @@ void game_update(GameMemory *memory, f32 dt)
 	Entity &player = game->entities[0];
 
 	{
-		Quaternion r = Quaternion::make({0.0f, 1.0f, 0.0f}, 0.5f * dt);
+		Quaternion r = Quaternion::make({0.0f, 1.0f, 0.0f}, 1.5f * dt);
 		player.rotation = player.rotation * r;
 
 		r = Quaternion::make({1.0f, 0.0f, 0.0f}, 0.5f * dt);
