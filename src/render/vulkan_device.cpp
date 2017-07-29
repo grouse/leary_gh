@@ -311,6 +311,13 @@ void renderpass_end(VkCommandBuffer cmd)
 	vkCmdEndRenderPass(cmd);
 }
 
+#define VK_LOAD_FUNC(i, f) (PFN_##f)vkGetInstanceProcAddr(i, #f)
+void vulkan_load(VkInstance instance)
+{
+	CreateDebugReportCallbackEXT  = VK_LOAD_FUNC(instance, vkCreateDebugReportCallbackEXT);
+	DestroyDebugReportCallbackEXT = VK_LOAD_FUNC(instance, vkDestroyDebugReportCallbackEXT);
+}
+
 void renderpass_begin(VulkanDevice *device, VkCommandBuffer cmd, u32 image)
 {
 	VkClearValue clear_values[2];
@@ -2139,6 +2146,8 @@ VulkanTexture texture_create(VulkanDevice *device, u32 width, u32 height,
 
 void vkdebug_create(VulkanDevice *device)
 {
+	(void)device;
+#if 1
 	VkDebugReportCallbackCreateInfoEXT create_info = {};
 	create_info.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CREATE_INFO_EXT;
 
@@ -2154,11 +2163,16 @@ void vkdebug_create(VulkanDevice *device)
 	                                               nullptr,
 	                                               &device->debug_callback);
 	DEBUG_ASSERT(result == VK_SUCCESS);
+#endif
 }
 
 void vkdebug_destroy(VulkanDevice *device)
 {
+	(void)device;
+#if 1
 	DestroyDebugReportCallbackEXT(device->instance, device->debug_callback, nullptr);
+	device->debug_callback = nullptr;
+#endif
 }
 
 VulkanDevice device_create(GameMemory *memory,
@@ -2279,16 +2293,7 @@ VulkanDevice device_create(GameMemory *memory,
 	 * Create debug callbacks
 	 *************************************************************************/
 	{
-		CreateDebugReportCallbackEXT =
-			(PFN_vkCreateDebugReportCallbackEXT)
-			vkGetInstanceProcAddr(device.instance,
-			                      "vkCreateDebugReportCallbackEXT");
-
-		DestroyDebugReportCallbackEXT =
-			(PFN_vkDestroyDebugReportCallbackEXT)
-			vkGetInstanceProcAddr(device.instance,
-			                      "vkDestroyDebugReportCallbackEXT");
-
+		vulkan_load(device.instance);
 		vkdebug_create(&device);
 	}
 
