@@ -937,9 +937,10 @@ void debug_overlay_update(DebugOverlay *overlay,
 			f32 base_x = pos.x;
 			item.tl = pos;
 			defer {
-				item.br = pos;
-				pos.x = base_x;
-				pos.y += overlay->fsize;
+				pos.y   += overlay->fsize;
+				item.br  = pos;
+
+				pos.x    = base_x;
 			};
 
 			if (item.collapsed) {
