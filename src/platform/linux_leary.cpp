@@ -143,7 +143,8 @@ PLATFORM_INIT_FUNC(platform_init)
 
 	XSelectInput(native->display, native->window,
 	             KeyPressMask | KeyReleaseMask | StructureNotifyMask |
-	             PointerMotionMask | EnterWindowMask);
+	             PointerMotionMask | ButtonPressMask |
+	             ButtonReleaseMask | EnterWindowMask);
 	XMapWindow(native->display, native->window);
 
 	native->WM_DELETE_WINDOW = XInternAtom(native->display, "WM_DELETE_WINDOW", false);
@@ -244,7 +245,7 @@ PLATFORM_UPDATE_FUNC(platform_update)
 		case KeyPress: {
 			InputEvent event;
 			event.type         = InputType_key_press;
-			event.key.vkey     = keycode_to_virtual(xevent.xkey.keycode);
+			event.key.code     = linux_keycode(xevent.xkey.keycode);
 			event.key.repeated = false;
 
 			game_input(&platform->memory, platform, event);
@@ -252,7 +253,7 @@ PLATFORM_UPDATE_FUNC(platform_update)
 		case KeyRelease: {
 			InputEvent event;
 			event.type         = InputType_key_release;
-			event.key.vkey     = keycode_to_virtual(xevent.xkey.keycode);
+			event.key.code     = linux_keycode(xevent.xkey.keycode);
 			event.key.repeated = false;
 
 			if (XEventsQueued(native->display, QueuedAfterReading)) {
@@ -267,6 +268,14 @@ PLATFORM_UPDATE_FUNC(platform_update)
 				}
 			}
 
+			game_input(&platform->memory, platform, event);
+		} break;
+		case ButtonPress: {
+			InputEvent event;
+			event.type         = InputType_mouse_press;
+			event.mouse.x      = xevent.xbutton.x;
+			event.mouse.y      = xevent.xbutton.y;
+			event.mouse.button = xevent.xbutton.button;
 			game_input(&platform->memory, platform, event);
 		} break;
 		case MotionNotify: {

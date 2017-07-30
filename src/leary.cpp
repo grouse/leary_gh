@@ -726,54 +726,54 @@ void game_input(GameMemory *memory, PlatformState *platform, InputEvent event)
 			break;
 		}
 
-		game->key_state[event.key.vkey] = InputType_key_press;
+		game->key_state[event.key.code] = InputType_key_press;
 
-		switch (event.key.vkey) {
-		case VirtualKey_escape:
+		switch (event.key.code) {
+		case Key_escape:
 			game_quit(memory, platform);
 			break;
-		case VirtualKey_W:
+		case Key_W:
 			// TODO(jesper): tweak movement speed when we have a sense of scale
 			game->velocity.z = 3.0f;
 			break;
-		case VirtualKey_S:
+		case Key_S:
 			// TODO(jesper): tweak movement speed when we have a sense of scale
 			game->velocity.z = -3.0f;
 			break;
-		case VirtualKey_A:
+		case Key_A:
 			// TODO(jesper): tweak movement speed when we have a sense of scale
 			game->velocity.x = -3.0f;
 			break;
-		case VirtualKey_D:
+		case Key_D:
 			// TODO(jesper): tweak movement speed when we have a sense of scale
 			game->velocity.x = 3.0f;
 			break;
-		case VirtualKey_F:
+		case Key_F:
 			for (int i = 0; i < game->overlay.items.count; i++) {
 				game->overlay.items[i].collapsed = !game->overlay.items[i].collapsed;
 			}
 			break;
-		case VirtualKey_left: {
+		case Key_left: {
 			i32 pid = physics_id(&game->physics, 0);
 			game->physics.velocities[pid].x = 5.0f;
 		} break;
-		case VirtualKey_right: {
+		case Key_right: {
 			i32 pid = physics_id(&game->physics, 0);
 			game->physics.velocities[pid].x = -5.0f;
 		} break;
-		case VirtualKey_up: {
+		case Key_up: {
 			i32 pid = physics_id(&game->physics, 0);
 			game->physics.velocities[pid].z = 5.0f;
 		} break;
-		case VirtualKey_down: {
+		case Key_down: {
 			i32 pid = physics_id(&game->physics, 0);
 			game->physics.velocities[pid].z = -5.0f;
 		} break;
-		case VirtualKey_C:
+		case Key_C:
 			platform_toggle_raw_mouse(platform);
 			break;
 		default:
-			//DEBUG_LOG("unhandled key press: %d", event.key.vkey);
+			//DEBUG_LOG("unhandled key press: %d", event.key.code);
 			break;
 		}
 	} break;
@@ -782,107 +782,107 @@ void game_input(GameMemory *memory, PlatformState *platform, InputEvent event)
 			break;
 		}
 
-		game->key_state[event.key.vkey] = InputType_key_release;
+		game->key_state[event.key.code] = InputType_key_release;
 
-		switch (event.key.vkey) {
-		case VirtualKey_W:
+		switch (event.key.code) {
+		case Key_W:
 			game->velocity.z = 0.0f;
-			if (game->key_state[VirtualKey_S] == InputType_key_press) {
+			if (game->key_state[Key_S] == InputType_key_press) {
 				InputEvent e;
 				e.type         = InputType_key_press;
-				e.key.vkey     = VirtualKey_S;
+				e.key.code     = Key_S;
 				e.key.repeated = false;
 
 				game_input(memory, platform, e);
 			}
 			break;
-		case VirtualKey_S:
+		case Key_S:
 			game->velocity.z = 0.0f;
-			if (game->key_state[VirtualKey_W] == InputType_key_press) {
+			if (game->key_state[Key_W] == InputType_key_press) {
 				InputEvent e;
 				e.type         = InputType_key_press;
-				e.key.vkey     = VirtualKey_W;
+				e.key.code     = Key_W;
 				e.key.repeated = false;
 
 				game_input(memory, platform, e);
 			}
 			break;
-		case VirtualKey_A:
+		case Key_A:
 			game->velocity.x = 0.0f;
-			if (game->key_state[VirtualKey_D] == InputType_key_press) {
+			if (game->key_state[Key_D] == InputType_key_press) {
 				InputEvent e;
 				e.type         = InputType_key_press;
-				e.key.vkey     = VirtualKey_D;
+				e.key.code     = Key_D;
 				e.key.repeated = false;
 
 				game_input(memory, platform, e);
 			}
 			break;
-		case VirtualKey_D:
+		case Key_D:
 			game->velocity.x = 0.0f;
-			if (game->key_state[VirtualKey_A] == InputType_key_press) {
+			if (game->key_state[Key_A] == InputType_key_press) {
 				InputEvent e;
 				e.type         = InputType_key_press;
-				e.key.vkey     = VirtualKey_A;
+				e.key.code     = Key_A;
 				e.key.repeated = false;
 
 				game_input(memory, platform, e);
 			}
 			break;
-		case VirtualKey_left: {
+		case Key_left: {
 			i32 pid = physics_id(&game->physics, 0);
 			game->physics.velocities[pid].x = 0.0f;
 
-			if (game->key_state[VirtualKey_right] == InputType_key_press) {
+			if (game->key_state[Key_right] == InputType_key_press) {
 				InputEvent e;
 				e.type         = InputType_key_press;
-				e.key.vkey     = VirtualKey_right;
+				e.key.code     = Key_right;
 				e.key.repeated = false;
 
 				game_input(memory, platform, e);
 			}
 		} break;
-		case VirtualKey_right: {
+		case Key_right: {
 			i32 pid = physics_id(&game->physics, 0);
 			game->physics.velocities[pid].x = 0.0f;
 
-			if (game->key_state[VirtualKey_left] == InputType_key_press) {
+			if (game->key_state[Key_left] == InputType_key_press) {
 				InputEvent e;
 				e.type         = InputType_key_press;
-				e.key.vkey     = VirtualKey_left;
+				e.key.code     = Key_left;
 				e.key.repeated = false;
 
 				game_input(memory, platform, e);
 			}
 		} break;
-		case VirtualKey_up: {
+		case Key_up: {
 			i32 pid = physics_id(&game->physics, 0);
 			game->physics.velocities[pid].z = 0.0f;
 
-			if (game->key_state[VirtualKey_down] == InputType_key_press) {
+			if (game->key_state[Key_down] == InputType_key_press) {
 				InputEvent e;
 				e.type         = InputType_key_press;
-				e.key.vkey     = VirtualKey_down;
+				e.key.code     = Key_down;
 				e.key.repeated = false;
 
 				game_input(memory, platform, e);
 			}
 		} break;
-		case VirtualKey_down: {
+		case Key_down: {
 			i32 pid = physics_id(&game->physics, 0);
 			game->physics.velocities[pid].z = 0.0f;
 
-			if (game->key_state[VirtualKey_up] == InputType_key_press) {
+			if (game->key_state[Key_up] == InputType_key_press) {
 				InputEvent e;
 				e.type         = InputType_key_press;
-				e.key.vkey     = VirtualKey_up;
+				e.key.code     = Key_up;
 				e.key.repeated = false;
 
 				game_input(memory, platform, e);
 			}
 		} break;
 		default:
-			//DEBUG_LOG("unhandled key release: %d", event.key.vkey);
+			//DEBUG_LOG("unhandled key release: %d", event.key.code);
 			break;
 		}
 	} break;
@@ -890,6 +890,10 @@ void game_input(GameMemory *memory, PlatformState *platform, InputEvent event)
 		// TODO(jesper): move mouse sensitivity into settings
 		game->fp_camera.yaw   += 0.001f * event.mouse.dx;
 		game->fp_camera.pitch += 0.001f * event.mouse.dy;
+	} break;
+	case InputType_mouse_press: {
+		DEBUG_LOG("button %d pressed", event.mouse.button);
+		DEBUG_LOG("-- { %f, %f }", event.mouse.x, event.mouse.y);
 	} break;
 	default:
 		//DEBUG_LOG("unhandled input type: %d", event.type);
