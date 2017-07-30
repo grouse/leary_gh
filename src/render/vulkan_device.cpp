@@ -949,10 +949,17 @@ VulkanPipeline pipeline_create_font(VulkanDevice *device, GameMemory *memory)
 		array_add(&layouts, pipeline.descriptor_layout_material);
 	}
 
+	VkPushConstantRange push_constants = {};
+	push_constants.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+	push_constants.offset = 0;
+	push_constants.size = sizeof(Matrix4);
+
 	VkPipelineLayoutCreateInfo layout_info = {};
 	layout_info.sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 	layout_info.setLayoutCount         = (i32)layouts.count;
 	layout_info.pSetLayouts            = layouts.data;
+	layout_info.pushConstantRangeCount = 1;
+	layout_info.pPushConstantRanges    = &push_constants;
 
 	result = vkCreatePipelineLayout(device->handle,
 	                                &layout_info,
@@ -1136,10 +1143,17 @@ VulkanPipeline pipeline_create_basic2d(VulkanDevice *device, GameMemory *memory)
 		array_add(&layouts, pipeline.descriptor_layout_material);
 	}
 
+	VkPushConstantRange push_constants = {};
+	push_constants.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+	push_constants.offset = 0;
+	push_constants.size = sizeof(Matrix4);
+
 	VkPipelineLayoutCreateInfo layout_info = {};
 	layout_info.sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 	layout_info.setLayoutCount         = (i32)layouts.count;
 	layout_info.pSetLayouts            = layouts.data;
+	layout_info.pushConstantRangeCount = 1;
+	layout_info.pPushConstantRanges    = &push_constants;
 
 	result = vkCreatePipelineLayout(device->handle,
 	                                &layout_info,

@@ -609,13 +609,13 @@ void game_init(GameMemory *memory, PlatformState *platform)
 		terrain.ritem.texture  = &game->textures.heightmap;
 
 		f32 vertices[] = {
-			-0.5f, -0.5f, 0.2f,  0.0f, 0.0f,
-			0.5f, -0.5f, 0.2f,  1.0f, 0.0f,
-			0.5f, 0.5f, 0.2f,  1.0f, 1.0f,
+			0.0f, 0.0f, 0.2f,  0.0f, 0.0f,
+			1.0f, 0.0f, 0.2f,  1.0f, 0.0f,
+			1.0f, 1.0f, 0.2f,  1.0f, 1.0f,
 
-			0.5f, 0.5f, 0.2f,  1.0f, 1.0f,
-			-0.5f, 0.5f, 0.2f,  0.0f, 1.0f,
-			-0.5f, -0.5f, 0.2f,  0.0f, 0.0f,
+			1.0f, 1.0f, 0.2f,  1.0f, 1.0f,
+			0.0f, 1.0f, 0.2f,  0.0f, 1.0f,
+			0.0f, 0.0f, 0.2f,  0.0f, 0.0f,
 		};
 
 		terrain.ritem.vbo = buffer_create_vbo(&game->vulkan, vertices,
@@ -1046,8 +1046,7 @@ void debug_overlay_update(DebugOverlay *overlay,
 			pos.x = base_x;
 		} break;
 		case Debug_render_item: {
-			render_font(memory, font, "texture", &pos, vcount, mapped, &offset);
-			item.ritem.position = pos;
+			item.ritem.position = g_screen_to_view * (pos + Vector3{10.0f, 0.0f, 0.0f});
 			array_add(&overlay->render_queue, item.ritem);
 		} break;
 		default:
@@ -1210,6 +1209,10 @@ void game_render(GameMemory *memory)
 
 
 	if (game->overlay.vertex_count > 0) {
+		Matrix4 t = Matrix4::identity();
+		vkCmdPushConstants(command, game->pipelines.font.layout,
+		                   VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(t), &t);
+
 		vkCmdBindVertexBuffers(command, 0, 1,
 		                       &game->overlay.vbo.handle, offsets);
 		vkCmdDraw(command, game->overlay.vertex_count, 1, 0, 0);
@@ -1231,11 +1234,9 @@ void game_render(GameMemory *memory)
 		                        item.descriptors.data,
 		                        0, nullptr);
 
-#if 0
 		Matrix4 t = translate(Matrix4::identity(), item.position);
 		vkCmdPushConstants(command, item.pipeline->layout,
 		                   VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(t), &t);
-#endif
 
 		vkCmdBindVertexBuffers(command, 0, 1, &item.vbo.handle, offsets);
 		vkCmdDraw(command, item.vertex_count, 1, 0, 0);
