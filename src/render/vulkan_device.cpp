@@ -968,11 +968,11 @@ VulkanPipeline pipeline_create_font(VulkanDevice *device, GameMemory *memory)
 	DEBUG_ASSERT(result == VK_SUCCESS);
 
 	auto vbinds = array_create<VkVertexInputBindingDescription>(&memory->stack);
-	array_add(&vbinds, { 0, sizeof(f32) * 5, VK_VERTEX_INPUT_RATE_VERTEX });
+	array_add(&vbinds, { 0, sizeof(f32) * 4, VK_VERTEX_INPUT_RATE_VERTEX });
 
 	auto vdescs = array_create<VkVertexInputAttributeDescription>(&memory->stack);
-	array_add(&vdescs, { 0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0 });
-	array_add(&vdescs, { 1, 0, VK_FORMAT_R32G32_SFLOAT,    sizeof(f32) * 3 });
+	array_add(&vdescs, { 0, 0, VK_FORMAT_R32G32_SFLOAT, 0 });
+	array_add(&vdescs, { 1, 0, VK_FORMAT_R32G32_SFLOAT, sizeof(f32) * 2 });
 
 
 	VkPipelineVertexInputStateCreateInfo vii = {};
@@ -1162,11 +1162,11 @@ VulkanPipeline pipeline_create_basic2d(VulkanDevice *device, GameMemory *memory)
 	DEBUG_ASSERT(result == VK_SUCCESS);
 
 	auto vbinds = array_create<VkVertexInputBindingDescription>(&memory->stack);
-	array_add(&vbinds, { 0, sizeof(f32) * 5, VK_VERTEX_INPUT_RATE_VERTEX });
+	array_add(&vbinds, { 0, sizeof(f32) * 4, VK_VERTEX_INPUT_RATE_VERTEX });
 
 	auto vdescs = array_create<VkVertexInputAttributeDescription>(&memory->stack);
-	array_add(&vdescs, { 0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0 });
-	array_add(&vdescs, { 1, 0, VK_FORMAT_R32G32_SFLOAT,    sizeof(f32) * 3 });
+	array_add(&vdescs, { 0, 0, VK_FORMAT_R32G32_SFLOAT, 0 });
+	array_add(&vdescs, { 1, 0, VK_FORMAT_R32G32_SFLOAT, sizeof(f32) * 2 });
 
 
 	VkPipelineVertexInputStateCreateInfo vii = {};

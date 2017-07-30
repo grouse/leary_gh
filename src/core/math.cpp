@@ -124,6 +124,14 @@ inline Matrix4 translate(Matrix4 m, Vector3 v)
 	return result;
 }
 
+inline Matrix4 translate(Matrix4 m, Vector2 v)
+{
+	Matrix4 result = m;
+	result[3].x += v.x;
+	result[3].y += v.y;
+	return result;
+}
+
 inline Matrix4 rotate(Matrix4 m, f32 theta, Vector3 axis)
 {
 	f32 c = cosf(theta);
@@ -262,6 +270,22 @@ inline Vector3 operator * (Matrix4 lhs, Vector3 rhs)
 	result.x = lhs[0].x * rhs.x + lhs[0].y * rhs.y + lhs[0].z * rhs.z + lhs[3].x;
 	result.y = lhs[1].x * rhs.x + lhs[1].y * rhs.y + lhs[1].z * rhs.z + lhs[3].y;
 	result.z = lhs[2].x * rhs.x + lhs[2].y * rhs.y + lhs[2].z * rhs.z + lhs[3].z;
+	return result;
+}
+
+inline Vector2 operator * (Matrix4 lhs, Vector2 rhs)
+{
+	Vector2 result = {};
+	result.x = lhs[0].x * rhs.x + lhs[0].y * rhs.y + lhs[3].x;
+	result.y = lhs[1].x * rhs.x + lhs[1].y * rhs.y + lhs[3].y;
+	return result;
+}
+
+inline Vector2 operator+ (Vector2 lhs, Vector2 rhs)
+{
+	Vector2 result = {};
+	result.x = lhs.x + rhs.x;
+	result.y = lhs.y + rhs.y;
 	return result;
 }
 

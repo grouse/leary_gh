@@ -29,8 +29,8 @@
 
 #include "core/serialize.cpp"
 
-Matrix4 g_screen_to_view;
-Matrix4 g_view_to_screen;
+Matrix4 g_screen_to_view; // [-w/2, w/2] -> [-1  , 1]
+Matrix4 g_view_to_screen; // [-1  , 1]   -> [-w/2, w/2]
 
 struct Entity {
 	i32        id;
@@ -84,7 +84,7 @@ enum DebugOverlayItemType {
 };
 
 struct DebugRenderItem {
-	Vector3                position;
+	Vector2                position;
 	VulkanPipeline         *pipeline    = nullptr;
 	VulkanTexture          *texture     = nullptr;
 	Array<VkDescriptorSet> descriptors  = {};
@@ -94,7 +94,7 @@ struct DebugRenderItem {
 
 struct DebugOverlayItem {
 	const char               *title;
-	Vector3 tl, br;
+	Vector2 tl, br;
 	Array<DebugOverlayItem*> children  = {};
 	bool                     collapsed = false;
 	DebugOverlayItemType     type;
@@ -249,7 +249,7 @@ i32 physics_id(Physics *physics, i32 entity_id)
 void render_font(GameMemory *memory,
                  stbtt_bakedchar *font,
                  const char *str,
-                 Vector3 *pos,
+                 Vector2 *pos,
                  i32 *out_vertex_count,
                  void *buffer, usize *offset)
 {
@@ -258,7 +258,7 @@ void render_font(GameMemory *memory,
 	usize text_length = strlen(str);
 	if (text_length == 0) return;
 
-	usize vertices_size = sizeof(f32)*30*text_length;
+	usize vertices_size = sizeof(f32)*24*text_length;
 	auto vertices = (f32*)alloc(&memory->frame, vertices_size);
 
 	Matrix4 t = g_screen_to_view;
@@ -271,7 +271,7 @@ void render_font(GameMemory *memory,
 		if (c == '\n') {
 			pos->y += 20.0f;
 			pos->x  = bx;
-			vertices_size -= sizeof(f32)*5*6;
+			vertices_size -= sizeof(f32)*4*6;
 			continue;
 		}
 
@@ -280,44 +280,38 @@ void render_font(GameMemory *memory,
 		stbtt_aligned_quad q = {};
 		stbtt_GetBakedQuad(font, 1024, 1024, c, &pos->x, &pos->y, &q, 1);
 
-		Vector3 tl = t * Vector3{q.x0, q.y0 + 15.0f, 0.0f};
-		Vector3 tr = t * Vector3{q.x1, q.y0 + 15.0f, 0.0f};
-		Vector3 br = t * Vector3{q.x1, q.y1 + 15.0f, 0.0f};
-		Vector3 bl = t * Vector3{q.x0, q.y1 + 15.0f, 0.0f};
+		Vector2 tl = t * Vector2{q.x0, q.y0 + 15.0f};
+		Vector2 tr = t * Vector2{q.x1, q.y0 + 15.0f};
+		Vector2 br = t * Vector2{q.x1, q.y1 + 15.0f};
+		Vector2 bl = t * Vector2{q.x0, q.y1 + 15.0f};
 
 		vertices[vi++] = tl.x;
 		vertices[vi++] = tl.y;
-		vertices[vi++] = tl.z;
 		vertices[vi++] = q.s0;
 		vertices[vi++] = q.t0;
 
 		vertices[vi++] = tr.x;
 		vertices[vi++] = tr.y;
-		vertices[vi++] = tr.z;
 		vertices[vi++] = q.s1;
 		vertices[vi++] = q.t0;
 
 		vertices[vi++] = br.x;
 		vertices[vi++] = br.y;
-		vertices[vi++] = br.z;
 		vertices[vi++] = q.s1;
 		vertices[vi++] = q.t1;
 
 		vertices[vi++] = br.x;
 		vertices[vi++] = br.y;
-		vertices[vi++] = br.z;
 		vertices[vi++] = q.s1;
 		vertices[vi++] = q.t1;
 
 		vertices[vi++] = bl.x;
 		vertices[vi++] = bl.y;
-		vertices[vi++] = bl.z;
 		vertices[vi++] = q.s0;
 		vertices[vi++] = q.t1;
 
 		vertices[vi++] = tl.x;
 		vertices[vi++] = tl.y;
-		vertices[vi++] = tl.z;
 		vertices[vi++] = q.s0;
 		vertices[vi++] = q.t0;
 	}
@@ -610,13 +604,13 @@ void game_init(GameMemory *memory, PlatformState *platform)
 		terrain.ritem.texture  = &game->textures.heightmap;
 
 		f32 vertices[] = {
-			0.0f, 0.0f, 0.2f,  0.0f, 0.0f,
-			1.0f, 0.0f, 0.2f,  1.0f, 0.0f,
-			1.0f, 1.0f, 0.2f,  1.0f, 1.0f,
+			0.0f, 0.0f,  0.0f, 0.0f,
+			1.0f, 0.0f,  1.0f, 0.0f,
+			1.0f, 1.0f,  1.0f, 1.0f,
 
-			1.0f, 1.0f, 0.2f,  1.0f, 1.0f,
-			0.0f, 1.0f, 0.2f,  0.0f, 1.0f,
-			0.0f, 0.0f, 0.2f,  0.0f, 0.0f,
+			1.0f, 1.0f,  1.0f, 1.0f,
+			0.0f, 1.0f,  0.0f, 1.0f,
+			0.0f, 0.0f,  0.0f, 0.0f,
 		};
 
 		terrain.ritem.vbo = buffer_create_vbo(&game->vulkan, vertices,
@@ -892,6 +886,7 @@ void game_input(GameMemory *memory, PlatformState *platform, InputEvent event)
 		game->fp_camera.pitch += 0.001f * event.mouse.dy;
 	} break;
 	case InputType_mouse_press: {
+		//Vector2 p = { event.mouse.x, event.mouse.y };
 		DEBUG_LOG("button %d pressed", event.mouse.button);
 		DEBUG_LOG("-- { %f, %f }", event.mouse.x, event.mouse.y);
 	} break;
@@ -914,7 +909,7 @@ void debug_overlay_update(DebugOverlay *overlay,
 	i32 *vcount           = &overlay->vertex_count;
 
 	usize offset = 0;
-	Vector3 pos = { -1.0f, -1.0f, 0.2f };
+	Vector2 pos = { -1.0f, -1.0f };
 	pos = g_view_to_screen * pos;
 
 	*vcount = 0;
@@ -993,7 +988,7 @@ void debug_overlay_update(DebugOverlay *overlay,
 			f32 base_x = pos.x;
 			f32 base_y = pos.y;
 
-			Vector3 c0, c1, c2, c3;
+			Vector2 c0, c1, c2, c3;
 			c0.x = c1.x = c2.x = c3.x = pos.x + margin;
 			c0.y = c1.y = c2.y = c3.y = hy;
 
@@ -1062,7 +1057,7 @@ void debug_overlay_update(DebugOverlay *overlay,
 			pos.x = base_x;
 		} break;
 		case Debug_render_item: {
-			item.ritem.position = g_screen_to_view * (pos + Vector3{10.0f, 0.0f, 0.0f});
+			item.ritem.position = g_screen_to_view * (pos + Vector2{10.0f, 0.0f});
 			array_add(&overlay->render_queue, item.ritem);
 		} break;
 		default:
