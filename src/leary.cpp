@@ -94,6 +94,7 @@ struct DebugRenderItem {
 
 struct DebugOverlayItem {
 	const char               *title;
+	Vector3 tl, br;
 	Array<DebugOverlayItem*> children  = {};
 	bool                     collapsed = false;
 	DebugOverlayItemType     type;
@@ -932,14 +933,24 @@ void debug_overlay_update(DebugOverlay *overlay,
 	for (int i = 0; i < overlay->items.count; i++) {
 		DebugOverlayItem &item = overlay->items[i];
 
-		if (item.collapsed) {
-			snprintf(buffer, buffer_size, "%s...\n", item.title);
-			render_font(memory, font, buffer, &pos, vcount, mapped, &offset);
-			continue;
-		}
+		{
+			f32 base_x = pos.x;
+			item.tl = pos;
+			defer {
+				item.br = pos;
+				pos.x = base_x;
+				pos.y += overlay->fsize;
+			};
 
-		snprintf(buffer, buffer_size, "%s\n", item.title);
-		render_font(memory, font, buffer, &pos, vcount, mapped, &offset);
+			if (item.collapsed) {
+				snprintf(buffer, buffer_size, "%s...", item.title);
+				render_font(memory, font, buffer, &pos, vcount, mapped, &offset);
+				continue;
+			}
+
+			snprintf(buffer, buffer_size, "%s", item.title);
+			render_font(memory, font, buffer, &pos, vcount, mapped, &offset);
+		}
 
 		switch (item.type) {
 		case Debug_allocators: {
@@ -1073,7 +1084,6 @@ void game_update(GameMemory *memory, f32 dt)
 		player.rotation = player.rotation * r;
 	}
 
-	debug_overlay_update(&game->overlay, &game->vulkan, memory, dt);
 
 	physics_process(&game->physics, game, dt);
 
@@ -1294,8 +1304,11 @@ void game_render(GameMemory *memory)
 
 void game_update_and_render(GameMemory *memory, f32 dt)
 {
+	GameState *game = (GameState*)memory->game;
 	game_update(memory, dt);
 	game_render(memory);
+
+	debug_overlay_update(&game->overlay, &game->vulkan, memory, dt);
 
 	alloc_reset(&memory->frame);
 }
