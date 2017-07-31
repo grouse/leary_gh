@@ -170,6 +170,41 @@ struct GameState {
 	i32 *key_state;
 };
 
+void debug_add_texture(const char *name,
+                       VulkanTexture *texture,
+                       Material material,
+                       VulkanPipeline *pipeline,
+                       VulkanDevice *vulkan,
+                       GameMemory *memory,
+                       DebugOverlay *overlay)
+{
+	DebugOverlayItem item;
+	item.title          = name;
+	item.type           = Debug_render_item;
+	item.ritem.pipeline = pipeline;
+	item.ritem.texture  = texture;
+
+	Vector2 dim = { (f32)texture->width, (f32)texture->height };
+	dim = g_screen_to_view * dim;
+
+	f32 vertices[] = {
+		0.0f,  0.0f,  0.0f, 0.0f,
+		dim.x, 0.0f,  1.0f, 0.0f,
+		dim.x, dim.y, 1.0f, 1.0f,
+
+		dim.x, dim.y, 1.0f, 1.0f,
+		0.0f,  dim.y, 0.0f, 1.0f,
+		0.0f,  0.0f,  0.0f, 0.0f,
+	};
+
+	item.ritem.vbo = buffer_create_vbo(vulkan, vertices, sizeof(vertices) * sizeof(f32));
+	item.ritem.vertex_count = 6;
+
+	item.ritem.descriptors = array_create<VkDescriptorSet>(&memory->free_list, 1);
+	array_add(&item.ritem.descriptors, material.descriptor_set);
+	array_add(&overlay->items, item);
+}
+
 Entity entities_add(Array<Entity> *entities, Vector3 pos)
 {
 	Entity e   = {};
@@ -597,30 +632,8 @@ void game_init(GameMemory *memory, PlatformState *platform)
 		timers.type  = Debug_profile_timers;
 		array_add(&game->overlay.items, timers);
 
-		DebugOverlayItem terrain;
-		terrain.title   = "Terrain";
-		terrain.type    = Debug_render_item;
-		terrain.ritem.pipeline = &game->pipelines.basic2d;
-		terrain.ritem.texture  = &game->textures.heightmap;
-
-		f32 vertices[] = {
-			0.0f, 0.0f,  0.0f, 0.0f,
-			1.0f, 0.0f,  1.0f, 0.0f,
-			1.0f, 1.0f,  1.0f, 1.0f,
-
-			1.0f, 1.0f,  1.0f, 1.0f,
-			0.0f, 1.0f,  0.0f, 1.0f,
-			0.0f, 0.0f,  0.0f, 0.0f,
-		};
-
-		terrain.ritem.vbo = buffer_create_vbo(&game->vulkan, vertices,
-		                                      sizeof(vertices) * sizeof(f32));
-		terrain.ritem.vertex_count = 6;
-
-		terrain.ritem.descriptors = array_create<VkDescriptorSet>(&memory->free_list, 1);
-		array_add(&terrain.ritem.descriptors, game->materials.heightmap.descriptor_set);
-
-		array_add(&game->overlay.items, terrain);
+		debug_add_texture("Terrain", &game->textures.heightmap, game->materials.heightmap,
+		                  &game->pipelines.basic2d, &game->vulkan, memory, &game->overlay);
 	}
 }
 
