@@ -439,19 +439,6 @@ void game_init(GameMemory *memory, PlatformState *platform)
 		                                       VkComponentMapping{});
 	}
 
-	{
-		Texture heightmap = texture_load_bmp("terrain.bmp");
-		DEBUG_ASSERT(heightmap.size > 0);
-
-		game->textures.heightmap = texture_create(&game->vulkan,
-		                                          heightmap.width,
-		                                          heightmap.height,
-		                                          heightmap.format,
-		                                          heightmap.data,
-		                                          VkComponentMapping{});
-	}
-
-
 	// create pipelines
 	{
 		game->pipelines.mesh    = pipeline_create_mesh(&game->vulkan, memory);
@@ -499,9 +486,6 @@ void game_init(GameMemory *memory, PlatformState *platform)
 
 		material_set_texture(&game->vulkan, &game->materials.font,
 		                     ResourceSlot_diffuse, &game->textures.font);
-
-		material_set_texture(&game->vulkan, &game->materials.heightmap,
-		                     ResourceSlot_diffuse, &game->textures.heightmap);
 
 		material_set_texture(&game->vulkan, &game->materials.phong,
 		                     ResourceSlot_texture, &game->textures.cube);
@@ -569,6 +553,103 @@ void game_init(GameMemory *memory, PlatformState *platform)
 	}
 
 	{
+		Texture heightmap = texture_load_bmp("terrain.bmp");
+		DEBUG_ASSERT(heightmap.size > 0);
+
+		struct Texel {
+			u8 r, g, b, a;
+		};
+
+		struct Vertex {
+			f32 x, y, z;
+		};
+
+		u32  vc       = heightmap.height * heightmap.width;
+		auto vertices = array_create<Vertex>(&memory->free_list, vc);
+
+		// TODO(jesper): move to settings/asset info/something
+		Vector3 w = { 100.0f, 100.0f, 20.0f };
+		f32 xx = w.x * 2.0f;
+		f32 yy = w.y * 2.0f;
+		f32 zz = w.z * 2.0f;
+
+		Matrix4 to_world = Matrix4::identity();
+		to_world[0].x = xx / (f32)heightmap.width;
+		to_world[3].x = -w.x;
+
+		to_world[1].y = yy / (f32)heightmap.height;
+		to_world[3].y = -w.y;
+
+		to_world[2].z = zz / 255.0f;
+		to_world[3].z = -w.z;
+
+		for (u32 i = 0; i < heightmap.height; i++) {
+			for (u32 j = 0; j < heightmap.width; j++) {
+				// TODO(jesper): scale i, j and t.r with appropriate values to
+				// get it between [world_size.x, world_size.y, world_size.z]
+				Texel   t = ((Texel*)heightmap.data)[i * heightmap.width + j];
+				Vector3 v = to_world * Vector3{ (f32)j, (f32)i, (f32)t.r };
+				Vertex vx = { v.x, v.z, v.y };
+				array_add(&vertices, vx);
+			}
+		}
+
+		u32 ic = (heightmap.height-1) * (heightmap.width-1) * 6;
+		auto indices = array_create<u32>(&memory->free_list, ic);
+		for (u32 i = 0; i < heightmap.height-1; i++) {
+			for (u32 j = 0; j < heightmap.width-1; j++) {
+				u32 i0 = i     * heightmap.width + j;
+				u32 i1 = i     * heightmap.width + (j+1);
+				u32 i2 = (i+1) * heightmap.width + (j+1);
+
+				u32 i3 = i     * heightmap.width + j;
+				u32 i4 = (i+1) * heightmap.width + (j+1);
+				u32 i5 = (i+1) * heightmap.width + (j);
+
+
+				array_add(&indices, i0);
+				array_add(&indices, i1);
+				array_add(&indices, i2);
+
+				array_add(&indices, i3);
+				array_add(&indices, i4);
+				array_add(&indices, i5);
+			}
+		}
+
+		// TODO(jesper): this seems stupid
+		Entity eterrain = entities_add(&game->entities, { 0.0f, 0.0f, 0.0f });
+
+		IndexRenderObject ro = {};
+		ro.entity_id      = eterrain.id;
+		ro.pipeline       = game->pipelines.terrain;
+
+		usize vertex_size = vertices.count * sizeof(vertices[0]);
+		usize index_size  = indices.count  * sizeof(indices[0]);
+
+		ro.index_count    = indices.count;
+		ro.vertices       = buffer_create_vbo(&game->vulkan, vertices.data, vertex_size);
+		ro.indices        = buffer_create_ibo(&game->vulkan, indices.data,  index_size);
+
+		array_add(&game->index_render_objects, ro);
+
+
+		// NOTE(jesper): for debug overlay
+		game->textures.heightmap = texture_create(&game->vulkan,
+		                                          heightmap.width,
+		                                          heightmap.height,
+		                                          heightmap.format,
+		                                          heightmap.data,
+		                                          VkComponentMapping{});
+		material_set_texture(&game->vulkan, &game->materials.heightmap,
+		                     ResourceSlot_diffuse, &game->textures.heightmap);
+
+	}
+
+
+
+	{
+#if 0
 		f32 vertices[] = {
 			-100.0f, 0.0f, -100.0f,
 			100.0f,  0.0f, -100.0f,
@@ -585,6 +666,7 @@ void game_init(GameMemory *memory, PlatformState *platform)
 		terrain.vertex_count = sizeof(vertices) / (sizeof(vertices[0]) * 3);
 
 		array_add(&game->render_objects, terrain);
+#endif
 	}
 
 	game->key_state = alloc_array<i32>(&memory->persistent, 0xFF);
@@ -1248,7 +1330,6 @@ void game_render(GameMemory *memory)
 		                  VK_PIPELINE_BIND_POINT_GRAPHICS,
 		                  item.pipeline->handle);
 
-		descriptors[0] = game->materials.heightmap.descriptor_set;
 		vkCmdBindDescriptorSets(command,
 		                        VK_PIPELINE_BIND_POINT_GRAPHICS,
 		                        item.pipeline->layout,
@@ -1268,36 +1349,6 @@ void game_render(GameMemory *memory)
 
 	renderpass_end(command);
 	command_buffer_end(&game->vulkan, command, false);
-
-#if 0
-	// TODO(jesper): we need a new render pass here that doesn't clear the
-	// screen, or something along those lines.
-	command = command_buffer_begin(&game->vulkan);
-	renderpass_begin(&game->vulkan, command, image_index);
-	{
-		vkCmdBindPipeline(command,
-		                  VK_PIPELINE_BIND_POINT_GRAPHICS,
-		                  game->pipelines.font.handle);
-
-
-		auto descriptors = array_create<VkDescriptorSet>(&memory->stack);
-		array_add(&descriptors, game->materials.font.descriptor_set);
-
-		vkCmdBindDescriptorSets(command,
-		                        VK_PIPELINE_BIND_POINT_GRAPHICS,
-		                        game->pipelines.font.layout,
-		                        0,
-		                        (i32)descriptors.count, descriptors.data,
-		                        0, nullptr);
-		vkCmdBindVertexBuffers(command, 0, 1,
-		                       &game->overlay.texture.buffer.handle, offsets);
-		vkCmdDraw(command, game->overlay.texture.vertex_count, 1, 0, 0);
-	}
-	renderpass_end(command);
-	command_buffer_end(&game->vulkan, command, false);
-#endif
-
-
 
 	submit_semaphore_wait(&game->vulkan,
 	                      game->vulkan.swapchain.available,
