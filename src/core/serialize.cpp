@@ -20,38 +20,34 @@ member_to_string(StructMemberInfo &member,
 	switch (member.type) {
 	case VariableType_int32: {
 		i32 value = *(i32*)(((char*)ptr) + member.offset);
-		bytes = std::sprintf(buffer, "%s = %d",
-		                     member.name, value);
+		bytes = sprintf(buffer, "%s = %d", member.name, value);
 
 		DEBUG_ASSERT(bytes < size);
 		break;
 	}
 	case VariableType_uint32: {
 		u32 value = *(u32*)(((char*)ptr) + member.offset);
-		bytes = std::sprintf(buffer, "%s = %u",
-		                     member.name, value);
+		bytes = sprintf(buffer, "%s = %u", member.name, value);
 
 		DEBUG_ASSERT(bytes < size);
 		break;
 	}
 	case VariableType_int16: {
 		i16 value = *(i16*)(((char*)ptr) + member.offset);
-		bytes = std::sprintf(buffer, "%s = %" PRId16 , member.name, value);
+		bytes = sprintf(buffer, "%s = %" PRId16 , member.name, value);
 
 		DEBUG_ASSERT(bytes < size);
 		break;
 	}
 	case VariableType_uint16: {
 		u16 value = *(u16*)(((char*)ptr) + member.offset);
-		bytes = std::sprintf(buffer, "%s = %" PRIu16,
-		                     member.name, value);
+		bytes = sprintf(buffer, "%s = %" PRIu16, member.name, value);
 
 		DEBUG_ASSERT(bytes < size);
 		break;
 	}
 	case VariableType_resolution: {
-		i32 child_bytes = std::sprintf(buffer, "%s = { ",
-		                                   member.name);
+		i32 child_bytes = sprintf(buffer, "%s = { ", member.name);
 
 		bytes  += child_bytes;
 		buffer += child_bytes;
@@ -67,7 +63,7 @@ member_to_string(StructMemberInfo &member,
 			buffer += child_bytes;
 
 			if (i != (num_members - 1)) {
-				child_bytes = std::sprintf(buffer, ", ");
+				child_bytes = sprintf(buffer, ", ");
 
 				bytes  += child_bytes;
 				buffer += child_bytes;
@@ -76,7 +72,7 @@ member_to_string(StructMemberInfo &member,
 			DEBUG_ASSERT(bytes < size);
 		}
 
-		child_bytes = std::sprintf(buffer, " }");
+		child_bytes = sprintf(buffer, " }");
 
 		bytes  += child_bytes;
 		buffer += child_bytes;
@@ -84,8 +80,7 @@ member_to_string(StructMemberInfo &member,
 		break;
 	}
 	case VariableType_video_settings: {
-		i32 child_bytes = std::sprintf(buffer, "%s = { ",
-		                                   member.name);
+		i32 child_bytes = sprintf(buffer, "%s = { ", member.name);
 
 		bytes  += child_bytes;
 		buffer += child_bytes;
@@ -101,7 +96,7 @@ member_to_string(StructMemberInfo &member,
 			buffer += child_bytes;
 
 			if (i != (num_members - 1)) {
-				child_bytes = std::sprintf(buffer, ", ");
+				child_bytes = sprintf(buffer, ", ");
 
 				bytes  += child_bytes;
 				buffer += child_bytes;
@@ -110,7 +105,7 @@ member_to_string(StructMemberInfo &member,
 			DEBUG_ASSERT(bytes < size);
 		}
 
-		child_bytes = std::sprintf(buffer, "}");
+		child_bytes = sprintf(buffer, "}");
 
 		bytes  += child_bytes;
 		buffer += child_bytes;
@@ -118,7 +113,7 @@ member_to_string(StructMemberInfo &member,
 		break;
 	}
 	default: {
-		bytes = std::sprintf(buffer, "unknown type");
+		bytes = sprintf(buffer, "unknown type");
 		DEBUG_ASSERT(bytes < size);
 		break;
 	}

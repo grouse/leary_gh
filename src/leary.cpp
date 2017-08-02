@@ -29,8 +29,9 @@
 
 #include "core/serialize.cpp"
 
-Matrix4 g_screen_to_view; // [-w/2, w/2] -> [-1  , 1]
-Matrix4 g_view_to_screen; // [-1  , 1]   -> [-w/2, w/2]
+Matrix4      g_screen_to_view; // [-w/2, w/2] -> [-1  , 1]
+Matrix4      g_view_to_screen; // [-1  , 1]   -> [-w/2, w/2]
+VulkanDevice g_vulkan;
 
 struct Entity {
 	i32        id;
@@ -127,12 +128,12 @@ struct GameReloadState {
 
 	Matrix4 screen_to_view;
 	Matrix4 view_to_screen;
+
+	VulkanDevice vulkan_device;
 };
 
 struct GameState {
 	GameReloadState reload_state = {};
-
-	VulkanDevice        vulkan;
 
 	struct {
 		VulkanPipeline basic2d;
@@ -174,7 +175,6 @@ void debug_add_texture(const char *name,
                        VulkanTexture *texture,
                        Material material,
                        VulkanPipeline *pipeline,
-                       VulkanDevice *vulkan,
                        GameMemory *memory,
                        DebugOverlay *overlay)
 {
@@ -197,7 +197,7 @@ void debug_add_texture(const char *name,
 		0.0f,  0.0f,  0.0f, 0.0f,
 	};
 
-	item.ritem.vbo = buffer_create_vbo(vulkan, vertices, sizeof(vertices) * sizeof(f32));
+	item.ritem.vbo = buffer_create_vbo(vertices, sizeof(vertices) * sizeof(f32));
 	item.ritem.vertex_count = 6;
 
 	item.ritem.descriptors = array_create<VkDescriptorSet>(&memory->free_list, 1);
@@ -378,7 +378,7 @@ void game_init(GameMemory *memory, PlatformState *platform)
 	game->render_objects       = array_create<RenderObject>(&memory->persistent, 20);
 	game->index_render_objects = array_create<IndexRenderObject>(&memory->persistent, 20);
 
-	game->vulkan = device_create(memory, platform, &platform->settings);
+	device_create(memory, platform, &platform->settings);
 
 	{ // coordinate bases
 		Matrix4 view = Matrix4::identity();
@@ -406,12 +406,12 @@ void game_init(GameMemory *memory, PlatformState *platform)
 
 		VkComponentMapping components = {};
 		components.a = VK_COMPONENT_SWIZZLE_R;
-		game->textures.font = texture_create(&game->vulkan, 1024, 1024,
-		                                    VK_FORMAT_R8_UNORM, bitmap,
-		                                    components);
+		game->textures.font = texture_create(1024, 1024,
+		                                     VK_FORMAT_R8_UNORM, bitmap,
+		                                     components);
 
 		// TODO(jesper): this size is really wrong
-		game->overlay.vbo = buffer_create_vbo(&game->vulkan, 1024*1024);
+		game->overlay.vbo = buffer_create_vbo(1024*1024);
 	}
 
 	{
@@ -421,11 +421,8 @@ void game_init(GameMemory *memory, PlatformState *platform)
 		Texture dummy = texture_load_bmp("dummy.bmp");
 
 		// TODO(jesper): texture file loading
-		game->textures.cube = texture_create(&game->vulkan,
-		                                     dummy.width,
-		                                     dummy.height,
-		                                     dummy.format,
-		                                     dummy.data,
+		game->textures.cube = texture_create(dummy.width, dummy.height,
+		                                     dummy.format, dummy.data,
 		                                     VkComponentMapping{});
 	}
 
@@ -433,65 +430,50 @@ void game_init(GameMemory *memory, PlatformState *platform)
 		Texture player = texture_load_bmp("player.bmp");
 
 		// TODO(jesper): texture file loading
-		game->textures.player = texture_create(&game->vulkan,
-		                                       player.width, player.height,
+		game->textures.player = texture_create(player.width, player.height,
 		                                       player.format, player.data,
 		                                       VkComponentMapping{});
 	}
 
 	// create pipelines
 	{
-		game->pipelines.mesh    = pipeline_create_mesh(&game->vulkan, memory);
-		game->pipelines.basic2d = pipeline_create_basic2d(&game->vulkan, memory);
-		game->pipelines.font    = pipeline_create_font(&game->vulkan, memory);
-		game->pipelines.terrain = pipeline_create_terrain(&game->vulkan, memory);
+		game->pipelines.mesh    = pipeline_create_mesh(memory);
+		game->pipelines.basic2d = pipeline_create_basic2d(memory);
+		game->pipelines.font    = pipeline_create_font(memory);
+		game->pipelines.terrain = pipeline_create_terrain(memory);
 	}
 
 	// create ubos
 	{
-		game->fp_camera.ubo = buffer_create_ubo(&game->vulkan, sizeof(Matrix4));
+		game->fp_camera.ubo = buffer_create_ubo(sizeof(Matrix4));
 
 		Matrix4 view_projection = game->fp_camera.projection * game->fp_camera.view;
-		buffer_data_ubo(&game->vulkan, game->fp_camera.ubo,
-		                &view_projection, 0, sizeof(view_projection));
+		buffer_data_ubo(game->fp_camera.ubo, &view_projection, 0, sizeof(view_projection));
 	}
 
 	// create materials
 	{
-		game->materials.font = material_create(&game->vulkan, memory,
-		                                       &game->pipelines.font,
+		game->materials.font = material_create(memory, &game->pipelines.font,
 		                                       Material_basic2d);
 
-		game->materials.heightmap = material_create(&game->vulkan, memory,
-		                                            &game->pipelines.basic2d,
+		game->materials.heightmap = material_create(memory, &game->pipelines.basic2d,
 		                                            Material_basic2d);
 
-		game->materials.phong = material_create(&game->vulkan, memory,
-		                                        &game->pipelines.mesh,
+		game->materials.phong = material_create(memory, &game->pipelines.mesh,
 		                                        Material_phong);
 
-		game->materials.player = material_create(&game->vulkan, memory,
-		                                         &game->pipelines.mesh,
+		game->materials.player = material_create(memory, &game->pipelines.mesh,
 		                                         Material_phong);
 	}
 
 	// update descriptor sets
 	{
-		pipeline_set_ubo(&game->vulkan, &game->pipelines.mesh,
-		                 ResourceSlot_mvp, &game->fp_camera.ubo);
+		pipeline_set_ubo(&game->pipelines.mesh, ResourceSlot_mvp, &game->fp_camera.ubo);
+		pipeline_set_ubo(&game->pipelines.terrain, ResourceSlot_mvp, &game->fp_camera.ubo);
 
-		pipeline_set_ubo(&game->vulkan, &game->pipelines.terrain,
-		                 ResourceSlot_mvp, &game->fp_camera.ubo);
-
-
-		material_set_texture(&game->vulkan, &game->materials.font,
-		                     ResourceSlot_diffuse, &game->textures.font);
-
-		material_set_texture(&game->vulkan, &game->materials.phong,
-		                     ResourceSlot_texture, &game->textures.cube);
-
-		material_set_texture(&game->vulkan, &game->materials.player,
-		                     ResourceSlot_texture, &game->textures.player);
+		material_set_texture(&game->materials.font,   ResourceSlot_diffuse, &game->textures.font);
+		material_set_texture(&game->materials.phong,  ResourceSlot_texture, &game->textures.cube);
+		material_set_texture(&game->materials.player, ResourceSlot_texture, &game->textures.player);
 	}
 
 	{
@@ -520,8 +502,8 @@ void game_init(GameMemory *memory, PlatformState *platform)
 		obj.entity_id   = player.id;
 		obj.pipeline    = game->pipelines.mesh;
 		obj.index_count = (i32)cube.indices.count;
-		obj.vertices    = buffer_create_vbo(&game->vulkan, cube.vertices.data, vertex_size);
-		obj.indices     = buffer_create_ibo(&game->vulkan, cube.indices.data, index_size);
+		obj.vertices    = buffer_create_vbo(cube.vertices.data, vertex_size);
+		obj.indices     = buffer_create_ibo(cube.indices.data, index_size);
 
 		//obj.transform = translate(Matrix4::identity(), {x, y, z});
 		array_add(&game->index_render_objects, obj);
@@ -545,8 +527,8 @@ void game_init(GameMemory *memory, PlatformState *platform)
 		obj.entity_id   = e.id;
 		obj.pipeline    = game->pipelines.mesh;
 		obj.index_count = (i32)cube.indices.count;
-		obj.vertices    = buffer_create_vbo(&game->vulkan, cube.vertices.data, vertex_size);
-		obj.indices     = buffer_create_ibo(&game->vulkan, cube.indices.data, index_size);
+		obj.vertices    = buffer_create_vbo(cube.vertices.data, vertex_size);
+		obj.indices     = buffer_create_ibo(cube.indices.data, index_size);
 
 		//obj.transform = translate(Matrix4::identity(), {x, y, z});
 		array_add(&game->index_render_objects, obj);
@@ -628,21 +610,20 @@ void game_init(GameMemory *memory, PlatformState *platform)
 		usize index_size  = indices.count  * sizeof(indices[0]);
 
 		ro.index_count    = indices.count;
-		ro.vertices       = buffer_create_vbo(&game->vulkan, vertices.data, vertex_size);
-		ro.indices        = buffer_create_ibo(&game->vulkan, indices.data,  index_size);
+		ro.vertices       = buffer_create_vbo(vertices.data, vertex_size);
+		ro.indices        = buffer_create_ibo(indices.data,  index_size);
 
 		array_add(&game->index_render_objects, ro);
 
 
 		// NOTE(jesper): for debug overlay
-		game->textures.heightmap = texture_create(&game->vulkan,
-		                                          heightmap.width,
+		game->textures.heightmap = texture_create(heightmap.width,
 		                                          heightmap.height,
 		                                          heightmap.format,
 		                                          heightmap.data,
 		                                          VkComponentMapping{});
-		material_set_texture(&game->vulkan, &game->materials.heightmap,
-		                     ResourceSlot_diffuse, &game->textures.heightmap);
+		material_set_texture(&game->materials.heightmap, ResourceSlot_diffuse,
+		                     &game->textures.heightmap);
 
 	}
 
@@ -662,7 +643,7 @@ void game_init(GameMemory *memory, PlatformState *platform)
 
 		RenderObject terrain = {};
 		terrain.pipeline = game->pipelines.terrain;
-		terrain.vertices = buffer_create_vbo(&game->vulkan, vertices, sizeof(vertices));
+		terrain.vertices = buffer_create_vbo(vertices, sizeof(vertices));
 		terrain.vertex_count = sizeof(vertices) / (sizeof(vertices[0]) * 3);
 
 		array_add(&game->render_objects, terrain);
@@ -715,7 +696,7 @@ void game_init(GameMemory *memory, PlatformState *platform)
 		array_add(&game->overlay.items, timers);
 
 		debug_add_texture("Terrain", &game->textures.heightmap, game->materials.heightmap,
-		                  &game->pipelines.basic2d, &game->vulkan, memory, &game->overlay);
+		                  &game->pipelines.basic2d, memory, &game->overlay);
 	}
 }
 
@@ -726,44 +707,44 @@ void game_quit(GameMemory *memory, PlatformState *platform)
 	// on Linux
 	platform_set_raw_mouse(platform, false);
 
-	vkQueueWaitIdle(game->vulkan.queue);
+	vkQueueWaitIdle(g_vulkan.queue);
 
 	for (int i = 0; i < game->overlay.items.count; i++) {
 		DebugOverlayItem &item = game->overlay.items[i];
 		if (item.type == Debug_render_item) {
-			buffer_destroy(&game->vulkan, item.ritem.vbo);
+			buffer_destroy(item.ritem.vbo);
 		}
 	}
 
-	buffer_destroy(&game->vulkan, game->overlay.vbo);
-	buffer_destroy(&game->vulkan, game->overlay.texture.vbo);
+	buffer_destroy(game->overlay.vbo);
+	buffer_destroy(game->overlay.texture.vbo);
 
-	texture_destroy(&game->vulkan, game->textures.font);
-	texture_destroy(&game->vulkan, game->textures.cube);
-	texture_destroy(&game->vulkan, game->textures.player);
-	texture_destroy(&game->vulkan, game->textures.heightmap);
+	texture_destroy(game->textures.font);
+	texture_destroy(game->textures.cube);
+	texture_destroy(game->textures.player);
+	texture_destroy(game->textures.heightmap);
 
-	material_destroy(&game->vulkan, &game->materials.font);
-	material_destroy(&game->vulkan, &game->materials.heightmap);
-	material_destroy(&game->vulkan, &game->materials.phong);
-	material_destroy(&game->vulkan, &game->materials.player);
+	material_destroy(game->materials.font);
+	material_destroy(game->materials.heightmap);
+	material_destroy(game->materials.phong);
+	material_destroy(game->materials.player);
 
-	pipeline_destroy(&game->vulkan, game->pipelines.basic2d);
-	pipeline_destroy(&game->vulkan, game->pipelines.font);
-	pipeline_destroy(&game->vulkan, game->pipelines.mesh);
-	pipeline_destroy(&game->vulkan, game->pipelines.terrain);
+	pipeline_destroy(game->pipelines.basic2d);
+	pipeline_destroy(game->pipelines.font);
+	pipeline_destroy(game->pipelines.mesh);
+	pipeline_destroy(game->pipelines.terrain);
 
 	for (i32 i = 0; i < game->render_objects.count; i++) {
-		buffer_destroy(&game->vulkan, game->render_objects[i].vertices);
+		buffer_destroy(game->render_objects[i].vertices);
 	}
 
 	for (i32 i = 0; i < game->index_render_objects.count; i++) {
-		buffer_destroy(&game->vulkan, game->index_render_objects[i].vertices);
-		buffer_destroy(&game->vulkan, game->index_render_objects[i].indices);
+		buffer_destroy(game->index_render_objects[i].vertices);
+		buffer_destroy(game->index_render_objects[i].indices);
 	}
 
-	buffer_destroy_ubo(&game->vulkan, game->fp_camera.ubo);
-	vulkan_destroy(&game->vulkan);
+	buffer_destroy_ubo(game->fp_camera.ubo);
+	vulkan_destroy();
 
 	platform_quit(platform);
 }
@@ -781,11 +762,13 @@ void game_pre_reload(GameMemory *memory)
 	state.screen_to_view = g_screen_to_view;
 	state.view_to_screen = g_view_to_screen;
 
+	state.vulkan_device = g_vulkan;
+
 	// NOTE(jesper): wait for the vulkan queues to be idle. Here for when I get
 	// to shader and resource reloading - I don't even want to think about what
 	// kind of fits graphics drivers will throw if we start recreating pipelines
 	// in the middle of things
-	vkQueueWaitIdle(game->vulkan.queue);
+	vkQueueWaitIdle(g_vulkan.queue);
 
 	game->reload_state = state;
 }
@@ -803,7 +786,9 @@ void game_reload(GameMemory *memory)
 	g_screen_to_view = state.screen_to_view;
 	g_view_to_screen = state.view_to_screen;
 
-	vulkan_load(game->vulkan.instance);
+	g_vulkan = state.vulkan_device;
+
+	vulkan_load(g_vulkan.instance);
 }
 
 void game_input(GameMemory *memory, PlatformState *platform, InputEvent event)
@@ -991,10 +976,7 @@ void game_input(GameMemory *memory, PlatformState *platform, InputEvent event)
 	}
 }
 
-void debug_overlay_update(DebugOverlay *overlay,
-                          VulkanDevice *vulkan,
-                          GameMemory *memory,
-                          f32 dt)
+void debug_overlay_update(DebugOverlay *overlay, GameMemory *memory, f32 dt)
 {
 	PROFILE_FUNCTION();
 	void *sp = memory->stack.stack.sp;
@@ -1010,9 +992,8 @@ void debug_overlay_update(DebugOverlay *overlay,
 	*vcount = 0;
 
 	void *mapped;
-	vkMapMemory(vulkan->handle, overlay->vbo.memory,
-	            0, VK_WHOLE_SIZE,
-	            0, &mapped);
+	vkMapMemory(g_vulkan.handle, overlay->vbo.memory,
+	            0, VK_WHOLE_SIZE, 0, &mapped);
 
 
 	isize buffer_size = 1024*1024;
@@ -1161,7 +1142,7 @@ void debug_overlay_update(DebugOverlay *overlay,
 		}
 	}
 
-	vkUnmapMemory(vulkan->handle, overlay->vbo.memory);
+	vkUnmapMemory(g_vulkan.handle, overlay->vbo.memory);
 }
 
 void game_update(GameMemory *memory, f32 dt)
@@ -1205,7 +1186,7 @@ void game_update(GameMemory *memory, f32 dt)
 		view       = rm * tm;
 
 		Matrix4 vp = game->fp_camera.projection * view;
-		buffer_data_ubo(&game->vulkan, game->fp_camera.ubo, &vp, 0, sizeof(vp));
+		buffer_data_ubo(game->fp_camera.ubo, &vp, 0, sizeof(vp));
 	}
 
 }
@@ -1218,14 +1199,14 @@ void game_render(GameMemory *memory)
 
 	GameState *game = (GameState*)memory->game;
 
-	u32 image_index = swapchain_acquire(&game->vulkan);
+	u32 image_index = swapchain_acquire();
 
 
 	VkDeviceSize offsets[] = { 0 };
 	VkResult result;
 
-	VkCommandBuffer command = command_buffer_begin(&game->vulkan);
-	renderpass_begin(&game->vulkan, command, image_index);
+	VkCommandBuffer command = command_buffer_begin();
+	renderpass_begin(command, image_index);
 
 	for (i32 i = 0; i < game->render_objects.count; i++) {
 		RenderObject &object = game->render_objects[i];
@@ -1348,20 +1329,19 @@ void game_render(GameMemory *memory)
 	game->overlay.render_queue.count = 0;
 
 	renderpass_end(command);
-	command_buffer_end(&game->vulkan, command, false);
+	command_buffer_end(command, false);
 
-	submit_semaphore_wait(&game->vulkan,
-	                      game->vulkan.swapchain.available,
+	submit_semaphore_wait(g_vulkan.swapchain.available,
 	                      VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
-	submit_semaphore_signal(&game->vulkan, game->vulkan.render_completed);
-	submit_frame(&game->vulkan);
+	submit_semaphore_signal(g_vulkan.render_completed);
+	submit_frame();
 
-	present_semaphore(&game->vulkan, game->vulkan.render_completed);
-	present_frame(&game->vulkan, image_index);
+	present_semaphore(g_vulkan.render_completed);
+	present_frame(image_index);
 
 
 	PROFILE_START(vulkan_swap);
-	result = vkQueueWaitIdle(game->vulkan.queue);
+	result = vkQueueWaitIdle(g_vulkan.queue);
 	DEBUG_ASSERT(result == VK_SUCCESS);
 	PROFILE_END(vulkan_swap);
 }
@@ -1372,7 +1352,7 @@ void game_update_and_render(GameMemory *memory, f32 dt)
 	game_update(memory, dt);
 	game_render(memory);
 
-	debug_overlay_update(&game->overlay, &game->vulkan, memory, dt);
+	debug_overlay_update(&game->overlay, memory, dt);
 
 	alloc_reset(&memory->frame);
 }
