@@ -29,8 +29,9 @@
 
 #include "core/serialize.cpp"
 
-Matrix4      g_screen_to_view; // [-w/2, w/2] -> [-1  , 1]
-Matrix4      g_view_to_screen; // [-1  , 1]   -> [-w/2, w/2]
+Matrix4      g_view_to_screen; // [-1  , 1]   -> [0, w]
+Matrix4      g_screen_to_view; // [0, w] -> [-1  , 1]
+
 VulkanDevice g_vulkan;
 
 struct Entity {
@@ -184,8 +185,12 @@ void debug_add_texture(const char *name,
 	item.ritem.pipeline = pipeline;
 	item.ritem.texture  = texture;
 
+	Matrix4 t = Matrix4::identity();
+	t[0].x =  g_screen_to_view[0].x;
+	t[1].y =  g_screen_to_view[1].y;
+
 	Vector2 dim = { (f32)texture->width, (f32)texture->height };
-	dim = g_screen_to_view * dim;
+	dim = t * dim;
 
 	f32 vertices[] = {
 		0.0f,  0.0f,  0.0f, 0.0f,
@@ -382,14 +387,16 @@ void game_init(GameMemory *memory, PlatformState *platform)
 
 	{ // coordinate bases
 		Matrix4 view = Matrix4::identity();
-		view[0].x = 2.0f / width;
-		view[1].y = 2.0f / height;
-		view[2].z = 1.0f;
+		view[0].x =  2.0f / width;
+		view[3].x = -1.0f;
+		view[1].y =  2.0f / height;
+		view[3].y = -1.0f;
 		g_screen_to_view = view;
 
 		view[0].x = width / 2.0f;
+		view[3].x = width / 2.0f;
 		view[1].y = height / 2.0f;
-		view[2].z = 1.0f;
+		view[3].y = height / 2.0f;
 		g_view_to_screen = view;
 	}
 
