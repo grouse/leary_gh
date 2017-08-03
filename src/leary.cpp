@@ -1070,7 +1070,6 @@ void debug_overlay_update(DebugOverlay *overlay, GameMemory *memory, f32 dt)
 		} break;
 		case Debug_profile_timers: {
 			f32 margin   = 10.0f;
-			f32 min_width = 40.0f;
 
 			f32 hy  = pos.y;
 			pos.y  += overlay->fsize;
@@ -1099,7 +1098,7 @@ void debug_overlay_update(DebugOverlay *overlay, GameMemory *memory, f32 dt)
 			}
 			pos.y = base_y;
 
-			c1.x  += min_width + margin;
+			c1.x = MAX(c0.x + 250.0f, c1.x) + margin;
 			pos.x  = c1.x;
 			for (int i = 0; i < timers.count; i++) {
 				snprintf(buffer, buffer_size, "%" PRIu64, timers.cycles[i]);
@@ -1114,7 +1113,7 @@ void debug_overlay_update(DebugOverlay *overlay, GameMemory *memory, f32 dt)
 			}
 			pos.y = base_y;
 
-			c2.x  += min_width + margin;
+			c2.x = MAX(c1.x + 100.0f, c2.x) + margin;
 			pos.x  = c2.x;
 			for (int i = 0; i < timers.count; i++) {
 				snprintf(buffer, buffer_size, "%u", timers.calls[i]);
@@ -1129,7 +1128,7 @@ void debug_overlay_update(DebugOverlay *overlay, GameMemory *memory, f32 dt)
 			}
 			pos.y = base_y;
 
-			c3.x  += min_width + margin;
+			c3.x = MAX(c2.x + 75.0f, c3.x) + margin;
 			pos.x  = c3.x;
 			for (int i = 0; i < timers.count; i++) {
 				snprintf(buffer, buffer_size, "%f", timers.cycles[i] / (f32)timers.calls[i]);
