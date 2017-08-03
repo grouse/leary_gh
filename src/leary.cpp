@@ -973,9 +973,16 @@ void game_input(GameMemory *memory, PlatformState *platform, InputEvent event)
 		game->fp_camera.pitch += 0.001f * event.mouse.dy;
 	} break;
 	case InputType_mouse_press: {
-		//Vector2 p = { event.mouse.x, event.mouse.y };
-		DEBUG_LOG("button %d pressed", event.mouse.button);
-		DEBUG_LOG("-- { %f, %f }", event.mouse.x, event.mouse.y);
+		Vector2 p = { event.mouse.x, event.mouse.y };
+		for (u32 i = 0; i < game->overlay.items.count; i++) {
+			auto &item = game->overlay.items[i];
+
+			if (p.x >= item.tl.x && p.x <= item.br.x &&
+			    p.y >= item.tl.y && p.y <= item.br.y)
+			{
+				item.collapsed = !item.collapsed;
+			}
+		}
 	} break;
 	default:
 		//DEBUG_LOG("unhandled input type: %d", event.type);

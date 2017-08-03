@@ -176,8 +176,8 @@ PLATFORM_INIT_FUNC(platform_init)
 		emask.mask     = mask;
 
 		XISetMask(mask, XI_RawMotion);
-		XISetMask(mask, XI_RawButtonPress);
-		XISetMask(mask, XI_RawButtonRelease);
+		//XISetMask(mask, XI_RawButtonPress);
+		//XISetMask(mask, XI_RawButtonRelease);
 
 		XISelectEvents(native->display, DefaultRootWindow(native->display),
 		               &emask, 1);
@@ -279,6 +279,7 @@ PLATFORM_UPDATE_FUNC(platform_update)
 			game_input(&platform->memory, platform, event);
 		} break;
 		case MotionNotify: {
+#if 0
 			if (platform->raw_mouse) {
 				break;
 			}
@@ -295,6 +296,7 @@ PLATFORM_UPDATE_FUNC(platform_update)
 			native->mouse.y = xevent.xmotion.y;
 
 			game_input(&platform->memory, platform, event);
+#endif
 		} break;
 		case EnterNotify: {
 			if (xevent.xcrossing.focus == true &&
