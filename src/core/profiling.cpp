@@ -97,15 +97,14 @@ void profile_start_frame()
 	// that we can use taht for performance optimisation
 
 	for (int i = 0; i < g_profile_timers_prev.count - 1; i++) {
-		int j;
-		int jmax = i;
+		int j, jmax = i;
 		for (j = i+1; j < g_profile_timers_prev.count; j++) {
-			if (g_profile_timers_prev.cycles[i] > g_profile_timers_prev.cycles[i]) {
+			if (g_profile_timers_prev.cycles[j] > g_profile_timers_prev.cycles[jmax]) {
 				jmax = j;
 			}
 		}
 
-		if (jmax != j) {
+		if (jmax != i) {
 			std::swap(g_profile_timers_prev.name[i],   g_profile_timers_prev.name[jmax]);
 			std::swap(g_profile_timers_prev.cycles[i], g_profile_timers_prev.cycles[jmax]);
 			std::swap(g_profile_timers_prev.calls[i],  g_profile_timers_prev.calls[jmax]);
