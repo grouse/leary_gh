@@ -14,6 +14,10 @@
 #include "platform/linux_file.cpp"
 #include "platform/linux_input.cpp"
 
+Allocator g_heap;
+Allocator g_frame;
+Allocator g_stack;
+Allocator g_persistent;
 
 struct LinuxState {
 	Window     window;
@@ -110,21 +114,20 @@ PLATFORM_INIT_FUNC(platform_init)
 
 	// TODO(jesper): allocate these using linux call
 	u8 *mem = (u8*)malloc(frame_size + persistent_size + free_list_size +
-	                      stack_size);
+	                      frame_size);
 
-	platform->memory = {};
-	platform->memory.frame      = allocator_create(Allocator_Linear, mem, frame_size);
-	mem += frame_size;
+	g_frame  = allocator_create(Allocator_Linear, mem, frame_size);
+	mem     += frame_size;
 
-	platform->memory.free_list  = allocator_create(Allocator_FreeList, mem, free_list_size);
-	mem += free_list_size;
+	g_heap  = allocator_create(Allocator_FreeList, mem, free_list_size);
+	mem    += free_list_size;
 
-	platform->memory.persistent = allocator_create(Allocator_Linear, mem, persistent_size);
-	mem += persistent_size;
+	g_persistent  = allocator_create(Allocator_Linear, mem, persistent_size);
+	mem          += persistent_size;
 
-	platform->memory.stack = allocator_create(Allocator_Stack, mem, stack_size);
+	g_stack = allocator_create(Allocator_Stack, mem, stack_size);
 
-	LinuxState *native = alloc<LinuxState>(&platform->memory.persistent);
+	LinuxState *native = alloc<LinuxState>(&g_persistent);
 	platform->native   = native;
 
 	char *settings_path = platform_resolve_path(GamePath_preferences, "settings.conf");
@@ -195,7 +198,7 @@ PLATFORM_INIT_FUNC(platform_init)
 		                                           1, 1);
 	}
 
-	game_init(&platform->memory, platform);
+	game_init(platform);
 
 	i32 num_screens = XScreenCount(native->display);
 	for (i32 i = 0; i < num_screens; i++) {
@@ -220,13 +223,23 @@ PLATFORM_INIT_FUNC(platform_init)
 DL_EXPORT
 PLATFORM_PRE_RELOAD_FUNC(platform_pre_reload)
 {
-	game_pre_reload(&platform->memory);
+	platform->game_reload_state = game_pre_reload();
+
+	platform->frame      = g_frame;
+	platform->heap       = g_heap;
+	platform->persistent = g_persistent;
+	platform->stack      = g_stack;
 }
 
 DL_EXPORT
 PLATFORM_RELOAD_FUNC(platform_reload)
 {
-	game_reload(&platform->memory);
+	g_frame      = platform->frame;
+	g_heap       = platform->heap;
+	g_persistent = platform->persistent;
+	g_stack      = platform->stack;
+
+	game_reload(platform->game_reload_state);
 }
 
 DL_EXPORT
@@ -248,7 +261,7 @@ PLATFORM_UPDATE_FUNC(platform_update)
 			event.key.code     = linux_keycode(xevent.xkey.keycode);
 			event.key.repeated = false;
 
-			game_input(&platform->memory, platform, event);
+			game_input(platform, event);
 		} break;
 		case KeyRelease: {
 			InputEvent event;
@@ -268,7 +281,7 @@ PLATFORM_UPDATE_FUNC(platform_update)
 				}
 			}
 
-			game_input(&platform->memory, platform, event);
+			game_input(platform, event);
 		} break;
 		case ButtonPress: {
 			InputEvent event;
@@ -276,7 +289,7 @@ PLATFORM_UPDATE_FUNC(platform_update)
 			event.mouse.x      = xevent.xbutton.x;
 			event.mouse.y      = xevent.xbutton.y;
 			event.mouse.button = xevent.xbutton.button;
-			game_input(&platform->memory, platform, event);
+			game_input(platform, event);
 		} break;
 		case MotionNotify: {
 #if 0
@@ -295,7 +308,7 @@ PLATFORM_UPDATE_FUNC(platform_update)
 			native->mouse.x = xevent.xmotion.x;
 			native->mouse.y = xevent.xmotion.y;
 
-			game_input(&platform->memory, platform, event);
+			game_input(platform, event);
 #endif
 		} break;
 		case EnterNotify: {
@@ -309,7 +322,7 @@ PLATFORM_UPDATE_FUNC(platform_update)
 		} break;
 		case ClientMessage: {
 			if ((Atom)xevent.xclient.data.l[0] == native->WM_DELETE_WINDOW) {
-				game_quit(&platform->memory, platform);
+				game_quit(platform);
 			}
 		} break;
 		case GenericEvent: {
@@ -357,7 +370,7 @@ PLATFORM_UPDATE_FUNC(platform_update)
 					event.mouse.dx = deltas[0];
 					event.mouse.dy = deltas[1];
 
-					game_input(&platform->memory, platform, event);
+					game_input(platform, event);
 				} break;
 				default:
 					DEBUG_LOG("unhandled xinput2 event: %d",
@@ -375,6 +388,6 @@ PLATFORM_UPDATE_FUNC(platform_update)
 	}
 	PROFILE_END(linux_input);
 
-	game_update_and_render(&platform->memory, dt);
+	game_update_and_render(dt);
 	profile_end_frame();
 }

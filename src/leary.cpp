@@ -29,11 +29,6 @@
 
 #include "core/serialize.cpp"
 
-Matrix4      g_view_to_screen; // [-1  , 1]   -> [0, w]
-Matrix4      g_screen_to_view; // [0, w] -> [-1  , 1]
-
-VulkanDevice g_vulkan;
-
 struct Entity {
 	i32        id;
 	i32        index;
@@ -124,19 +119,7 @@ struct DebugOverlay {
 	Array<DebugRenderItem>  render_queue;
 };
 
-struct GameReloadState {
-	ProfileTimers profile_timers;
-	ProfileTimers profile_timers_prev;
-
-	Matrix4 screen_to_view;
-	Matrix4 view_to_screen;
-
-	VulkanDevice vulkan_device;
-};
-
 struct GameState {
-	GameReloadState reload_state = {};
-
 	struct {
 		VulkanPipeline basic2d;
 		VulkanPipeline font;
@@ -173,11 +156,27 @@ struct GameState {
 	i32 *key_state;
 };
 
+struct GameReloadState {
+	ProfileTimers profile_timers;
+	ProfileTimers profile_timers_prev;
+
+	Matrix4       screen_to_view;
+	Matrix4       view_to_screen;
+
+	VulkanDevice  vulkan_device;
+	GameState     game;
+};
+
+Matrix4      g_view_to_screen; // [-1  , 1]   -> [0, w]
+Matrix4      g_screen_to_view; // [0, w] -> [-1  , 1]
+
+VulkanDevice g_vulkan;
+GameState    g_game;
+
 void debug_add_texture(const char *name,
                        VulkanTexture *texture,
                        Material material,
                        VulkanPipeline *pipeline,
-                       GameMemory *memory,
                        DebugOverlay *overlay)
 {
 	DebugOverlayItem item;
@@ -185,7 +184,7 @@ void debug_add_texture(const char *name,
 	item.type            = Debug_render_item;
 	item.ritem.pipeline  = pipeline;
 	item.ritem.texture   = texture;
-	item.ritem.constants = push_constants_create(pipeline->id, memory);
+	item.ritem.constants = push_constants_create(pipeline->id);
 
 	Matrix4 t = Matrix4::identity();
 	t[0].x =  g_screen_to_view[0].x;
@@ -207,7 +206,7 @@ void debug_add_texture(const char *name,
 	item.ritem.vbo = buffer_create_vbo(vertices, sizeof(vertices) * sizeof(f32));
 	item.ritem.vertex_count = 6;
 
-	item.ritem.descriptors = array_create<VkDescriptorSet>(&memory->free_list, 1);
+	item.ritem.descriptors = array_create<VkDescriptorSet>(&g_heap, 1);
 	array_add(&item.ritem.descriptors, material.descriptor_set);
 	array_add(&overlay->items, item);
 }
@@ -224,16 +223,16 @@ Entity entities_add(Array<Entity> *entities, Vector3 pos)
 	return e;
 }
 
-Array<Entity> entities_create(GameMemory *memory)
+Array<Entity> entities_create()
 {
-	return array_create<Entity>(&memory->free_list);
+	return array_create<Entity>(&g_heap);
 }
 
-Entity* entity_find(GameState *game, i32 id)
+Entity* entity_find(i32 id)
 {
-	for (i32 i = 0; i < game->entities.count; i++) {
-		if (game->entities[i].id == id) {
-			return &game->entities[i];
+	for (i32 i = 0; i < g_game.entities.count; i++) {
+		if (g_game.entities[i].id == id) {
+			return &g_game.entities[i];
 		}
 	}
 
@@ -241,20 +240,20 @@ Entity* entity_find(GameState *game, i32 id)
 	return nullptr;
 }
 
-Physics physics_create(GameMemory *memory)
+Physics physics_create()
 {
 	Physics p = {};
 
-	p.velocities    = array_create<Vector3>(&memory->free_list);
-	p.entities      = array_create<i32>(&memory->free_list);
+	p.velocities    = array_create<Vector3>(&g_heap);
+	p.entities      = array_create<i32>(&g_heap);
 
 	return p;
 }
 
-void physics_process(Physics *physics, GameState *game, f32 dt)
+void physics_process(Physics *physics, f32 dt)
 {
 	for (i32 i = 0; i < physics->velocities.count; i++) {
-		Entity *e    = entity_find(game, physics->entities[i]);
+		Entity *e    = entity_find(physics->entities[i]);
 		e->position += physics->velocities[i] * dt;
 	}
 }
@@ -288,8 +287,7 @@ i32 physics_id(Physics *physics, i32 entity_id)
 	return id;
 }
 
-void render_font(GameMemory *memory,
-                 stbtt_bakedchar *font,
+void render_font(stbtt_bakedchar *font,
                  const char *str,
                  Vector2 *pos,
                  i32 *out_vertex_count,
@@ -301,7 +299,7 @@ void render_font(GameMemory *memory,
 	if (text_length == 0) return;
 
 	usize vertices_size = sizeof(f32)*24*text_length;
-	auto vertices = (f32*)alloc(&memory->frame, vertices_size);
+	auto vertices = (f32*)alloc(&g_frame, vertices_size);
 
 	Matrix4 t = g_screen_to_view;
 
@@ -364,12 +362,11 @@ void render_font(GameMemory *memory,
 	*offset += vertices_size;
 }
 
-void game_init(GameMemory *memory, PlatformState *platform)
+void game_init(PlatformState *platform)
 {
-	GameState *game = ialloc<GameState>(&memory->persistent);
-	memory->game = game;
+	g_game = {};
 
-	profile_init(&platform->memory);
+	profile_init();
 
 
 	f32 width = (f32)platform->settings.video.resolution.width;
@@ -377,15 +374,14 @@ void game_init(GameMemory *memory, PlatformState *platform)
 	f32 aspect = width / height;
 	f32 vfov   = radians(45.0f);
 
-	game->fp_camera.view = Matrix4::identity();
-	game->fp_camera.position = Vector3{0.0f, 5.0f, 0.0f};
-	//game->fp_camera.rotation = Quaternion::make({0.0f, 1.0f, 0.0f}, -0.5f * PI);
-	game->fp_camera.projection = Matrix4::perspective(vfov, aspect, 0.1f, 100.0f);
+	g_game.fp_camera.view       = Matrix4::identity();
+	g_game.fp_camera.position   = Vector3{0.0f, 5.0f, 0.0f};
+	g_game.fp_camera.projection = Matrix4::perspective(vfov, aspect, 0.1f, 100.0f);
 
-	game->render_objects       = array_create<RenderObject>(&memory->persistent, 20);
-	game->index_render_objects = array_create<IndexRenderObject>(&memory->persistent, 20);
+	g_game.render_objects       = array_create<RenderObject>(&g_persistent, 20);
+	g_game.index_render_objects = array_create<IndexRenderObject>(&g_persistent, 20);
 
-	device_create(memory, platform, &platform->settings);
+	device_create(platform, &platform->settings);
 
 	{ // coordinate bases
 		Matrix4 view = Matrix4::identity();
@@ -409,18 +405,18 @@ void game_init(GameMemory *memory, PlatformState *platform)
 		                                        "fonts/Roboto-Regular.ttf");
 		u8 *font_data = (u8*)platform_file_read(font_path, &font_size);
 
-		u8 *bitmap = alloc_array<u8>(&memory->frame, 1024*1024);
-		stbtt_BakeFontBitmap(font_data, 0, game->overlay.fsize, bitmap,
-		                     1024, 1024, 0, 256, game->overlay.font);
+		u8 *bitmap = alloc_array<u8>(&g_frame, 1024*1024);
+		stbtt_BakeFontBitmap(font_data, 0, g_game.overlay.fsize, bitmap,
+		                     1024, 1024, 0, 256, g_game.overlay.font);
 
 		VkComponentMapping components = {};
 		components.a = VK_COMPONENT_SWIZZLE_R;
-		game->textures.font = texture_create(1024, 1024,
+		g_game.textures.font = texture_create(1024, 1024,
 		                                     VK_FORMAT_R8_UNORM, bitmap,
 		                                     components);
 
 		// TODO(jesper): this size is really wrong
-		game->overlay.vbo = buffer_create_vbo(1024*1024);
+		g_game.overlay.vbo = buffer_create_vbo(1024*1024);
 	}
 
 	{
@@ -430,7 +426,7 @@ void game_init(GameMemory *memory, PlatformState *platform)
 		Texture dummy = texture_load_bmp("dummy.bmp");
 
 		// TODO(jesper): texture file loading
-		game->textures.cube = texture_create(dummy.width, dummy.height,
+		g_game.textures.cube = texture_create(dummy.width, dummy.height,
 		                                     dummy.format, dummy.data,
 		                                     VkComponentMapping{});
 	}
@@ -439,83 +435,76 @@ void game_init(GameMemory *memory, PlatformState *platform)
 		Texture player = texture_load_bmp("player.bmp");
 
 		// TODO(jesper): texture file loading
-		game->textures.player = texture_create(player.width, player.height,
+		g_game.textures.player = texture_create(player.width, player.height,
 		                                       player.format, player.data,
 		                                       VkComponentMapping{});
 	}
 
 	// create pipelines
 	{
-		game->pipelines.mesh    = pipeline_create_mesh(memory);
-		game->pipelines.basic2d = pipeline_create_basic2d(memory);
-		game->pipelines.font    = pipeline_create_font(memory);
-		game->pipelines.terrain = pipeline_create_terrain(memory);
+		g_game.pipelines.mesh    = pipeline_create_mesh();
+		g_game.pipelines.basic2d = pipeline_create_basic2d();
+		g_game.pipelines.font    = pipeline_create_font();
+		g_game.pipelines.terrain = pipeline_create_terrain();
 	}
 
 	// create ubos
 	{
-		game->fp_camera.ubo = buffer_create_ubo(sizeof(Matrix4));
+		g_game.fp_camera.ubo = buffer_create_ubo(sizeof(Matrix4));
 
-		Matrix4 view_projection = game->fp_camera.projection * game->fp_camera.view;
-		buffer_data_ubo(game->fp_camera.ubo, &view_projection, 0, sizeof(view_projection));
+		Matrix4 view_projection = g_game.fp_camera.projection * g_game.fp_camera.view;
+		buffer_data_ubo(g_game.fp_camera.ubo, &view_projection, 0, sizeof(view_projection));
 	}
 
 	// create materials
 	{
-		game->materials.font = material_create(memory, &game->pipelines.font,
-		                                       Material_basic2d);
-
-		game->materials.heightmap = material_create(memory, &game->pipelines.basic2d,
-		                                            Material_basic2d);
-
-		game->materials.phong = material_create(memory, &game->pipelines.mesh,
-		                                        Material_phong);
-
-		game->materials.player = material_create(memory, &game->pipelines.mesh,
-		                                         Material_phong);
+		g_game.materials.font      = material_create(&g_game.pipelines.font, Material_basic2d);
+		g_game.materials.heightmap = material_create(&g_game.pipelines.basic2d, Material_basic2d);
+		g_game.materials.phong     = material_create(&g_game.pipelines.mesh, Material_phong);
+		g_game.materials.player    = material_create(&g_game.pipelines.mesh, Material_phong);
 	}
 
 	// update descriptor sets
 	{
-		pipeline_set_ubo(&game->pipelines.mesh, ResourceSlot_mvp, &game->fp_camera.ubo);
-		pipeline_set_ubo(&game->pipelines.terrain, ResourceSlot_mvp, &game->fp_camera.ubo);
+		pipeline_set_ubo(&g_game.pipelines.mesh, ResourceSlot_mvp, &g_game.fp_camera.ubo);
+		pipeline_set_ubo(&g_game.pipelines.terrain, ResourceSlot_mvp, &g_game.fp_camera.ubo);
 
-		material_set_texture(&game->materials.font,   ResourceSlot_diffuse, &game->textures.font);
-		material_set_texture(&game->materials.phong,  ResourceSlot_texture, &game->textures.cube);
-		material_set_texture(&game->materials.player, ResourceSlot_texture, &game->textures.player);
+		material_set_texture(&g_game.materials.font,   ResourceSlot_diffuse, &g_game.textures.font);
+		material_set_texture(&g_game.materials.phong,  ResourceSlot_texture, &g_game.textures.cube);
+		material_set_texture(&g_game.materials.player, ResourceSlot_texture, &g_game.textures.player);
 	}
 
 	{
-		game->entities = entities_create(memory);
-		game->physics  = physics_create(memory);
+		g_game.entities = entities_create();
+		g_game.physics  = physics_create();
 	}
 
 	Random r = random_create(3);
-	Mesh cube = load_mesh_obj(memory, "cube.obj");
+	Mesh cube = load_mesh_obj("cube.obj");
 
 	{
 		f32 x = next_f32(&r) * 20.0f;
 		f32 y = -1.0f;
 		f32 z = next_f32(&r) * 20.0f;
 
-		Entity player = entities_add(&game->entities, {x, y, z});
-		i32 pid = physics_add(&game->physics, player);
+		Entity player = entities_add(&g_game.entities, {x, y, z});
+		i32 pid = physics_add(&g_game.physics, player);
 		(void)pid;
 
 		IndexRenderObject obj = {};
-		obj.material = &game->materials.player;
+		obj.material = &g_game.materials.player;
 
 		usize vertex_size = cube.vertices.count * sizeof(cube.vertices[0]);
 		usize index_size  = cube.indices.count  * sizeof(cube.indices[0]);
 
 		obj.entity_id   = player.id;
-		obj.pipeline    = game->pipelines.mesh;
+		obj.pipeline    = g_game.pipelines.mesh;
 		obj.index_count = (i32)cube.indices.count;
 		obj.vertices    = buffer_create_vbo(cube.vertices.data, vertex_size);
 		obj.indices     = buffer_create_ibo(cube.indices.data, index_size);
 
 		//obj.transform = translate(Matrix4::identity(), {x, y, z});
-		array_add(&game->index_render_objects, obj);
+		array_add(&g_game.index_render_objects, obj);
 	}
 
 	for (i32 i = 0; i < 10; i++) {
@@ -523,24 +512,24 @@ void game_init(GameMemory *memory, PlatformState *platform)
 		f32 y = -1.0f;
 		f32 z = next_f32(&r) * 20.0f;
 
-		Entity e = entities_add(&game->entities, {x, y, z});
-		i32 pid  = physics_add(&game->physics, e);
+		Entity e = entities_add(&g_game.entities, {x, y, z});
+		i32 pid  = physics_add(&g_game.physics, e);
 		(void)pid;
 
 		IndexRenderObject obj = {};
-		obj.material = &game->materials.phong;
+		obj.material = &g_game.materials.phong;
 
 		usize vertex_size = cube.vertices.count * sizeof(cube.vertices[0]);
 		usize index_size  = cube.indices.count  * sizeof(cube.indices[0]);
 
 		obj.entity_id   = e.id;
-		obj.pipeline    = game->pipelines.mesh;
+		obj.pipeline    = g_game.pipelines.mesh;
 		obj.index_count = (i32)cube.indices.count;
 		obj.vertices    = buffer_create_vbo(cube.vertices.data, vertex_size);
 		obj.indices     = buffer_create_ibo(cube.indices.data, index_size);
 
 		//obj.transform = translate(Matrix4::identity(), {x, y, z});
-		array_add(&game->index_render_objects, obj);
+		array_add(&g_game.index_render_objects, obj);
 	}
 
 	{
@@ -556,7 +545,7 @@ void game_init(GameMemory *memory, PlatformState *platform)
 		};
 
 		u32  vc       = heightmap.height * heightmap.width;
-		auto vertices = array_create<Vertex>(&memory->free_list, vc);
+		auto vertices = array_create<Vertex>(&g_heap, vc);
 
 		// TODO(jesper): move to settings/asset info/something
 		Vector3 w = { 100.0f, 100.0f, 20.0f };
@@ -586,7 +575,7 @@ void game_init(GameMemory *memory, PlatformState *platform)
 		}
 
 		u32 ic = (heightmap.height-1) * (heightmap.width-1) * 6;
-		auto indices = array_create<u32>(&memory->free_list, ic);
+		auto indices = array_create<u32>(&g_heap, ic);
 		for (u32 i = 0; i < heightmap.height-1; i++) {
 			for (u32 j = 0; j < heightmap.width-1; j++) {
 				u32 i0 = i     * heightmap.width + j;
@@ -609,11 +598,11 @@ void game_init(GameMemory *memory, PlatformState *platform)
 		}
 
 		// TODO(jesper): this seems stupid
-		Entity eterrain = entities_add(&game->entities, { 0.0f, 0.0f, 0.0f });
+		Entity eterrain = entities_add(&g_game.entities, { 0.0f, 0.0f, 0.0f });
 
 		IndexRenderObject ro = {};
 		ro.entity_id      = eterrain.id;
-		ro.pipeline       = game->pipelines.terrain;
+		ro.pipeline       = g_game.pipelines.terrain;
 
 		usize vertex_size = vertices.count * sizeof(vertices[0]);
 		usize index_size  = indices.count  * sizeof(indices[0]);
@@ -622,17 +611,17 @@ void game_init(GameMemory *memory, PlatformState *platform)
 		ro.vertices       = buffer_create_vbo(vertices.data, vertex_size);
 		ro.indices        = buffer_create_ibo(indices.data,  index_size);
 
-		array_add(&game->index_render_objects, ro);
+		array_add(&g_game.index_render_objects, ro);
 
 
 		// NOTE(jesper): for debug overlay
-		game->textures.heightmap = texture_create(heightmap.width,
+		g_game.textures.heightmap = texture_create(heightmap.width,
 		                                          heightmap.height,
 		                                          heightmap.format,
 		                                          heightmap.data,
 		                                          VkComponentMapping{});
-		material_set_texture(&game->materials.heightmap, ResourceSlot_diffuse,
-		                     &game->textures.heightmap);
+		material_set_texture(&g_game.materials.heightmap, ResourceSlot_diffuse,
+		                     &g_game.textures.heightmap);
 
 	}
 
@@ -651,127 +640,126 @@ void game_init(GameMemory *memory, PlatformState *platform)
 		};
 
 		RenderObject terrain = {};
-		terrain.pipeline = game->pipelines.terrain;
+		terrain.pipeline = g_game.pipelines.terrain;
 		terrain.vertices = buffer_create_vbo(vertices, sizeof(vertices));
 		terrain.vertex_count = sizeof(vertices) / (sizeof(vertices[0]) * 3);
 
-		array_add(&game->render_objects, terrain);
+		array_add(&g_game.render_objects, terrain);
 #endif
 	}
 
-	game->key_state = alloc_array<i32>(&memory->persistent, 0xFF);
+	g_game.key_state = alloc_array<i32>(&g_persistent, 0xFF);
 	for (i32 i = 0; i < 0xFF; i++) {
-		game->key_state[i] = InputType_key_release;
+		g_game.key_state[i] = InputType_key_release;
 	}
 
-	game->overlay.items        = array_create<DebugOverlayItem>(&memory->free_list);
-	game->overlay.render_queue = array_create<DebugRenderItem>(&memory->free_list);
+	g_game.overlay.items        = array_create<DebugOverlayItem>(&g_heap);
+	g_game.overlay.render_queue = array_create<DebugRenderItem>(&g_heap);
 	{
 		DebugOverlayItem allocators;
 		allocators.title    = "Allocators";
-		allocators.children = array_create<DebugOverlayItem*>(&memory->free_list);
+		allocators.children = array_create<DebugOverlayItem*>(&g_heap);
 		allocators.type     = Debug_allocators;
 
-		auto stack = alloc<DebugOverlayItem>(&memory->free_list);
+		auto stack = alloc<DebugOverlayItem>(&g_heap);
 		stack->type  = Debug_allocator_stack;
 		stack->title = "stack";
-		stack->data  = (void*)&memory->stack;
+		stack->data  = (void*)&g_stack;
 		array_add(&allocators.children, stack);
 
-		auto frame = alloc<DebugOverlayItem>(&memory->free_list);
+		auto frame = alloc<DebugOverlayItem>(&g_heap);
 		frame->type  = Debug_allocator_stack;
 		frame->title = "frame";
-		frame->data  = (void*)&memory->frame;
+		frame->data  = (void*)&g_frame;
 		array_add(&allocators.children, frame);
 
-		auto persistent = alloc<DebugOverlayItem>(&memory->free_list);
+		auto persistent = alloc<DebugOverlayItem>(&g_heap);
 		persistent->type  = Debug_allocator_stack;
 		persistent->title = "persistent";
-		persistent->data  = (void*)&memory->persistent;
+		persistent->data  = (void*)&g_persistent;
 		array_add(&allocators.children, persistent);
 
-		auto free_list = alloc<DebugOverlayItem>(&memory->free_list);
+		auto free_list = alloc<DebugOverlayItem>(&g_heap);
 		free_list->type  = Debug_allocator_free_list;
 		free_list->title = "free list";
-		free_list->data  = (void*)&memory->free_list;
+		free_list->data  = (void*)&g_heap;
 		array_add(&allocators.children, free_list);
 
-		array_add(&game->overlay.items, allocators);
+		array_add(&g_game.overlay.items, allocators);
 
 
 		DebugOverlayItem timers;
 		timers.title = "Profile Timers";
 		timers.type  = Debug_profile_timers;
-		array_add(&game->overlay.items, timers);
+		array_add(&g_game.overlay.items, timers);
 
-		debug_add_texture("Terrain", &game->textures.heightmap, game->materials.heightmap,
-		                  &game->pipelines.basic2d, memory, &game->overlay);
+		debug_add_texture("Terrain", &g_game.textures.heightmap, g_game.materials.heightmap,
+		                  &g_game.pipelines.basic2d, &g_game.overlay);
 	}
 }
 
-void game_quit(GameMemory *memory, PlatformState *platform)
+void game_quit(PlatformState *platform)
 {
-	GameState *game = (GameState*)memory->game;
 	// NOTE(jesper): disable raw mouse as soon as possible to ungrab the cursor
 	// on Linux
 	platform_set_raw_mouse(platform, false);
 
 	vkQueueWaitIdle(g_vulkan.queue);
 
-	for (int i = 0; i < game->overlay.items.count; i++) {
-		DebugOverlayItem &item = game->overlay.items[i];
+	for (int i = 0; i < g_game.overlay.items.count; i++) {
+		DebugOverlayItem &item = g_game.overlay.items[i];
 		if (item.type == Debug_render_item) {
 			buffer_destroy(item.ritem.vbo);
 		}
 	}
 
-	buffer_destroy(game->overlay.vbo);
-	buffer_destroy(game->overlay.texture.vbo);
+	buffer_destroy(g_game.overlay.vbo);
+	buffer_destroy(g_game.overlay.texture.vbo);
 
-	texture_destroy(game->textures.font);
-	texture_destroy(game->textures.cube);
-	texture_destroy(game->textures.player);
-	texture_destroy(game->textures.heightmap);
+	texture_destroy(g_game.textures.font);
+	texture_destroy(g_game.textures.cube);
+	texture_destroy(g_game.textures.player);
+	texture_destroy(g_game.textures.heightmap);
 
-	material_destroy(game->materials.font);
-	material_destroy(game->materials.heightmap);
-	material_destroy(game->materials.phong);
-	material_destroy(game->materials.player);
+	material_destroy(g_game.materials.font);
+	material_destroy(g_game.materials.heightmap);
+	material_destroy(g_game.materials.phong);
+	material_destroy(g_game.materials.player);
 
-	pipeline_destroy(game->pipelines.basic2d);
-	pipeline_destroy(game->pipelines.font);
-	pipeline_destroy(game->pipelines.mesh);
-	pipeline_destroy(game->pipelines.terrain);
+	pipeline_destroy(g_game.pipelines.basic2d);
+	pipeline_destroy(g_game.pipelines.font);
+	pipeline_destroy(g_game.pipelines.mesh);
+	pipeline_destroy(g_game.pipelines.terrain);
 
-	for (i32 i = 0; i < game->render_objects.count; i++) {
-		buffer_destroy(game->render_objects[i].vertices);
+	for (i32 i = 0; i < g_game.render_objects.count; i++) {
+		buffer_destroy(g_game.render_objects[i].vertices);
 	}
 
-	for (i32 i = 0; i < game->index_render_objects.count; i++) {
-		buffer_destroy(game->index_render_objects[i].vertices);
-		buffer_destroy(game->index_render_objects[i].indices);
+	for (i32 i = 0; i < g_game.index_render_objects.count; i++) {
+		buffer_destroy(g_game.index_render_objects[i].vertices);
+		buffer_destroy(g_game.index_render_objects[i].indices);
 	}
 
-	buffer_destroy_ubo(game->fp_camera.ubo);
+	buffer_destroy_ubo(g_game.fp_camera.ubo);
 	vulkan_destroy();
 
 	platform_quit(platform);
 }
 
-void game_pre_reload(GameMemory *memory)
+void* game_pre_reload()
 {
-	GameState *game = (GameState*)memory->game;
+	auto state = alloc<GameReloadState>(&g_frame);
 
 	// TODO(jesper): I feel like this could be quite nicely preprocessed and
 	// generated. look into
-	GameReloadState state     = {};
-	state.profile_timers      = g_profile_timers;
-	state.profile_timers_prev = g_profile_timers_prev;
+	state->profile_timers      = g_profile_timers;
+	state->profile_timers_prev = g_profile_timers_prev;
 
-	state.screen_to_view = g_screen_to_view;
-	state.view_to_screen = g_view_to_screen;
+	state->screen_to_view      = g_screen_to_view;
+	state->view_to_screen      = g_view_to_screen;
 
-	state.vulkan_device = g_vulkan;
+	state->vulkan_device       = g_vulkan;
+	state->game                = g_game;
 
 	// NOTE(jesper): wait for the vulkan queues to be idle. Here for when I get
 	// to shader and resource reloading - I don't even want to think about what
@@ -779,78 +767,78 @@ void game_pre_reload(GameMemory *memory)
 	// in the middle of things
 	vkQueueWaitIdle(g_vulkan.queue);
 
-	game->reload_state = state;
+	return (void*)state;
 }
 
-void game_reload(GameMemory *memory)
+void game_reload(void *s)
 {
-	GameState *game = (GameState*)memory->game;
-
-	GameReloadState state = game->reload_state;
 	// TODO(jesper): I feel like this could be quite nicely preprocessed and
 	// generated. look into
-	g_profile_timers      = state.profile_timers;
-	g_profile_timers_prev = state.profile_timers_prev;
+	auto state = (GameReloadState*)s;
+	g_game                = state->game;
 
-	g_screen_to_view = state.screen_to_view;
-	g_view_to_screen = state.view_to_screen;
+	g_profile_timers      = state->profile_timers;
+	g_profile_timers_prev = state->profile_timers_prev;
 
-	g_vulkan = state.vulkan_device;
+	g_screen_to_view      = state->screen_to_view;
+	g_view_to_screen      = state->view_to_screen;
 
+	g_vulkan              = state->vulkan_device;
 	vulkan_load(g_vulkan.instance);
+
+	dealloc(&g_frame, state);
 }
 
-void game_input(GameMemory *memory, PlatformState *platform, InputEvent event)
+void game_input(PlatformState *platform, InputEvent event)
 {
-	GameState *game = (GameState*)memory->game;
 	switch (event.type) {
 	case InputType_key_press: {
 		if (event.key.repeated) {
 			break;
 		}
 
-		game->key_state[event.key.code] = InputType_key_press;
+		g_game.key_state[event.key.code] = InputType_key_press;
 
 		switch (event.key.code) {
 		case Key_escape:
-			game_quit(memory, platform);
+			game_quit(platform);
 			break;
 		case Key_W:
 			// TODO(jesper): tweak movement speed when we have a sense of scale
-			game->velocity.z = 3.0f;
+			g_game.velocity.z = 3.0f;
 			break;
 		case Key_S:
 			// TODO(jesper): tweak movement speed when we have a sense of scale
-			game->velocity.z = -3.0f;
+			g_game.velocity.z = -3.0f;
 			break;
 		case Key_A:
 			// TODO(jesper): tweak movement speed when we have a sense of scale
-			game->velocity.x = -3.0f;
+			g_game.velocity.x = -3.0f;
 			break;
 		case Key_D:
 			// TODO(jesper): tweak movement speed when we have a sense of scale
-			game->velocity.x = 3.0f;
+			g_game.velocity.x = 3.0f;
 			break;
 		case Key_F:
-			for (int i = 0; i < game->overlay.items.count; i++) {
-				game->overlay.items[i].collapsed = !game->overlay.items[i].collapsed;
+			for (int i = 0; i < g_game.overlay.items.count; i++) {
+				g_game.overlay.items[i].collapsed = !g_game.overlay.items[i].collapsed;
 			}
 			break;
 		case Key_left: {
-			i32 pid = physics_id(&game->physics, 0);
-			game->physics.velocities[pid].x = 5.0f;
+			i32 pid = physics_id(&g_game.physics, 0);
+			g_game.physics.velocities[pid].x = 5.0f;
 		} break;
 		case Key_right: {
-			i32 pid = physics_id(&game->physics, 0);
-			game->physics.velocities[pid].x = -5.0f;
+			i32 pid = physics_id(&g_game.physics, 0);
+			g_game.physics.velocities[pid].x = -5.0f;
 		} break;
 		case Key_up: {
-			i32 pid = physics_id(&game->physics, 0);
-			game->physics.velocities[pid].z = 5.0f;
+			i32 pid = physics_id(&g_game.physics, 0);
+			g_game.physics.velocities[pid].z = 5.0f;
 		} break;
 		case Key_down: {
-			i32 pid = physics_id(&game->physics, 0);
-			game->physics.velocities[pid].z = -5.0f;
+			i32 pid = physics_id(&g_game.physics, 0);
+			g_game.physics.velocities[pid].z = -5.0f;
 		} break;
 		case Key_C:
 			platform_toggle_raw_mouse(platform);
@@ -865,103 +853,103 @@ void game_input(GameMemory *memory, PlatformState *platform, InputEvent event)
 			break;
 		}
 
-		game->key_state[event.key.code] = InputType_key_release;
+		g_game.key_state[event.key.code] = InputType_key_release;
 
 		switch (event.key.code) {
 		case Key_W:
-			game->velocity.z = 0.0f;
-			if (game->key_state[Key_S] == InputType_key_press) {
+			g_game.velocity.z = 0.0f;
+			if (g_game.key_state[Key_S] == InputType_key_press) {
 				InputEvent e;
 				e.type         = InputType_key_press;
 				e.key.code     = Key_S;
 				e.key.repeated = false;
 
-				game_input(memory, platform, e);
+				game_input(platform, e);
 			}
 			break;
 		case Key_S:
-			game->velocity.z = 0.0f;
-			if (game->key_state[Key_W] == InputType_key_press) {
+			g_game.velocity.z = 0.0f;
+			if (g_game.key_state[Key_W] == InputType_key_press) {
 				InputEvent e;
 				e.type         = InputType_key_press;
 				e.key.code     = Key_W;
 				e.key.repeated = false;
 
-				game_input(memory, platform, e);
+				game_input(platform, e);
 			}
 			break;
 		case Key_A:
-			game->velocity.x = 0.0f;
-			if (game->key_state[Key_D] == InputType_key_press) {
+			g_game.velocity.x = 0.0f;
+			if (g_game.key_state[Key_D] == InputType_key_press) {
 				InputEvent e;
 				e.type         = InputType_key_press;
 				e.key.code     = Key_D;
 				e.key.repeated = false;
 
-				game_input(memory, platform, e);
+				game_input(platform, e);
 			}
 			break;
 		case Key_D:
-			game->velocity.x = 0.0f;
-			if (game->key_state[Key_A] == InputType_key_press) {
+			g_game.velocity.x = 0.0f;
+			if (g_game.key_state[Key_A] == InputType_key_press) {
 				InputEvent e;
 				e.type         = InputType_key_press;
 				e.key.code     = Key_A;
 				e.key.repeated = false;
 
-				game_input(memory, platform, e);
+				game_input(platform, e);
 			}
 			break;
 		case Key_left: {
-			i32 pid = physics_id(&game->physics, 0);
-			game->physics.velocities[pid].x = 0.0f;
+			i32 pid = physics_id(&g_game.physics, 0);
+			g_game.physics.velocities[pid].x = 0.0f;
 
-			if (game->key_state[Key_right] == InputType_key_press) {
+			if (g_game.key_state[Key_right] == InputType_key_press) {
 				InputEvent e;
 				e.type         = InputType_key_press;
 				e.key.code     = Key_right;
 				e.key.repeated = false;
 
-				game_input(memory, platform, e);
+				game_input(platform, e);
 			}
 		} break;
 		case Key_right: {
-			i32 pid = physics_id(&game->physics, 0);
-			game->physics.velocities[pid].x = 0.0f;
+			i32 pid = physics_id(&g_game.physics, 0);
+			g_game.physics.velocities[pid].x = 0.0f;
 
-			if (game->key_state[Key_left] == InputType_key_press) {
+			if (g_game.key_state[Key_left] == InputType_key_press) {
 				InputEvent e;
 				e.type         = InputType_key_press;
 				e.key.code     = Key_left;
 				e.key.repeated = false;
 
-				game_input(memory, platform, e);
+				game_input(platform, e);
 			}
 		} break;
 		case Key_up: {
-			i32 pid = physics_id(&game->physics, 0);
-			game->physics.velocities[pid].z = 0.0f;
+			i32 pid = physics_id(&g_game.physics, 0);
+			g_game.physics.velocities[pid].z = 0.0f;
 
-			if (game->key_state[Key_down] == InputType_key_press) {
+			if (g_game.key_state[Key_down] == InputType_key_press) {
 				InputEvent e;
 				e.type         = InputType_key_press;
 				e.key.code     = Key_down;
 				e.key.repeated = false;
 
-				game_input(memory, platform, e);
+				game_input(platform, e);
 			}
 		} break;
 		case Key_down: {
-			i32 pid = physics_id(&game->physics, 0);
-			game->physics.velocities[pid].z = 0.0f;
+			i32 pid = physics_id(&g_game.physics, 0);
+			g_game.physics.velocities[pid].z = 0.0f;
 
-			if (game->key_state[Key_up] == InputType_key_press) {
+			if (g_game.key_state[Key_up] == InputType_key_press) {
 				InputEvent e;
 				e.type         = InputType_key_press;
 				e.key.code     = Key_up;
 				e.key.repeated = false;
 
-				game_input(memory, platform, e);
+				game_input(platform, e);
 			}
 		} break;
 		default:
@@ -971,13 +959,13 @@ void game_input(GameMemory *memory, PlatformState *platform, InputEvent event)
 	} break;
 	case InputType_mouse_move: {
 		// TODO(jesper): move mouse sensitivity into settings
-		game->fp_camera.yaw   += 0.001f * event.mouse.dx;
-		game->fp_camera.pitch += 0.001f * event.mouse.dy;
+		g_game.fp_camera.yaw   += 0.001f * event.mouse.dx;
+		g_game.fp_camera.pitch += 0.001f * event.mouse.dy;
 	} break;
 	case InputType_mouse_press: {
 		Vector2 p = { event.mouse.x, event.mouse.y };
-		for (u32 i = 0; i < game->overlay.items.count; i++) {
-			auto &item = game->overlay.items[i];
+		for (u32 i = 0; i < g_game.overlay.items.count; i++) {
+			auto &item = g_game.overlay.items[i];
 
 			if (p.x >= item.tl.x && p.x <= item.br.x &&
 			    p.y >= item.tl.y && p.y <= item.br.y)
@@ -992,11 +980,11 @@ void game_input(GameMemory *memory, PlatformState *platform, InputEvent event)
 	}
 }
 
-void debug_overlay_update(DebugOverlay *overlay, GameMemory *memory, f32 dt)
+void debug_overlay_update(DebugOverlay *overlay, f32 dt)
 {
 	PROFILE_FUNCTION();
-	void *sp = memory->stack.stack.sp;
-	defer { alloc_reset(&memory->stack, sp); };
+	void *sp = g_stack.stack.sp;
+	defer { alloc_reset(&g_stack, sp); };
 
 	stbtt_bakedchar *font = overlay->font;
 	i32 *vcount           = &overlay->vertex_count;
@@ -1013,13 +1001,13 @@ void debug_overlay_update(DebugOverlay *overlay, GameMemory *memory, f32 dt)
 
 
 	isize buffer_size = 1024*1024;
-	char *buffer = (char*)alloc(&memory->stack, buffer_size);
+	char *buffer = (char*)alloc(&g_stack, buffer_size);
 	buffer[0] = '\0';
 
 	f32 dt_ms = dt * 1000.0f;
 	snprintf(buffer, buffer_size, "frametime: %f ms, %f fps\n",
 	         dt_ms, 1000.0f / dt_ms);
-	render_font(memory, font, buffer, &pos, vcount, mapped, &offset);
+	render_font(font, buffer, &pos, vcount, mapped, &offset);
 
 	for (int i = 0; i < overlay->items.count; i++) {
 		DebugOverlayItem &item = overlay->items[i];
@@ -1036,12 +1024,12 @@ void debug_overlay_update(DebugOverlay *overlay, GameMemory *memory, f32 dt)
 
 			if (item.collapsed) {
 				snprintf(buffer, buffer_size, "%s...", item.title);
-				render_font(memory, font, buffer, &pos, vcount, mapped, &offset);
+				render_font(font, buffer, &pos, vcount, mapped, &offset);
 				continue;
 			}
 
 			snprintf(buffer, buffer_size, "%s", item.title);
-			render_font(memory, font, buffer, &pos, vcount, mapped, &offset);
+			render_font(font, buffer, &pos, vcount, mapped, &offset);
 		}
 
 		switch (item.type) {
@@ -1055,14 +1043,14 @@ void debug_overlay_update(DebugOverlay *overlay, GameMemory *memory, f32 dt)
 					snprintf(buffer, buffer_size,
 					         "  %s: { sp: %p, size: %ld, remaining: %ld }\n",
 					         child.title, a->stack.sp, a->size, a->remaining);
-					render_font(memory, font, buffer, &pos, vcount, mapped, &offset);
+					render_font(font, buffer, &pos, vcount, mapped, &offset);
 				} break;
 				case Debug_allocator_free_list: {
 					Allocator *a = (Allocator*)child.data;
 					snprintf(buffer, buffer_size,
 					         "  %s: { size: %ld, remaining: %ld }\n",
 					         child.title, a->size, a->remaining);
-					render_font(memory, font, buffer, &pos, vcount, mapped, &offset);
+					render_font(font, buffer, &pos, vcount, mapped, &offset);
 				} break;
 				default:
 					DEBUG_LOG("unhandled case: %d", item.type);
@@ -1089,7 +1077,7 @@ void debug_overlay_update(DebugOverlay *overlay, GameMemory *memory, f32 dt)
 			ProfileTimers &timers = g_profile_timers_prev;
 			for (int i = 0; i < timers.count; i++) {
 				snprintf(buffer, buffer_size, "%s: ", timers.name[i]);
-				render_font(memory, font, buffer, &pos, vcount, mapped, &offset);
+				render_font(font, buffer, &pos, vcount, mapped, &offset);
 
 				if (pos.x >= c1.x) {
 					c1.x = pos.x;
@@ -1104,7 +1092,7 @@ void debug_overlay_update(DebugOverlay *overlay, GameMemory *memory, f32 dt)
 			pos.x  = c1.x;
 			for (int i = 0; i < timers.count; i++) {
 				snprintf(buffer, buffer_size, "%" PRIu64, timers.cycles[i]);
-				render_font(memory, font, buffer, &pos, vcount, mapped, &offset);
+				render_font(font, buffer, &pos, vcount, mapped, &offset);
 
 				if (pos.x >= c2.x) {
 					c2.x = pos.x;
@@ -1119,7 +1107,7 @@ void debug_overlay_update(DebugOverlay *overlay, GameMemory *memory, f32 dt)
 			pos.x  = c2.x;
 			for (int i = 0; i < timers.count; i++) {
 				snprintf(buffer, buffer_size, "%u", timers.calls[i]);
-				render_font(memory, font, buffer, &pos, vcount, mapped, &offset);
+				render_font(font, buffer, &pos, vcount, mapped, &offset);
 
 				if (pos.x >= c3.x) {
 					c3.x = pos.x;
@@ -1134,16 +1122,16 @@ void debug_overlay_update(DebugOverlay *overlay, GameMemory *memory, f32 dt)
 			pos.x  = c3.x;
 			for (int i = 0; i < timers.count; i++) {
 				snprintf(buffer, buffer_size, "%f", timers.cycles[i] / (f32)timers.calls[i]);
-				render_font(memory, font, buffer, &pos, vcount, mapped, &offset);
+				render_font(font, buffer, &pos, vcount, mapped, &offset);
 
 				pos.x  = c3.x;
 				pos.y += overlay->fsize;
 			}
 
-			render_font(memory, font, "name",     &c0, vcount, mapped, &offset);
-			render_font(memory, font, "cycles",   &c1, vcount, mapped, &offset);
-			render_font(memory, font, "calls",    &c2, vcount, mapped, &offset);
-			render_font(memory, font, "cy/calls", &c3, vcount, mapped, &offset);
+			render_font(font, "name",     &c0, vcount, mapped, &offset);
+			render_font(font, "cycles",   &c1, vcount, mapped, &offset);
+			render_font(font, "calls",    &c2, vcount, mapped, &offset);
+			render_font(font, "cy/calls", &c3, vcount, mapped, &offset);
 
 			pos.x = base_x;
 		} break;
@@ -1164,12 +1152,11 @@ void debug_overlay_update(DebugOverlay *overlay, GameMemory *memory, f32 dt)
 	vkUnmapMemory(g_vulkan.handle, overlay->vbo.memory);
 }
 
-void game_update(GameMemory *memory, f32 dt)
+void game_update(f32 dt)
 {
 	PROFILE_FUNCTION();
-	GameState *game = (GameState*)memory->game;
 
-	Entity &player = game->entities[0];
+	Entity &player = g_game.entities[0];
 
 	{
 		Quaternion r = Quaternion::make({0.0f, 1.0f, 0.0f}, 1.5f * dt);
@@ -1180,43 +1167,41 @@ void game_update(GameMemory *memory, f32 dt)
 	}
 
 
-	physics_process(&game->physics, game, dt);
+	physics_process(&g_game.physics, dt);
 
 
 	{
-		Vector3 &pos  = game->fp_camera.position;
-		Matrix4 &view = game->fp_camera.view;
+		Vector3 &pos  = g_game.fp_camera.position;
+		Matrix4 &view = g_game.fp_camera.view;
 
 		Vector3 f = { view[0].z, view[1].z, view[2].z };
 		Vector3 r = -Vector3{ view[0].x, view[1].x, view[2].x };
 
-		pos += dt * (game->velocity.z * f + game->velocity.x * r);
+		pos += dt * (g_game.velocity.z * f + g_game.velocity.x * r);
 
-		Quaternion qpitch = Quaternion::make(r, game->fp_camera.pitch);
-		Quaternion qyaw   = Quaternion::make({0.0f, 1.0f, 0.0f}, game->fp_camera.yaw);
+		Quaternion qpitch = Quaternion::make(r, g_game.fp_camera.pitch);
+		Quaternion qyaw   = Quaternion::make({0.0f, 1.0f, 0.0f}, g_game.fp_camera.yaw);
 
-		game->fp_camera.pitch = game->fp_camera.yaw = 0.0f;
+		g_game.fp_camera.pitch = g_game.fp_camera.yaw = 0.0f;
 
 		Quaternion rq            = normalise(qpitch * qyaw);
-		game->fp_camera.rotation = normalise(game->fp_camera.rotation * rq);
+		g_game.fp_camera.rotation = normalise(g_game.fp_camera.rotation * rq);
 
-		Matrix4 rm = Matrix4::make(game->fp_camera.rotation);
+		Matrix4 rm = Matrix4::make(g_game.fp_camera.rotation);
 		Matrix4 tm = translate(Matrix4::identity(), pos);
 		view       = rm * tm;
 
-		Matrix4 vp = game->fp_camera.projection * view;
-		buffer_data_ubo(game->fp_camera.ubo, &vp, 0, sizeof(vp));
+		Matrix4 vp = g_game.fp_camera.projection * view;
+		buffer_data_ubo(g_game.fp_camera.ubo, &vp, 0, sizeof(vp));
 	}
 
 }
 
-void game_render(GameMemory *memory)
+void game_render()
 {
 	PROFILE_FUNCTION();
-	void *sp = memory->stack.stack.sp;
-	defer { alloc_reset(&memory->stack, sp); };
-
-	GameState *game = (GameState*)memory->game;
+	void *sp = g_stack.stack.sp;
+	defer { alloc_reset(&g_stack, sp); };
 
 	u32 image_index = swapchain_acquire();
 
@@ -1227,8 +1212,8 @@ void game_render(GameMemory *memory)
 	VkCommandBuffer command = command_buffer_begin();
 	renderpass_begin(command, image_index);
 
-	for (i32 i = 0; i < game->render_objects.count; i++) {
-		RenderObject &object = game->render_objects[i];
+	for (i32 i = 0; i < g_game.render_objects.count; i++) {
+		RenderObject &object = g_game.render_objects[i];
 
 		vkCmdBindPipeline(command,
 		                  VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -1252,8 +1237,8 @@ void game_render(GameMemory *memory)
 		vkCmdDraw(command, object.vertex_count, 1, 0, 0);
 	}
 
-	for (i32 i = 0; i < game->index_render_objects.count; i++) {
-		IndexRenderObject &object = game->index_render_objects[i];
+	for (i32 i = 0; i < g_game.index_render_objects.count; i++) {
+		IndexRenderObject &object = g_game.index_render_objects[i];
 
 		vkCmdBindPipeline(command,
 		                  VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -1262,7 +1247,7 @@ void game_render(GameMemory *memory)
 		// TODO(jesper): bind material descriptor set if bound
 		// TODO(jesper): only bind pipeline descriptor set if one exists, might
 		// be such a special case that we should hardcode it?
-		auto descriptors = array_create<VkDescriptorSet>(&memory->stack);
+		auto descriptors = array_create<VkDescriptorSet>(&g_stack);
 		defer { array_destroy(&descriptors); };
 
 		array_add(&descriptors, object.pipeline.descriptor_set);
@@ -1284,7 +1269,7 @@ void game_render(GameMemory *memory)
 		                     0, VK_INDEX_TYPE_UINT32);
 
 
-		Entity *e = entity_find(game, object.entity_id);
+		Entity *e = entity_find(object.entity_id);
 
 		Matrix4 t = translate(Matrix4::identity(), e->position);
 		Matrix4 r = Matrix4::make(e->rotation);
@@ -1299,32 +1284,32 @@ void game_render(GameMemory *memory)
 
 	vkCmdBindPipeline(command,
 	                  VK_PIPELINE_BIND_POINT_GRAPHICS,
-	                  game->pipelines.font.handle);
+	                  g_game.pipelines.font.handle);
 
 
-	auto descriptors = array_create<VkDescriptorSet>(&memory->stack);
-	array_add(&descriptors, game->materials.font.descriptor_set);
+	auto descriptors = array_create<VkDescriptorSet>(&g_stack);
+	array_add(&descriptors, g_game.materials.font.descriptor_set);
 
 	vkCmdBindDescriptorSets(command,
 	                        VK_PIPELINE_BIND_POINT_GRAPHICS,
-	                        game->pipelines.font.layout,
+	                        g_game.pipelines.font.layout,
 	                        0,
 	                        (i32)descriptors.count, descriptors.data,
 	                        0, nullptr);
 
 
-	if (game->overlay.vertex_count > 0) {
+	if (g_game.overlay.vertex_count > 0) {
 		Matrix4 t = Matrix4::identity();
-		vkCmdPushConstants(command, game->pipelines.font.layout,
+		vkCmdPushConstants(command, g_game.pipelines.font.layout,
 		                   VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(t), &t);
 
 		vkCmdBindVertexBuffers(command, 0, 1,
-		                       &game->overlay.vbo.handle, offsets);
-		vkCmdDraw(command, game->overlay.vertex_count, 1, 0, 0);
+		                       &g_game.overlay.vbo.handle, offsets);
+		vkCmdDraw(command, g_game.overlay.vertex_count, 1, 0, 0);
 	}
 
-	for (int i = 0; i < game->overlay.render_queue.count; i++) {
-		auto &item = game->overlay.render_queue[i];
+	for (int i = 0; i < g_game.overlay.render_queue.count; i++) {
+		auto &item = g_game.overlay.render_queue[i];
 
 		vkCmdBindPipeline(command,
 		                  VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -1351,7 +1336,7 @@ void game_render(GameMemory *memory)
 		vkCmdBindVertexBuffers(command, 0, 1, &item.vbo.handle, offsets);
 		vkCmdDraw(command, item.vertex_count, 1, 0, 0);
 	}
-	game->overlay.render_queue.count = 0;
+	g_game.overlay.render_queue.count = 0;
 
 	renderpass_end(command);
 	command_buffer_end(command, false);
@@ -1371,13 +1356,12 @@ void game_render(GameMemory *memory)
 	PROFILE_END(vulkan_swap);
 }
 
-void game_update_and_render(GameMemory *memory, f32 dt)
+void game_update_and_render(f32 dt)
 {
-	GameState *game = (GameState*)memory->game;
-	game_update(memory, dt);
-	game_render(memory);
+	game_update(dt);
+	game_render();
 
-	debug_overlay_update(&game->overlay, memory, dt);
+	debug_overlay_update(&g_game.overlay, dt);
 
-	alloc_reset(&memory->frame);
+	alloc_reset(&g_frame);
 }

@@ -486,8 +486,7 @@ VkImage image_create(VkFormat format,
 	return image;
 }
 
-VulkanSwapchain swapchain_create(GameMemory *memory,
-                                 VulkanPhysicalDevice *physical_device,
+VulkanSwapchain swapchain_create(VulkanPhysicalDevice *physical_device,
                                  VkSurfaceKHR surface,
                                  Settings *settings)
 
@@ -504,7 +503,7 @@ VulkanSwapchain swapchain_create(GameMemory *memory,
 	                                              nullptr);
 	DEBUG_ASSERT(result == VK_SUCCESS);
 
-	auto formats = alloc_array<VkSurfaceFormatKHR>(&memory->frame,
+	auto formats = alloc_array<VkSurfaceFormatKHR>(&g_frame,
 	                                               formats_count);
 	result = vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device->handle,
 	                                              swapchain.surface,
@@ -537,7 +536,7 @@ VulkanSwapchain swapchain_create(GameMemory *memory,
 	                                                   nullptr);
 	DEBUG_ASSERT(result == VK_SUCCESS);
 
-	auto present_modes = alloc_array<VkPresentModeKHR>(&memory->frame,
+	auto present_modes = alloc_array<VkPresentModeKHR>(&g_frame,
 	                                                   present_modes_count);
 	result = vkGetPhysicalDeviceSurfacePresentModesKHR(physical_device->handle,
 	                                                   swapchain.surface,
@@ -609,7 +608,7 @@ VulkanSwapchain swapchain_create(GameMemory *memory,
 	                                 nullptr);
 	DEBUG_ASSERT(result == VK_SUCCESS);
 
-	swapchain.images = alloc_array<VkImage>(&memory->frame,
+	swapchain.images = alloc_array<VkImage>(&g_frame,
 	                                        swapchain.images_count);
 
 	result = vkGetSwapchainImagesKHR(g_vulkan.handle,
@@ -618,7 +617,7 @@ VulkanSwapchain swapchain_create(GameMemory *memory,
 	                                 swapchain.images);
 	DEBUG_ASSERT(result == VK_SUCCESS);
 
-	swapchain.imageviews = alloc_array<VkImageView>(&memory->persistent,
+	swapchain.imageviews = alloc_array<VkImageView>(&g_persistent,
 	                                                swapchain.images_count);
 
 	VkImageSubresourceRange subresource_range = {};
@@ -899,10 +898,10 @@ VulkanShader create_shader(ShaderID id)
 	return shader;
 }
 
-VulkanPipeline pipeline_create_font(GameMemory *memory)
+VulkanPipeline pipeline_create_font()
 {
-	void *sp = memory->stack.stack.sp;
-	defer { alloc_reset(&memory->stack, sp); };
+	void *sp = g_stack.stack.sp;
+	defer { alloc_reset(&g_stack, sp); };
 
 	VkResult result;
 	VulkanPipeline pipeline = {};
@@ -914,13 +913,13 @@ VulkanPipeline pipeline_create_font(GameMemory *memory)
 	// TODO(jesper): i think it probably makes sense to move this into the
 	// material, but unsure
 	pipeline.sampler_count = 1;
-	pipeline.samplers = alloc_array<VkSampler>(&memory->persistent,
+	pipeline.samplers = alloc_array<VkSampler>(&g_persistent,
 	                                           pipeline.sampler_count);
 	pipeline.samplers[0] = create_sampler();
 
-	auto layouts = array_create<VkDescriptorSetLayout>(&memory->stack);
+	auto layouts = array_create<VkDescriptorSetLayout>(&g_stack);
 	{ // material
-		auto binds = array_create<VkDescriptorSetLayoutBinding>(&memory->stack);
+		auto binds = array_create<VkDescriptorSetLayoutBinding>(&g_stack);
 		array_add(&binds, {
 			0,
 			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
@@ -960,10 +959,10 @@ VulkanPipeline pipeline_create_font(GameMemory *memory)
 	                                &pipeline.layout);
 	DEBUG_ASSERT(result == VK_SUCCESS);
 
-	auto vbinds = array_create<VkVertexInputBindingDescription>(&memory->stack);
+	auto vbinds = array_create<VkVertexInputBindingDescription>(&g_stack);
 	array_add(&vbinds, { 0, sizeof(f32) * 4, VK_VERTEX_INPUT_RATE_VERTEX });
 
-	auto vdescs = array_create<VkVertexInputAttributeDescription>(&memory->stack);
+	auto vdescs = array_create<VkVertexInputAttributeDescription>(&g_stack);
 	array_add(&vdescs, { 0, 0, VK_FORMAT_R32G32_SFLOAT, 0 });
 	array_add(&vdescs, { 1, 0, VK_FORMAT_R32G32_SFLOAT, sizeof(f32) * 2 });
 
@@ -1043,7 +1042,7 @@ VulkanPipeline pipeline_create_font(GameMemory *memory)
 
 	// NOTE(jesper): it seems like it'd be worth creating and caching this
 	// inside the VulkanShader objects
-	auto stages = array_create<VkPipelineShaderStageCreateInfo>(&memory->stack);
+	auto stages = array_create<VkPipelineShaderStageCreateInfo>(&g_stack);
 	array_add(&stages, {
 		VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 		nullptr, 0,
@@ -1094,10 +1093,10 @@ VulkanPipeline pipeline_create_font(GameMemory *memory)
 	return pipeline;
 }
 
-VulkanPipeline pipeline_create_basic2d(GameMemory *memory)
+VulkanPipeline pipeline_create_basic2d()
 {
-	void *sp = memory->stack.stack.sp;
-	defer { alloc_reset(&memory->stack, sp); };
+	void *sp = g_stack.stack.sp;
+	defer { alloc_reset(&g_stack, sp); };
 
 	VkResult result;
 	VulkanPipeline pipeline = {};
@@ -1109,13 +1108,13 @@ VulkanPipeline pipeline_create_basic2d(GameMemory *memory)
 	// TODO(jesper): i think it probably makes sense to move this into the
 	// material, but unsure
 	pipeline.sampler_count = 1;
-	pipeline.samplers = alloc_array<VkSampler>(&memory->persistent,
+	pipeline.samplers = alloc_array<VkSampler>(&g_persistent,
 	                                           pipeline.sampler_count);
 	pipeline.samplers[0] = create_sampler();
 
-	auto layouts = array_create<VkDescriptorSetLayout>(&memory->stack);
+	auto layouts = array_create<VkDescriptorSetLayout>(&g_stack);
 	{ // material
-		auto binds = array_create<VkDescriptorSetLayoutBinding>(&memory->stack);
+		auto binds = array_create<VkDescriptorSetLayoutBinding>(&g_stack);
 		array_add(&binds, {
 			0,
 			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
@@ -1155,10 +1154,10 @@ VulkanPipeline pipeline_create_basic2d(GameMemory *memory)
 	                                &pipeline.layout);
 	DEBUG_ASSERT(result == VK_SUCCESS);
 
-	auto vbinds = array_create<VkVertexInputBindingDescription>(&memory->stack);
+	auto vbinds = array_create<VkVertexInputBindingDescription>(&g_stack);
 	array_add(&vbinds, { 0, sizeof(f32) * 4, VK_VERTEX_INPUT_RATE_VERTEX });
 
-	auto vdescs = array_create<VkVertexInputAttributeDescription>(&memory->stack);
+	auto vdescs = array_create<VkVertexInputAttributeDescription>(&g_stack);
 	array_add(&vdescs, { 0, 0, VK_FORMAT_R32G32_SFLOAT, 0 });
 	array_add(&vdescs, { 1, 0, VK_FORMAT_R32G32_SFLOAT, sizeof(f32) * 2 });
 
@@ -1238,7 +1237,7 @@ VulkanPipeline pipeline_create_basic2d(GameMemory *memory)
 
 	// NOTE(jesper): it seems like it'd be worth creating and caching this
 	// inside the VulkanShader objects
-	auto stages = array_create<VkPipelineShaderStageCreateInfo>(&memory->stack);
+	auto stages = array_create<VkPipelineShaderStageCreateInfo>(&g_stack);
 	array_add(&stages, {
 		VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 		nullptr, 0,
@@ -1289,10 +1288,10 @@ VulkanPipeline pipeline_create_basic2d(GameMemory *memory)
 	return pipeline;
 }
 
-VulkanPipeline pipeline_create_generic(GameMemory *memory)
+VulkanPipeline pipeline_create_generic()
 {
-	void *sp = memory->stack.stack.sp;
-	defer { alloc_reset(&memory->stack, sp); };
+	void *sp = g_stack.stack.sp;
+	defer { alloc_reset(&g_stack, sp); };
 
 	VkResult result;
 	VulkanPipeline pipeline = {};
@@ -1302,13 +1301,13 @@ VulkanPipeline pipeline_create_generic(GameMemory *memory)
 	pipeline.shaders[ShaderStage_fragment] = create_shader(ShaderID_generic_frag);
 
 	pipeline.sampler_count = 1;
-	pipeline.samplers = alloc_array<VkSampler>(&memory->persistent,
+	pipeline.samplers = alloc_array<VkSampler>(&g_persistent,
 	                                           pipeline.sampler_count);
 	pipeline.samplers[0] = create_sampler();
 
-	auto layouts = array_create<VkDescriptorSetLayout>(&memory->frame);
+	auto layouts = array_create<VkDescriptorSetLayout>(&g_frame);
 	{ // pipeline
-		auto binds = array_create<VkDescriptorSetLayoutBinding>(&memory->stack);
+		auto binds = array_create<VkDescriptorSetLayoutBinding>(&g_stack);
 		array_add(&binds, {
 			0,
 			VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
@@ -1332,7 +1331,7 @@ VulkanPipeline pipeline_create_generic(GameMemory *memory)
 	}
 
 	{ // material
-		auto binds = array_create<VkDescriptorSetLayoutBinding>(&memory->stack);
+		auto binds = array_create<VkDescriptorSetLayoutBinding>(&g_stack);
 		array_add(&binds, {
 			1,
 			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
@@ -1357,7 +1356,7 @@ VulkanPipeline pipeline_create_generic(GameMemory *memory)
 
 	// NOTE(jesper): create a pool size descriptor for each type of
 	// descriptor this shader program uses
-	auto psizes = array_create<VkDescriptorPoolSize>(&memory->stack);
+	auto psizes = array_create<VkDescriptorPoolSize>(&g_stack);
 	array_add(&psizes, { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1 });
 
 	VkDescriptorPoolCreateInfo pool_info = {};
@@ -1401,10 +1400,10 @@ VulkanPipeline pipeline_create_generic(GameMemory *memory)
 	                                &pipeline.layout);
 	DEBUG_ASSERT(result == VK_SUCCESS);
 
-	auto vbinds = array_create<VkVertexInputBindingDescription>(&memory->stack);
+	auto vbinds = array_create<VkVertexInputBindingDescription>(&g_stack);
 	array_add(&vbinds, { 0, sizeof(f32) * 9, VK_VERTEX_INPUT_RATE_VERTEX });
 
-	auto vdescs = array_create<VkVertexInputAttributeDescription>(&memory->stack);
+	auto vdescs = array_create<VkVertexInputAttributeDescription>(&g_stack);
 	array_add(&vdescs, { 0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0 });
 	array_add(&vdescs, { 1, 0, VK_FORMAT_R32G32B32_SFLOAT, sizeof(f32) * 3 });
 	array_add(&vdescs, { 1, 0, VK_FORMAT_R32G32_SFLOAT,    sizeof(f32) * 7 });
@@ -1478,7 +1477,7 @@ VulkanPipeline pipeline_create_generic(GameMemory *memory)
 
 	// NOTE(jesper): it seems like it'd be worth creating and caching this
 	// inside the VulkanShader objects
-	auto stages = array_create<VkPipelineShaderStageCreateInfo>(&memory->stack);
+	auto stages = array_create<VkPipelineShaderStageCreateInfo>(&g_stack);
 	array_add(&stages, {
 		VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 		nullptr, 0,
@@ -1529,10 +1528,10 @@ VulkanPipeline pipeline_create_generic(GameMemory *memory)
 	return pipeline;
 }
 
-VulkanPipeline pipeline_create_terrain(GameMemory *memory)
+VulkanPipeline pipeline_create_terrain()
 {
-	void *sp = memory->stack.stack.sp;
-	defer { alloc_reset(&memory->stack, sp); };
+	void *sp = g_stack.stack.sp;
+	defer { alloc_reset(&g_stack, sp); };
 
 	VkResult result;
 	VulkanPipeline pipeline = {};
@@ -1541,9 +1540,9 @@ VulkanPipeline pipeline_create_terrain(GameMemory *memory)
 	pipeline.shaders[ShaderStage_vertex]   = create_shader(ShaderID_terrain_vert);
 	pipeline.shaders[ShaderStage_fragment] = create_shader(ShaderID_terrain_frag);
 
-	auto layouts = array_create<VkDescriptorSetLayout>(&memory->frame);
+	auto layouts = array_create<VkDescriptorSetLayout>(&g_frame);
 	{ // pipeline
-		auto binds = array_create<VkDescriptorSetLayoutBinding>(&memory->stack);
+		auto binds = array_create<VkDescriptorSetLayoutBinding>(&g_stack);
 		array_add(&binds, {
 			0,
 			VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
@@ -1568,7 +1567,7 @@ VulkanPipeline pipeline_create_terrain(GameMemory *memory)
 
 	// NOTE(jesper): create a pool size descriptor for each type of
 	// descriptor this shader program uses
-	auto psizes = array_create<VkDescriptorPoolSize>(&memory->stack);
+	auto psizes = array_create<VkDescriptorPoolSize>(&g_stack);
 	array_add(&psizes, { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1 });
 
 	VkDescriptorPoolCreateInfo pool_info = {};
@@ -1612,10 +1611,10 @@ VulkanPipeline pipeline_create_terrain(GameMemory *memory)
 	                                &pipeline.layout);
 	DEBUG_ASSERT(result == VK_SUCCESS);
 
-	auto vbinds = array_create<VkVertexInputBindingDescription>(&memory->stack);
+	auto vbinds = array_create<VkVertexInputBindingDescription>(&g_stack);
 	array_add(&vbinds, { 0, sizeof(f32) * 3, VK_VERTEX_INPUT_RATE_VERTEX });
 
-	auto vdescs = array_create<VkVertexInputAttributeDescription>(&memory->stack);
+	auto vdescs = array_create<VkVertexInputAttributeDescription>(&g_stack);
 	array_add(&vdescs, { 0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0 });
 
 	VkPipelineVertexInputStateCreateInfo vii = {};
@@ -1687,7 +1686,7 @@ VulkanPipeline pipeline_create_terrain(GameMemory *memory)
 
 	// NOTE(jesper): it seems like it'd be worth creating and caching this
 	// inside the VulkanShader objects
-	auto stages = array_create<VkPipelineShaderStageCreateInfo>(&memory->stack);
+	auto stages = array_create<VkPipelineShaderStageCreateInfo>(&g_stack);
 	array_add(&stages, {
 		VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 		nullptr, 0,
@@ -1739,10 +1738,10 @@ VulkanPipeline pipeline_create_terrain(GameMemory *memory)
 	return pipeline;
 }
 
-VulkanPipeline pipeline_create_mesh(GameMemory *memory)
+VulkanPipeline pipeline_create_mesh()
 {
-	void *sp = memory->stack.stack.sp;
-	defer { alloc_reset(&memory->stack, sp); };
+	void *sp = g_stack.stack.sp;
+	defer { alloc_reset(&g_stack, sp); };
 
 	VkResult result;
 	VulkanPipeline pipeline = {};
@@ -1754,14 +1753,14 @@ VulkanPipeline pipeline_create_mesh(GameMemory *memory)
 	// TODO(jesper): i think it probably makes sense to move this into the
 	// material, but unsure
 	pipeline.sampler_count = 1;
-	pipeline.samplers = alloc_array<VkSampler>(&memory->persistent,
+	pipeline.samplers = alloc_array<VkSampler>(&g_persistent,
 	                                           pipeline.sampler_count);
 	pipeline.samplers[0] = create_sampler();
 
 
-	auto layouts = array_create<VkDescriptorSetLayout>(&memory->frame);
+	auto layouts = array_create<VkDescriptorSetLayout>(&g_frame);
 	{ // pipeline
-		auto binds = array_create<VkDescriptorSetLayoutBinding>(&memory->stack);
+		auto binds = array_create<VkDescriptorSetLayoutBinding>(&g_stack);
 		array_add(&binds, {
 			0,
 			VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
@@ -1785,7 +1784,7 @@ VulkanPipeline pipeline_create_mesh(GameMemory *memory)
 	}
 
 	{ // material
-		auto binds = array_create<VkDescriptorSetLayoutBinding>(&memory->stack);
+		auto binds = array_create<VkDescriptorSetLayoutBinding>(&g_stack);
 		array_add(&binds, {
 			0,
 			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
@@ -1810,7 +1809,7 @@ VulkanPipeline pipeline_create_mesh(GameMemory *memory)
 
 	// NOTE(jesper): create a pool size descriptor for each type of
 	// descriptor this shader program uses
-	auto pool_sizes = array_create<VkDescriptorPoolSize>(&memory->frame);
+	auto pool_sizes = array_create<VkDescriptorPoolSize>(&g_frame);
 	array_add(&pool_sizes, { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         1 });
 	//array_add(&pool_sizes, { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1 });
 
@@ -1855,10 +1854,10 @@ VulkanPipeline pipeline_create_mesh(GameMemory *memory)
 	                                &pipeline.layout);
 	DEBUG_ASSERT(result == VK_SUCCESS);
 
-	auto vbinds = array_create<VkVertexInputBindingDescription>(&memory->stack);
+	auto vbinds = array_create<VkVertexInputBindingDescription>(&g_stack);
 	array_add(&vbinds, { 0, sizeof(f32) * 8, VK_VERTEX_INPUT_RATE_VERTEX });
 
-	auto vdescs = array_create<VkVertexInputAttributeDescription>(&memory->stack);
+	auto vdescs = array_create<VkVertexInputAttributeDescription>(&g_stack);
 	array_add(&vdescs, { 0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0 });
 	array_add(&vdescs, { 1, 0, VK_FORMAT_R32G32B32_SFLOAT, sizeof(f32) * 3 });
 	array_add(&vdescs, { 2, 0, VK_FORMAT_R32G32_SFLOAT,    sizeof(f32) * 6 });
@@ -1932,7 +1931,7 @@ VulkanPipeline pipeline_create_mesh(GameMemory *memory)
 
 	// NOTE(jesper): it seems like it'd be worth creating and caching this
 	// inside the VulkanShader objects
-	auto stages = array_create<VkPipelineShaderStageCreateInfo>(&memory->stack);
+	auto stages = array_create<VkPipelineShaderStageCreateInfo>(&g_stack);
 	array_add(&stages, {
 		VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 		nullptr, 0,
@@ -2174,10 +2173,10 @@ void vkdebug_destroy()
 	g_vulkan.debug_callback = nullptr;
 }
 
-void device_create(GameMemory *memory, PlatformState *platform, Settings *settings)
+void device_create(PlatformState *platform, Settings *settings)
 {
-	void *sp = memory->stack.stack.sp;
-	defer { alloc_reset(&memory->stack, sp); };
+	void *sp = g_stack.stack.sp;
+	defer { alloc_reset(&g_stack, sp); };
 
 	g_vulkan = {};
 
@@ -2194,7 +2193,7 @@ void device_create(GameMemory *memory, PlatformState *platform, Settings *settin
 		                                            nullptr);
 		DEBUG_ASSERT(result == VK_SUCCESS);
 
-		auto supported_layers = alloc_array<VkLayerProperties>(&memory->frame,
+		auto supported_layers = alloc_array<VkLayerProperties>(&g_frame,
 		                                                       supported_layers_count);
 
 		result = vkEnumerateInstanceLayerProperties(&supported_layers_count,
@@ -2221,7 +2220,7 @@ void device_create(GameMemory *memory, PlatformState *platform, Settings *settin
 		                                                nullptr);
 		DEBUG_ASSERT(result == VK_SUCCESS);
 
-		auto supported_extensions = alloc_array<VkExtensionProperties>(&memory->frame,
+		auto supported_extensions = alloc_array<VkExtensionProperties>(&g_frame,
 		                                                               supported_extensions_count);
 		result = vkEnumerateInstanceExtensionProperties(nullptr,
 		                                                &supported_extensions_count,
@@ -2238,11 +2237,11 @@ void device_create(GameMemory *memory, PlatformState *platform, Settings *settin
 		// NOTE(jesper): we might want to store these in the device for future
 		// usage/debug information
 		i32 enabled_layers_count = 0;
-		auto enabled_layers = alloc_array<char*>(&memory->frame,
+		auto enabled_layers = alloc_array<char*>(&g_frame,
 		                                         supported_layers_count);
 
 		i32 enabled_extensions_count = 0;
-		auto enabled_extensions = alloc_array<char*>(&memory->frame,
+		auto enabled_extensions = alloc_array<char*>(&g_frame,
 		                                             supported_extensions_count);
 
 		for (i32 i = 0; i < (i32)supported_layers_count; ++i) {
@@ -2302,7 +2301,7 @@ void device_create(GameMemory *memory, PlatformState *platform, Settings *settin
 		result = vkEnumeratePhysicalDevices(g_vulkan.instance, &count, nullptr);
 		DEBUG_ASSERT(result == VK_SUCCESS);
 
-		auto physical_devices = alloc_array<VkPhysicalDevice>(&memory->frame, count);
+		auto physical_devices = alloc_array<VkPhysicalDevice>(&g_frame, count);
 		result = vkEnumeratePhysicalDevices(g_vulkan.instance,
 		                                    &count, physical_devices);
 		DEBUG_ASSERT(result == VK_SUCCESS);
@@ -2378,7 +2377,7 @@ void device_create(GameMemory *memory, PlatformState *platform, Settings *settin
 		                                         &queue_family_count,
 		                                         nullptr);
 
-		auto queue_families = alloc_array<VkQueueFamilyProperties>(&memory->frame,
+		auto queue_families = alloc_array<VkQueueFamilyProperties>(&g_frame,
 		                                                           queue_family_count);
 		vkGetPhysicalDeviceQueueFamilyProperties(g_vulkan.physical_device.handle,
 		                                         &queue_family_count,
@@ -2477,14 +2476,14 @@ void device_create(GameMemory *memory, PlatformState *platform, Settings *settin
 		                             &g_vulkan.command_pool);
 		DEBUG_ASSERT(result == VK_SUCCESS);
 
-		g_vulkan.commands_queued               = array_create<VkCommandBuffer>(&memory->free_list);
+		g_vulkan.commands_queued               = array_create<VkCommandBuffer>(&g_heap);
 
-		g_vulkan.semaphores_submit_wait        = array_create<VkSemaphore>(&memory->free_list);
-		g_vulkan.semaphores_submit_wait_stages = array_create<VkPipelineStageFlags>(&memory->free_list);
+		g_vulkan.semaphores_submit_wait        = array_create<VkSemaphore>(&g_heap);
+		g_vulkan.semaphores_submit_wait_stages = array_create<VkPipelineStageFlags>(&g_heap);
 
-		g_vulkan.semaphores_submit_signal      = array_create<VkSemaphore>(&memory->free_list);
+		g_vulkan.semaphores_submit_signal      = array_create<VkSemaphore>(&g_heap);
 
-		g_vulkan.present_semaphores = array_create<VkSemaphore>(&memory->free_list);
+		g_vulkan.present_semaphores = array_create<VkSemaphore>(&g_heap);
 	}
 
 
@@ -2495,14 +2494,13 @@ void device_create(GameMemory *memory, PlatformState *platform, Settings *settin
 	// now because we're still hardcoding the depth buffer creation, among other
 	// things, in the VulkanDevice, which requires the created swapchain.
 	// Really I think it mostly/only need the extent, but same difference
-	g_vulkan.swapchain = swapchain_create(memory, &g_vulkan.physical_device,
-	                                      surface, settings);
+	g_vulkan.swapchain = swapchain_create(&g_vulkan.physical_device, surface, settings);
 
 	/**************************************************************************
 	 * Create vkRenderPass
 	 *************************************************************************/
 	{
-		auto descs = array_create<VkAttachmentDescription>(&memory->stack);
+		auto descs = array_create<VkAttachmentDescription>(&g_stack);
 		array_add(&descs, {
 		     0,
 			 g_vulkan.swapchain.format,
@@ -2527,7 +2525,7 @@ void device_create(GameMemory *memory, PlatformState *platform, Settings *settin
 			VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
 		});
 
-		auto color = array_create<VkAttachmentReference>(&memory->stack);
+		auto color = array_create<VkAttachmentReference>(&g_stack);
 		array_add(&color, { 0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL });
 
 		VkAttachmentReference depth = {
@@ -2561,7 +2559,7 @@ void device_create(GameMemory *memory, PlatformState *platform, Settings *settin
 	 * Create Framebuffers
 	 *************************************************************************/
 	{
-		auto buffer = alloc_array<VkFramebuffer>(&memory->persistent,
+		auto buffer = alloc_array<VkFramebuffer>(&g_persistent,
 		                                         g_vulkan.swapchain.images_count);
 		g_vulkan.framebuffers = array_create_static<VkFramebuffer>(buffer, g_vulkan.swapchain.images_count);
 
@@ -2572,7 +2570,7 @@ void device_create(GameMemory *memory, PlatformState *platform, Settings *settin
 		create_info.height          = g_vulkan.swapchain.extent.height;
 		create_info.layers          = 1;
 
-		auto attachments = alloc_array<VkImageView>(&memory->stack, 2);
+		auto attachments = alloc_array<VkImageView>(&g_stack, 2);
 		attachments[1] = g_vulkan.swapchain.depth.imageview;
 
 		for (i32 i = 0; i < (i32)g_vulkan.swapchain.images_count; ++i)
@@ -2845,14 +2843,13 @@ u32 swapchain_acquire()
 	return image_index;
 }
 
-Material material_create(GameMemory *memory,
-                         VulkanPipeline *pipeline, MaterialID id)
+Material material_create(VulkanPipeline *pipeline, MaterialID id)
 {
 	Material mat = {};
 	mat.id       = id;
 	mat.pipeline = pipeline;
 
-	auto pool_sizes = array_create<VkDescriptorPoolSize>(&memory->frame);
+	auto pool_sizes = array_create<VkDescriptorPoolSize>(&g_frame);
 
 	switch (id) {
 	case Material_phong: {
@@ -2968,7 +2965,7 @@ void pipeline_set_ubo(VulkanPipeline *pipeline,
 	vkUpdateDescriptorSets(g_vulkan.handle, 1, &writes, 0, nullptr);
 }
 
-PushConstants push_constants_create(PipelineID pipeline, GameMemory *memory)
+PushConstants push_constants_create(PipelineID pipeline)
 {
 	PushConstants c = {};
 
@@ -2976,12 +2973,12 @@ PushConstants push_constants_create(PipelineID pipeline, GameMemory *memory)
 	case Pipeline_font: {
 		c.offset = 0;
 		c.size   = sizeof(Matrix4);
-		c.data   = alloc(&memory->free_list, sizeof(Matrix4));
+		c.data   = alloc(&g_heap, sizeof(Matrix4));
 	} break;
 	case Pipeline_basic2d: {
 		c.offset = 0;
 		c.size   = sizeof(Matrix4);
-		c.data   = alloc(&memory->free_list, sizeof(Matrix4));
+		c.data   = alloc(&g_heap, sizeof(Matrix4));
 	} break;
 	default:
 		// TODO(jesper): error handling

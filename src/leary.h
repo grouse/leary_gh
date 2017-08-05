@@ -51,13 +51,5 @@ Defer<F> operator+ (DeferDummy, F&& f)
 
 #define defer auto defer_( __LINE__ ) = DeferDummy( ) + [&]( )
 
-struct GameMemory {
-	void *game;
-	Allocator frame;
-	Allocator persistent;
-	Allocator stack;
-	Allocator free_list;
-};
-
 #endif /* LEARY_H */
 

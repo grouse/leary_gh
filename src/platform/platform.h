@@ -115,13 +115,20 @@ INTROSPECT struct Settings
 
 struct PlatformState {
 	Settings     settings  = {};
-	GameMemory   memory    = {};
 
 	StaticArray<ProfileTimer> profile      = {};
 	StaticArray<ProfileTimer> profile_prev = {};
 
 	bool         raw_mouse = false;
 	void         *native   = nullptr;
+
+	Allocator frame;
+	Allocator heap;
+	Allocator persistent;
+	Allocator stack;
+
+	void *game_reload_state;
+
 };
 
 #endif // LEARY_PLATFORM_MAIN_H

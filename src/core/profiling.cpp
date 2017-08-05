@@ -13,21 +13,21 @@
 ProfileTimers g_profile_timers;
 ProfileTimers g_profile_timers_prev;
 
-void profile_init(GameMemory *memory)
+void profile_init()
 {
 	g_profile_timers.count    = 0;
 	g_profile_timers.capacity = NUM_PROFILE_TIMERS;
-	g_profile_timers.name     = alloc_array<const char*>(&memory->persistent, NUM_PROFILE_TIMERS);
-	g_profile_timers.cycles   = alloc_array<u64>(&memory->persistent,        NUM_PROFILE_TIMERS);
-	g_profile_timers.calls    = alloc_array<u32>(&memory->persistent,        NUM_PROFILE_TIMERS);
-	g_profile_timers.open     = alloc_array<bool>(&memory->persistent,       NUM_PROFILE_TIMERS);
+	g_profile_timers.name     = alloc_array<const char*>(&g_persistent, NUM_PROFILE_TIMERS);
+	g_profile_timers.cycles   = alloc_array<u64>(&g_persistent,         NUM_PROFILE_TIMERS);
+	g_profile_timers.calls    = alloc_array<u32>(&g_persistent,         NUM_PROFILE_TIMERS);
+	g_profile_timers.open     = alloc_array<bool>(&g_persistent,        NUM_PROFILE_TIMERS);
 
 	g_profile_timers_prev.count    = 0;
 	g_profile_timers_prev.capacity = NUM_PROFILE_TIMERS;
-	g_profile_timers_prev.name     = alloc_array<const char*>(&memory->persistent, NUM_PROFILE_TIMERS);
-	g_profile_timers_prev.cycles   = alloc_array<u64>(&memory->persistent,        NUM_PROFILE_TIMERS);
-	g_profile_timers_prev.calls    = alloc_array<u32>(&memory->persistent,        NUM_PROFILE_TIMERS);
-	g_profile_timers_prev.open     = alloc_array<bool>(&memory->persistent,       NUM_PROFILE_TIMERS);
+	g_profile_timers_prev.name     = alloc_array<const char*>(&g_persistent, NUM_PROFILE_TIMERS);
+	g_profile_timers_prev.cycles   = alloc_array<u64>(&g_persistent,         NUM_PROFILE_TIMERS);
+	g_profile_timers_prev.calls    = alloc_array<u32>(&g_persistent,         NUM_PROFILE_TIMERS);
+	g_profile_timers_prev.open     = alloc_array<bool>(&g_persistent,        NUM_PROFILE_TIMERS);
 }
 
 
