@@ -30,6 +30,14 @@ enum ShaderID {
 	ShaderID_terrain_frag
 };
 
+enum PipelineID {
+	Pipeline_font,
+	Pipeline_mesh,
+	Pipeline_generic,
+	Pipeline_terrain,
+	Pipeline_basic2d
+};
+
 struct VulkanBuffer {
 	usize          size;
 	VkBuffer       handle;
@@ -57,6 +65,7 @@ struct VulkanShader {
 };
 
 struct VulkanPipeline {
+	PipelineID id;
 	VkPipeline            handle;
 
 	VkPipelineLayout      layout;
@@ -153,6 +162,12 @@ struct Material {
 	VkDescriptorPool descriptor_pool;
 	VkDescriptorSet  descriptor_set;
 };
+struct PushConstants {
+	u32  offset;
+	u32  size;
+	void *data;
+};
+
 
 
 #endif /* VULKAN_DEVICE_H */

@@ -906,6 +906,7 @@ VulkanPipeline pipeline_create_font(GameMemory *memory)
 
 	VkResult result;
 	VulkanPipeline pipeline = {};
+	pipeline.id = Pipeline_font;
 
 	pipeline.shaders[ShaderStage_vertex]   = create_shader(ShaderID_basic2d_vert);
 	pipeline.shaders[ShaderStage_fragment] = create_shader(ShaderID_font_frag);
@@ -1100,6 +1101,7 @@ VulkanPipeline pipeline_create_basic2d(GameMemory *memory)
 
 	VkResult result;
 	VulkanPipeline pipeline = {};
+	pipeline.id = Pipeline_basic2d;
 
 	pipeline.shaders[ShaderStage_vertex]   = create_shader(ShaderID_basic2d_vert);
 	pipeline.shaders[ShaderStage_fragment] = create_shader(ShaderID_basic2d_frag);
@@ -1294,6 +1296,7 @@ VulkanPipeline pipeline_create_generic(GameMemory *memory)
 
 	VkResult result;
 	VulkanPipeline pipeline = {};
+	pipeline.id = Pipeline_generic;
 
 	pipeline.shaders[ShaderStage_vertex]   = create_shader(ShaderID_generic_vert);
 	pipeline.shaders[ShaderStage_fragment] = create_shader(ShaderID_generic_frag);
@@ -1533,6 +1536,7 @@ VulkanPipeline pipeline_create_terrain(GameMemory *memory)
 
 	VkResult result;
 	VulkanPipeline pipeline = {};
+	pipeline.id = Pipeline_terrain;
 
 	pipeline.shaders[ShaderStage_vertex]   = create_shader(ShaderID_terrain_vert);
 	pipeline.shaders[ShaderStage_fragment] = create_shader(ShaderID_terrain_frag);
@@ -1742,6 +1746,7 @@ VulkanPipeline pipeline_create_mesh(GameMemory *memory)
 
 	VkResult result;
 	VulkanPipeline pipeline = {};
+	pipeline.id = Pipeline_mesh;
 
 	pipeline.shaders[ShaderStage_vertex]   = create_shader(ShaderID_mesh_vert);
 	pipeline.shaders[ShaderStage_fragment] = create_shader(ShaderID_mesh_frag);
@@ -2961,4 +2966,35 @@ void pipeline_set_ubo(VulkanPipeline *pipeline,
 	writes.pBufferInfo     = &buffer_info;
 
 	vkUpdateDescriptorSets(g_vulkan.handle, 1, &writes, 0, nullptr);
+}
+
+PushConstants push_constants_create(PipelineID pipeline, GameMemory *memory)
+{
+	PushConstants c = {};
+
+	switch (pipeline) {
+	case Pipeline_font: {
+		c.offset = 0;
+		c.size   = sizeof(Matrix4);
+		c.data   = alloc(&memory->free_list, sizeof(Matrix4));
+	} break;
+	case Pipeline_basic2d: {
+		c.offset = 0;
+		c.size   = sizeof(Matrix4);
+		c.data   = alloc(&memory->free_list, sizeof(Matrix4));
+	} break;
+	default:
+		// TODO(jesper): error handling
+		DEBUG_ASSERT(false);
+		break;
+	}
+
+	return c;
+}
+
+template<typename T>
+void set_push_constant(PushConstants *c, T t)
+{
+	// TODO(jesper): handle multiple push constants
+	memcpy(c->data, &t, sizeof(T));
 }

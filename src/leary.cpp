@@ -92,6 +92,7 @@ struct DebugRenderItem {
 	Array<VkDescriptorSet> descriptors  = {};
 	VulkanBuffer           vbo;
 	i32                    vertex_count = 0;
+	PushConstants          constants;
 };
 
 struct DebugOverlayItem {
@@ -180,10 +181,11 @@ void debug_add_texture(const char *name,
                        DebugOverlay *overlay)
 {
 	DebugOverlayItem item;
-	item.title          = name;
-	item.type           = Debug_render_item;
-	item.ritem.pipeline = pipeline;
-	item.ritem.texture  = texture;
+	item.title           = name;
+	item.type            = Debug_render_item;
+	item.ritem.pipeline  = pipeline;
+	item.ritem.texture   = texture;
+	item.ritem.constants = push_constants_create(pipeline->id, memory);
 
 	Matrix4 t = Matrix4::identity();
 	t[0].x =  g_screen_to_view[0].x;
@@ -1147,6 +1149,10 @@ void debug_overlay_update(DebugOverlay *overlay, GameMemory *memory, f32 dt)
 		} break;
 		case Debug_render_item: {
 			item.ritem.position = g_screen_to_view * (pos + Vector2{10.0f, 0.0f});
+
+			Matrix4 t = translate(Matrix4::identity(), item.ritem.position);
+			set_push_constant(&item.ritem.constants, t);
+
 			array_add(&overlay->render_queue, item.ritem);
 		} break;
 		default:
@@ -1331,6 +1337,12 @@ void game_render(GameMemory *memory)
 		                        item.descriptors.count,
 		                        item.descriptors.data,
 		                        0, nullptr);
+
+		vkCmdPushConstants(command, item.pipeline->layout,
+		                   VK_SHADER_STAGE_VERTEX_BIT,
+		                   item.constants.offset,
+		                   item.constants.size,
+		                   item.constants.data);
 
 		Matrix4 t = translate(Matrix4::identity(), item.position);
 		vkCmdPushConstants(command, item.pipeline->layout,
