@@ -299,7 +299,7 @@ void render_font(stbtt_bakedchar *font,
 	if (text_length == 0) return;
 
 	usize vertices_size = sizeof(f32)*24*text_length;
-	auto vertices = (f32*)alloc(g_frame, vertices_size);
+	auto vertices = (f32*)g_frame->alloc(vertices_size);
 
 	Matrix4 t = g_screen_to_view;
 
@@ -364,7 +364,7 @@ void render_font(stbtt_bakedchar *font,
 
 void game_init(PlatformState *platform)
 {
-    g_game = ialloc<GameState>(g_persistent);
+    g_game = g_persistent->ialloc<GameState>();
 
 	profile_init();
 
@@ -405,7 +405,7 @@ void game_init(PlatformState *platform)
 		                                        "fonts/Roboto-Regular.ttf");
 		u8 *font_data = (u8*)platform_file_read(font_path, &font_size);
 
-		u8 *bitmap = alloc_array<u8>(g_frame, 1024*1024);
+		u8 *bitmap = g_frame->alloc_array<u8>(1024*1024);
 		stbtt_BakeFontBitmap(font_data, 0, g_game->overlay.fsize, bitmap,
 		                     1024, 1024, 0, 256, g_game->overlay.font);
 
@@ -648,7 +648,7 @@ void game_init(PlatformState *platform)
 #endif
 	}
 
-	g_game->key_state = alloc_array<i32>(g_persistent, 0xFF);
+	g_game->key_state = g_persistent->alloc_array<i32>(0xFF);
 	for (i32 i = 0; i < 0xFF; i++) {
 		g_game->key_state[i] = InputType_key_release;
 	}
@@ -661,25 +661,25 @@ void game_init(PlatformState *platform)
 		allocators.children = array_create<DebugOverlayItem*>(g_heap);
 		allocators.type     = Debug_allocators;
 
-		auto stack = alloc<DebugOverlayItem>(g_heap);
+		auto stack = g_heap->talloc<DebugOverlayItem>();
 		stack->type  = Debug_allocator_stack;
 		stack->title = "stack";
 		stack->data  = (void*)g_stack;
 		array_add(&allocators.children, stack);
 
-		auto frame = alloc<DebugOverlayItem>(g_heap);
+		auto frame = g_heap->talloc<DebugOverlayItem>();
 		frame->type  = Debug_allocator_stack;
 		frame->title = "frame";
 		frame->data  = (void*)g_frame;
 		array_add(&allocators.children, frame);
 
-		auto persistent = alloc<DebugOverlayItem>(g_heap);
+		auto persistent = g_heap->talloc<DebugOverlayItem>();
 		persistent->type  = Debug_allocator_stack;
 		persistent->title = "persistent";
 		persistent->data  = (void*)g_persistent;
 		array_add(&allocators.children, persistent);
 
-		auto free_list = alloc<DebugOverlayItem>(g_heap);
+		auto free_list = g_heap->talloc<DebugOverlayItem>();
 		free_list->type  = Debug_allocator_free_list;
 		free_list->title = "free list";
 		free_list->data  = (void*)g_heap;
@@ -748,7 +748,7 @@ void game_quit(PlatformState *platform)
 
 void* game_pre_reload()
 {
-	auto state = alloc<GameReloadState>(g_frame);
+	auto state = g_frame->talloc<GameReloadState>();
 
 	// TODO(jesper): I feel like this could be quite nicely preprocessed and
 	// generated. look into
@@ -786,7 +786,7 @@ void game_reload(void *s)
 	g_vulkan              = state->vulkan_device;
 	vulkan_load(g_vulkan->instance);
 
-	dealloc(g_frame, state);
+	g_frame->dealloc(state);
 }
 
 void game_input(PlatformState *platform, InputEvent event)
@@ -983,8 +983,8 @@ void game_input(PlatformState *platform, InputEvent event)
 void debug_overlay_update(DebugOverlay *overlay, f32 dt)
 {
 	PROFILE_FUNCTION();
-	void *sp = g_stack->stack.sp;
-	defer { alloc_reset(g_stack, sp); };
+	void *sp = g_stack->sp;
+	defer { g_stack->reset(sp); };
 
 	stbtt_bakedchar *font = overlay->font;
 	i32 *vcount           = &overlay->vertex_count;
@@ -1001,7 +1001,7 @@ void debug_overlay_update(DebugOverlay *overlay, f32 dt)
 
 
 	isize buffer_size = 1024*1024;
-	char *buffer = (char*)alloc(g_stack, buffer_size);
+	char *buffer = (char*)g_stack->alloc(buffer_size);
 	buffer[0] = '\0';
 
 	f32 dt_ms = dt * 1000.0f;
@@ -1039,10 +1039,10 @@ void debug_overlay_update(DebugOverlay *overlay, f32 dt)
 
 				switch (child.type) {
 				case Debug_allocator_stack: {
-					Allocator *a = (Allocator*)child.data;
+					StackAllocator *a = (StackAllocator*)child.data;
 					snprintf(buffer, buffer_size,
 					         "  %s: { sp: %p, size: %ld, remaining: %ld }\n",
-					         child.title, a->stack.sp, a->size, a->remaining);
+					         child.title, a->sp, a->size, a->remaining);
 					render_font(font, buffer, &pos, vcount, mapped, &offset);
 				} break;
 				case Debug_allocator_free_list: {
@@ -1200,8 +1200,8 @@ void game_update(f32 dt)
 void game_render()
 {
 	PROFILE_FUNCTION();
-	void *sp = g_stack->stack.sp;
-	defer { alloc_reset(g_stack, sp); };
+	void *sp = g_stack->sp;
+	defer { g_stack->reset(sp); };
 
 	u32 image_index = swapchain_acquire();
 
@@ -1363,5 +1363,5 @@ void game_update_and_render(f32 dt)
 
 	debug_overlay_update(&g_game->overlay, dt);
 
-	alloc_reset(g_frame);
+	g_frame->reset();
 }

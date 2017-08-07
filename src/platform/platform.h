@@ -126,10 +126,10 @@ struct PlatformState {
 	bool         raw_mouse = false;
 	void         *native   = nullptr;
 
-	Allocator *frame;
-	Allocator *heap;
-	Allocator *persistent;
-	Allocator *stack;
+	HeapAllocator   *heap;
+	LinearAllocator *frame;
+	LinearAllocator *persistent;
+	StackAllocator  *stack;
 
 	void *game_reload_state;
 

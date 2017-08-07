@@ -22,7 +22,7 @@ Array<T> array_create(Allocator *allocator, isize capacity)
 {
 	Array<T> a;
 	a.allocator = allocator;
-	a.data      = alloc_array<T>(allocator, capacity);
+	a.data      = allocator->alloc_array<T>(capacity);
 	a.count     = 0;
 	a.capacity  = capacity;
 
@@ -32,7 +32,7 @@ Array<T> array_create(Allocator *allocator, isize capacity)
 template<typename T>
 void array_destroy(Array<T> *a)
 {
-	dealloc(a->allocator, a->data);
+	a->allocator->dealloc(a->data);
 	a->capacity = 0;
 	a->count    = 0;
 }
@@ -44,7 +44,7 @@ isize array_add(Array<T> *a, T e)
 
 	if (a->count >= a->capacity) {
 		isize capacity = a->capacity == 0 ? 1 : a->capacity * 2;
-		a->data        = realloc_array(a->allocator, a->data, capacity);
+		a->data        = a->allocator->realloc_array(a->data, capacity);
 		a->capacity    = capacity;
 	}
 

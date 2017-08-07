@@ -14,10 +14,10 @@
 #include "platform/linux_file.cpp"
 #include "platform/linux_input.cpp"
 
-Allocator *g_heap;
-Allocator *g_frame;
-Allocator *g_stack;
-Allocator *g_persistent;
+HeapAllocator   *g_heap;
+LinearAllocator *g_frame;
+LinearAllocator *g_persistent;
+StackAllocator  *g_stack;
 
 struct LinuxState {
 	Window     window;
@@ -113,22 +113,17 @@ PLATFORM_INIT_FUNC(platform_init)
 	isize stack_size      = 16  * 1024 * 1024;
 
     // TODO(jesper): allocate these using appropriate syscalls
-	void *frame_buf      = malloc(frame_size);
-	void *persistent_buf = malloc(persistent_size);
-	void *heap_buf       = malloc(heap_size);
-	void *stack_buf      = malloc(stack_size);
+	void *frame_mem      = malloc(frame_size);
+	void *persistent_mem = malloc(persistent_size);
+	void *heap_mem       = malloc(heap_size);
+	void *stack_mem      = malloc(stack_size);
 
-	g_frame      = (Allocator*)malloc(sizeof(Allocator));
-	g_heap       = (Allocator*)malloc(sizeof(Allocator));
-	g_persistent = (Allocator*)malloc(sizeof(Allocator));
-	g_stack      = (Allocator*)malloc(sizeof(Allocator));
+    g_heap       = new HeapAllocator  (heap_mem,       heap_size);
+    g_frame      = new LinearAllocator(frame_mem,      frame_size);
+    g_persistent = new LinearAllocator(persistent_mem, persistent_size);
+    g_stack      = new StackAllocator (stack_mem,      stack_size);
 
-	*g_frame      = allocator_create(Allocator_Linear,   frame_buf,      frame_size);
-	*g_persistent = allocator_create(Allocator_Linear,   persistent_buf, persistent_size);
-	*g_heap       = allocator_create(Allocator_FreeList, heap_buf,       heap_size);
-	*g_stack      = allocator_create(Allocator_Stack,    stack_buf,      stack_size);
-
-	LinuxState *native = alloc<LinuxState>(g_persistent);
+	LinuxState *native = g_persistent->ialloc<LinuxState>();
 	platform->native   = native;
 
 	char *settings_path = platform_resolve_path(GamePath_preferences, "settings.conf");

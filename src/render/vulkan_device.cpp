@@ -503,8 +503,7 @@ VulkanSwapchain swapchain_create(VulkanPhysicalDevice *physical_device,
 	                                              nullptr);
 	DEBUG_ASSERT(result == VK_SUCCESS);
 
-	auto formats = alloc_array<VkSurfaceFormatKHR>(g_frame,
-	                                               formats_count);
+	auto formats = g_frame->alloc_array<VkSurfaceFormatKHR>(formats_count);
 	result = vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device->handle,
 	                                              swapchain.surface,
 	                                              &formats_count,
@@ -536,8 +535,7 @@ VulkanSwapchain swapchain_create(VulkanPhysicalDevice *physical_device,
 	                                                   nullptr);
 	DEBUG_ASSERT(result == VK_SUCCESS);
 
-	auto present_modes = alloc_array<VkPresentModeKHR>(g_frame,
-	                                                   present_modes_count);
+	auto present_modes = g_frame->alloc_array<VkPresentModeKHR>(present_modes_count);
 	result = vkGetPhysicalDeviceSurfacePresentModesKHR(physical_device->handle,
 	                                                   swapchain.surface,
 	                                                   &present_modes_count,
@@ -608,8 +606,7 @@ VulkanSwapchain swapchain_create(VulkanPhysicalDevice *physical_device,
 	                                 nullptr);
 	DEBUG_ASSERT(result == VK_SUCCESS);
 
-	swapchain.images = alloc_array<VkImage>(g_frame,
-	                                        swapchain.images_count);
+	swapchain.images = g_frame->alloc_array<VkImage>(swapchain.images_count);
 
 	result = vkGetSwapchainImagesKHR(g_vulkan->handle,
 	                                 swapchain.handle,
@@ -617,8 +614,7 @@ VulkanSwapchain swapchain_create(VulkanPhysicalDevice *physical_device,
 	                                 swapchain.images);
 	DEBUG_ASSERT(result == VK_SUCCESS);
 
-	swapchain.imageviews = alloc_array<VkImageView>(g_persistent,
-	                                                swapchain.images_count);
+	swapchain.imageviews = g_persistent->alloc_array<VkImageView>(swapchain.images_count);
 
 	VkImageSubresourceRange subresource_range = {};
 	subresource_range.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -900,8 +896,8 @@ VulkanShader create_shader(ShaderID id)
 
 VulkanPipeline pipeline_create_font()
 {
-	void *sp = g_stack->stack.sp;
-	defer { alloc_reset(g_stack, sp); };
+	void *sp = g_stack->sp;
+	defer { g_stack->reset(sp); };
 
 	VkResult result;
 	VulkanPipeline pipeline = {};
@@ -913,8 +909,7 @@ VulkanPipeline pipeline_create_font()
 	// TODO(jesper): i think it probably makes sense to move this into the
 	// material, but unsure
 	pipeline.sampler_count = 1;
-	pipeline.samplers = alloc_array<VkSampler>(g_persistent,
-	                                           pipeline.sampler_count);
+	pipeline.samplers = g_persistent->alloc_array<VkSampler>(pipeline.sampler_count);
 	pipeline.samplers[0] = create_sampler();
 
 	auto layouts = array_create<VkDescriptorSetLayout>(g_stack);
@@ -1095,8 +1090,8 @@ VulkanPipeline pipeline_create_font()
 
 VulkanPipeline pipeline_create_basic2d()
 {
-	void *sp = g_stack->stack.sp;
-	defer { alloc_reset(g_stack, sp); };
+	void *sp = g_stack->sp;
+	defer { g_stack->reset(sp); };
 
 	VkResult result;
 	VulkanPipeline pipeline = {};
@@ -1108,8 +1103,7 @@ VulkanPipeline pipeline_create_basic2d()
 	// TODO(jesper): i think it probably makes sense to move this into the
 	// material, but unsure
 	pipeline.sampler_count = 1;
-	pipeline.samplers = alloc_array<VkSampler>(g_persistent,
-	                                           pipeline.sampler_count);
+	pipeline.samplers = g_persistent->alloc_array<VkSampler>(pipeline.sampler_count);
 	pipeline.samplers[0] = create_sampler();
 
 	auto layouts = array_create<VkDescriptorSetLayout>(g_stack);
@@ -1290,8 +1284,8 @@ VulkanPipeline pipeline_create_basic2d()
 
 VulkanPipeline pipeline_create_generic()
 {
-	void *sp = g_stack->stack.sp;
-	defer { alloc_reset(g_stack, sp); };
+	void *sp = g_stack->sp;
+	defer { g_stack->reset(sp); };
 
 	VkResult result;
 	VulkanPipeline pipeline = {};
@@ -1301,8 +1295,7 @@ VulkanPipeline pipeline_create_generic()
 	pipeline.shaders[ShaderStage_fragment] = create_shader(ShaderID_generic_frag);
 
 	pipeline.sampler_count = 1;
-	pipeline.samplers = alloc_array<VkSampler>(g_persistent,
-	                                           pipeline.sampler_count);
+	pipeline.samplers = g_persistent->alloc_array<VkSampler>(pipeline.sampler_count);
 	pipeline.samplers[0] = create_sampler();
 
 	auto layouts = array_create<VkDescriptorSetLayout>(g_frame);
@@ -1530,8 +1523,8 @@ VulkanPipeline pipeline_create_generic()
 
 VulkanPipeline pipeline_create_terrain()
 {
-	void *sp = g_stack->stack.sp;
-	defer { alloc_reset(g_stack, sp); };
+	void *sp = g_stack->sp;
+	defer { g_stack->reset(sp); };
 
 	VkResult result;
 	VulkanPipeline pipeline = {};
@@ -1740,8 +1733,8 @@ VulkanPipeline pipeline_create_terrain()
 
 VulkanPipeline pipeline_create_mesh()
 {
-	void *sp = g_stack->stack.sp;
-	defer { alloc_reset(g_stack, sp); };
+	void *sp = g_stack->sp;
+	defer { g_stack->reset(sp); };
 
 	VkResult result;
 	VulkanPipeline pipeline = {};
@@ -1753,8 +1746,7 @@ VulkanPipeline pipeline_create_mesh()
 	// TODO(jesper): i think it probably makes sense to move this into the
 	// material, but unsure
 	pipeline.sampler_count = 1;
-	pipeline.samplers = alloc_array<VkSampler>(g_persistent,
-	                                           pipeline.sampler_count);
+	pipeline.samplers = g_persistent->alloc_array<VkSampler>(pipeline.sampler_count);
 	pipeline.samplers[0] = create_sampler();
 
 
@@ -2175,10 +2167,10 @@ void vkdebug_destroy()
 
 void device_create(PlatformState *platform, Settings *settings)
 {
-	void *sp = g_stack->stack.sp;
-	defer { alloc_reset(g_stack, sp); };
+	void *sp = g_stack->sp;
+	defer { g_stack->reset(sp); };
 
-    g_vulkan = ialloc<VulkanDevice>(g_persistent);
+    g_vulkan = g_persistent->ialloc<VulkanDevice>();
 
 	VkResult result;
 	/**************************************************************************
@@ -2193,8 +2185,7 @@ void device_create(PlatformState *platform, Settings *settings)
 		                                            nullptr);
 		DEBUG_ASSERT(result == VK_SUCCESS);
 
-		auto supported_layers = alloc_array<VkLayerProperties>(g_frame,
-		                                                       supported_layers_count);
+		auto supported_layers = g_frame->alloc_array<VkLayerProperties>(supported_layers_count);
 
 		result = vkEnumerateInstanceLayerProperties(&supported_layers_count,
 		                                            supported_layers);
@@ -2220,8 +2211,7 @@ void device_create(PlatformState *platform, Settings *settings)
 		                                                nullptr);
 		DEBUG_ASSERT(result == VK_SUCCESS);
 
-		auto supported_extensions = alloc_array<VkExtensionProperties>(g_frame,
-		                                                               supported_extensions_count);
+		auto supported_extensions = g_frame->alloc_array<VkExtensionProperties>(supported_extensions_count);
 		result = vkEnumerateInstanceExtensionProperties(nullptr,
 		                                                &supported_extensions_count,
 		                                                supported_extensions);
@@ -2237,12 +2227,10 @@ void device_create(PlatformState *platform, Settings *settings)
 		// NOTE(jesper): we might want to store these in the device for future
 		// usage/debug information
 		i32 enabled_layers_count = 0;
-		auto enabled_layers = alloc_array<char*>(g_frame,
-		                                         supported_layers_count);
+		auto enabled_layers = g_frame->alloc_array<char*>(supported_layers_count);
 
 		i32 enabled_extensions_count = 0;
-		auto enabled_extensions = alloc_array<char*>(g_frame,
-		                                             supported_extensions_count);
+		auto enabled_extensions = g_frame->alloc_array<char*>(supported_extensions_count);
 
 		for (i32 i = 0; i < (i32)supported_layers_count; ++i) {
 			VkLayerProperties &layer = supported_layers[i];
@@ -2301,7 +2289,7 @@ void device_create(PlatformState *platform, Settings *settings)
 		result = vkEnumeratePhysicalDevices(g_vulkan->instance, &count, nullptr);
 		DEBUG_ASSERT(result == VK_SUCCESS);
 
-		auto physical_devices = alloc_array<VkPhysicalDevice>(g_frame, count);
+		auto physical_devices = g_frame->alloc_array<VkPhysicalDevice>(count);
 		result = vkEnumeratePhysicalDevices(g_vulkan->instance,
 		                                    &count, physical_devices);
 		DEBUG_ASSERT(result == VK_SUCCESS);
@@ -2377,8 +2365,7 @@ void device_create(PlatformState *platform, Settings *settings)
 		                                         &queue_family_count,
 		                                         nullptr);
 
-		auto queue_families = alloc_array<VkQueueFamilyProperties>(g_frame,
-		                                                           queue_family_count);
+		auto queue_families = g_frame->alloc_array<VkQueueFamilyProperties>(queue_family_count);
 		vkGetPhysicalDeviceQueueFamilyProperties(g_vulkan->physical_device.handle,
 		                                         &queue_family_count,
 		                                         queue_families);
@@ -2559,8 +2546,7 @@ void device_create(PlatformState *platform, Settings *settings)
 	 * Create Framebuffers
 	 *************************************************************************/
 	{
-		auto buffer = alloc_array<VkFramebuffer>(g_persistent,
-		                                         g_vulkan->swapchain.images_count);
+		auto buffer = g_persistent->alloc_array<VkFramebuffer>(g_vulkan->swapchain.images_count);
 		g_vulkan->framebuffers = array_create_static<VkFramebuffer>(buffer, g_vulkan->swapchain.images_count);
 
 		VkFramebufferCreateInfo create_info = {};
@@ -2570,7 +2556,7 @@ void device_create(PlatformState *platform, Settings *settings)
 		create_info.height          = g_vulkan->swapchain.extent.height;
 		create_info.layers          = 1;
 
-		auto attachments = alloc_array<VkImageView>(g_stack, 2);
+		auto attachments = g_stack->alloc_array<VkImageView>(2);
 		attachments[1] = g_vulkan->swapchain.depth.imageview;
 
 		for (i32 i = 0; i < (i32)g_vulkan->swapchain.images_count; ++i)
@@ -2973,12 +2959,12 @@ PushConstants push_constants_create(PipelineID pipeline)
 	case Pipeline_font: {
 		c.offset = 0;
 		c.size   = sizeof(Matrix4);
-		c.data   = alloc(g_heap, sizeof(Matrix4));
+		c.data   = g_heap->alloc(sizeof(Matrix4));
 	} break;
 	case Pipeline_basic2d: {
 		c.offset = 0;
 		c.size   = sizeof(Matrix4);
-		c.data   = alloc(g_heap, sizeof(Matrix4));
+		c.data   = g_heap->alloc(sizeof(Matrix4));
 	} break;
 	default:
 		// TODO(jesper): error handling

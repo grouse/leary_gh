@@ -457,7 +457,7 @@ void parse_struct_type_info(Tokenizer tokenizer, PreprocessorOutput *output)
 
 int main(int argc, char **argv)
 {
-	Allocator allocator = allocator_create(Allocator_System);
+    SystemAllocator allocator = {};
 
 	char *output_path = nullptr;
 	char *input_root  = nullptr;
