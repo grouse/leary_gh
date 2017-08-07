@@ -14,10 +14,10 @@
 #include "platform/linux_file.cpp"
 #include "platform/linux_input.cpp"
 
-Allocator g_heap;
-Allocator g_frame;
-Allocator g_stack;
-Allocator g_persistent;
+Allocator *g_heap;
+Allocator *g_frame;
+Allocator *g_stack;
+Allocator *g_persistent;
 
 struct LinuxState {
 	Window     window;
@@ -109,25 +109,26 @@ PLATFORM_INIT_FUNC(platform_init)
 {
 	isize frame_size      = 64  * 1024 * 1024;
 	isize persistent_size = 256 * 1024 * 1024;
-	isize free_list_size  = 256 * 1024 * 1024;
+	isize heap_size       = 256 * 1024 * 1024;
 	isize stack_size      = 16  * 1024 * 1024;
 
-	// TODO(jesper): allocate these using linux call
-	u8 *mem = (u8*)malloc(frame_size + persistent_size + free_list_size +
-	                      frame_size);
+    // TODO(jesper): allocate these using appropriate syscalls
+	void *frame_buf      = malloc(frame_size);
+	void *persistent_buf = malloc(persistent_size);
+	void *heap_buf       = malloc(heap_size);
+	void *stack_buf      = malloc(stack_size);
 
-	g_frame  = allocator_create(Allocator_Linear, mem, frame_size);
-	mem     += frame_size;
+	g_frame      = (Allocator*)malloc(sizeof(Allocator));
+	g_heap       = (Allocator*)malloc(sizeof(Allocator));
+	g_persistent = (Allocator*)malloc(sizeof(Allocator));
+	g_stack      = (Allocator*)malloc(sizeof(Allocator));
 
-	g_heap  = allocator_create(Allocator_FreeList, mem, free_list_size);
-	mem    += free_list_size;
+	*g_frame      = allocator_create(Allocator_Linear,   frame_buf,      frame_size);
+	*g_persistent = allocator_create(Allocator_Linear,   persistent_buf, persistent_size);
+	*g_heap       = allocator_create(Allocator_FreeList, heap_buf,       heap_size);
+	*g_stack      = allocator_create(Allocator_Stack,    stack_buf,      stack_size);
 
-	g_persistent  = allocator_create(Allocator_Linear, mem, persistent_size);
-	mem          += persistent_size;
-
-	g_stack = allocator_create(Allocator_Stack, mem, stack_size);
-
-	LinuxState *native = alloc<LinuxState>(&g_persistent);
+	LinuxState *native = alloc<LinuxState>(g_persistent);
 	platform->native   = native;
 
 	char *settings_path = platform_resolve_path(GamePath_preferences, "settings.conf");

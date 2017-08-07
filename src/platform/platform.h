@@ -72,7 +72,7 @@
 // TODO(jesper): this code path won't function correctly cause I've moved over
 // to using global variables for g_game, g_vulkan and g_allocators. I've not
 // decided how to solve this problem....
-#define LEARY_DYNAMIC 0
+#define LEARY_DYNAMIC 1
 #endif
 
 #if !LEARY_DYNAMIC
@@ -126,10 +126,10 @@ struct PlatformState {
 	bool         raw_mouse = false;
 	void         *native   = nullptr;
 
-	Allocator frame;
-	Allocator heap;
-	Allocator persistent;
-	Allocator stack;
+	Allocator *frame;
+	Allocator *heap;
+	Allocator *persistent;
+	Allocator *stack;
 
 	void *game_reload_state;
 
