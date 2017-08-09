@@ -1605,10 +1605,11 @@ VulkanPipeline pipeline_create_terrain()
     DEBUG_ASSERT(result == VK_SUCCESS);
 
     auto vbinds = array_create<VkVertexInputBindingDescription>(g_stack);
-    array_add(&vbinds, { 0, sizeof(f32) * 3, VK_VERTEX_INPUT_RATE_VERTEX });
+    array_add(&vbinds, { 0, sizeof(f32) * 6, VK_VERTEX_INPUT_RATE_VERTEX });
 
     auto vdescs = array_create<VkVertexInputAttributeDescription>(g_stack);
     array_add(&vdescs, { 0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0 });
+    array_add(&vdescs, { 1, 0, VK_FORMAT_R32G32B32_SFLOAT, sizeof(f32) * 3 });
 
     VkPipelineVertexInputStateCreateInfo vii = {};
     vii.sType                           = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;

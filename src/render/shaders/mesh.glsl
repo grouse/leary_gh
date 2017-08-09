@@ -7,11 +7,11 @@
 
 // uniform bindings
 layout(binding = 0) uniform Camera {
-	mat4 view_projection;
+    mat4 view_projection;
 } camera;
 
 layout(push_constant) uniform Model {
-	mat4 transform;
+    mat4 transform;
 } model;
 
 
@@ -29,16 +29,16 @@ layout(location = 4) out vec2 frag_uv;
 
 void main()
 {
-	vec4 pos    = model.transform * vec4(v, 1.0);
-	gl_Position = camera.view_projection * pos;
+    vec4 pos    = model.transform * vec4(v, 1.0);
+    gl_Position = camera.view_projection * pos;
 
-	vec3 light = mat3(model.transform) * vec3(0.0, -30.0, 0.0);
+    vec3 light = mat3(model.transform) * vec3(0.0, -30.0, 0.0);
 
-	frag_normal = mat3(model.transform) * normal;
-	frag_color  = vec3(1.0, 1.0, 1.0);
-	frag_view   = -pos.xyz;
-	frag_light  = light - pos.xyz;
-	frag_uv     = uv;
+    frag_normal = mat3(model.transform) * normal;
+    frag_color  = vec3(1.0, 1.0, 1.0);
+    frag_view   = -pos.xyz;
+    frag_light  = light - pos.xyz;
+    frag_uv     = uv;
 }
 
 #endif // VERTEX_SHADER
@@ -61,15 +61,15 @@ layout(location = 0) out vec4 out_color;
 
 void main()
 {
-	vec3 n = normalize(normal);
-	vec3 l = normalize(light);
-	vec3 v = normalize(view);
-	vec3 r = reflect(-l, n);
+    vec3 n = normalize(normal);
+    vec3 l = normalize(light);
+    vec3 v = normalize(view);
+    vec3 r = reflect(-l, n);
 
-	vec4 ambient  = vec4(0.3, 0.3, 0.3, 1.0);
-	vec4 diffuse  = vec4(max(dot(n, l), 0.0) * color, 1.0);
+    vec4 ambient  = vec4(0.3, 0.3, 0.3, 1.0);
+    vec4 diffuse  = vec4(max(dot(n, l), 0.0) * color, 1.0);
 
-	out_color = texture(texture_sampler, uv) * (ambient + diffuse);
+    out_color = texture(texture_sampler, uv) * (ambient + diffuse);
 }
 
 #endif // FRAGMENT_SHADER

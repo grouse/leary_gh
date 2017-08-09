@@ -376,7 +376,7 @@ void game_init(PlatformState *platform)
 
     g_game->fp_camera.view       = Matrix4::identity();
     g_game->fp_camera.position   = Vector3{0.0f, 5.0f, 0.0f};
-    g_game->fp_camera.projection = Matrix4::perspective(vfov, aspect, 0.1f, 100.0f);
+    g_game->fp_camera.projection = Matrix4::perspective(vfov, aspect, 0.1f, 10000.0f);
 
     g_game->render_objects       = array_create<RenderObject>(g_persistent, 20);
     g_game->index_render_objects = array_create<IndexRenderObject>(g_persistent, 20);
@@ -541,7 +541,8 @@ void game_init(PlatformState *platform)
         };
 
         struct Vertex {
-            f32 x, y, z;
+            Vector3 p;
+            Vector3 n;
         };
 
         u32  vc       = heightmap.height * heightmap.width;
@@ -569,9 +570,25 @@ void game_init(PlatformState *platform)
                 // get it between [world_size.x, world_size.y, world_size.z]
                 Texel   t = ((Texel*)heightmap.data)[i * heightmap.width + j];
                 Vector3 v = to_world * Vector3{ (f32)j, (f32)i, (f32)t.r };
-                Vertex vx = { v.x, v.z, v.y };
+
+                Vertex vx = { {v.x, v.z, v.y}, {0.0f, 0.0f, 0.0f} };
                 array_add(&vertices, vx);
             }
+        }
+
+        // TODO(jesper): this isn't really correct at all and just a total hack
+        // to get something resembling a normal in place for the terrain.
+        for (u32 i = 0; i < vertices.count-3; i++) {
+            Vertex &v1 = vertices[i];
+            Vertex &v2 = vertices[i+1];
+            Vertex &v3 = vertices[i+2];
+
+            Vector3 u = v2.p - v1.p;
+            Vector3 v = v3.p - v1.p;
+
+            v1.n.x = u.y * v.z - u.z * v.y;
+            v1.n.y = u.z * v.x - u.x * v.z;
+            v1.n.z = u.x * v.y - u.y * v.x;
         }
 
         u32 ic = (heightmap.height-1) * (heightmap.width-1) * 6;
