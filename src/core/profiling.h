@@ -47,7 +47,7 @@ extern ProfileTimers g_profile_timers_prev;
 	u64 difference_##name = end_##name - start_##name;\
 	profile_end_timer(profile_timer_id_##name, difference_##name)
 
-#define PROFILE_BLOCK(name) ProfileBlock profile_block_##name(#name)
+#define PROFILE_BLOCK(name) ProfileBlock profile_block_##__LINE__(#name)
 #define PROFILE_FUNCTION() ProfileBlock profile_block_##__FUNCTION__(__FUNCTION__)
 
 #else

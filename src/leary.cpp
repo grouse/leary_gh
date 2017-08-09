@@ -252,6 +252,7 @@ Physics physics_create()
 
 void physics_process(Physics *physics, f32 dt)
 {
+    PROFILE_FUNCTION();
     for (i32 i = 0; i < physics->velocities.count; i++) {
         Entity *e    = entity_find(physics->entities[i]);
         e->position += physics->velocities[i] * dt;
