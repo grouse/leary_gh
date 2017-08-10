@@ -426,7 +426,6 @@ void game_init(PlatformState *platform)
     {
         Texture dummy = texture_load_bmp("dummy.bmp");
 
-        // TODO(jesper): texture file loading
         g_game->textures.cube = texture_create(dummy.width, dummy.height,
                                              dummy.format, dummy.data,
                                              VkComponentMapping{});
@@ -435,7 +434,6 @@ void game_init(PlatformState *platform)
     {
         Texture player = texture_load_bmp("player.bmp");
 
-        // TODO(jesper): texture file loading
         g_game->textures.player = texture_create(player.width, player.height,
                                                player.format, player.data,
                                                VkComponentMapping{});
@@ -547,7 +545,7 @@ void game_init(PlatformState *platform)
         };
 
         u32  vc       = heightmap.height * heightmap.width;
-        auto vertices = array_create<Vertex>(g_heap, vc);
+        auto vertices = array_create<Vertex>(g_persistent, vc);
 
         // TODO(jesper): move to settings/asset info/something
         Vector3 w = { 100.0f, 100.0f, 20.0f };
@@ -559,39 +557,64 @@ void game_init(PlatformState *platform)
         to_world[0].x = xx / (f32)heightmap.width;
         to_world[3].x = -w.x;
 
-        to_world[1].y = yy / (f32)heightmap.height;
-        to_world[3].y = -w.y;
+        to_world[1].y = zz / 255.0f;
+        to_world[3].y = -w.z;
 
-        to_world[2].z = zz / 255.0f;
-        to_world[3].z = -w.z;
+        to_world[2].z = yy / (f32)heightmap.height;
+        to_world[3].z = -w.y;
 
-        for (u32 i = 0; i < heightmap.height; i++) {
-            for (u32 j = 0; j < heightmap.width; j++) {
-                // TODO(jesper): scale i, j and t.r with appropriate values to
-                // get it between [world_size.x, world_size.y, world_size.z]
-                Texel   t = ((Texel*)heightmap.data)[i * heightmap.width + j];
-                Vector3 v = to_world * Vector3{ (f32)j, (f32)i, (f32)t.r };
 
-                Vertex vx = { {v.x, v.z, v.y}, {0.0f, 0.0f, 0.0f} };
-                array_add(&vertices, vx);
+        struct Triangle {
+            Vertex p0;
+            Vertex p1;
+            Vertex p2;
+        };
+
+        for (u32 i = 0; i < heightmap.height-1; i++) {
+            for (u32 j = 0; j < heightmap.width-1; j++) {
+                Texel t0 = ((Texel*)heightmap.data)[i     * heightmap.width + j];
+                Texel t1 = ((Texel*)heightmap.data)[i     * heightmap.width + j+1];
+                Texel t2 = ((Texel*)heightmap.data)[(i+1) * heightmap.width + j+1];
+                Texel t3 = ((Texel*)heightmap.data)[(i+1) * heightmap.width + j];
+
+                Vector3 v0 = to_world * Vector3{ (f32)j,   (f32)t0.r, (f32)i };
+                Vector3 v1 = to_world * Vector3{ (f32)j+1, (f32)t1.r, (f32)i };
+                Vector3 v2 = to_world * Vector3{ (f32)j+1, (f32)t2.r, (f32)i+1 };
+                Vector3 v3 = to_world * Vector3{ (f32)j,   (f32)t3.r, (f32)i+1 };
+
+                Vector3 u = v1 - v0;
+                Vector3 v = v2 - v0;
+
+                Vector3 n = {
+                    u.z * v.z - u.z * v.y,
+                    u.z * v.x - u.x * v.z,
+                    u.x * v.y - u.y * v.x
+                };
+                n = normalise(n);
+
+                Triangle tr = {{ v0, n}, {v1, n}, {v2, n}};
+                array_add(&vertices, tr.p0);
+                array_add(&vertices, tr.p1);
+                array_add(&vertices, tr.p2);
+
+                u = v3 - v2;
+                v = v0 - v2;
+
+                n = {
+                    u.z * v.z - u.z * v.y,
+                    u.z * v.x - u.x * v.z,
+                    u.x * v.y - u.y * v.x
+                };
+                n = normalise(n);
+
+                tr = {{ v2, n}, {v3, n}, {v0, n}};
+                array_add(&vertices, tr.p0);
+                array_add(&vertices, tr.p1);
+                array_add(&vertices, tr.p2);
             }
         }
 
-        // TODO(jesper): this isn't really correct at all and just a total hack
-        // to get something resembling a normal in place for the terrain.
-        for (u32 i = 0; i < vertices.count-3; i++) {
-            Vertex &v1 = vertices[i];
-            Vertex &v2 = vertices[i+1];
-            Vertex &v3 = vertices[i+2];
-
-            Vector3 u = v2.p - v1.p;
-            Vector3 v = v3.p - v1.p;
-
-            v1.n.x = u.y * v.z - u.z * v.y;
-            v1.n.y = u.z * v.x - u.x * v.z;
-            v1.n.z = u.x * v.y - u.y * v.x;
-        }
-
+#if 0
         u32 ic = (heightmap.height-1) * (heightmap.width-1) * 6;
         auto indices = array_create<u32>(g_heap, ic);
         for (u32 i = 0; i < heightmap.height-1; i++) {
@@ -614,22 +637,24 @@ void game_init(PlatformState *platform)
                 array_add(&indices, i5);
             }
         }
+#endif
 
         // TODO(jesper): this seems stupid
-        Entity eterrain = entities_add(&g_game->entities, { 0.0f, 0.0f, 0.0f });
+        //Entity eterrain = entities_add(&g_game->entities, { 0.0f, 0.0f, 0.0f });
 
-        IndexRenderObject ro = {};
-        ro.entity_id      = eterrain.id;
+        RenderObject ro = {};
+        //ro.entity_id      = eterrain.id;
         ro.pipeline       = g_game->pipelines.terrain;
 
         usize vertex_size = vertices.count * sizeof(vertices[0]);
-        usize index_size  = indices.count  * sizeof(indices[0]);
+        //usize index_size  = indices.count  * sizeof(indices[0]);
 
-        ro.index_count    = indices.count;
+        //ro.index_count    = indices.count;
+        ro.vertex_count   = vertices.count;
         ro.vertices       = buffer_create_vbo(vertices.data, vertex_size);
-        ro.indices        = buffer_create_ibo(indices.data,  index_size);
+        //ro.indices        = buffer_create_ibo(indices.data,  index_size);
 
-        array_add(&g_game->index_render_objects, ro);
+        array_add(&g_game->render_objects, ro);
 
 
         // NOTE(jesper): for debug overlay

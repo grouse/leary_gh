@@ -69,10 +69,7 @@
 
 
 #ifndef LEARY_DYNAMIC
-// TODO(jesper): this code path won't function correctly cause I've moved over
-// to using global variables for g_game, g_vulkan and g_allocators. I've not
-// decided how to solve this problem....
-#define LEARY_DYNAMIC 1
+#define LEARY_DYNAMIC 0
 #endif
 
 #if !LEARY_DYNAMIC
