@@ -203,7 +203,7 @@ void debug_add_texture(const char *name,
         0.0f,  0.0f,  0.0f, 0.0f,
     };
 
-    item.ritem.vbo = buffer_create_vbo(vertices, sizeof(vertices) * sizeof(f32));
+    item.ritem.vbo = create_vbo(vertices, sizeof(vertices) * sizeof(f32));
     item.ritem.vertex_count = 6;
 
     item.ritem.descriptors = array_create<VkDescriptorSet>(g_heap, 1);
@@ -417,7 +417,7 @@ void game_init(PlatformState *platform)
                                              components);
 
         // TODO(jesper): this size is really wrong
-        g_game->overlay.vbo = buffer_create_vbo(1024*1024);
+        g_game->overlay.vbo = create_vbo(1024*1024);
     }
 
     {
@@ -449,28 +449,28 @@ void game_init(PlatformState *platform)
 
     // create ubos
     {
-        g_game->fp_camera.ubo = buffer_create_ubo(sizeof(Matrix4));
+        g_game->fp_camera.ubo = create_ubo(sizeof(Matrix4));
 
         Matrix4 view_projection = g_game->fp_camera.projection * g_game->fp_camera.view;
-        buffer_data_ubo(g_game->fp_camera.ubo, &view_projection, 0, sizeof(view_projection));
+        buffer_data(g_game->fp_camera.ubo, &view_projection, 0, sizeof(view_projection));
     }
 
     // create materials
     {
-        g_game->materials.font      = material_create(&g_game->pipelines.font, Material_basic2d);
-        g_game->materials.heightmap = material_create(&g_game->pipelines.basic2d, Material_basic2d);
-        g_game->materials.phong     = material_create(&g_game->pipelines.mesh, Material_phong);
-        g_game->materials.player    = material_create(&g_game->pipelines.mesh, Material_phong);
+        g_game->materials.font      = create_material(&g_game->pipelines.font, Material_basic2d);
+        g_game->materials.heightmap = create_material(&g_game->pipelines.basic2d, Material_basic2d);
+        g_game->materials.phong     = create_material(&g_game->pipelines.mesh, Material_phong);
+        g_game->materials.player    = create_material(&g_game->pipelines.mesh, Material_phong);
     }
 
     // update descriptor sets
     {
-        pipeline_set_ubo(&g_game->pipelines.mesh, ResourceSlot_mvp, &g_game->fp_camera.ubo);
-        pipeline_set_ubo(&g_game->pipelines.terrain, ResourceSlot_mvp, &g_game->fp_camera.ubo);
+        set_ubo(&g_game->pipelines.mesh, ResourceSlot_mvp, &g_game->fp_camera.ubo);
+        set_ubo(&g_game->pipelines.terrain, ResourceSlot_mvp, &g_game->fp_camera.ubo);
 
-        material_set_texture(&g_game->materials.font,   ResourceSlot_diffuse, &g_game->textures.font);
-        material_set_texture(&g_game->materials.phong,  ResourceSlot_texture, &g_game->textures.cube);
-        material_set_texture(&g_game->materials.player, ResourceSlot_texture, &g_game->textures.player);
+        set_texture(&g_game->materials.font,   ResourceSlot_diffuse, &g_game->textures.font);
+        set_texture(&g_game->materials.phong,  ResourceSlot_texture, &g_game->textures.cube);
+        set_texture(&g_game->materials.player, ResourceSlot_texture, &g_game->textures.player);
     }
 
     {
@@ -499,8 +499,8 @@ void game_init(PlatformState *platform)
         obj.entity_id   = player.id;
         obj.pipeline    = g_game->pipelines.mesh;
         obj.index_count = (i32)cube.indices.count;
-        obj.vertices    = buffer_create_vbo(cube.vertices.data, vertex_size);
-        obj.indices     = buffer_create_ibo(cube.indices.data, index_size);
+        obj.vertices    = create_vbo(cube.vertices.data, vertex_size);
+        obj.indices     = create_ibo(cube.indices.data, index_size);
 
         //obj.transform = translate(Matrix4::identity(), {x, y, z});
         array_add(&g_game->index_render_objects, obj);
@@ -524,8 +524,8 @@ void game_init(PlatformState *platform)
         obj.entity_id   = e.id;
         obj.pipeline    = g_game->pipelines.mesh;
         obj.index_count = (i32)cube.indices.count;
-        obj.vertices    = buffer_create_vbo(cube.vertices.data, vertex_size);
-        obj.indices     = buffer_create_ibo(cube.indices.data, index_size);
+        obj.vertices    = create_vbo(cube.vertices.data, vertex_size);
+        obj.indices     = create_ibo(cube.indices.data, index_size);
 
         //obj.transform = translate(Matrix4::identity(), {x, y, z});
         array_add(&g_game->index_render_objects, obj);
@@ -651,8 +651,8 @@ void game_init(PlatformState *platform)
 
         //ro.index_count    = indices.count;
         ro.vertex_count   = vertices.count;
-        ro.vertices       = buffer_create_vbo(vertices.data, vertex_size);
-        //ro.indices        = buffer_create_ibo(indices.data,  index_size);
+        ro.vertices       = create_vbo(vertices.data, vertex_size);
+        //ro.indices        = create_ibo(indices.data,  index_size);
 
         array_add(&g_game->render_objects, ro);
 
@@ -663,7 +663,7 @@ void game_init(PlatformState *platform)
                                                   heightmap.format,
                                                   heightmap.data,
                                                   VkComponentMapping{});
-        material_set_texture(&g_game->materials.heightmap, ResourceSlot_diffuse,
+        set_texture(&g_game->materials.heightmap, ResourceSlot_diffuse,
                              &g_game->textures.heightmap);
 
     }
@@ -684,7 +684,7 @@ void game_init(PlatformState *platform)
 
         RenderObject terrain = {};
         terrain.pipeline = g_game->pipelines.terrain;
-        terrain.vertices = buffer_create_vbo(vertices, sizeof(vertices));
+        terrain.vertices = create_vbo(vertices, sizeof(vertices));
         terrain.vertex_count = sizeof(vertices) / (sizeof(vertices[0]) * 3);
 
         array_add(&g_game->render_objects, terrain);
@@ -764,10 +764,10 @@ void game_quit(PlatformState *platform)
     texture_destroy(g_game->textures.player);
     texture_destroy(g_game->textures.heightmap);
 
-    material_destroy(g_game->materials.font);
-    material_destroy(g_game->materials.heightmap);
-    material_destroy(g_game->materials.phong);
-    material_destroy(g_game->materials.player);
+    destroy_material(g_game->materials.font);
+    destroy_material(g_game->materials.heightmap);
+    destroy_material(g_game->materials.phong);
+    destroy_material(g_game->materials.player);
 
     pipeline_destroy(g_game->pipelines.basic2d);
     pipeline_destroy(g_game->pipelines.font);
@@ -1235,7 +1235,7 @@ void game_update(f32 dt)
         view       = rm * tm;
 
         Matrix4 vp = g_game->fp_camera.projection * view;
-        buffer_data_ubo(g_game->fp_camera.ubo, &vp, 0, sizeof(vp));
+        buffer_data(g_game->fp_camera.ubo, &vp, 0, sizeof(vp));
     }
 
 }

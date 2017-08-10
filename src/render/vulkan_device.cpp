@@ -2680,7 +2680,7 @@ void vulkan_destroy()
     vkDestroyInstance(g_vulkan->instance, nullptr);
 }
 
-VulkanBuffer buffer_create(usize size,
+VulkanBuffer create_buffer(usize size,
                            VkBufferUsageFlags usage,
                            VkMemoryPropertyFlags memory_flags)
 {
@@ -2740,9 +2740,9 @@ void buffer_copy(VkBuffer src, VkBuffer dst, VkDeviceSize size)
     command_buffer_end(command, true);
 }
 
-VulkanBuffer buffer_create_vbo(void *data, usize size)
+VulkanBuffer create_vbo(void *data, usize size)
 {
-    VulkanBuffer vbo = buffer_create(size,
+    VulkanBuffer vbo = create_buffer(size,
                                      VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
                                      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
     void *mapped;
@@ -2753,17 +2753,17 @@ VulkanBuffer buffer_create_vbo(void *data, usize size)
     return vbo;
 }
 
-VulkanBuffer buffer_create_vbo(usize size)
+VulkanBuffer create_vbo(usize size)
 {
-    VulkanBuffer vbo = buffer_create(size,
+    VulkanBuffer vbo = create_buffer(size,
                                      VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
                                      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
     return vbo;
 }
 
-VulkanBuffer buffer_create_ibo(u32 *indices, usize size)
+VulkanBuffer create_ibo(u32 *indices, usize size)
 {
-    VulkanBuffer staging = buffer_create(size,
+    VulkanBuffer staging = create_buffer(size,
                                          VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                                          VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
                                          VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
@@ -2773,7 +2773,7 @@ VulkanBuffer buffer_create_ibo(u32 *indices, usize size)
     memcpy(data, indices, size);
     vkUnmapMemory(g_vulkan->handle, staging.memory);
 
-    VulkanBuffer ib = buffer_create(size,
+    VulkanBuffer ib = create_buffer(size,
                                     VK_BUFFER_USAGE_TRANSFER_DST_BIT |
                                     VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
                                     VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
@@ -2784,14 +2784,14 @@ VulkanBuffer buffer_create_ibo(u32 *indices, usize size)
     return ib;
 }
 
-VulkanUniformBuffer buffer_create_ubo(usize size)
+VulkanUniformBuffer create_ubo(usize size)
 {
     VulkanUniformBuffer ubo;
-    ubo.staging = buffer_create(size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+    ubo.staging = create_buffer(size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
                                 VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
-    ubo.buffer = buffer_create(size,
+    ubo.buffer = create_buffer(size,
                                VK_BUFFER_USAGE_TRANSFER_DST_BIT |
                                VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
                                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
@@ -2800,9 +2800,7 @@ VulkanUniformBuffer buffer_create_ubo(usize size)
 }
 
 
-void buffer_data_ubo(VulkanUniformBuffer ubo,
-                     void *data,
-                     usize offset, usize size)
+void buffer_data(VulkanUniformBuffer ubo, void *data, usize offset, usize size)
 {
     void *mapped;
     vkMapMemory(g_vulkan->handle,
@@ -2830,7 +2828,7 @@ u32 swapchain_acquire()
     return image_index;
 }
 
-Material material_create(VulkanPipeline *pipeline, MaterialID id)
+Material create_material(VulkanPipeline *pipeline, MaterialID id)
 {
     Material mat = {};
     mat.id       = id;
@@ -2881,14 +2879,12 @@ Material material_create(VulkanPipeline *pipeline, MaterialID id)
     return mat;
 }
 
-void material_destroy(Material material)
+void destroy_material(Material material)
 {
     vkDestroyDescriptorPool(g_vulkan->handle, material.descriptor_pool, nullptr);
 }
 
-void material_set_texture(Material *material,
-                          ResourceSlot slot,
-                          VulkanTexture *texture)
+void set_texture(Material *material, ResourceSlot slot, VulkanTexture *texture)
 {
     // TODO(jesper): use this to figure out which sampler and dstBinding to set
     (void)slot;
@@ -2926,9 +2922,9 @@ void material_set_texture(Material *material,
     vkUpdateDescriptorSets(g_vulkan->handle, 1, &writes, 0, nullptr);
 }
 
-void pipeline_set_ubo(VulkanPipeline *pipeline,
-                      ResourceSlot slot,
-                      VulkanUniformBuffer *ubo)
+void set_ubo(VulkanPipeline *pipeline,
+             ResourceSlot slot,
+             VulkanUniformBuffer *ubo)
 {
     // TODO(jesper): use this to figure out the dstBinding to use
     (void)slot;
