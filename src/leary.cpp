@@ -582,77 +582,24 @@ void game_init(PlatformState *platform)
                 Vector3 v2 = to_world * Vector3{ (f32)j+1, (f32)t2.r, (f32)i+1 };
                 Vector3 v3 = to_world * Vector3{ (f32)j,   (f32)t3.r, (f32)i+1 };
 
-                Vector3 u = v1 - v0;
-                Vector3 v = v2 - v0;
+                Vector3 n = surface_normal(v0, v1, v2);
+                array_add(&vertices, {v0, n});
+                array_add(&vertices, {v1, n});
+                array_add(&vertices, {v2, n});
 
-                Vector3 n = {
-                    u.z * v.z - u.z * v.y,
-                    u.z * v.x - u.x * v.z,
-                    u.x * v.y - u.y * v.x
-                };
-                n = normalise(n);
-
-                Triangle tr = {{ v0, n}, {v1, n}, {v2, n}};
-                array_add(&vertices, tr.p0);
-                array_add(&vertices, tr.p1);
-                array_add(&vertices, tr.p2);
-
-                u = v3 - v2;
-                v = v0 - v2;
-
-                n = {
-                    u.z * v.z - u.z * v.y,
-                    u.z * v.x - u.x * v.z,
-                    u.x * v.y - u.y * v.x
-                };
-                n = normalise(n);
-
-                tr = {{ v2, n}, {v3, n}, {v0, n}};
-                array_add(&vertices, tr.p0);
-                array_add(&vertices, tr.p1);
-                array_add(&vertices, tr.p2);
+                n = surface_normal(v2, v3, v0);
+                array_add(&vertices, {v2, n});
+                array_add(&vertices, {v3, n});
+                array_add(&vertices, {v0, n});
             }
         }
-
-#if 0
-        u32 ic = (heightmap.height-1) * (heightmap.width-1) * 6;
-        auto indices = array_create<u32>(g_heap, ic);
-        for (u32 i = 0; i < heightmap.height-1; i++) {
-            for (u32 j = 0; j < heightmap.width-1; j++) {
-                u32 i0 = i     * heightmap.width + j;
-                u32 i1 = i     * heightmap.width + (j+1);
-                u32 i2 = (i+1) * heightmap.width + (j+1);
-
-                u32 i3 = i     * heightmap.width + j;
-                u32 i4 = (i+1) * heightmap.width + (j+1);
-                u32 i5 = (i+1) * heightmap.width + (j);
-
-
-                array_add(&indices, i0);
-                array_add(&indices, i1);
-                array_add(&indices, i2);
-
-                array_add(&indices, i3);
-                array_add(&indices, i4);
-                array_add(&indices, i5);
-            }
-        }
-#endif
-
-        // TODO(jesper): this seems stupid
-        //Entity eterrain = entities_add(&g_game->entities, { 0.0f, 0.0f, 0.0f });
 
         RenderObject ro = {};
-        //ro.entity_id      = eterrain.id;
         ro.pipeline       = g_game->pipelines.terrain;
 
         usize vertex_size = vertices.count * sizeof(vertices[0]);
-        //usize index_size  = indices.count  * sizeof(indices[0]);
-
-        //ro.index_count    = indices.count;
         ro.vertex_count   = vertices.count;
         ro.vertices       = create_vbo(vertices.data, vertex_size);
-        //ro.indices        = create_ibo(indices.data,  index_size);
 
         array_add(&g_game->render_objects, ro);
 

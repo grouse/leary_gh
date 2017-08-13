@@ -112,9 +112,23 @@ inline Vector3 normalise(Vector3 v)
     return result;
 }
 
-/******************************************************************************
- * Matrix4 function definitions
- *****************************************************************************/
+Vector3 surface_normal(Vector3 v0, Vector3 v1, Vector3 v2)
+{
+    Vector3 n;
+
+    Vector3 u = v1 - v0;
+    Vector3 v = v2 - v0;
+
+    n = {
+        u.z * v.z - u.z * v.y,
+        u.z * v.x - u.x * v.z,
+        u.x * v.y - u.y * v.x
+    };
+    n = normalise(n);
+
+    return n;
+}
+
 inline Matrix4 translate(Matrix4 m, Vector3 v)
 {
     PROFILE_BLOCK("Matrix4 translate");
