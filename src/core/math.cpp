@@ -101,6 +101,22 @@ inline Vector3 cross(Vector3 lhs, Vector3 rhs)
     return vec;
 }
 
+f32 lerp(f32 a, f32 b, f32 t)
+{
+    return (1.0f-t) * a + t*b;
+}
+
+Vector3 lerp(Vector3 a, Vector3 b, f32 t)
+{
+    Vector3 r;
+
+    r.x = lerp(a.x, b.x, t);
+    r.y = lerp(a.y, b.y, t);
+    r.z = lerp(a.z, b.z, t);
+
+    return r;
+}
+
 inline Vector3 normalise(Vector3 v)
 {
     f32 l = length(v);

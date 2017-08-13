@@ -11,28 +11,28 @@
 
 template<typename T>
 struct Array {
-	T* data        = nullptr;
-	isize count    = 0;
-	isize capacity = 0;
+    T* data        = nullptr;
+    isize count    = 0;
+    isize capacity = 0;
 
-	Allocator *allocator = nullptr;
+    Allocator *allocator = nullptr;
 
-	T& operator[] (isize i)
-	{
-		return data[i];
-	}
+    T& operator[] (isize i)
+    {
+        return data[i];
+    }
 };
 
 template<typename T>
 struct StaticArray {
-	T* data        = nullptr;
-	isize count    = 0;
-	isize capacity = 0;
+    T* data        = nullptr;
+    isize count    = 0;
+    isize capacity = 0;
 
-	T& operator[] (isize i)
-	{
-		return data[i];
-	}
+    T& operator[] (isize i)
+    {
+        return data[i];
+    }
 };
 
 #endif /* ARRAY_H */

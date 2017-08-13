@@ -548,7 +548,7 @@ void game_init(PlatformState *platform)
         auto vertices = array_create<Vertex>(g_persistent, vc);
 
         // TODO(jesper): move to settings/asset info/something
-        Vector3 w = { 100.0f, 100.0f, 20.0f };
+        Vector3 w = { 50.0f, 50.0f, 5.0f };
         f32 xx = w.x * 2.0f;
         f32 yy = w.y * 2.0f;
         f32 zz = w.z * 2.0f;
@@ -563,13 +563,7 @@ void game_init(PlatformState *platform)
         to_world[2].z = yy / (f32)heightmap.height;
         to_world[3].z = -w.y;
 
-
-        struct Triangle {
-            Vertex p0;
-            Vertex p1;
-            Vertex p2;
-        };
-
+#if 0
         for (u32 i = 0; i < heightmap.height-1; i++) {
             for (u32 j = 0; j < heightmap.width-1; j++) {
                 Texel t0 = ((Texel*)heightmap.data)[i     * heightmap.width + j];
@@ -593,6 +587,89 @@ void game_init(PlatformState *platform)
                 array_add(&vertices, {v0, n});
             }
         }
+#else
+        for (u32 i = 1; i < heightmap.height-1; i+=2) {
+            for (u32 j = 1; j < heightmap.width-1; j+=2) {
+                Texel tl  = ((Texel*)heightmap.data)[i     * heightmap.width + j-1];
+                Texel tc  = ((Texel*)heightmap.data)[i     * heightmap.width + j];
+                Texel tr  = ((Texel*)heightmap.data)[i     * heightmap.width + j+1];
+                Texel tt  = ((Texel*)heightmap.data)[(i-1) * heightmap.width + j];
+                Texel ttl = ((Texel*)heightmap.data)[(i-1) * heightmap.width + j-1];
+                Texel ttr = ((Texel*)heightmap.data)[(i-1) * heightmap.width + j+1];
+                Texel tb  = ((Texel*)heightmap.data)[(i+1) * heightmap.width + j];
+                Texel tbl = ((Texel*)heightmap.data)[(i+1) * heightmap.width + j-1];
+                Texel tbr = ((Texel*)heightmap.data)[(i+1) * heightmap.width + j+1];
+
+                Vector3 vl  = to_world * Vector3{ (f32)j-1, (f32)tl.r,  (f32)i   };
+                Vector3 vc  = to_world * Vector3{ (f32)j,   (f32)tc.r,  (f32)i   };
+                Vector3 vr  = to_world * Vector3{ (f32)j+1, (f32)tr.r,  (f32)i   };
+                Vector3 vt  = to_world * Vector3{ (f32)j,   (f32)tt.r,  (f32)i-1 };
+                Vector3 vtl = to_world * Vector3{ (f32)j-1, (f32)ttl.r, (f32)i-1 };
+                Vector3 vtr = to_world * Vector3{ (f32)j+1, (f32)ttr.r, (f32)i-1 };
+                Vector3 vb  = to_world * Vector3{ (f32)j,   (f32)tb.r,  (f32)i+1 };
+                Vector3 vbl = to_world * Vector3{ (f32)j-1, (f32)tbl.r, (f32)i+1 };
+                Vector3 vbr = to_world * Vector3{ (f32)j+1, (f32)tbr.r, (f32)i+1 };
+
+                Vector3 v0 = vc;
+                Vector3 v1 = vl;
+                Vector3 v2 = vtl;
+                Vector3 n  = surface_normal(v0, v1, v2);
+                array_add(&vertices, {v0, n});
+                array_add(&vertices, {v1, n});
+                array_add(&vertices, {v2, n});
+
+                v1 = vtl;
+                v2 = vt;
+                n  = surface_normal(v0, v1, v2);
+                array_add(&vertices, {v0, n});
+                array_add(&vertices, {v1, n});
+                array_add(&vertices, {v2, n});
+
+                v1 = vt;
+                v2 = vtr;
+                n  = surface_normal(v0, v1, v2);
+                array_add(&vertices, {v0, n});
+                array_add(&vertices, {v1, n});
+                array_add(&vertices, {v2, n});
+
+                v1 = vtr;
+                v2 = vr;
+                n  = surface_normal(v0, v1, v2);
+                array_add(&vertices, {v0, n});
+                array_add(&vertices, {v1, n});
+                array_add(&vertices, {v2, n});
+
+                v1 = vr;
+                v2 = vbr;
+                n  = surface_normal(v0, v1, v2);
+                array_add(&vertices, {v0, n});
+                array_add(&vertices, {v1, n});
+                array_add(&vertices, {v2, n});
+
+                v1 = vbr;
+                v2 = vb;
+                n  = surface_normal(v0, v1, v2);
+                array_add(&vertices, {v0, n});
+                array_add(&vertices, {v1, n});
+                array_add(&vertices, {v2, n});
+
+                v1 = vb;
+                v2 = vbl;
+                n  = surface_normal(v0, v1, v2);
+                array_add(&vertices, {v0, n});
+                array_add(&vertices, {v1, n});
+                array_add(&vertices, {v2, n});
+
+                v1 = vbl;
+                v2 = vl;
+                n  = surface_normal(v0, v1, v2);
+                array_add(&vertices, {v0, n});
+                array_add(&vertices, {v1, n});
+                array_add(&vertices, {v2, n});
+
+            }
+        }
+#endif
 
         RenderObject ro = {};
         ro.pipeline       = g_game->pipelines.terrain;
@@ -615,33 +692,7 @@ void game_init(PlatformState *platform)
 
     }
 
-
-
-    {
-#if 0
-        f32 vertices[] = {
-            -100.0f, 0.0f, -100.0f,
-            100.0f,  0.0f, -100.0f,
-            100.0f,  0.0f, 100.0f,
-
-            100.0f,  0.0f, 100.0f,
-            -100.0f, 0.0f, 100.0f,
-            -100.0f, 0.0f, -100.0f
-        };
-
-        RenderObject terrain = {};
-        terrain.pipeline = g_game->pipelines.terrain;
-        terrain.vertices = create_vbo(vertices, sizeof(vertices));
-        terrain.vertex_count = sizeof(vertices) / (sizeof(vertices[0]) * 3);
-
-        array_add(&g_game->render_objects, terrain);
-#endif
-    }
-
-    g_game->key_state = g_persistent->alloc_array<i32>(0xFF);
-    for (i32 i = 0; i < 0xFF; i++) {
-        g_game->key_state[i] = InputType_key_release;
-    }
+    g_game->key_state = g_persistent->ialloc_array<i32>(256, InputType_key_release);
 
     g_game->overlay.items        = array_create<DebugOverlayItem>(g_heap);
     g_game->overlay.render_queue = array_create<DebugRenderItem>(g_heap);

@@ -61,6 +61,16 @@ struct Allocator {
         return ptr;
     }
 
+    template <typename T>
+    inline T* ialloc_array(isize count, T val)
+    {
+        T *ptr = (T*)alloc(sizeof(T) * count);
+        for (i32 i = 0; i < count; i++) {
+            ptr[i] = val;
+        }
+        return ptr;
+    }
+
     template<typename T>
     inline T* realloc_array(T *ptr, isize capacity)
     {
