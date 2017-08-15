@@ -16,8 +16,10 @@
 #include "platform/platform_file.h"
 #include "platform/platform_input.h"
 
+#include "core/hash.cpp"
 #include "core/allocator.cpp"
 #include "core/array.cpp"
+#include "core/hash_table.cpp"
 #include "core/tokenizer.cpp"
 #include "core/profiling.cpp"
 #include "core/maths.cpp"
@@ -366,6 +368,22 @@ void render_font(stbtt_bakedchar *font,
 void game_init(PlatformState *platform)
 {
     g_game = g_persistent->ialloc<GameState>();
+
+#if 0
+    // TODO(jesper): move into test
+    HashTable<const char*, i32> table;
+    init_table(&table, g_frame);
+
+    table_add(&table, "abc", 56);
+    table_add(&table, "abcd", 23);
+    table_add(&table, "abcde", 123);
+    table_add(&table, "abdc", 321);
+
+    DEBUG_LOG("abc: %d",   *table_find(&table, "abc"));
+    DEBUG_LOG("abcd: %d",  *table_find(&table, "abcd"));
+    DEBUG_LOG("abcde: %d", *table_find(&table, "abcde"));
+    DEBUG_LOG("abdc: %d",  *table_find(&table, "abdc"));
+#endif
 
     profile_init();
 
