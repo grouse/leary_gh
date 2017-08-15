@@ -4,7 +4,7 @@ BUILD = ./build
 
 .DEFAULT_GOAL := all
 
-SPV_SRC = $(ROOT)/src/render/shaders
+SPV_SRC = $(ROOT)/src/shaders
 SPV_DST = $(BUILD)/data/shaders
 SPV_VERT = $(addprefix $(SPV_DST)/,$(addsuffix .vert.spv,generic font basic2d mesh terrain))
 SPV_FRAG = $(addprefix $(SPV_DST)/,$(addsuffix .frag.spv,generic font basic2d mesh terrain))
