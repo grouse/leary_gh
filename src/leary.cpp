@@ -469,8 +469,8 @@ void game_init(PlatformState *platform)
         set_ubo(&g_game->pipelines.terrain, ResourceSlot_mvp, &g_game->fp_camera.ubo);
 
         set_texture(&g_game->materials.font,   ResourceSlot_diffuse, &g_game->textures.font);
-        set_texture(&g_game->materials.phong,  ResourceSlot_texture, &g_game->textures.cube);
-        set_texture(&g_game->materials.player, ResourceSlot_texture, &g_game->textures.player);
+        set_texture(&g_game->materials.phong,  ResourceSlot_diffuse, &g_game->textures.cube);
+        set_texture(&g_game->materials.player, ResourceSlot_diffuse, &g_game->textures.player);
     }
 
     {

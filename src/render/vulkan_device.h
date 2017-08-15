@@ -150,7 +150,6 @@ enum MaterialID {
 enum ResourceSlot {
 	ResourceSlot_mvp,
 	ResourceSlot_diffuse,
-	ResourceSlot_texture
 };
 
 struct Material {

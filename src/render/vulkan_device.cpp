@@ -2904,7 +2904,6 @@ void set_texture(Material *material, ResourceSlot slot, VulkanTexture *texture)
 
     // TODO(jesper): the dstBinding depends on ResourceSlot and MaterialID
     switch (slot) {
-    case ResourceSlot_texture:
     case ResourceSlot_diffuse:
         writes.dstBinding      = 0;
         break;
