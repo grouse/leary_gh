@@ -20,7 +20,7 @@
 #include "core/array.cpp"
 #include "core/tokenizer.cpp"
 #include "core/profiling.cpp"
-#include "core/math.cpp"
+#include "core/maths.cpp"
 #include "core/random.cpp"
 #include "core/assets.cpp"
 
