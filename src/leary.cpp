@@ -24,7 +24,7 @@
 #include "core/random.cpp"
 #include "core/assets.cpp"
 
-#include "render/vulkan_device.cpp"
+#include "vulkan_render.cpp"
 
 #include "core/serialize.cpp"
 

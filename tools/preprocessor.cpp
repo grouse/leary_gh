@@ -532,8 +532,8 @@ int main(int argc, char **argv)
 		FILE_SEP "core" FILE_SEP "math.h",
 		FILE_SEP "core" FILE_SEP "array.h",
 		FILE_SEP "core" FILE_SEP "array.cpp",
-		FILE_SEP "render" FILE_SEP "vulkan_device.cpp",
-		FILE_SEP "render" FILE_SEP "vulkan_device.h",
+		FILE_SEP "vulkan_render.cpp",
+		FILE_SEP "vulkan_render.h",
 		FILE_SEP "leary.cpp"
 	};
 

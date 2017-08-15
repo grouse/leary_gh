@@ -21,7 +21,7 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include "vulkan_device.h"
+#include "vulkan_render.h"
 
 extern VulkanDevice *g_vulkan;
 
