@@ -61,7 +61,7 @@ INCLUDE_DIR = -I$(ROOT)/src -I$(ROOT)
 OPTIMIZED   = -O3
 UNOPTIMIZED = -O0
 
-LEARY_LIBS  = -lvulkan -lX11 -lXi -ldl
+LEARY_LIBS  = -lvulkan -lX11 -lXi -ldl -lpthread
 LEARY_FLAGS = $(FLAGS) $(WARNINGS) $(UNOPTIMIZED) $(INCLUDE_DIR)
 
 $(BUILD)/game.so: FORCE

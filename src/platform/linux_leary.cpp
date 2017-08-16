@@ -14,6 +14,9 @@
 #include "platform/linux_file.cpp"
 #include "platform/linux_input.cpp"
 
+#include <sys/inotify.h>
+#include <pthread.h>
+
 HeapAllocator   *g_heap;
 LinearAllocator *g_frame;
 LinearAllocator *g_persistent;
@@ -102,6 +105,67 @@ void platform_quit(PlatformState *platform)
 
     // TODO(jesper): do we need to unload the .so ?
     exit(EXIT_SUCCESS);
+}
+
+#define INOTIFY_EVENT_SIZE (sizeof(struct inotify_event))
+#define INOTIFY_BUF_SIZE   (1024 * (INOTIFY_EVENT_SIZE + 16))
+
+void* catalog_thread_process(void *data)
+{
+    // TODO(jesper): entering the realm of threads, we need thread safe
+    // DEBUG_LOG now!!!!
+    char *folder = (char*)data;
+
+    char buffer[INOTIFY_BUF_SIZE];
+
+    int fd = inotify_init();
+    DEBUG_ASSERT(fd >= 0);
+
+    int wd = inotify_add_watch(fd, folder, IN_CREATE | IN_MODIFY | IN_DELETE);
+    while (true) {
+        int length = read(fd, buffer, INOTIFY_BUF_SIZE);
+
+        DEBUG_ASSERT(length >= 0);
+        int i = 0;
+        while (i < length) {
+            struct inotify_event *event = (struct inotify_event*)&buffer[i];
+            if (event->len) {
+                if (event->mask & IN_CREATE) {
+                    if (event->mask & IN_ISDIR) {
+                        DEBUG_LOG("new directory created: %s", event->name);
+                    } else {
+                        DEBUG_LOG("new file created: %s", event->name);
+                    }
+                } else if (event->mask & IN_MODIFY) {
+                    if (event->mask & IN_ISDIR) {
+                        DEBUG_LOG("directory modified: %s", event->name);
+                    } else {
+                        DEBUG_LOG("file modified: %s", event->name);
+                    }
+                } else if (event->mask & IN_DELETE) {
+                    if (event->mask & IN_ISDIR) {
+                        DEBUG_LOG("directory deleted: %s", event->name);
+                    } else {
+                        DEBUG_LOG("file deleted: %s", event->name);
+                    }
+                }
+            }
+
+            i += INOTIFY_EVENT_SIZE + event->len;
+        }
+    }
+
+    inotify_rm_watch( fd, wd );
+    close( fd );
+
+    return nullptr;
+}
+
+void create_catalog_thread(const char *folder)
+{
+    pthread_t *thread = g_heap->talloc<pthread_t>();
+    int result = pthread_create(thread, NULL, &catalog_thread_process, (void*)folder);
+    DEBUG_ASSERT(result == 0);
 }
 
 DL_EXPORT

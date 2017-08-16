@@ -94,6 +94,8 @@
 #define PLATFORM_RELOAD_FUNC(fname)     void fname(PlatformState *platform)
 #define PLATFORM_UPDATE_FUNC(fname)     void fname(PlatformState *platform, f32 dt)
 
+void create_catalog_thread(const char *folder);
+
 INTROSPECT struct Resolution
 {
 	i32 width  = 1280;

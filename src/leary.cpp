@@ -755,6 +755,10 @@ void game_init(PlatformState *platform)
         debug_add_texture("Terrain", &g_game->textures.heightmap, g_game->materials.heightmap,
                           &g_game->pipelines.basic2d, &g_game->overlay);
     }
+
+#if 0
+    create_catalog_thread("/home/grouse/projects/leary/assets/textures");
+#endif
 }
 
 void game_quit(PlatformState *platform)
