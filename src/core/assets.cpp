@@ -5,8 +5,6 @@
  *
  * Copyright (c) 2017 - all rights reserved
  */
-
-
 struct Vertex {
 	Vector3 vector;
 	Vector3 normal;
@@ -31,6 +29,12 @@ struct Texture {
 	isize    size;
 	void     *data;
 };
+
+struct Catalog {
+    const char *folder;
+    HashTable<char*, Texture> table;
+};
+
 
 // NOTE(jesper): only Microsoft BMP version 3 is supported
 PACKED(struct BitmapFileHeader {
@@ -353,4 +357,19 @@ Mesh load_mesh_obj(const char *filename)
 #endif
 
 	return mesh;
+}
+
+Catalog create_texture_catalog()
+{
+    Catalog catalog = {};
+    catalog.folder = "/home/grouse/projects/leary/assets/textures";
+    init_table(&catalog.table, g_heap);
+
+    Array<char*> files = list_files(catalog.folder, g_frame);
+    for (i32 i = 0; i < files.count; i++) {
+        Texture t = texture_load_bmp(files[i]);
+        table_add(&catalog.table, files[i], t);
+    }
+
+    return catalog;
 }

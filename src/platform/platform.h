@@ -95,6 +95,7 @@
 #define PLATFORM_UPDATE_FUNC(fname)     void fname(PlatformState *platform, f32 dt)
 
 void create_catalog_thread(const char *folder);
+Array<char*> list_files(const char *folder, Allocator *allocator);
 
 INTROSPECT struct Resolution
 {

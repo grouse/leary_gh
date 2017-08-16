@@ -175,6 +175,8 @@ GameState    *g_game;
 Matrix4      g_view_to_screen; // [-1  , 1]   -> [0, w]
 Matrix4      g_screen_to_view; // [0, w] -> [-1  , 1]
 
+Catalog      g_texture_catalog;
+
 void debug_add_texture(const char *name,
                        VulkanTexture *texture,
                        Material material,
@@ -369,6 +371,8 @@ void game_init(PlatformState *platform)
 {
     g_game = g_persistent->ialloc<GameState>();
 
+    g_texture_catalog = create_texture_catalog();
+
 #if 0
     // TODO(jesper): move into test
     HashTable<const char*, i32> table;
@@ -442,19 +446,22 @@ void game_init(PlatformState *platform)
     }
 
     {
-        Texture dummy = texture_load_bmp("dummy.bmp");
-
-        g_game->textures.cube = texture_create(dummy.width, dummy.height,
-                                             dummy.format, dummy.data,
-                                             VkComponentMapping{});
+        Texture *dummy = table_find(&g_texture_catalog.table, "dummy.bmp");
+        if (dummy != nullptr) {
+            g_game->textures.cube = texture_create(dummy->width, dummy->height,
+                                                   dummy->format, dummy->data,
+                                                   VkComponentMapping{});
+        }
     }
 
     {
-        Texture player = texture_load_bmp("player.bmp");
+        Texture *player = table_find(&g_texture_catalog.table, "player.bmp");
 
-        g_game->textures.player = texture_create(player.width, player.height,
-                                               player.format, player.data,
-                                               VkComponentMapping{});
+        if (player != nullptr) {
+            g_game->textures.player = texture_create(player->width, player->height,
+                                                     player->format, player->data,
+                                                     VkComponentMapping{});
+        }
     }
 
     // create pipelines
@@ -550,8 +557,9 @@ void game_init(PlatformState *platform)
     }
 
     {
-        Texture heightmap = texture_load_bmp("terrain.bmp");
-        DEBUG_ASSERT(heightmap.size > 0);
+        Texture *heightmap = table_find(&g_texture_catalog.table, "terrain.bmp");
+        DEBUG_ASSERT(heightmap != nullptr);
+        DEBUG_ASSERT(heightmap->size > 0);
 
         struct Texel {
             u8 r, g, b, a;
@@ -562,7 +570,7 @@ void game_init(PlatformState *platform)
             Vector3 n;
         };
 
-        u32  vc       = heightmap.height * heightmap.width;
+        u32  vc       = heightmap->height * heightmap->width;
         auto vertices = array_create<Vertex>(g_persistent, vc);
 
         // TODO(jesper): move to settings/asset info/something
@@ -572,51 +580,26 @@ void game_init(PlatformState *platform)
         f32 zz = w.z * 2.0f;
 
         Matrix4 to_world = Matrix4::identity();
-        to_world[0].x = xx / (f32)heightmap.width;
+        to_world[0].x = xx / (f32)heightmap->width;
         to_world[3].x = -w.x;
 
         to_world[1].y = zz / 255.0f;
         to_world[3].y = -w.z;
 
-        to_world[2].z = yy / (f32)heightmap.height;
+        to_world[2].z = yy / (f32)heightmap->height;
         to_world[3].z = -w.y;
 
-#if 0
-        for (u32 i = 0; i < heightmap.height-1; i++) {
-            for (u32 j = 0; j < heightmap.width-1; j++) {
-                Texel t0 = ((Texel*)heightmap.data)[i     * heightmap.width + j];
-                Texel t1 = ((Texel*)heightmap.data)[i     * heightmap.width + j+1];
-                Texel t2 = ((Texel*)heightmap.data)[(i+1) * heightmap.width + j+1];
-                Texel t3 = ((Texel*)heightmap.data)[(i+1) * heightmap.width + j];
-
-                Vector3 v0 = to_world * Vector3{ (f32)j,   (f32)t0.r, (f32)i };
-                Vector3 v1 = to_world * Vector3{ (f32)j+1, (f32)t1.r, (f32)i };
-                Vector3 v2 = to_world * Vector3{ (f32)j+1, (f32)t2.r, (f32)i+1 };
-                Vector3 v3 = to_world * Vector3{ (f32)j,   (f32)t3.r, (f32)i+1 };
-
-                Vector3 n = surface_normal(v0, v1, v2);
-                array_add(&vertices, {v0, n});
-                array_add(&vertices, {v1, n});
-                array_add(&vertices, {v2, n});
-
-                n = surface_normal(v2, v3, v0);
-                array_add(&vertices, {v2, n});
-                array_add(&vertices, {v3, n});
-                array_add(&vertices, {v0, n});
-            }
-        }
-#else
-        for (u32 i = 1; i < heightmap.height-1; i+=2) {
-            for (u32 j = 1; j < heightmap.width-1; j+=2) {
-                Texel tl  = ((Texel*)heightmap.data)[i     * heightmap.width + j-1];
-                Texel tc  = ((Texel*)heightmap.data)[i     * heightmap.width + j];
-                Texel tr  = ((Texel*)heightmap.data)[i     * heightmap.width + j+1];
-                Texel tt  = ((Texel*)heightmap.data)[(i-1) * heightmap.width + j];
-                Texel ttl = ((Texel*)heightmap.data)[(i-1) * heightmap.width + j-1];
-                Texel ttr = ((Texel*)heightmap.data)[(i-1) * heightmap.width + j+1];
-                Texel tb  = ((Texel*)heightmap.data)[(i+1) * heightmap.width + j];
-                Texel tbl = ((Texel*)heightmap.data)[(i+1) * heightmap.width + j-1];
-                Texel tbr = ((Texel*)heightmap.data)[(i+1) * heightmap.width + j+1];
+        for (u32 i = 1; i < heightmap->height-1; i+=2) {
+            for (u32 j = 1; j < heightmap->width-1; j+=2) {
+                Texel tl  = ((Texel*)heightmap->data)[i     * heightmap->width + j-1];
+                Texel tc  = ((Texel*)heightmap->data)[i     * heightmap->width + j];
+                Texel tr  = ((Texel*)heightmap->data)[i     * heightmap->width + j+1];
+                Texel tt  = ((Texel*)heightmap->data)[(i-1) * heightmap->width + j];
+                Texel ttl = ((Texel*)heightmap->data)[(i-1) * heightmap->width + j-1];
+                Texel ttr = ((Texel*)heightmap->data)[(i-1) * heightmap->width + j+1];
+                Texel tb  = ((Texel*)heightmap->data)[(i+1) * heightmap->width + j];
+                Texel tbl = ((Texel*)heightmap->data)[(i+1) * heightmap->width + j-1];
+                Texel tbr = ((Texel*)heightmap->data)[(i+1) * heightmap->width + j+1];
 
                 Vector3 vl  = to_world * Vector3{ (f32)j-1, (f32)tl.r,  (f32)i   };
                 Vector3 vc  = to_world * Vector3{ (f32)j,   (f32)tc.r,  (f32)i   };
@@ -687,7 +670,6 @@ void game_init(PlatformState *platform)
 
             }
         }
-#endif
 
         RenderObject ro = {};
         ro.pipeline       = g_game->pipelines.terrain;
@@ -700,11 +682,11 @@ void game_init(PlatformState *platform)
 
 
         // NOTE(jesper): for debug overlay
-        g_game->textures.heightmap = texture_create(heightmap.width,
-                                                  heightmap.height,
-                                                  heightmap.format,
-                                                  heightmap.data,
-                                                  VkComponentMapping{});
+        g_game->textures.heightmap = texture_create(heightmap->width,
+                                                    heightmap->height,
+                                                    heightmap->format,
+                                                    heightmap->data,
+                                                    VkComponentMapping{});
         set_texture(&g_game->materials.heightmap, ResourceSlot_diffuse,
                              &g_game->textures.heightmap);
 

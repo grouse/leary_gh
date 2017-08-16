@@ -35,5 +35,8 @@ struct StaticArray {
     }
 };
 
+template<typename T>
+isize array_add(Array<T> *a, T e);
+
 #endif /* ARRAY_H */
 

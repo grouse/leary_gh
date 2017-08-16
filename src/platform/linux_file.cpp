@@ -27,8 +27,35 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <pwd.h>
+#include <dirent.h>
 
+#include "core/array.h"
 #include "platform_file.h"
+
+Array<char*> list_files(const char *folder, Allocator *allocator)
+{
+    Array<char*> files = {};
+    files.allocator = allocator;
+
+    DIR *d = opendir(folder);
+    if (d) {
+        struct dirent *dir;
+        while ((dir = readdir(d)) != NULL) {
+            // TODO(jesper): dir with sub-folders
+            if (dir->d_type == DT_REG) {
+                char *str = (char*)allocator->alloc(strlen(dir->d_name) + 1);
+                strcpy(str, dir->d_name);
+                array_add(&files, str);
+            } else {
+                DEBUG_LOG("unimplemented d_type: %d", dir->d_type);
+            }
+        }
+
+        closedir(d);
+    }
+
+    return files;
+}
 
 char *platform_path(GamePath root)
 {

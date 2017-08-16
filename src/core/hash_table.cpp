@@ -52,6 +52,69 @@ void table_add(HashTable<K, V> *table, K key, V value)
     array_add(&table->table[index], pair);
 }
 
+template <typename V>
+void table_add(HashTable<const char*, V> *table, const char *key, V value)
+{
+    u64 hash  = hash64(key);
+    u64 index = hash % TABLE_SIZE;
+
+    for (i32 i = 0; i < table->table[index].count; i++) {
+        // TODO(jesper): add a comparator template argument? only allow keys
+        // with defined operator==? hmmm
+        if (strcmp(table->table[index][i].key, key) == 0) {
+            // TODO(jesper): to_string key
+            DEBUG_LOG("key already exists in hash table");
+            DEBUG_ASSERT(false);
+            return;
+        }
+    }
+
+    Pair<const char*, V> pair = { key, value };
+    array_add(&table->table[index], pair);
+}
+
+template <typename V>
+void table_add(HashTable<char*, V> *table, char *key, V value)
+{
+    u64 hash  = hash64(key);
+    u64 index = hash % TABLE_SIZE;
+
+    for (i32 i = 0; i < table->table[index].count; i++) {
+        // TODO(jesper): add a comparator template argument? only allow keys
+        // with defined operator==? hmmm
+        if (strcmp(table->table[index][i].key, key) == 0) {
+            // TODO(jesper): to_string key
+            DEBUG_LOG("key already exists in hash table");
+            DEBUG_ASSERT(false);
+            return;
+        }
+    }
+
+    Pair<char*, V> pair = { key, value };
+    array_add(&table->table[index], pair);
+}
+
+template <typename V>
+void table_add(HashTable<char*, V> *table, const char *key, V value)
+{
+    u64 hash  = hash64(key);
+    u64 index = hash % TABLE_SIZE;
+
+    for (i32 i = 0; i < table->table[index].count; i++) {
+        // TODO(jesper): add a comparator template argument? only allow keys
+        // with defined operator==? hmmm
+        if (strcmp(table->table[index][i].key, key) == 0) {
+            // TODO(jesper): to_string key
+            DEBUG_LOG("key already exists in hash table");
+            DEBUG_ASSERT(false);
+            return;
+        }
+    }
+
+    Pair<char*, V> pair = { (char*)key, value };
+    array_add(&table->table[index], pair);
+}
+
 // NOTE(jesper): IMPORTANT: the pointers return from this function should not be
 // kept around, they will become invalid as the table grows, because it's being
 // backed by a dynamic array instead of a linked list.
@@ -74,3 +137,59 @@ V* table_find(HashTable<K, V> *table, K key)
     return nullptr;
 }
 
+template <typename V>
+V* table_find(HashTable<const char*, V> *table, const char *key)
+{
+    u64 hash  = hash64(key);
+    u64 index = hash % TABLE_SIZE;
+
+    for (i32 i = 0; i < table->table[index].count; i++) {
+        // TODO(jesper): add a comparator template argument? only allow keys
+        // with defined operator==? hmmm
+        if (strcmp(table->table[index][i].key, key) == 0) {
+            return &table->table[index][i].value;
+        }
+    }
+
+    // TODO(jesper): to_string key
+    DEBUG_LOG("could not find key in table");
+    return nullptr;
+}
+
+template <typename V>
+V* table_find(HashTable<char*, V> *table, char *key)
+{
+    u64 hash  = hash64(key);
+    u64 index = hash % TABLE_SIZE;
+
+    for (i32 i = 0; i < table->table[index].count; i++) {
+        // TODO(jesper): add a comparator template argument? only allow keys
+        // with defined operator==? hmmm
+        if (strcmp(table->table[index][i].key, key) == 0) {
+            return &table->table[index][i].value;
+        }
+    }
+
+    // TODO(jesper): to_string key
+    DEBUG_LOG("could not find key in table");
+    return nullptr;
+}
+
+template <typename V>
+V* table_find(HashTable<char*, V> *table, const char *key)
+{
+    u64 hash  = hash64(key);
+    u64 index = hash % TABLE_SIZE;
+
+    for (i32 i = 0; i < table->table[index].count; i++) {
+        // TODO(jesper): add a comparator template argument? only allow keys
+        // with defined operator==? hmmm
+        if (strcmp(table->table[index][i].key, key) == 0) {
+            return &table->table[index][i].value;
+        }
+    }
+
+    // TODO(jesper): to_string key
+    DEBUG_LOG("could not find key in table");
+    return nullptr;
+}
