@@ -29,42 +29,42 @@
 #include "core/types.h"
 
 #if defined(__linux__)
-	#include <X11/Xlib.h>
-	#include <X11/XKBlib.h>
-	#include <X11/extensions/XInput2.h>
+    #include <X11/Xlib.h>
+    #include <X11/XKBlib.h>
+    #include <X11/extensions/XInput2.h>
 
-	#define DL_EXPORT extern "C"
+    #define DL_EXPORT extern "C"
 
-	#define FILE_SEP "/"
-	#define FILE_EOL "\n"
+    #define FILE_SEP "/"
+    #define FILE_EOL "\n"
 
-	#define VK_USE_PLATFORM_XLIB_KHR
+    #define VK_USE_PLATFORM_XLIB_KHR
 
-	#define PACKED(decl) decl __attribute__((__packed__))
+    #define PACKED(decl) decl __attribute__((__packed__))
 #elif defined(_WIN32)
-	#include <Windows.h>
-	#include <Shlobj.h>
-	#include <Shlwapi.h>
+    #include <Windows.h>
+    #include <Shlobj.h>
+    #include <Shlwapi.h>
 
-	#define DL_EXPORT extern "C" __declspec(dllexport)
+    #define DL_EXPORT extern "C" __declspec(dllexport)
 
-	#define VK_USE_PLATFORM_WIN32_KHR
+    #define VK_USE_PLATFORM_WIN32_KHR
 
-	#undef near
-	#undef far
+    #undef near
+    #undef far
 
-	#define FILE_SEP "\\"
-	#define FILE_EOL "\r\n"
+    #define FILE_SEP "\\"
+    #define FILE_EOL "\r\n"
 
-	#define PACKED(decl) __pragma(pack(push, 1)) decl __pragma(pack(pop))
+    #define PACKED(decl) __pragma(pack(push, 1)) decl __pragma(pack(pop))
 #else
-	#error "unsupported platform"
+    #error "unsupported platform"
 #endif
 
 #include <vulkan/vulkan.h>
 
 #ifndef INTROSPECT
-	#define INTROSPECT
+    #define INTROSPECT
 #endif
 
 
@@ -73,8 +73,8 @@
 #endif
 
 #if !LEARY_DYNAMIC
-	#undef DL_EXPORT
-	#define DL_EXPORT
+    #undef DL_EXPORT
+    #define DL_EXPORT
 #endif
 
 
@@ -83,11 +83,11 @@
 #include "platform_file.h"
 
 #if defined(__linux__)
-	#define PLATFORM_INIT_FUNC(fname)       void fname(PlatformState *platform)
+    #define PLATFORM_INIT_FUNC(fname)       void fname(PlatformState *platform)
 #elif defined(_WIN32)
-	#define PLATFORM_INIT_FUNC(fname)       void fname(PlatformState *platform, HINSTANCE instance)
+    #define PLATFORM_INIT_FUNC(fname)       void fname(PlatformState *platform, HINSTANCE instance)
 #else
-	#error "unsupported platform
+    #error "unsupported platform
 #endif
 
 #define PLATFORM_PRE_RELOAD_FUNC(fname) void fname(PlatformState *platform)
@@ -95,43 +95,43 @@
 #define PLATFORM_UPDATE_FUNC(fname)     void fname(PlatformState *platform, f32 dt)
 
 void create_catalog_thread(const char *folder);
-Array<char*> list_files(const char *folder, Allocator *allocator);
+Array<Path> list_files(const char *folder, Allocator *allocator);
 
 INTROSPECT struct Resolution
 {
-	i32 width  = 1280;
-	i32 height = 720;
+    i32 width  = 1280;
+    i32 height = 720;
 };
 
 INTROSPECT struct VideoSettings
 {
-	Resolution resolution;
+    Resolution resolution;
 
-	// NOTE: these are integers to later support different fullscreen and vsync techniques
-	i16 fullscreen = 0;
-	i16 vsync      = 1;
+    // NOTE: these are integers to later support different fullscreen and vsync techniques
+    i16 fullscreen = 0;
+    i16 vsync      = 1;
 };
 
 INTROSPECT struct Settings
 {
-	VideoSettings video;
+    VideoSettings video;
 };
 
 struct PlatformState {
-	Settings     settings  = {};
+    Settings     settings  = {};
 
-	StaticArray<ProfileTimer> profile      = {};
-	StaticArray<ProfileTimer> profile_prev = {};
+    StaticArray<ProfileTimer> profile      = {};
+    StaticArray<ProfileTimer> profile_prev = {};
 
-	bool         raw_mouse = false;
-	void         *native   = nullptr;
+    bool         raw_mouse = false;
+    void         *native   = nullptr;
 
-	HeapAllocator   *heap;
-	LinearAllocator *frame;
-	LinearAllocator *persistent;
-	StackAllocator  *stack;
+    HeapAllocator   *heap;
+    LinearAllocator *frame;
+    LinearAllocator *persistent;
+    StackAllocator  *stack;
 
-	void *game_reload_state;
+    void *game_reload_state;
 
 };
 
