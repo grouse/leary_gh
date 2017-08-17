@@ -61,6 +61,7 @@ PACKED(struct BitmapHeader {
 
 Texture texture_load_bmp(const char *path)
 {
+    // TODO(jesper): make this path work with String struct
     Texture texture = {};
 
     usize size;
@@ -375,8 +376,8 @@ Catalog create_texture_catalog()
 
     Array<Path> files = list_files(catalog.folder, g_frame);
     for (i32 i = 0; i < files.count; i++) {
-        Texture t = texture_load_bmp(files[i].absolute);
-        table_add(&catalog.table, files[i].filename, t);
+        Texture t = texture_load_bmp(files[i].absolute.bytes);
+        table_add(&catalog.table, files[i].filename.bytes, t);
     }
 
     return catalog;

@@ -25,6 +25,7 @@
 #include "core/maths.cpp"
 #include "core/random.cpp"
 #include "core/assets.cpp"
+#include "core/string.cpp"
 
 #include "vulkan_render.cpp"
 

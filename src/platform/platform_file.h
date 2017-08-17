@@ -9,6 +9,8 @@
 #ifndef PLATFORM_FILE_H
 #define PLATFORM_FILE_H
 
+#include "core/string.h"
+
 enum FileAccess {
     FileAccess_read,
     FileAccess_write,
@@ -26,12 +28,9 @@ enum GamePath {
 };
 
 struct Path {
-    // TODO(jesper): make a String struct for these kind of things so I can
-    // allocate 1 memory block for the absolute path, and just point filename
-    // and extension into it.
-    char *absolute;
-    char *filename; // TODO: should this be with or without extension?
-    char *extension;
+    String absolute;
+    String filename; // TODO: should this be with or without extension?
+    String extension;
 };
 
 #endif /* PLATFORM_FILE_H */

@@ -48,30 +48,32 @@ Array<Path> list_files(const char *folder, Allocator *allocator)
         while ((dir = readdir(d)) != NULL) {
             // TODO(jesper): dir with sub-folders
             if (dir->d_type == DT_REG) {
+                isize dlen = strlen(dir->d_name);
+
                 Path p;
-                p.filename = (char*)allocator->alloc(strlen(dir->d_name) + 1);
-                strcpy(p.filename, dir->d_name);
 
                 if (!eslash) {
-                    isize length = flen + strlen(dir->d_name) + 2;
-                    p.absolute = (char*)allocator->alloc(length);
-                    strcpy(p.absolute, folder);
+                    isize length = flen + dlen + 2;
+                    p.absolute = { length, (char*)allocator->alloc(length) };
+
+                    strcpy(p.absolute.bytes, folder);
                     p.absolute[flen]   = '/';
                     p.absolute[flen+1] = '\0';
                 } else {
-                    isize length = flen + strlen(dir->d_name) + 1;
-                    p.absolute = (char*)allocator->alloc(length);
-                    strcpy(p.absolute, folder);
+                    isize length = flen + dlen + 1;
+                    p.absolute   = { length, (char*)allocator->alloc(length) };
+                    strcpy(p.absolute.bytes, folder);
                 }
-                strcat(p.absolute, dir->d_name);
+                strcat(p.absolute.bytes, dir->d_name);
 
-                char *s = p.filename;
-                while (*s) {
-                    if (*s++ == '.') {
-                        p.extension = s + 1;
+                p.filename = { dlen, p.absolute.bytes + flen + 1 };
+                isize ext = 0;
+                for (i32 i = 0; i < p.filename.length; i++) {
+                    if (p.filename[i] == '.') {
+                        ext = i;
                     }
                 }
-
+                p.extension = { dlen - ext, p.filename.bytes + ext };
                 array_add(&files, p);
             } else {
                 DEBUG_LOG("unimplemented d_type: %d", dir->d_type);
