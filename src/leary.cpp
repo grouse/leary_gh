@@ -740,7 +740,6 @@ void game_init(PlatformState *platform)
     }
 
 #if 0
-    create_catalog_thread("/home/grouse/projects/leary/assets/textures");
 #endif
 }
 

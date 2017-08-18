@@ -110,6 +110,11 @@ void platform_quit(PlatformState *platform)
 #define INOTIFY_EVENT_SIZE (sizeof(struct inotify_event))
 #define INOTIFY_BUF_SIZE   (1024 * (INOTIFY_EVENT_SIZE + 16))
 
+struct CatalogThreadData {
+    const char         *folder;
+    catalog_callback_t *callback;
+};
+
 void* catalog_thread_process(void *data)
 {
     // TODO(jesper): entering the realm of threads, we need thread safe
@@ -161,10 +166,14 @@ void* catalog_thread_process(void *data)
     return nullptr;
 }
 
-void create_catalog_thread(const char *folder)
+void create_catalog_thread(const char *folder, catalog_callback_t *callback)
 {
+    auto data      = g_persistent->talloc<CatalogThreadData>();
+    data->folder   = folder;
+    data->callback = callback;
+
     pthread_t *thread = g_heap->talloc<pthread_t>();
-    int result = pthread_create(thread, NULL, &catalog_thread_process, (void*)folder);
+    int result = pthread_create(thread, NULL, &catalog_thread_process, data);
     DEBUG_ASSERT(result == 0);
 }
 

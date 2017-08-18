@@ -90,11 +90,14 @@
     #error "unsupported platform
 #endif
 
-#define PLATFORM_PRE_RELOAD_FUNC(fname) void fname(PlatformState *platform)
-#define PLATFORM_RELOAD_FUNC(fname)     void fname(PlatformState *platform)
-#define PLATFORM_UPDATE_FUNC(fname)     void fname(PlatformState *platform, f32 dt)
+#define PLATFORM_PRE_RELOAD_FUNC(fname) void  fname(PlatformState *platform)
+#define PLATFORM_RELOAD_FUNC(fname)     void  fname(PlatformState *platform)
+#define PLATFORM_UPDATE_FUNC(fname)     void  fname(PlatformState *platform, f32 dt)
 
-void create_catalog_thread(const char *folder);
+#define CATALOG_CALLBACK(fname)  void fname(Path path)
+typedef CATALOG_CALLBACK(catalog_callback_t);
+
+void create_catalog_thread(const char *folder, catalog_callback_t *callback);
 Array<Path> list_files(const char *folder, Allocator *allocator);
 
 INTROSPECT struct Resolution

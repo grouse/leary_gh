@@ -368,6 +368,11 @@ Mesh load_mesh_obj(const char *filename)
     return mesh;
 }
 
+CATALOG_CALLBACK(texture_catalog_process)
+{
+    (void)path;
+}
+
 Catalog create_texture_catalog()
 {
     Catalog catalog = {};
@@ -390,5 +395,7 @@ Catalog create_texture_catalog()
         table_add(&catalog.table, files[i].filename.bytes, t);
     }
 
+    // TODO(jesper): we can use 1 thread for all folders with inotify
+    create_catalog_thread(catalog.folder, &texture_catalog_process);
     return catalog;
 }
