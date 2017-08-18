@@ -5,6 +5,9 @@
  *
  * Copyright (c) 2017 - all rights reserved
  */
+
+#include "vulkan_render.h"
+
 struct Vertex {
     Vector3 vector;
     Vector3 normal;
@@ -19,15 +22,6 @@ bool operator == (Vertex &lhs, Vertex &rhs)
 struct Mesh {
     Array<Vertex> vertices;
     Array<u32>    indices;
-};
-
-struct Texture {
-    // TODO(jesper): internal non-Vulkan format?
-    VkFormat format;
-    u32      width;
-    u32      height;
-    isize    size;
-    void     *data;
 };
 
 struct Catalog {
@@ -373,6 +367,22 @@ CATALOG_CALLBACK(texture_catalog_process)
     (void)path;
 }
 
+extern Catalog g_texture_catalog;
+Texture* insert_catalog_texture(const char *name,
+                            u32 width, u32 height,
+                            VkFormat format, void *pixels,
+                            VkComponentMapping components)
+{
+    Texture t = {};
+    t.width   = width;
+    t.height  = height;
+    t.format  = format;
+    t.data    = pixels;
+
+    init_vk_texture(&t, components);
+    return table_add(&g_texture_catalog.table, name, t);
+}
+
 Catalog create_texture_catalog()
 {
     Catalog catalog = {};
@@ -392,6 +402,7 @@ Catalog create_texture_catalog()
             continue;
         }
 
+        init_vk_texture(&t, VkComponentMapping{});
         table_add(&catalog.table, files[i].filename.bytes, t);
     }
 

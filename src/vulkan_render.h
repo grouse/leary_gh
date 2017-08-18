@@ -11,6 +11,7 @@
 
 #include "platform/platform.h"
 #include "core/array.h"
+#include "core/assets.h"
 
 enum ShaderStage {
 	ShaderStage_vertex,
@@ -47,15 +48,6 @@ struct VulkanBuffer {
 struct VulkanUniformBuffer {
 	VulkanBuffer staging;
 	VulkanBuffer buffer;
-};
-
-struct VulkanTexture {
-	u32            width;
-	u32            height;
-	VkFormat       format;
-	VkImage        image;
-	VkImageView    image_view;
-	VkDeviceMemory memory;
 };
 
 struct VulkanShader {
@@ -161,12 +153,14 @@ struct Material {
 	VkDescriptorPool descriptor_pool;
 	VkDescriptorSet  descriptor_set;
 };
+
 struct PushConstants {
 	u32  offset;
 	u32  size;
 	void *data;
 };
 
+void init_vk_texture(Texture *texture, VkComponentMapping components);
 
 
 #endif /* VULKAN_DEVICE_H */

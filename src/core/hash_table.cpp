@@ -32,7 +32,7 @@ void init_table(HashTable<K, V> *table, Allocator *a)
 }
 
 template <typename K, typename V>
-void table_add(HashTable<K, V> *table, K key, V value)
+V* table_add(HashTable<K, V> *table, K key, V value)
 {
     u64 hash  = hash64(key);
     u64 index = hash % TABLE_SIZE;
@@ -49,11 +49,12 @@ void table_add(HashTable<K, V> *table, K key, V value)
     }
 
     Pair<K, V> pair = { key, value };
-    array_add(&table->table[index], pair);
+    isize i = array_add(&table->table[index], pair);
+    return &table->table[index][i];
 }
 
 template <typename V>
-void table_add(HashTable<const char*, V> *table, const char *key, V value)
+V* table_add(HashTable<const char*, V> *table, const char *key, V value)
 {
     u64 hash  = hash64(key);
     u64 index = hash % TABLE_SIZE;
@@ -70,11 +71,12 @@ void table_add(HashTable<const char*, V> *table, const char *key, V value)
     }
 
     Pair<const char*, V> pair = { key, value };
-    array_add(&table->table[index], pair);
+    isize i = array_add(&table->table[index], pair);
+    return &table->table[index][i];
 }
 
 template <typename V>
-void table_add(HashTable<char*, V> *table, char *key, V value)
+V* table_add(HashTable<char*, V> *table, char *key, V value)
 {
     u64 hash  = hash64(key);
     u64 index = hash % TABLE_SIZE;
@@ -86,16 +88,17 @@ void table_add(HashTable<char*, V> *table, char *key, V value)
             // TODO(jesper): to_string key
             DEBUG_LOG("key already exists in hash table");
             DEBUG_ASSERT(false);
-            return;
+            return nullptr;
         }
     }
 
     Pair<char*, V> pair = { key, value };
-    array_add(&table->table[index], pair);
+    isize i = array_add(&table->table[index], pair);
+    return &table->table[index][i].value;
 }
 
 template <typename V>
-void table_add(HashTable<char*, V> *table, const char *key, V value)
+V* table_add(HashTable<char*, V> *table, const char *key, V value)
 {
     u64 hash  = hash64(key);
     u64 index = hash % TABLE_SIZE;
@@ -107,12 +110,13 @@ void table_add(HashTable<char*, V> *table, const char *key, V value)
             // TODO(jesper): to_string key
             DEBUG_LOG("key already exists in hash table");
             DEBUG_ASSERT(false);
-            return;
+            return nullptr;
         }
     }
 
     Pair<char*, V> pair = { (char*)key, value };
-    array_add(&table->table[index], pair);
+    isize i = array_add(&table->table[index], pair);
+    return &table->table[index][i].value;
 }
 
 // NOTE(jesper): IMPORTANT: the pointers return from this function should not be

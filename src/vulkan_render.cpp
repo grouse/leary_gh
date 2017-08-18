@@ -2009,19 +2009,14 @@ void image_copy(u32 width, u32 height,
 
 
 
-VulkanTexture texture_create(u32 width, u32 height,
-                             VkFormat format, void *pixels,
-                             VkComponentMapping components)
+void init_vk_texture(Texture *texture, VkComponentMapping components)
 {
     VkResult result;
 
-    VulkanTexture texture = {};
-    texture.format = format;
-    texture.width  = width;
-    texture.height = height;
-
     VkDeviceMemory staging_memory;
-    VkImage staging_image = image_create(format, width, height,
+    VkImage staging_image = image_create(texture->format,
+                                         texture->width,
+                                         texture->height,
                                          VK_IMAGE_TILING_LINEAR,
                                          VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
                                          VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
@@ -2038,13 +2033,9 @@ VulkanTexture texture_create(u32 width, u32 height,
     vkGetImageSubresourceLayout(g_vulkan->handle, staging_image,
                                 &subresource, &staging_image_layout);
 
-    void *data;
-    // TODO(jesper): hardcoded 1 byte per channel and 4 channels, lookup based
-    // on the receieved VkFormat
-
     i32 num_channels;
     i32 bytes_per_channel;
-    switch (format) {
+    switch (texture->format) {
     case VK_FORMAT_R8_UNORM:
     case VK_FORMAT_R8_UINT:
         num_channels      = 1;
@@ -2083,47 +2074,50 @@ VulkanTexture texture_create(u32 width, u32 height,
         break;
     }
 
-    VkDeviceSize size = width * height * num_channels * bytes_per_channel;
-    vkMapMemory(g_vulkan->handle, staging_memory, 0, size, 0, &data);
+    VkDeviceSize size = texture->width * texture->height * num_channels * bytes_per_channel;
 
-    u32 row_pitch = width * num_channels * bytes_per_channel;
+    void *mapped;
+    vkMapMemory(g_vulkan->handle, staging_memory, 0, size, 0, &mapped);
+
+    u32 row_pitch = texture->width * num_channels * bytes_per_channel;
     if (staging_image_layout.rowPitch == row_pitch) {
-        memcpy(data, pixels, (usize)size);
+        memcpy(mapped, texture->data, (usize)size);
     } else {
-        u8 *bytes = (u8*)data;
-        u8 *pixel_bytes = (u8*)pixels;
-        for (i32 y = 0; y < (i32)height; y++) {
+        u8 *bytes = (u8*)mapped;
+        u8 *pixel_bytes = (u8*)texture->data;
+        for (i32 y = 0; y < (i32)texture->height; y++) {
             memcpy(&bytes[y * num_channels * staging_image_layout.rowPitch],
-                   &pixel_bytes[y * width * num_channels * bytes_per_channel],
-                   width * num_channels * bytes_per_channel);
+                   &pixel_bytes[y * texture->width * num_channels * bytes_per_channel],
+                   texture->width * num_channels * bytes_per_channel);
         }
     }
 
     vkUnmapMemory(g_vulkan->handle, staging_memory);
 
-    texture.image = image_create(format, width, height,
-                                 VK_IMAGE_TILING_OPTIMAL,
-                                 VK_IMAGE_USAGE_TRANSFER_DST_BIT |
-                                 VK_IMAGE_USAGE_SAMPLED_BIT,
-                                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-                                 &texture.memory);
+    texture->image = image_create(texture->format,
+                                  texture->width, texture->height,
+                                  VK_IMAGE_TILING_OPTIMAL,
+                                  VK_IMAGE_USAGE_TRANSFER_DST_BIT |
+                                  VK_IMAGE_USAGE_SAMPLED_BIT,
+                                  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+                                  &texture->memory);
 
-    image_transition_immediate(staging_image, format,
+    image_transition_immediate(staging_image, texture->format,
                                VK_IMAGE_LAYOUT_PREINITIALIZED,
                                VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-    image_transition_immediate(texture.image, format,
+    image_transition_immediate(texture->image, texture->format,
                                VK_IMAGE_LAYOUT_PREINITIALIZED,
                                VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-    image_copy(width, height, staging_image, texture.image);
-    image_transition_immediate(texture.image, format,
+    image_copy(texture->width, texture->height, staging_image, texture->image);
+    image_transition_immediate(texture->image, texture->format,
                                VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                                VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
     VkImageViewCreateInfo view_info = {};
     view_info.sType                           = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    view_info.image                           = texture.image;
+    view_info.image                           = texture->image;
     view_info.viewType                        = VK_IMAGE_VIEW_TYPE_2D;
-    view_info.format                          = texture.format;
+    view_info.format                          = texture->format;
     view_info.subresourceRange.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
     view_info.subresourceRange.baseMipLevel   = 0;
     view_info.subresourceRange.levelCount     = 1;
@@ -2132,13 +2126,11 @@ VulkanTexture texture_create(u32 width, u32 height,
     view_info.components = components;
 
     result = vkCreateImageView(g_vulkan->handle, &view_info, nullptr,
-                               &texture.image_view);
+                               &texture->image_view);
     DEBUG_ASSERT(result == VK_SUCCESS);
 
     vkFreeMemory(g_vulkan->handle, staging_memory, nullptr);
     vkDestroyImage(g_vulkan->handle, staging_image, nullptr);
-
-    return texture;
 }
 
 void vkdebug_create()
@@ -2632,11 +2624,11 @@ void swapchain_destroy(VulkanSwapchain swapchain)
     vkDestroySurfaceKHR(g_vulkan->instance, swapchain.surface, nullptr);
 }
 
-void texture_destroy(VulkanTexture texture)
+void texture_destroy(Texture *texture)
 {
-    vkDestroyImageView(g_vulkan->handle, texture.image_view, nullptr);
-    vkDestroyImage(g_vulkan->handle, texture.image, nullptr);
-    vkFreeMemory(g_vulkan->handle, texture.memory, nullptr);
+    vkDestroyImageView(g_vulkan->handle, texture->image_view, nullptr);
+    vkDestroyImage(g_vulkan->handle, texture->image, nullptr);
+    vkFreeMemory(g_vulkan->handle, texture->memory, nullptr);
 }
 
 void buffer_destroy(VulkanBuffer buffer)
@@ -2884,7 +2876,7 @@ void destroy_material(Material material)
     vkDestroyDescriptorPool(g_vulkan->handle, material.descriptor_pool, nullptr);
 }
 
-void set_texture(Material *material, ResourceSlot slot, VulkanTexture *texture)
+void set_texture(Material *material, ResourceSlot slot, Texture *texture)
 {
     // TODO(jesper): use this to figure out which sampler and dstBinding to set
     (void)slot;
