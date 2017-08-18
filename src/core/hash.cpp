@@ -6,7 +6,7 @@
  * Copyright (c) 2017 - all rights reserved
  */
 
-u64 hash64(const char *str)
+constexpr u64 hash64(const char *str)
 {
     u64 h = 0;
 

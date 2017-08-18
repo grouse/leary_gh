@@ -371,12 +371,22 @@ Mesh load_mesh_obj(const char *filename)
 Catalog create_texture_catalog()
 {
     Catalog catalog = {};
-    catalog.folder = "/home/grouse/projects/leary/assets/textures";
+    catalog.folder = platform_resolve_path(GamePath_textures, "");
     init_table(&catalog.table, g_heap);
 
     Array<Path> files = list_files(catalog.folder, g_frame);
     for (i32 i = 0; i < files.count; i++) {
-        Texture t = texture_load_bmp(files[i].absolute.bytes);
+        Texture t = {};
+        u64 ehash = hash64(files[i].extension.bytes);
+        switch (ehash) {
+        case hash64("bmp"):
+            t = texture_load_bmp(files[i].absolute.bytes);
+            break;
+        default:
+            DEBUG_LOG("unknown texture extension: %s", files[i].extension.bytes);
+            continue;
+        }
+
         table_add(&catalog.table, files[i].filename.bytes, t);
     }
 

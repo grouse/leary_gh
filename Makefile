@@ -17,41 +17,7 @@ $(SPV_DST)/%.frag.spv: $(SPV_SRC)/%.glsl
 
 shaders: | $(SPV_DST) $(SPV_VERT) $(SPV_FRAG)
 
-
-FONT_SRC = $(ROOT)/assets/fonts
-FONT_DST = $(BUILD)/data/fonts
-FONTS = $(addprefix $(FONT_DST)/,Roboto-Regular.ttf)
-
-$(FONT_DST)/%.ttf: $(FONT_SRC)/%.ttf
-	cp $< $@
-
-fonts: | $(FONT_DST) $(FONTS)
-
-
-MODELS_SRC = $(ROOT)/assets/models
-MODELS_DST = $(BUILD)/data/models
-MODELS = $(addprefix $(MODELS_DST)/,cube.obj armoire.obj)
-
-$(MODELS_DST)/%.obj: $(MODELS_SRC)/%.obj
-	cp $< $@
-
-models: | $(MODELS_DST) $(MODELS)
-
-
-TEXTURES_SRC = $(ROOT)/assets/textures
-TEXTURES_DST = $(BUILD)/data/textures
-TEXTURES = $(addprefix $(TEXTURES_DST)/,dummy.bmp player.bmp terrain.bmp)
-
-$(TEXTURES_DST)/%.bmp: $(TEXTURES_SRC)/%.bmp
-	cp $< $@
-
-$(TEXTURES_DST)/%.r16: $(TEXTURES_SRC)/%.r16
-	cp $< $@
-
-textures: | $(TEXTURES_DST) $(TEXTURES)
-
-
-FLAGS = -std=c++11 -g
+FLAGS = -std=c++14 -g
 
 NOWARNINGS = -Wno-int-to-void-pointer-cast -Wno-nested-anon-types -Wno-unused-function
 WARNINGS   = -Wall -Wextra -Wpedantic $(NOWARNINGS)
@@ -83,18 +49,9 @@ $(BUILD)/benchmark: FORCE
 tools: $(BUILD)/preprocessor
 
 
-all: shaders fonts models tools textures leary
+all: shaders tools leary
 
 $(SPV_DST):
 	mkdir -p $(SPV_DST)
-
-$(FONT_DST):
-	mkdir -p $(FONT_DST)
-
-$(MODELS_DST):
-	mkdir -p $(MODELS_DST)
-
-$(TEXTURES_DST):
-	mkdir -p $(TEXTURES_DST)
 
 FORCE:

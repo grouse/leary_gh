@@ -66,14 +66,19 @@ Array<Path> list_files(const char *folder, Allocator *allocator)
                 }
                 strcat(p.absolute.bytes, dir->d_name);
 
-                p.filename = { dlen, p.absolute.bytes + flen + 1 };
+                if (!eslash) {
+                    p.filename = { dlen, p.absolute.bytes + flen + 1 };
+                } else {
+                    p.filename = { dlen, p.absolute.bytes + flen };
+                }
+
                 isize ext = 0;
                 for (i32 i = 0; i < p.filename.length; i++) {
                     if (p.filename[i] == '.') {
                         ext = i;
                     }
                 }
-                p.extension = { dlen - ext, p.filename.bytes + ext };
+                p.extension = { dlen - ext, p.filename.bytes + ext + 1 };
                 array_add(&files, p);
             } else {
                 DEBUG_LOG("unimplemented d_type: %d", dir->d_type);
@@ -120,10 +125,10 @@ char *platform_path(GamePath root)
                 }
             }
 
-            u64 total_length = length + strlen("data/") + 1;
+            u64 total_length = length + strlen("../assets/") + 1;
             path = (char*)malloc(total_length);
             strncpy(path, buffer, length);
-            strcat(path, "data/");
+            strcat(path, "../assets/");
         }
     } break;
     case GamePath_binary: {
@@ -146,11 +151,11 @@ char *platform_path(GamePath root)
         strncpy(path, buffer, length);
     } break;
     case GamePath_shaders: {
-        char *data_path = platform_path(GamePath_data);
-        u64 length = strlen(data_path) + strlen("shaders/") + 1;
+        char *data_path = platform_path(GamePath_binary);
+        u64 length = strlen(data_path) + strlen("data/shaders/") + 1;
         path = (char*)malloc(length);
         strcpy(path, data_path);
-        strcat(path, "shaders/");
+        strcat(path, "data/shaders/");
     } break;
     case GamePath_textures: {
         char *data_path = platform_path(GamePath_data);
@@ -196,6 +201,8 @@ char *platform_resolve_relative(const char *path)
 
 char *platform_resolve_path(GamePath root, const char *path)
 {
+    // TODO(jesper): stick these in platform state or something, if we reload
+    // the code these will be leaked and it's not pretty
     static const char *data_path        = platform_path(GamePath_data);
     static const char *binary_path      = platform_path(GamePath_binary);
     static const char *models_path      = platform_path(GamePath_models);
