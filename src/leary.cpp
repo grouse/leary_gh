@@ -1000,24 +1000,7 @@ void debug_overlay_update(DebugOverlay *overlay, f32 dt)
     void *sp = g_stack->sp;
     defer { g_stack->reset(sp); };
 
-    lock_mutex(&g_texture_catalog.mutex);
-    for (i32 i = 0; i < g_texture_catalog.process_queue.count; i++) {
-        Path &p = g_texture_catalog.process_queue[i];
-        i32 id = find_texture_id(p.filename.bytes);
-        if (id == TEXTURE_INVALID_ID) {
-            // TODO(jesper): support creation of new textures at runtime
-            continue;
-        }
-
-        Texture t = load_texture(p);
-        if (t.data != nullptr) {
-            update_vk_texture(&g_texture_catalog.textures[id], t);
-        }
-    }
-    g_texture_catalog.process_queue.count = 0;
-    unlock_mutex(&g_texture_catalog.mutex);
-
-
+    process_texture_catalog();
 
     stbtt_bakedchar *font = overlay->font;
     i32 *vcount           = &overlay->vertex_count;

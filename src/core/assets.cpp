@@ -454,6 +454,31 @@ Texture find_texture(const char *name)
     return g_texture_catalog.textures[*id];
 }
 
+void process_texture_catalog()
+{
+    PROFILE_FUNCTION();
+
+    lock_mutex(&g_texture_catalog.mutex);
+    // TODO(jesper): we could potentially make this multi-threaded if we ensure
+    // that we have thread safe versions of update_vk_texture, currently that'd
+    // mean handling multi-threaded command buffer creation and submission
+    for (i32 i = 0; i < g_texture_catalog.process_queue.count; i++) {
+        Path &p = g_texture_catalog.process_queue[i];
+        i32 id = find_texture_id(p.filename.bytes);
+        if (id == TEXTURE_INVALID_ID) {
+            // TODO(jesper): support creation of new textures at runtime
+            continue;
+        }
+
+        Texture t = load_texture(p);
+        if (t.data != nullptr) {
+            update_vk_texture(&g_texture_catalog.textures[id], t);
+        }
+    }
+    g_texture_catalog.process_queue.count = 0;
+    unlock_mutex(&g_texture_catalog.mutex);
+}
+
 CATALOG_CALLBACK(texture_catalog_process)
 {
     printf("texture modified: %s\n", path.filename.bytes);

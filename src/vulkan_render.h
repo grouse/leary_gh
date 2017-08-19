@@ -160,6 +160,7 @@ struct PushConstants {
 	void *data;
 };
 
+void update_vk_texture(Texture *texture, Texture ntexture);
 void init_vk_texture(Texture *texture, VkComponentMapping components);
 
 
