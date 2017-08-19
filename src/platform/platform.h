@@ -94,6 +94,18 @@
 #define PLATFORM_RELOAD_FUNC(fname)     void  fname(PlatformState *platform)
 #define PLATFORM_UPDATE_FUNC(fname)     void  fname(PlatformState *platform, f32 dt)
 
+struct Mutex {
+#if defined(__linux__)
+    pthread_mutex_t native;
+#else
+    #error "unsupported platform"
+#endif
+};
+
+void init_mutex(Mutex *m);
+void lock_mutex(Mutex *m);
+void unlock_mutex(Mutex *m);
+
 #define CATALOG_CALLBACK(fname)  void fname(Path path)
 typedef CATALOG_CALLBACK(catalog_callback_t);
 

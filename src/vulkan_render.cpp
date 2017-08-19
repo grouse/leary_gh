@@ -391,6 +391,9 @@ void image_transition(VkCommandBuffer command,
     case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
         barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
         break;
+    case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+        barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_INPUT_ATTACHMENT_READ_BIT;
+        break;
     default:
         // TODO(jesper): unimplemented transfer
         DEBUG_ASSERT(false);
@@ -2007,6 +2010,116 @@ void image_copy(u32 width, u32 height,
     command_buffer_end(command);
 }
 
+
+void update_vk_texture(Texture *texture, Texture ntexture)
+{
+    if (texture->format != ntexture.format ||
+        texture->width  != ntexture.width ||
+        texture->height != ntexture.height ||
+        texture->size   != ntexture.size)
+    {
+        DEBUG_LOG("updating of vulkan texture with non-matching format, width, height, or size is currently unsupported");
+        return;
+    }
+
+    VkDeviceMemory staging_memory;
+    VkImage staging_image = image_create(texture->format,
+                                         texture->width,
+                                         texture->height,
+                                         VK_IMAGE_TILING_LINEAR,
+                                         VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+                                         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                                         VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                                         &staging_memory);
+
+    VkImageSubresource subresource = {};
+    subresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    subresource.mipLevel   = 0;
+    subresource.arrayLayer = 0;
+
+    VkSubresourceLayout staging_image_layout;
+    vkGetImageSubresourceLayout(g_vulkan->handle, staging_image,
+                                &subresource, &staging_image_layout);
+
+    i32 num_channels;
+    i32 bytes_per_channel;
+    switch (texture->format) {
+    case VK_FORMAT_R8_UNORM:
+    case VK_FORMAT_R8_UINT:
+        num_channels      = 1;
+        bytes_per_channel = 1;
+        break;
+    case VK_FORMAT_R8G8B8A8_UNORM:
+    case VK_FORMAT_B8G8R8A8_UNORM:
+        num_channels      = 4;
+        bytes_per_channel = 1;
+        break;
+    case VK_FORMAT_R16_UNORM:
+    case VK_FORMAT_R16_SNORM:
+    case VK_FORMAT_R16_SFLOAT:
+    case VK_FORMAT_R16_SINT:
+        num_channels      = 1;
+        bytes_per_channel = 2;
+        break;
+    case VK_FORMAT_R32_SFLOAT:
+    case VK_FORMAT_R32_UINT:
+    case VK_FORMAT_R32_SINT:
+        num_channels      = 1;
+        bytes_per_channel = 4;
+        break;
+    case VK_FORMAT_R32G32_SFLOAT:
+        num_channels      = 2;
+        bytes_per_channel = 4;
+        break;
+    case VK_FORMAT_R16G16_SFLOAT:
+        num_channels      = 2;
+        bytes_per_channel = 2;
+        break;
+    default:
+        DEBUG_ASSERT(false);
+        num_channels      = 1;
+        bytes_per_channel = 2;
+        break;
+    }
+
+    VkDeviceSize size = texture->width * texture->height * num_channels * bytes_per_channel;
+
+    void *mapped;
+    vkMapMemory(g_vulkan->handle, staging_memory, 0, size, 0, &mapped);
+
+    u32 row_pitch = texture->width * num_channels * bytes_per_channel;
+    if (staging_image_layout.rowPitch == row_pitch) {
+        memcpy(mapped, ntexture.data, (usize)size);
+    } else {
+        u8 *bytes = (u8*)mapped;
+        u8 *pixel_bytes = (u8*)ntexture.data;
+        for (i32 y = 0; y < (i32)texture->height; y++) {
+            memcpy(&bytes[y * num_channels * staging_image_layout.rowPitch],
+                   &pixel_bytes[y * texture->width * num_channels * bytes_per_channel],
+                   texture->width * num_channels * bytes_per_channel);
+        }
+    }
+
+    vkUnmapMemory(g_vulkan->handle, staging_memory);
+
+    // TODO(jesper): if the format or anything has changed here we need to
+    // recreate the VkImage, for now we just support same format, width, height
+    // and size copies so we _should_ be fine to just reuse the image and image
+    // memory
+    image_transition_immediate(staging_image, texture->format,
+                               VK_IMAGE_LAYOUT_PREINITIALIZED,
+                               VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+    image_transition_immediate(texture->image, texture->format,
+                               VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                               VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    image_copy(texture->width, texture->height, staging_image, texture->image);
+    image_transition_immediate(texture->image, texture->format,
+                               VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                               VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+    vkFreeMemory(g_vulkan->handle, staging_memory, nullptr);
+    vkDestroyImage(g_vulkan->handle, staging_image, nullptr);
+}
 
 
 void init_vk_texture(Texture *texture, VkComponentMapping components)

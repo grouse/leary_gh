@@ -47,6 +47,21 @@ void platform_quit(PlatformState *platform);
 
 #include "generated/type_info.h"
 
+void init_mutex(Mutex *m)
+{
+    (void)m;
+}
+
+void lock_mutex(Mutex *m)
+{
+    pthread_mutex_lock(&m->native);
+}
+
+void unlock_mutex(Mutex *m)
+{
+    pthread_mutex_unlock(&m->native);
+}
+
 void platform_toggle_raw_mouse(PlatformState *platform)
 {
     LinuxState *native = (LinuxState*)platform->native;
@@ -119,14 +134,16 @@ void* catalog_thread_process(void *data)
 {
     // TODO(jesper): entering the realm of threads, we need thread safe
     // DEBUG_LOG now!!!!
-    char *folder = (char*)data;
+    CatalogThreadData *ctd = (CatalogThreadData*)data;
 
     char buffer[INOTIFY_BUF_SIZE];
 
     int fd = inotify_init();
     DEBUG_ASSERT(fd >= 0);
 
-    int wd = inotify_add_watch(fd, folder, IN_CREATE | IN_MODIFY | IN_DELETE);
+    isize flen = strlen(ctd->folder);
+
+    int wd = inotify_add_watch(fd, ctd->folder, IN_CREATE | IN_MODIFY | IN_DELETE);
     while (true) {
         int length = read(fd, buffer, INOTIFY_BUF_SIZE);
 
@@ -135,24 +152,44 @@ void* catalog_thread_process(void *data)
         while (i < length) {
             struct inotify_event *event = (struct inotify_event*)&buffer[i];
             if (event->len) {
-                if (event->mask & IN_CREATE) {
-                    if (event->mask & IN_ISDIR) {
-                        DEBUG_LOG("new directory created: %s", event->name);
+                // TODO(jesper): supported created and deleted file events
+                if (!(event->mask & IN_ISDIR) && event->mask & IN_MODIFY) {
+                    Path p;
+                    bool eslash  = ctd->folder[flen-1] == '/';
+                    if (!eslash) {
+                        isize length = flen + event->len + 2;
+                        // TODO(jesper): replace with thread safe allocator
+                        p.absolute = { length, (char*)malloc(length) };
+                        strcpy(p.absolute.bytes, ctd->folder);
+                        p.absolute[flen]   = '/';
+                        p.absolute[flen+1] = '\0';
                     } else {
-                        DEBUG_LOG("new file created: %s", event->name);
+                        isize length = flen + event->len + 1;
+                        // TODO(jesper): replace with thread safe allocator
+                        p.absolute   = { length, (char*)malloc(length) };
+                        strcpy(p.absolute.bytes, ctd->folder);
                     }
-                } else if (event->mask & IN_MODIFY) {
-                    if (event->mask & IN_ISDIR) {
-                        DEBUG_LOG("directory modified: %s", event->name);
+
+                    strcat(p.absolute.bytes, event->name);
+                    if (!eslash) {
+                        p.filename = { event->len, p.absolute.bytes + flen + 1 };
                     } else {
-                        DEBUG_LOG("file modified: %s", event->name);
+                        p.filename = { event->len, p.absolute.bytes + flen };
                     }
-                } else if (event->mask & IN_DELETE) {
-                    if (event->mask & IN_ISDIR) {
-                        DEBUG_LOG("directory deleted: %s", event->name);
+
+                    isize ext = 0;
+                    for (i32 i = 0; i < p.filename.length; i++) {
+                        if (p.filename[i] == '.') {
+                            ext = i;
+                        }
+                    }
+                    if (ext != 0) {
+                        p.extension = { event->len - ext, p.filename.bytes + ext + 1 };
                     } else {
-                        DEBUG_LOG("file deleted: %s", event->name);
+                        p.extension = { 0, p.filename.bytes + event->len };
                     }
+
+                    ctd->callback(p);
                 }
             }
 

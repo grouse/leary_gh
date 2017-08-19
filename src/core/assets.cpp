@@ -29,8 +29,10 @@ struct Catalog {
 
     // NOTE: mapping between texture name and texture id
     HashTable<const char*, i32> table;
-
     Array<Texture> textures;
+
+    Mutex mutex;
+    Array<Path> process_queue;
 };
 
 
@@ -366,11 +368,6 @@ Mesh load_mesh_obj(const char *filename)
     return mesh;
 }
 
-CATALOG_CALLBACK(texture_catalog_process)
-{
-    (void)path;
-}
-
 extern Catalog g_texture_catalog;
 Texture* add_texture(const char *name,
                      u32 width, u32 height,
@@ -417,22 +414,6 @@ Texture* add_texture(Path path)
     return &g_texture_catalog.textures[id];
 }
 
-void init_texture_catalog()
-{
-    g_texture_catalog = {};
-    g_texture_catalog.folder = platform_resolve_path(GamePath_textures, "");
-    g_texture_catalog.textures.allocator = g_heap;
-    init_table(&g_texture_catalog.table, g_heap);
-
-    Array<Path> files = list_files(g_texture_catalog.folder, g_frame);
-    for (i32 i = 0; i < files.count; i++) {
-        add_texture(files[i]);
-    }
-
-    // TODO(jesper): we can use 1 thread for all folders with inotify
-    create_catalog_thread(g_texture_catalog.folder, &texture_catalog_process);
-}
-
 i32 find_texture_id(const char *name)
 {
     i32 *id = table_find(&g_texture_catalog.table, name);
@@ -460,4 +441,35 @@ Texture find_texture(const char *name)
     }
 
     return g_texture_catalog.textures[*id];
+}
+
+CATALOG_CALLBACK(texture_catalog_process)
+{
+    printf("texture modified: %s\n", path.filename.bytes);
+    i32 id = find_texture_id(path.filename.bytes);
+    if (id == TEXTURE_INVALID_ID) {
+        // TODO(jesper): support creation of new textures
+        return;
+    }
+
+    lock_mutex(&g_texture_catalog.mutex);
+    array_add(&g_texture_catalog.process_queue, path);
+    unlock_mutex(&g_texture_catalog.mutex);
+}
+
+void init_texture_catalog()
+{
+    g_texture_catalog = {};
+    g_texture_catalog.folder = platform_resolve_path(GamePath_textures, "");
+    g_texture_catalog.textures.allocator      = g_heap;
+    g_texture_catalog.process_queue.allocator = g_heap;
+    init_table(&g_texture_catalog.table, g_heap);
+
+    Array<Path> files = list_files(g_texture_catalog.folder, g_heap);
+    for (i32 i = 0; i < files.count; i++) {
+        add_texture(files[i]);
+    }
+
+    // TODO(jesper): we can use 1 thread for all folders with inotify
+    create_catalog_thread(g_texture_catalog.folder, &texture_catalog_process);
 }
