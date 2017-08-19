@@ -410,3 +410,8 @@ Catalog create_texture_catalog()
     create_catalog_thread(catalog.folder, &texture_catalog_process);
     return catalog;
 }
+
+Texture* texture_find(const char *name)
+{
+    return table_find(&g_texture_catalog.table, name);
+}

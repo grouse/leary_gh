@@ -470,9 +470,9 @@ void game_init(PlatformState *platform)
         set_ubo(&g_game->pipelines.mesh, ResourceSlot_mvp, &g_game->fp_camera.ubo);
         set_ubo(&g_game->pipelines.terrain, ResourceSlot_mvp, &g_game->fp_camera.ubo);
 
-        Texture *font   = table_find(&g_texture_catalog.table, "font-regular");
-        Texture *cube   = table_find(&g_texture_catalog.table, "dummy.bmp");
-        Texture *player = table_find(&g_texture_catalog.table, "player.bmp");
+        Texture *font   = texture_find("font-regular");
+        Texture *cube   = texture_find("dummy.bmp");
+        Texture *player = texture_find("player.bmp");
 
         set_texture(&g_game->materials.font,   ResourceSlot_diffuse, font);
         set_texture(&g_game->materials.phong,  ResourceSlot_diffuse, cube);
@@ -538,7 +538,7 @@ void game_init(PlatformState *platform)
     }
 
     {
-        Texture *hm = table_find(&g_texture_catalog.table, "terrain.bmp");
+        Texture *hm = texture_find("terrain.bmp");
         DEBUG_ASSERT(hm != nullptr);
         DEBUG_ASSERT(hm->size > 0);
 
@@ -706,7 +706,7 @@ void game_init(PlatformState *platform)
         timers.type  = Debug_profile_timers;
         array_add(&g_game->overlay.items, timers);
 
-        Texture *hmt = table_find(&g_texture_catalog.table, "terrain.bmp");
+        Texture *hmt = texture_find("terrain.bmp");
         debug_add_texture("Terrain", hmt, g_game->materials.heightmap,
                           &g_game->pipelines.basic2d, &g_game->overlay);
     }
