@@ -2624,7 +2624,7 @@ void swapchain_destroy(VulkanSwapchain swapchain)
     vkDestroySurfaceKHR(g_vulkan->instance, swapchain.surface, nullptr);
 }
 
-void texture_destroy(Texture *texture)
+void destroy_texture(Texture *texture)
 {
     vkDestroyImageView(g_vulkan->handle, texture->image_view, nullptr);
     vkDestroyImage(g_vulkan->handle, texture->image, nullptr);

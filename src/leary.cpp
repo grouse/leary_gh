@@ -371,7 +371,7 @@ void game_init(PlatformState *platform)
 
     device_create(platform, &platform->settings);
 
-    g_texture_catalog = create_texture_catalog();
+    init_texture_catalog();
 
 #if 0
     // TODO(jesper): move into test
@@ -433,8 +433,8 @@ void game_init(PlatformState *platform)
 
         VkComponentMapping components = {};
         components.a = VK_COMPONENT_SWIZZLE_R;
-        insert_catalog_texture("font-regular", 1024, 1024, VK_FORMAT_R8_UNORM,
-                               bitmap, components);
+        add_texture("font-regular", 1024, 1024, VK_FORMAT_R8_UNORM, bitmap,
+                    components);
 
         // TODO(jesper): this size is really wrong
         g_game->overlay.vbo = create_vbo(1024*1024);
@@ -470,9 +470,9 @@ void game_init(PlatformState *platform)
         set_ubo(&g_game->pipelines.mesh, ResourceSlot_mvp, &g_game->fp_camera.ubo);
         set_ubo(&g_game->pipelines.terrain, ResourceSlot_mvp, &g_game->fp_camera.ubo);
 
-        Texture *font   = texture_find("font-regular");
-        Texture *cube   = texture_find("dummy.bmp");
-        Texture *player = texture_find("player.bmp");
+        Texture *font   = find_texture("font-regular");
+        Texture *cube   = find_texture("dummy.bmp");
+        Texture *player = find_texture("player.bmp");
 
         set_texture(&g_game->materials.font,   ResourceSlot_diffuse, font);
         set_texture(&g_game->materials.phong,  ResourceSlot_diffuse, cube);
@@ -538,7 +538,7 @@ void game_init(PlatformState *platform)
     }
 
     {
-        Texture *hm = texture_find("terrain.bmp");
+        Texture *hm = find_texture("terrain.bmp");
         DEBUG_ASSERT(hm != nullptr);
         DEBUG_ASSERT(hm->size > 0);
 
@@ -706,7 +706,7 @@ void game_init(PlatformState *platform)
         timers.type  = Debug_profile_timers;
         array_add(&g_game->overlay.items, timers);
 
-        Texture *hmt = texture_find("terrain.bmp");
+        Texture *hmt = find_texture("terrain.bmp");
         debug_add_texture("Terrain", hmt, g_game->materials.heightmap,
                           &g_game->pipelines.basic2d, &g_game->overlay);
     }
@@ -725,6 +725,10 @@ void game_quit(PlatformState *platform)
         if (item.type == Debug_render_item) {
             buffer_destroy(item.ritem.vbo);
         }
+    }
+
+    for (i32 i = 0; i < g_texture_catalog.textures.count; i++) {
+        destroy_texture(&g_texture_catalog.textures[i]);
     }
 
     buffer_destroy(g_game->overlay.vbo);

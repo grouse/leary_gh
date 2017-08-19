@@ -27,6 +27,8 @@ struct Mesh {
 struct Catalog {
     const char *folder;
     HashTable<char*, Texture> table;
+
+    Array<Texture> textures;
 };
 
 
@@ -368,10 +370,10 @@ CATALOG_CALLBACK(texture_catalog_process)
 }
 
 extern Catalog g_texture_catalog;
-Texture* insert_catalog_texture(const char *name,
-                            u32 width, u32 height,
-                            VkFormat format, void *pixels,
-                            VkComponentMapping components)
+Texture* add_texture(const char *name,
+                     u32 width, u32 height,
+                     VkFormat format, void *pixels,
+                     VkComponentMapping components)
 {
     Texture t = {};
     t.width   = width;
@@ -380,38 +382,45 @@ Texture* insert_catalog_texture(const char *name,
     t.data    = pixels;
 
     init_vk_texture(&t, components);
+    array_add(&g_texture_catalog.textures, t);
     return table_add(&g_texture_catalog.table, name, t);
 }
 
-Catalog create_texture_catalog()
+Texture *add_texture(Path path)
 {
-    Catalog catalog = {};
-    catalog.folder = platform_resolve_path(GamePath_textures, "");
-    init_table(&catalog.table, g_heap);
+    Texture t = {};
+    u64 ehash = hash64(path.extension.bytes);
+    switch (ehash) {
+    case hash64("bmp"):
+        t = texture_load_bmp(path.absolute.bytes);
+        break;
+    default:
+        DEBUG_LOG("unknown texture extension: %s", path.extension.bytes);
+        return nullptr;
+    }
 
-    Array<Path> files = list_files(catalog.folder, g_frame);
+    init_vk_texture(&t, VkComponentMapping{});
+    array_add(&g_texture_catalog.textures, t);
+    return table_add(&g_texture_catalog.table, path.filename.bytes, t);
+}
+
+void init_texture_catalog()
+{
+    g_texture_catalog = {};
+    g_texture_catalog.folder = platform_resolve_path(GamePath_textures, "");
+    g_texture_catalog.textures.allocator = g_heap;
+    init_table(&g_texture_catalog.table, g_heap);
+
+    Array<Path> files = list_files(g_texture_catalog.folder, g_frame);
     for (i32 i = 0; i < files.count; i++) {
-        Texture t = {};
-        u64 ehash = hash64(files[i].extension.bytes);
-        switch (ehash) {
-        case hash64("bmp"):
-            t = texture_load_bmp(files[i].absolute.bytes);
-            break;
-        default:
-            DEBUG_LOG("unknown texture extension: %s", files[i].extension.bytes);
-            continue;
-        }
-
-        init_vk_texture(&t, VkComponentMapping{});
-        table_add(&catalog.table, files[i].filename.bytes, t);
+        add_texture(files[i]);
     }
 
     // TODO(jesper): we can use 1 thread for all folders with inotify
-    create_catalog_thread(catalog.folder, &texture_catalog_process);
-    return catalog;
+    create_catalog_thread(g_texture_catalog.folder, &texture_catalog_process);
 }
 
-Texture* texture_find(const char *name)
+Texture* find_texture(const char *name)
 {
     return table_find(&g_texture_catalog.table, name);
 }
