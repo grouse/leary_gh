@@ -1009,18 +1009,10 @@ void debug_overlay_update(DebugOverlay *overlay, f32 dt)
             continue;
         }
 
-        Texture t = {};
-        u64 ehash = hash64(p.extension.bytes);
-        switch (ehash) {
-        case hash64("bmp"):
-            t = texture_load_bmp(p.absolute.bytes);
-            break;
-        default:
-            DEBUG_LOG("unknown texture extension: %s", p.extension.bytes);
-            continue;
+        Texture t = load_texture(p);
+        if (t.data != nullptr) {
+            update_vk_texture(&g_texture_catalog.textures[id], t);
         }
-
-        update_vk_texture(&g_texture_catalog.textures[id], t);
     }
     g_texture_catalog.process_queue.count = 0;
     unlock_mutex(&g_texture_catalog.mutex);

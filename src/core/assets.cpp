@@ -59,7 +59,7 @@ PACKED(struct BitmapHeader {
     u32 colors_important;
 });
 
-Texture texture_load_bmp(const char *path)
+Texture load_texture_bmp(const char *path)
 {
     // TODO(jesper): make this path work with String struct
     Texture texture = {};
@@ -369,6 +369,23 @@ Mesh load_mesh_obj(const char *filename)
 }
 
 extern Catalog g_texture_catalog;
+
+Texture load_texture(Path path)
+{
+    Texture t = {};
+    u64 ehash = hash64(path.extension.bytes);
+    switch (ehash) {
+    case hash64("bmp"):
+        t = load_texture_bmp(path.absolute.bytes);
+        break;
+    default:
+        DEBUG_LOG("unknown texture extension: %s", path.extension.bytes);
+        break;
+    }
+    return t;
+}
+
+
 Texture* add_texture(const char *name,
                      u32 width, u32 height,
                      VkFormat format, void *pixels,
@@ -393,14 +410,8 @@ Texture* add_texture(const char *name,
 
 Texture* add_texture(Path path)
 {
-    Texture t = {};
-    u64 ehash = hash64(path.extension.bytes);
-    switch (ehash) {
-    case hash64("bmp"):
-        t = texture_load_bmp(path.absolute.bytes);
-        break;
-    default:
-        DEBUG_LOG("unknown texture extension: %s", path.extension.bytes);
+    Texture t = load_texture(path);
+    if (t.data == nullptr) {
         return nullptr;
     }
 
