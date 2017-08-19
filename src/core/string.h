@@ -30,5 +30,7 @@ struct String {
     }
 };
 
+constexpr i32 string_length(const char *str);
+
 #endif /* LEARY_STRING_H */
 

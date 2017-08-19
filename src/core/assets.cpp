@@ -373,15 +373,19 @@ extern Catalog g_texture_catalog;
 Texture load_texture(Path path)
 {
     Texture t = {};
-    u64 ehash = hash64(path.extension.bytes);
-    switch (ehash) {
-    case hash64("bmp"):
+    u32 ehash = hash32(path.extension.bytes);
+
+    // TODO(jesper): this isn't constexpr because C++ constexpr is like the
+    // village idiot everyone smiles at and tries to ignore and go on about
+    // their day.
+    u32 bmp_hash = hash32("bmp");
+    // This is also why this isn't a switch case.
+    if (ehash == bmp_hash) {
         t = load_texture_bmp(path.absolute.bytes);
-        break;
-    default:
+    } else {
         DEBUG_LOG("unknown texture extension: %s", path.extension.bytes);
-        break;
     }
+
     return t;
 }
 

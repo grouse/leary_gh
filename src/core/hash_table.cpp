@@ -56,8 +56,8 @@ V* table_add(HashTable<K, V> *table, K key, V value)
 template <typename V>
 V* table_add(HashTable<const char*, V> *table, const char *key, V value)
 {
-    u64 hash  = hash64(key);
-    u64 index = hash % TABLE_SIZE;
+    u32 hash  = hash32(key);
+    u32 index = hash % TABLE_SIZE;
 
     for (i32 i = 0; i < table->table[index].count; i++) {
         // TODO(jesper): add a comparator template argument? only allow keys
@@ -78,8 +78,8 @@ V* table_add(HashTable<const char*, V> *table, const char *key, V value)
 template <typename V>
 V* table_add(HashTable<char*, V> *table, char *key, V value)
 {
-    u64 hash  = hash64(key);
-    u64 index = hash % TABLE_SIZE;
+    u32 hash  = hash32(key);
+    u32 index = hash % TABLE_SIZE;
 
     for (i32 i = 0; i < table->table[index].count; i++) {
         // TODO(jesper): add a comparator template argument? only allow keys
@@ -100,8 +100,8 @@ V* table_add(HashTable<char*, V> *table, char *key, V value)
 template <typename V>
 V* table_add(HashTable<char*, V> *table, const char *key, V value)
 {
-    u64 hash  = hash64(key);
-    u64 index = hash % TABLE_SIZE;
+    u32 hash  = hash32(key);
+    u32 index = hash % TABLE_SIZE;
 
     for (i32 i = 0; i < table->table[index].count; i++) {
         // TODO(jesper): add a comparator template argument? only allow keys
@@ -144,8 +144,8 @@ V* table_find(HashTable<K, V> *table, K key)
 template <typename V>
 V* table_find(HashTable<const char*, V> *table, const char *key)
 {
-    u64 hash  = hash64(key);
-    u64 index = hash % TABLE_SIZE;
+    u32 hash  = hash32(key);
+    u32 index = hash % TABLE_SIZE;
 
     for (i32 i = 0; i < table->table[index].count; i++) {
         // TODO(jesper): add a comparator template argument? only allow keys
@@ -163,8 +163,8 @@ V* table_find(HashTable<const char*, V> *table, const char *key)
 template <typename V>
 V* table_find(HashTable<char*, V> *table, char *key)
 {
-    u64 hash  = hash64(key);
-    u64 index = hash % TABLE_SIZE;
+    u32 hash  = hash32(key);
+    u32 index = hash % TABLE_SIZE;
 
     for (i32 i = 0; i < table->table[index].count; i++) {
         // TODO(jesper): add a comparator template argument? only allow keys
@@ -182,8 +182,8 @@ V* table_find(HashTable<char*, V> *table, char *key)
 template <typename V>
 V* table_find(HashTable<char*, V> *table, const char *key)
 {
-    u64 hash  = hash64(key);
-    u64 index = hash % TABLE_SIZE;
+    u32 hash  = hash32(key);
+    u32 index = hash % TABLE_SIZE;
 
     for (i32 i = 0; i < table->table[index].count; i++) {
         // TODO(jesper): add a comparator template argument? only allow keys
