@@ -85,7 +85,6 @@ enum DebugOverlayItemType {
 struct DebugRenderItem {
     Vector2                position;
     VulkanPipeline         *pipeline    = nullptr;
-    Texture                *texture     = nullptr;
     Array<VkDescriptorSet> descriptors  = {};
     VulkanBuffer           vbo;
     i32                    vertex_count = 0;
@@ -172,27 +171,28 @@ Matrix4      g_screen_to_view; // [0, w] -> [-1  , 1]
 Catalog      g_texture_catalog;
 
 void debug_add_texture(const char *name,
-                       Texture *texture,
+                       i32 tid,
                        Material material,
                        VulkanPipeline *pipeline,
                        DebugOverlay *overlay)
 {
-    if (texture == nullptr) {
+    Texture texture = find_texture(tid);
+
+    if (texture.id == TEXTURE_INVALID_ID) {
         return;
     }
 
     DebugOverlayItem item;
-    item.title           = name;
-    item.type            = Debug_render_item;
-    item.ritem.pipeline  = pipeline;
-    item.ritem.texture   = texture;
-    item.ritem.constants = push_constants_create(pipeline->id);
+    item.title            = name;
+    item.type             = Debug_render_item;
+    item.ritem.pipeline   = pipeline;
+    item.ritem.constants  = push_constants_create(pipeline->id);
 
     Matrix4 t = Matrix4::identity();
     t[0].x =  g_screen_to_view[0].x;
     t[1].y =  g_screen_to_view[1].y;
 
-    Vector2 dim = { (f32)texture->width, (f32)texture->height };
+    Vector2 dim = { (f32)texture.width, (f32)texture.height };
     dim = t * dim;
 
     f32 vertices[] = {
@@ -470,9 +470,9 @@ void game_init(PlatformState *platform)
         set_ubo(&g_game->pipelines.mesh, ResourceSlot_mvp, &g_game->fp_camera.ubo);
         set_ubo(&g_game->pipelines.terrain, ResourceSlot_mvp, &g_game->fp_camera.ubo);
 
-        Texture *font   = find_texture("font-regular");
-        Texture *cube   = find_texture("dummy.bmp");
-        Texture *player = find_texture("player.bmp");
+        Texture font   = find_texture("font-regular");
+        Texture cube   = find_texture("dummy.bmp");
+        Texture player = find_texture("player.bmp");
 
         set_texture(&g_game->materials.font,   ResourceSlot_diffuse, font);
         set_texture(&g_game->materials.phong,  ResourceSlot_diffuse, cube);
@@ -538,9 +538,9 @@ void game_init(PlatformState *platform)
     }
 
     {
-        Texture *hm = find_texture("terrain.bmp");
-        DEBUG_ASSERT(hm != nullptr);
-        DEBUG_ASSERT(hm->size > 0);
+        Texture hm = find_texture("terrain.bmp");
+        DEBUG_ASSERT(hm.id != TEXTURE_INVALID_ID);
+        DEBUG_ASSERT(hm.size > 0);
 
         struct Texel {
             u8 r, g, b, a;
@@ -551,7 +551,7 @@ void game_init(PlatformState *platform)
             Vector3 n;
         };
 
-        u32  vc       = hm->height * hm->width;
+        u32  vc       = hm.height * hm.width;
         auto vertices = array_create<Vertex>(g_persistent, vc);
 
         // TODO(jesper): move to settings/asset info/something
@@ -561,26 +561,26 @@ void game_init(PlatformState *platform)
         f32 zz = w.z * 2.0f;
 
         Matrix4 to_world = Matrix4::identity();
-        to_world[0].x = xx / (f32)hm->width;
+        to_world[0].x = xx / (f32)hm.width;
         to_world[3].x = -w.x;
 
         to_world[1].y = zz / 255.0f;
         to_world[3].y = -w.z;
 
-        to_world[2].z = yy / (f32)hm->height;
+        to_world[2].z = yy / (f32)hm.height;
         to_world[3].z = -w.y;
 
-        for (u32 i = 1; i < hm->height-1; i+=2) {
-            for (u32 j = 1; j < hm->width-1; j+=2) {
-                Texel tl  = ((Texel*)hm->data)[i     * hm->width + j-1];
-                Texel tc  = ((Texel*)hm->data)[i     * hm->width + j];
-                Texel tr  = ((Texel*)hm->data)[i     * hm->width + j+1];
-                Texel tt  = ((Texel*)hm->data)[(i-1) * hm->width + j];
-                Texel ttl = ((Texel*)hm->data)[(i-1) * hm->width + j-1];
-                Texel ttr = ((Texel*)hm->data)[(i-1) * hm->width + j+1];
-                Texel tb  = ((Texel*)hm->data)[(i+1) * hm->width + j];
-                Texel tbl = ((Texel*)hm->data)[(i+1) * hm->width + j-1];
-                Texel tbr = ((Texel*)hm->data)[(i+1) * hm->width + j+1];
+        for (u32 i = 1; i < hm.height-1; i+=2) {
+            for (u32 j = 1; j < hm.width-1; j+=2) {
+                Texel tl  = ((Texel*)hm.data)[i     * hm.width + j-1];
+                Texel tc  = ((Texel*)hm.data)[i     * hm.width + j];
+                Texel tr  = ((Texel*)hm.data)[i     * hm.width + j+1];
+                Texel tt  = ((Texel*)hm.data)[(i-1) * hm.width + j];
+                Texel ttl = ((Texel*)hm.data)[(i-1) * hm.width + j-1];
+                Texel ttr = ((Texel*)hm.data)[(i-1) * hm.width + j+1];
+                Texel tb  = ((Texel*)hm.data)[(i+1) * hm.width + j];
+                Texel tbl = ((Texel*)hm.data)[(i+1) * hm.width + j-1];
+                Texel tbr = ((Texel*)hm.data)[(i+1) * hm.width + j+1];
 
                 Vector3 vl  = to_world * Vector3{ (f32)j-1, (f32)tl.r,  (f32)i   };
                 Vector3 vc  = to_world * Vector3{ (f32)j,   (f32)tc.r,  (f32)i   };
@@ -706,7 +706,7 @@ void game_init(PlatformState *platform)
         timers.type  = Debug_profile_timers;
         array_add(&g_game->overlay.items, timers);
 
-        Texture *hmt = find_texture("terrain.bmp");
+        i32 hmt = find_texture_id("terrain.bmp");
         debug_add_texture("Terrain", hmt, g_game->materials.heightmap,
                           &g_game->pipelines.basic2d, &g_game->overlay);
     }

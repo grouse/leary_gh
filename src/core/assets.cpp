@@ -26,7 +26,9 @@ struct Mesh {
 
 struct Catalog {
     const char *folder;
-    HashTable<char*, Texture> table;
+
+    // NOTE: mapping between texture name and texture id
+    HashTable<const char*, i32> table;
 
     Array<Texture> textures;
 };
@@ -381,12 +383,18 @@ Texture* add_texture(const char *name,
     t.format  = format;
     t.data    = pixels;
 
+    i32 id = g_texture_catalog.textures.count;
+    t.id   = id;
+
     init_vk_texture(&t, components);
+
     array_add(&g_texture_catalog.textures, t);
-    return table_add(&g_texture_catalog.table, name, t);
+    table_add(&g_texture_catalog.table, name, id);
+
+    return &g_texture_catalog.textures[id];
 }
 
-Texture *add_texture(Path path)
+Texture* add_texture(Path path)
 {
     Texture t = {};
     u64 ehash = hash64(path.extension.bytes);
@@ -399,9 +407,14 @@ Texture *add_texture(Path path)
         return nullptr;
     }
 
+    i32 id = g_texture_catalog.textures.count;
+    t.id   = id;
+
     init_vk_texture(&t, VkComponentMapping{});
+
     array_add(&g_texture_catalog.textures, t);
-    return table_add(&g_texture_catalog.table, path.filename.bytes, t);
+    table_add(&g_texture_catalog.table, path.filename.bytes, id);
+    return &g_texture_catalog.textures[id];
 }
 
 void init_texture_catalog()
@@ -420,7 +433,31 @@ void init_texture_catalog()
     create_catalog_thread(g_texture_catalog.folder, &texture_catalog_process);
 }
 
-Texture* find_texture(const char *name)
+i32 find_texture_id(const char *name)
 {
-    return table_find(&g_texture_catalog.table, name);
+    i32 *id = table_find(&g_texture_catalog.table, name);
+    if (id == nullptr) {
+        return TEXTURE_INVALID_ID;
+    }
+
+    return *id;
+}
+
+Texture find_texture(i32 id)
+{
+    if (id == TEXTURE_INVALID_ID || id >= g_texture_catalog.textures.count) {
+        return Texture{};
+    }
+
+    return g_texture_catalog.textures[id];
+}
+
+Texture find_texture(const char *name)
+{
+    i32 *id = table_find(&g_texture_catalog.table, name);
+    if (id == nullptr) {
+        return Texture{};
+    }
+
+    return g_texture_catalog.textures[*id];
 }

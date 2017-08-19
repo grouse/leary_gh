@@ -2876,14 +2876,14 @@ void destroy_material(Material material)
     vkDestroyDescriptorPool(g_vulkan->handle, material.descriptor_pool, nullptr);
 }
 
-void set_texture(Material *material, ResourceSlot slot, Texture *texture)
+void set_texture(Material *material, ResourceSlot slot, Texture texture)
 {
     // TODO(jesper): use this to figure out which sampler and dstBinding to set
     (void)slot;
 
     VkDescriptorImageInfo image_info = {};
     image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    image_info.imageView   = texture->image_view;
+    image_info.imageView   = texture.image_view;
     // TODO(jesper): figure this one out based on ResourceSlot
     // NOTE(jesper): there might be some merit to sticking the sampler inside
     // the material, as this'd allow us to use different image samplers with

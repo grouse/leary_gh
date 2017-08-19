@@ -66,13 +66,13 @@ V* table_add(HashTable<const char*, V> *table, const char *key, V value)
             // TODO(jesper): to_string key
             DEBUG_LOG("key already exists in hash table");
             DEBUG_ASSERT(false);
-            return;
+            return nullptr;
         }
     }
 
     Pair<const char*, V> pair = { key, value };
     isize i = array_add(&table->table[index], pair);
-    return &table->table[index][i];
+    return &table->table[index][i].value;
 }
 
 template <typename V>
