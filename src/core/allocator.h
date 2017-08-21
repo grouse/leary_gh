@@ -15,6 +15,8 @@ struct Allocator {
     isize size;
     isize remaining;
 
+    virtual ~Allocator() {}
+
     virtual void* alloc  (isize size)             = 0;
     virtual void  dealloc(void  *ptr)             = 0;
     virtual void* realloc(void  *ptr, isize size) = 0;

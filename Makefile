@@ -48,8 +48,14 @@ $(BUILD)/benchmark: FORCE
 
 tools: $(BUILD)/preprocessor
 
+TESTS_FLAGS = $(FLAGS) $(WARNINGS) $(UNOPTIMIZED) $(INCLUDE_DIR)
+$(BUILD)/tests: FORCE
+	$(CXX) $(TOOLS_FLAGS) $(ROOT)/tests/main.cpp -o $@
 
-all: shaders tools leary
+tests: $(BUILD)/tests
+
+
+all: shaders tools leary tests
 
 $(SPV_DST):
 	mkdir -p $(SPV_DST)
