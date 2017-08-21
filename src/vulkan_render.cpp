@@ -28,6 +28,8 @@ extern VulkanDevice *g_vulkan;
 PFN_vkCreateDebugReportCallbackEXT   CreateDebugReportCallbackEXT;
 PFN_vkDestroyDebugReportCallbackEXT  DestroyDebugReportCallbackEXT;
 
+extern Settings g_settings;
+
 static VKAPI_ATTR VkBool32 VKAPI_CALL
 debug_callback_func(VkFlags flags,
                     VkDebugReportObjectTypeEXT object_type,
@@ -490,8 +492,7 @@ VkImage image_create(VkFormat format,
 }
 
 VulkanSwapchain swapchain_create(VulkanPhysicalDevice *physical_device,
-                                 VkSurfaceKHR surface,
-                                 Settings *settings)
+                                 VkSurfaceKHR surface)
 
 {
     VkResult result;
@@ -549,12 +550,12 @@ VulkanSwapchain swapchain_create(VulkanPhysicalDevice *physical_device,
     for (u32 i = 0; i < present_modes_count; ++i) {
         const VkPresentModeKHR &mode = present_modes[i];
 
-        if (settings->video.vsync && mode == VK_PRESENT_MODE_MAILBOX_KHR) {
+        if (g_settings.video.vsync && mode == VK_PRESENT_MODE_MAILBOX_KHR) {
             surface_present_mode = VK_PRESENT_MODE_MAILBOX_KHR;
             break;
         }
 
-        if (!settings->video.vsync && mode == VK_PRESENT_MODE_IMMEDIATE_KHR) {
+        if (!g_settings.video.vsync && mode == VK_PRESENT_MODE_IMMEDIATE_KHR) {
             surface_present_mode = VK_PRESENT_MODE_IMMEDIATE_KHR;
             break;
         }
@@ -563,11 +564,11 @@ VulkanSwapchain swapchain_create(VulkanPhysicalDevice *physical_device,
     swapchain.extent = surface_capabilities.currentExtent;
     if (swapchain.extent.width == (u32) (-1)) {
         // TODO(grouse): clean up usage of window dimensions
-        DEBUG_ASSERT(settings->video.resolution.width  >= 0);
-        DEBUG_ASSERT(settings->video.resolution.height >= 0);
+        DEBUG_ASSERT(g_settings.video.resolution.width  >= 0);
+        DEBUG_ASSERT(g_settings.video.resolution.height >= 0);
 
-        swapchain.extent.width  = (u32)settings->video.resolution.width;
-        swapchain.extent.height = (u32)settings->video.resolution.height;
+        swapchain.extent.width  = (u32)g_settings.video.resolution.width;
+        swapchain.extent.height = (u32)g_settings.video.resolution.height;
     }
 
     // TODO: determine the number of VkImages to use in the swapchain
@@ -2271,7 +2272,7 @@ void vkdebug_destroy()
     g_vulkan->debug_callback = nullptr;
 }
 
-void device_create(PlatformState *platform, Settings *settings)
+void init_vulkan()
 {
     void *sp = g_stack->sp;
     defer { g_stack->reset(sp); };
@@ -2458,7 +2459,7 @@ void device_create(PlatformState *platform, Settings *settings)
     // (imo), but to create the swapchain we need the device, and to create the
     // device we need the surface
     VkSurfaceKHR surface;
-    result = platform_vulkan_create_surface(g_vulkan->instance, &surface, platform);
+    result = platform_vulkan_create_surface(g_vulkan->instance, &surface);
     DEBUG_ASSERT(result == VK_SUCCESS);
 
 
@@ -2587,7 +2588,7 @@ void device_create(PlatformState *platform, Settings *settings)
     // now because we're still hardcoding the depth buffer creation, among other
     // things, in the VulkanDevice, which requires the created swapchain.
     // Really I think it mostly/only need the extent, but same difference
-    g_vulkan->swapchain = swapchain_create(&g_vulkan->physical_device, surface, settings);
+    g_vulkan->swapchain = swapchain_create(&g_vulkan->physical_device, surface);
 
     /**************************************************************************
      * Create vkRenderPass

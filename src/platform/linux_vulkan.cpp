@@ -22,12 +22,13 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
+extern PlatformState *g_platform;
+
 VkResult
 platform_vulkan_create_surface(VkInstance instance,
-                               VkSurfaceKHR *surface,
-                               PlatformState *platform)
+                               VkSurfaceKHR *surface)
 {
-	LinuxState *native = (LinuxState*)platform->native;
+	LinuxState *native = (LinuxState*)g_platform->native;
 	VkXlibSurfaceCreateInfoKHR info = {};
 	info.sType  = VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR;
 	info.pNext  = nullptr;

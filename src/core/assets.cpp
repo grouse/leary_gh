@@ -503,6 +503,8 @@ void init_texture_catalog()
     g_texture_catalog.folder = platform_resolve_path(GamePath_textures, "");
     g_texture_catalog.textures.allocator      = g_heap;
     g_texture_catalog.process_queue.allocator = g_heap;
+
+    init_mutex(&g_texture_catalog.mutex);
     init_table(&g_texture_catalog.table, g_heap);
 
     Array<Path> files = list_files(g_texture_catalog.folder, g_heap);

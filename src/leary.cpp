@@ -157,6 +157,10 @@ struct GameReloadState {
     Matrix4       screen_to_view;
     Matrix4       view_to_screen;
 
+    PlatformState *platform;
+    Settings      settings;
+    Catalog       texture_catalog;
+
     VulkanDevice  *vulkan_device;
     GameState     *game;
 };
@@ -167,6 +171,9 @@ GameState    *g_game;
 // NOTE(jesper): don't keep an address to these globals!!!!
 Matrix4      g_view_to_screen; // [-1  , 1]   -> [0, w]
 Matrix4      g_screen_to_view; // [0, w] -> [-1  , 1]
+
+Settings     g_settings;
+extern PlatformState *g_platform;
 
 Catalog      g_texture_catalog;
 
@@ -367,30 +374,15 @@ void render_font(stbtt_bakedchar *font,
 
 void game_init(PlatformState *platform)
 {
+    g_platform = platform;
+    g_settings = platform->settings;
+
     g_game = g_persistent->ialloc<GameState>();
 
-    device_create(platform, &platform->settings);
+    init_profiling();
 
+    init_vulkan();
     init_texture_catalog();
-
-#if 0
-    // TODO(jesper): move into test
-    HashTable<const char*, i32> table;
-    init_table(&table, g_frame);
-
-    table_add(&table, "abc", 56);
-    table_add(&table, "abcd", 23);
-    table_add(&table, "abcde", 123);
-    table_add(&table, "abdc", 321);
-
-    DEBUG_LOG("abc: %d",   *table_find(&table, "abc"));
-    DEBUG_LOG("abcd: %d",  *table_find(&table, "abcd"));
-    DEBUG_LOG("abcde: %d", *table_find(&table, "abcde"));
-    DEBUG_LOG("abdc: %d",  *table_find(&table, "abdc"));
-#endif
-
-    profile_init();
-
 
     f32 width = (f32)platform->settings.video.resolution.width;
     f32 height = (f32)platform->settings.video.resolution.height;
@@ -768,6 +760,9 @@ void* game_pre_reload()
     state->profile_timers      = g_profile_timers;
     state->profile_timers_prev = g_profile_timers_prev;
 
+    state->texture_catalog     = g_texture_catalog;
+    state->settings            = g_settings;
+
     state->screen_to_view      = g_screen_to_view;
     state->view_to_screen      = g_view_to_screen;
 
@@ -792,6 +787,9 @@ void game_reload(void *s)
 
     g_profile_timers      = state->profile_timers;
     g_profile_timers_prev = state->profile_timers_prev;
+
+    g_settings            = state->settings;
+    g_texture_catalog     = state->texture_catalog;
 
     g_screen_to_view      = state->screen_to_view;
     g_view_to_screen      = state->view_to_screen;

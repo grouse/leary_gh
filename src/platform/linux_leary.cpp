@@ -17,6 +17,7 @@
 #include <sys/inotify.h>
 #include <pthread.h>
 
+PlatformState   *g_platform;
 HeapAllocator   *g_heap;
 LinearAllocator *g_frame;
 LinearAllocator *g_persistent;
@@ -344,6 +345,7 @@ PLATFORM_RELOAD_FUNC(platform_reload)
     g_heap       = platform->heap;
     g_persistent = platform->persistent;
     g_stack      = platform->stack;
+    g_platform   = platform;
 
     game_reload(platform->game_reload_state);
 }

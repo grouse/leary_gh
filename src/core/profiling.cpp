@@ -13,7 +13,7 @@
 ProfileTimers g_profile_timers;
 ProfileTimers g_profile_timers_prev;
 
-void profile_init()
+void init_profiling()
 {
     g_profile_timers.count    = 0;
     g_profile_timers.capacity = NUM_PROFILE_TIMERS;
