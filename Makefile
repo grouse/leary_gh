@@ -51,11 +51,14 @@ tools: $(BUILD)/preprocessor
 TESTS_FLAGS = $(FLAGS) $(WARNINGS) $(UNOPTIMIZED) $(INCLUDE_DIR)
 $(BUILD)/tests: FORCE
 	$(CXX) $(TOOLS_FLAGS) $(ROOT)/tests/main.cpp -o $@
-
 tests: $(BUILD)/tests
 
+BENCHMARKS_FLAGS = $(FLAGS) $(WARNINGS) $(UNOPTIMIZED) $(INCLUDE_DIR)
+$(BUILD)/benchmarks: FORCE
+	$(CXX) $(TOOLS_FLAGS) $(ROOT)/benchmarks/main.cpp -o $@
+benchmarks: $(BUILD)/benchmarks
 
-all: shaders tools leary tests
+all: shaders tools leary tests benchmarks
 
 $(SPV_DST):
 	mkdir -p $(SPV_DST)

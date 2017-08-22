@@ -38,6 +38,18 @@ void array_destroy(Array<T> *a)
 }
 
 template<typename T>
+void array_resize(Array<T> *a, isize count)
+{
+    DEBUG_ASSERT(a->count    == 0);
+    DEBUG_ASSERT(a->capacity == 0);
+    DEBUG_ASSERT(a->data == nullptr);
+
+    a->count    = count;
+    a->capacity = count;
+    a->data     = a->allocator->template alloc_array<T>(count);
+}
+
+template<typename T>
 isize array_add(Array<T> *a, T e)
 {
 	DEBUG_ASSERT(a->allocator != nullptr);
