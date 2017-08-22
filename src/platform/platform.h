@@ -87,7 +87,7 @@
 #elif defined(_WIN32)
     #define PLATFORM_INIT_FUNC(fname)       void fname(PlatformState *platform, HINSTANCE instance)
 #else
-    #error "unsupported platform
+    #error "unsupported platform"
 #endif
 
 #define PLATFORM_PRE_RELOAD_FUNC(fname) void  fname(PlatformState *platform)

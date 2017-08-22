@@ -44,7 +44,7 @@ V* table_add(HashTable<K, V> *table, K key, V value)
             // TODO(jesper): to_string key
             DEBUG_LOG("key already exists in hash table");
             DEBUG_ASSERT(false);
-            return;
+            return nullptr;
         }
     }
 

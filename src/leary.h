@@ -37,7 +37,7 @@ struct Defer {
 template <typename F>
 Defer<F> defer_create( F f ) {
 	return Defer<F>( f );
-};
+}
 
 #define defer__(line) defer_ ## line
 #define defer_(line) defer__( line )
