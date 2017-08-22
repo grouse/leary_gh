@@ -10,7 +10,6 @@
 
 void benchmark_removal_back()
 {
-    printf("\n\nbenchmark of 2048 consecutive deletions from the back of array\n");
     SystemAllocator allocator = {};
 
     struct s4b  { i32 a[1]; };
@@ -127,13 +126,12 @@ void benchmark_removal_back()
     f64 cavg = (c4b + c8b + c16b + c64b) / (2048.0 * 4.0);
     f64 vavg = (v4b + v8b + v16b + v64b) / (2048.0 * 4.0);
 
-    printf("            : 4b\t8b\t16b\t64b\tavg/removal\n");
-    printf("custom array: %ldns\t%ldns\t%ldns\t%ldns\t%fns\n", c4b, c8b, c16b, c64b, cavg);
-    printf("std::vector : %ldns\t%ldns\t%ldns\t%ldns\t%fns\n", v4b, v8b, v16b, v64b, vavg);
+    printf("2048 rem. back\t4b\t8b\t16b\t64b\tavg/removal\n");
+    printf("custom array\t%ldns\t%ldns\t%ldns\t%ldns\t%fns\n", c4b, c8b, c16b, c64b, cavg);
+    printf("std::vector\t%ldns\t%ldns\t%ldns\t%ldns\t%fns\n\n", v4b, v8b, v16b, v64b, vavg);
 }
 void benchmark_removal_front()
 {
-    printf("\n\nbenchmark of 2048 consecutive deletions from the front of array\n");
     SystemAllocator allocator = {};
 
     struct s4b  { i32 a[1]; };
@@ -250,14 +248,13 @@ void benchmark_removal_front()
     f64 cavg = (c4b + c8b + c16b + c64b) / (2048.0 * 4.0);
     f64 vavg = (v4b + v8b + v16b + v64b) / (2048.0 * 4.0);
 
-    printf("              : 4b\t8b\t16b\t64b\tavg/removal\n");
-    printf("custom array  : %ldns\t%ldns\t%ldns\t%ldns\t%fns\n", c4b, c8b, c16b, c64b, cavg);
-    printf("std::vector   : %ldns\t%ldns\t%ldns\t%ldns\t%fns\n", v4b, v8b, v16b, v64b, vavg);
+    printf("2048 rem. front\t4b\t8b\t16b\t64b\tavg/removal\n");
+    printf("custom array\t%ldns\t%ldns\t%ldns\t%ldns\t%fns\n", c4b, c8b, c16b, c64b, cavg);
+    printf("std::vector\t%ldns\t%ldns\t%ldns\t%ldns\t%fns\n\n", v4b, v8b, v16b, v64b, vavg);
 }
 
 void benchmark_insertion()
 {
-    printf("\n\nbenchmark of 2048 consecutive insertions into back of array\n");
     SystemAllocator allocator = {};
 
     struct s4b  { i32 a[1]; };
@@ -366,9 +363,9 @@ void benchmark_insertion()
     f64 cavg = (c4b + c8b + c16b + c64b) / (2048.0 * 4.0);
     f64 vavg = (v4b + v8b + v16b + v64b) / (2048.0 * 4.0);
 
-    printf("              : 4b\t8b\t16b\t64b\tavg/insert\n");
-    printf("custom array  : %ldns\t%ldns\t%ldns\t%ldns\t%fns\n", c4b, c8b, c16b, c64b, cavg);
-    printf("std::vector   : %ldns\t%ldns\t%ldns\t%ldns\t%fns\n", v4b, v8b, v16b, v64b, vavg);
+    printf("2048 ins. back\t4b\t8b\t16b\t64b\tavg/insert\n");
+    printf("custom array\t%ldns\t%ldns\t%ldns\t%ldns\t%fns\n", c4b, c8b, c16b, c64b, cavg);
+    printf("std::vector\t%ldns\t%ldns\t%ldns\t%ldns\t%fns\n\n", v4b, v8b, v16b, v64b, vavg);
 }
 
 void benchmark_array()
