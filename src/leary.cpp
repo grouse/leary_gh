@@ -562,85 +562,27 @@ void game_init(PlatformState *platform)
         to_world[2].z = yy / (f32)hm.height;
         to_world[3].z = -w.y;
 
-        for (u32 i = 1; i < hm.height-1; i+=2) {
-            for (u32 j = 1; j < hm.width-1; j+=2) {
-                Texel tl  = ((Texel*)hm.data)[i     * hm.width + j-1];
-                Texel tc  = ((Texel*)hm.data)[i     * hm.width + j];
-                Texel tr  = ((Texel*)hm.data)[i     * hm.width + j+1];
-                Texel tt  = ((Texel*)hm.data)[(i-1) * hm.width + j];
-                Texel ttl = ((Texel*)hm.data)[(i-1) * hm.width + j-1];
-                Texel ttr = ((Texel*)hm.data)[(i-1) * hm.width + j+1];
-                Texel tb  = ((Texel*)hm.data)[(i+1) * hm.width + j];
-                Texel tbl = ((Texel*)hm.data)[(i+1) * hm.width + j-1];
-                Texel tbr = ((Texel*)hm.data)[(i+1) * hm.width + j+1];
+        for (u32 i = 0; i < hm.height-1; i++) {
+            for (u32 j = 0; j < hm.width-1; j++) {
+                Texel t0   = ((Texel*)hm.data)[i     * hm.width + j];
+                Texel t1   = ((Texel*)hm.data)[i     * hm.width + j+1];
+                Texel t2   = ((Texel*)hm.data)[(i+1) * hm.width + j+1];
+                Texel t3   = ((Texel*)hm.data)[(i+1) * hm.width + j];
+                Vector3 v0 = to_world * Vector3{ (f32)j,   (f32)t0.r, (f32)i   };
+                Vector3 v1 = to_world * Vector3{ (f32)j+1, (f32)t1.r, (f32)i   };
+                Vector3 v2 = to_world * Vector3{ (f32)j+1, (f32)t2.r, (f32)i+1 };
+                Vector3 v3 = to_world * Vector3{ (f32)j,   (f32)t3.r, (f32)i+1 };
 
-                Vector3 vl  = to_world * Vector3{ (f32)j-1, (f32)tl.r,  (f32)i   };
-                Vector3 vc  = to_world * Vector3{ (f32)j,   (f32)tc.r,  (f32)i   };
-                Vector3 vr  = to_world * Vector3{ (f32)j+1, (f32)tr.r,  (f32)i   };
-                Vector3 vt  = to_world * Vector3{ (f32)j,   (f32)tt.r,  (f32)i-1 };
-                Vector3 vtl = to_world * Vector3{ (f32)j-1, (f32)ttl.r, (f32)i-1 };
-                Vector3 vtr = to_world * Vector3{ (f32)j+1, (f32)ttr.r, (f32)i-1 };
-                Vector3 vb  = to_world * Vector3{ (f32)j,   (f32)tb.r,  (f32)i+1 };
-                Vector3 vbl = to_world * Vector3{ (f32)j-1, (f32)tbl.r, (f32)i+1 };
-                Vector3 vbr = to_world * Vector3{ (f32)j+1, (f32)tbr.r, (f32)i+1 };
 
-                Vector3 v0 = vc;
-                Vector3 v1 = vl;
-                Vector3 v2 = vtl;
-                Vector3 n  = surface_normal(v0, v1, v2);
+                Vector3 n = surface_normal(v0, v1, v2);
                 array_add(&vertices, {v0, n});
                 array_add(&vertices, {v1, n});
                 array_add(&vertices, {v2, n});
 
-                v1 = vtl;
-                v2 = vt;
-                n  = surface_normal(v0, v1, v2);
+                n = surface_normal(v0, v2, v3);
                 array_add(&vertices, {v0, n});
-                array_add(&vertices, {v1, n});
                 array_add(&vertices, {v2, n});
-
-                v1 = vt;
-                v2 = vtr;
-                n  = surface_normal(v0, v1, v2);
-                array_add(&vertices, {v0, n});
-                array_add(&vertices, {v1, n});
-                array_add(&vertices, {v2, n});
-
-                v1 = vtr;
-                v2 = vr;
-                n  = surface_normal(v0, v1, v2);
-                array_add(&vertices, {v0, n});
-                array_add(&vertices, {v1, n});
-                array_add(&vertices, {v2, n});
-
-                v1 = vr;
-                v2 = vbr;
-                n  = surface_normal(v0, v1, v2);
-                array_add(&vertices, {v0, n});
-                array_add(&vertices, {v1, n});
-                array_add(&vertices, {v2, n});
-
-                v1 = vbr;
-                v2 = vb;
-                n  = surface_normal(v0, v1, v2);
-                array_add(&vertices, {v0, n});
-                array_add(&vertices, {v1, n});
-                array_add(&vertices, {v2, n});
-
-                v1 = vb;
-                v2 = vbl;
-                n  = surface_normal(v0, v1, v2);
-                array_add(&vertices, {v0, n});
-                array_add(&vertices, {v1, n});
-                array_add(&vertices, {v2, n});
-
-                v1 = vbl;
-                v2 = vl;
-                n  = surface_normal(v0, v1, v2);
-                array_add(&vertices, {v0, n});
-                array_add(&vertices, {v1, n});
-                array_add(&vertices, {v2, n});
-
+                array_add(&vertices, {v3, n});
             }
         }
 
