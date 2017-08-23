@@ -71,9 +71,19 @@ isize array_remove(Array<T> *a, isize i)
 		return --a->count;
 	}
 
-	a->data[a->count-1] = a->data[i];
-	return --a->count;
+	a->data[i] = a->data[--a->count];
+	return a->count;
 }
+
+template<typename T>
+isize array_remove_ordered(Array<T> *a, isize i)
+{
+	if ((a->count - 1) == i) {
+		return --a->count;
+	}
+
+}
+
 
 
 template<typename T>

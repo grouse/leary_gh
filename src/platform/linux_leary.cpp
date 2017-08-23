@@ -144,7 +144,10 @@ void* catalog_thread_process(void *data)
 
     isize flen = strlen(ctd->folder);
 
-    int wd = inotify_add_watch(fd, ctd->folder, IN_CREATE | IN_MODIFY | IN_DELETE);
+    // NOTE(jesper): we're using IN_MOVED_FROM here because it seems when krita
+    // exports its images it writes it to a temporary file and then moves it.
+    // This is really quite weird, and I might contact krita about it.
+    int wd = inotify_add_watch(fd, ctd->folder, IN_CLOSE_WRITE | IN_MOVED_FROM);
     while (true) {
         int length = read(fd, buffer, INOTIFY_BUF_SIZE);
 
@@ -154,7 +157,7 @@ void* catalog_thread_process(void *data)
             struct inotify_event *event = (struct inotify_event*)&buffer[i];
             if (event->len) {
                 // TODO(jesper): supported created and deleted file events
-                if (!(event->mask & IN_ISDIR) && event->mask & IN_MODIFY) {
+                if (!(event->mask & IN_ISDIR)) {
                     Path p;
                     bool eslash  = ctd->folder[flen-1] == '/';
                     if (!eslash) {

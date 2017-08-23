@@ -485,12 +485,13 @@ void process_texture_catalog()
 
 CATALOG_CALLBACK(texture_catalog_process)
 {
-    printf("texture modified: %s\n", path.filename.bytes);
     i32 id = find_texture_id(path.filename.bytes);
     if (id == TEXTURE_INVALID_ID) {
         // TODO(jesper): support creation of new textures
         return;
     }
+
+    printf("texture modified: %s\n", path.filename.bytes);
 
     lock_mutex(&g_texture_catalog.mutex);
     array_add(&g_texture_catalog.process_queue, path);

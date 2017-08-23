@@ -136,8 +136,6 @@ V* table_find(HashTable<K, V> *table, K key)
         }
     }
 
-    // TODO(jesper): to_string key
-    DEBUG_LOG("could not find key in table");
     return nullptr;
 }
 
@@ -155,8 +153,6 @@ V* table_find(HashTable<const char*, V> *table, const char *key)
         }
     }
 
-    // TODO(jesper): to_string key
-    DEBUG_LOG("could not find key in table");
     return nullptr;
 }
 
@@ -174,8 +170,6 @@ V* table_find(HashTable<char*, V> *table, char *key)
         }
     }
 
-    // TODO(jesper): to_string key
-    DEBUG_LOG("could not find key in table");
     return nullptr;
 }
 
@@ -193,7 +187,5 @@ V* table_find(HashTable<char*, V> *table, const char *key)
         }
     }
 
-    // TODO(jesper): to_string key
-    DEBUG_LOG("could not find key in table");
     return nullptr;
 }
