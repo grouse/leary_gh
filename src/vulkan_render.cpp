@@ -709,46 +709,6 @@ VulkanShader create_shader(ShaderID id)
     info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
 
     switch (id) {
-    case ShaderID_generic_vert: {
-        char *path = platform_resolve_path(GamePath_shaders, "generic.vert.spv");
-
-        usize size;
-        u32 *source = (u32*)platform_file_read(path, &size);
-        DEBUG_ASSERT(source != nullptr);
-
-        shader.name   = "main";
-        shader.stage  = VK_SHADER_STAGE_VERTEX_BIT;
-
-        info.codeSize = size;
-        info.pCode    = source;
-
-        VkResult result = vkCreateShaderModule(g_vulkan->handle, &info,
-                                               nullptr, &shader.module);
-        DEBUG_ASSERT(result == VK_SUCCESS);
-
-        free(source);
-        free(path);
-    } break;
-    case ShaderID_generic_frag: {
-        char *path = platform_resolve_path(GamePath_shaders, "generic.frag.spv");
-
-        usize size;
-        u32 *source = (u32*)platform_file_read(path, &size);
-        DEBUG_ASSERT(source != nullptr);
-
-        shader.name   = "main";
-        shader.stage  = VK_SHADER_STAGE_FRAGMENT_BIT;
-
-        info.codeSize = size;
-        info.pCode    = source;
-
-        VkResult result = vkCreateShaderModule(g_vulkan->handle, &info,
-                                               nullptr, &shader.module);
-        DEBUG_ASSERT(result == VK_SUCCESS);
-
-        free(source);
-        free(path);
-    } break;
     case ShaderID_terrain_vert: {
         char *path = platform_resolve_path(GamePath_shaders, "terrain.vert.spv");
 
@@ -898,26 +858,51 @@ VulkanShader create_shader(ShaderID id)
     return shader;
 }
 
-VulkanPipeline pipeline_create_font()
+VulkanPipeline create_pipeline(PipelineID id)
 {
     void *sp = g_stack->sp;
     defer { g_stack->reset(sp); };
 
     VkResult result;
     VulkanPipeline pipeline = {};
-    pipeline.id = Pipeline_font;
+    pipeline.id = id;
 
-    pipeline.shaders[ShaderStage_vertex]   = create_shader(ShaderID_basic2d_vert);
-    pipeline.shaders[ShaderStage_fragment] = create_shader(ShaderID_font_frag);
+    switch (id) {
+    case Pipeline_font:
+        pipeline.shaders[ShaderStage_vertex]   = create_shader(ShaderID_basic2d_vert);
+        pipeline.shaders[ShaderStage_fragment] = create_shader(ShaderID_font_frag);
+        break;
+    case Pipeline_basic2d:
+        pipeline.shaders[ShaderStage_vertex]   = create_shader(ShaderID_basic2d_vert);
+        pipeline.shaders[ShaderStage_fragment] = create_shader(ShaderID_basic2d_frag);
+        break;
+    case Pipeline_terrain:
+        pipeline.shaders[ShaderStage_vertex]   = create_shader(ShaderID_terrain_vert);
+        pipeline.shaders[ShaderStage_fragment] = create_shader(ShaderID_terrain_frag);
+        break;
+    case Pipeline_mesh:
+        pipeline.shaders[ShaderStage_vertex]   = create_shader(ShaderID_mesh_vert);
+        pipeline.shaders[ShaderStage_fragment] = create_shader(ShaderID_mesh_frag);
+        break;
+    default: break;
+    }
 
-    // TODO(jesper): i think it probably makes sense to move this into the
-    // material, but unsure
-    pipeline.sampler_count = 1;
-    pipeline.samplers = g_persistent->alloc_array<VkSampler>(pipeline.sampler_count);
-    pipeline.samplers[0] = create_sampler();
+    switch (id) {
+    case Pipeline_font:
+    case Pipeline_basic2d:
+    case Pipeline_mesh:
+        pipeline.sampler_count = 1;
+        pipeline.samplers = g_persistent->alloc_array<VkSampler>(pipeline.sampler_count);
+        pipeline.samplers[0] = create_sampler();
+        break;
+    default: break;
+    }
 
-    auto layouts = array_create<VkDescriptorSetLayout>(g_stack);
-    { // material
+    auto layouts = array_create<VkDescriptorSetLayout>(g_frame);
+
+    switch (id) {
+    case Pipeline_font: {
+        // material
         auto binds = array_create<VkDescriptorSetLayoutBinding>(g_stack);
         array_add(&binds, {
             0,
@@ -938,180 +923,9 @@ VulkanPipeline pipeline_create_font()
                                              &pipeline.descriptor_layout_material);
         DEBUG_ASSERT(result == VK_SUCCESS);
         array_add(&layouts, pipeline.descriptor_layout_material);
-    }
-
-    VkPushConstantRange push_constants = {};
-    push_constants.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-    push_constants.offset = 0;
-    push_constants.size = sizeof(Matrix4);
-
-    VkPipelineLayoutCreateInfo layout_info = {};
-    layout_info.sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    layout_info.setLayoutCount         = (i32)layouts.count;
-    layout_info.pSetLayouts            = layouts.data;
-    layout_info.pushConstantRangeCount = 1;
-    layout_info.pPushConstantRanges    = &push_constants;
-
-    result = vkCreatePipelineLayout(g_vulkan->handle,
-                                    &layout_info,
-                                    nullptr,
-                                    &pipeline.layout);
-    DEBUG_ASSERT(result == VK_SUCCESS);
-
-    auto vbinds = array_create<VkVertexInputBindingDescription>(g_stack);
-    array_add(&vbinds, { 0, sizeof(f32) * 4, VK_VERTEX_INPUT_RATE_VERTEX });
-
-    auto vdescs = array_create<VkVertexInputAttributeDescription>(g_stack);
-    array_add(&vdescs, { 0, 0, VK_FORMAT_R32G32_SFLOAT, 0 });
-    array_add(&vdescs, { 1, 0, VK_FORMAT_R32G32_SFLOAT, sizeof(f32) * 2 });
-
-
-    VkPipelineVertexInputStateCreateInfo vii = {};
-    vii.sType                           = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-    vii.vertexBindingDescriptionCount   = (i32)vbinds.count;
-    vii.pVertexBindingDescriptions      = vbinds.data;
-    vii.vertexAttributeDescriptionCount = (i32)vdescs.count;
-    vii.pVertexAttributeDescriptions    = vdescs.data;
-
-    VkPipelineInputAssemblyStateCreateInfo iai = {};
-    iai.sType                  = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-    iai.topology               = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-    iai.primitiveRestartEnable = VK_FALSE;
-
-    VkViewport viewport = {};
-    viewport.x        = 0.0f;
-    viewport.y        = 0.0f;
-    viewport.width    = (f32) g_vulkan->swapchain.extent.width;
-    viewport.height   = (f32) g_vulkan->swapchain.extent.height;
-    viewport.minDepth = 0.0f;
-    viewport.maxDepth = 1.0f;
-
-    VkRect2D scissor = {};
-    scissor.offset = {0, 0};
-    scissor.extent = g_vulkan->swapchain.extent;
-
-    VkPipelineViewportStateCreateInfo viewport_info = {};
-    viewport_info.sType         = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-    viewport_info.viewportCount = 1;
-    viewport_info.pViewports    = &viewport;
-    viewport_info.scissorCount  = 1;
-    viewport_info.pScissors     = &scissor;
-
-    VkPipelineRasterizationStateCreateInfo raster = {};
-    raster.sType                   = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-    raster.depthClampEnable        = VK_FALSE;
-    raster.rasterizerDiscardEnable = VK_FALSE;
-    raster.polygonMode             = VK_POLYGON_MODE_FILL;
-    raster.cullMode                = VK_CULL_MODE_NONE;
-    raster.depthBiasEnable         = VK_FALSE;
-    raster.lineWidth               = 1.0;
-
-    VkPipelineColorBlendAttachmentState cba = {};
-    cba.blendEnable         = VK_TRUE;
-    cba.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-    cba.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-    cba.colorBlendOp        = VK_BLEND_OP_ADD;
-    cba.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-    cba.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-    cba.alphaBlendOp        = VK_BLEND_OP_ADD;
-    cba.colorWriteMask      = VK_COLOR_COMPONENT_R_BIT |
-                                                 VK_COLOR_COMPONENT_G_BIT |
-                                                 VK_COLOR_COMPONENT_B_BIT |
-                                                 VK_COLOR_COMPONENT_A_BIT;
-
-    VkPipelineColorBlendStateCreateInfo cbi = {};
-    cbi.sType             = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-    cbi.logicOpEnable     = VK_FALSE;
-    cbi.logicOp           = VK_LOGIC_OP_CLEAR;
-    cbi.attachmentCount   = 1;
-    cbi.pAttachments      = &cba;
-    cbi.blendConstants[0] = 0.0f;
-    cbi.blendConstants[1] = 0.0f;
-    cbi.blendConstants[2] = 0.0f;
-    cbi.blendConstants[3] = 0.0f;
-
-    VkPipelineMultisampleStateCreateInfo msi = {};
-    msi.sType                 = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-    msi.rasterizationSamples  = VK_SAMPLE_COUNT_1_BIT;
-    msi.sampleShadingEnable   = VK_FALSE;
-    msi.minSampleShading      = 0;
-    msi.pSampleMask           = nullptr;
-    msi.alphaToCoverageEnable = VK_FALSE;
-    msi.alphaToOneEnable      = VK_FALSE;
-
-    // NOTE(jesper): it seems like it'd be worth creating and caching this
-    // inside the VulkanShader objects
-    auto stages = array_create<VkPipelineShaderStageCreateInfo>(g_stack);
-    array_add(&stages, {
-        VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-        nullptr, 0,
-        pipeline.shaders[ShaderStage_vertex].stage,
-        pipeline.shaders[ShaderStage_vertex].module,
-        pipeline.shaders[ShaderStage_vertex].name,
-        nullptr
-    });
-
-    array_add(&stages, {
-        VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-        nullptr, 0,
-        pipeline.shaders[ShaderStage_fragment].stage,
-        pipeline.shaders[ShaderStage_fragment].module,
-        pipeline.shaders[ShaderStage_fragment].name,
-        nullptr
-    });
-
-    VkPipelineDepthStencilStateCreateInfo ds = {};
-    ds.sType                 = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-    ds.depthTestEnable       = VK_FALSE;
-    ds.depthWriteEnable      = VK_FALSE;
-    ds.depthBoundsTestEnable = VK_FALSE;
-
-    VkGraphicsPipelineCreateInfo pinfo = {};
-    pinfo.sType               = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-    pinfo.stageCount          = (i32)stages.count;
-    pinfo.pStages             = stages.data;
-    pinfo.pVertexInputState   = &vii;
-    pinfo.pInputAssemblyState = &iai;
-    pinfo.pViewportState      = &viewport_info;
-    pinfo.pRasterizationState = &raster;
-    pinfo.pMultisampleState   = &msi;
-    pinfo.pColorBlendState    = &cbi;
-    pinfo.pDepthStencilState  = &ds;
-    pinfo.layout              = pipeline.layout;
-    pinfo.renderPass          = g_vulkan->renderpass;
-    pinfo.basePipelineHandle  = VK_NULL_HANDLE;
-    pinfo.basePipelineIndex   = -1;
-
-    result = vkCreateGraphicsPipelines(g_vulkan->handle,
-                                       VK_NULL_HANDLE,
-                                       1,
-                                       &pinfo,
-                                       nullptr,
-                                       &pipeline.handle);
-    DEBUG_ASSERT(result == VK_SUCCESS);
-    return pipeline;
-}
-
-VulkanPipeline pipeline_create_basic2d()
-{
-    void *sp = g_stack->sp;
-    defer { g_stack->reset(sp); };
-
-    VkResult result;
-    VulkanPipeline pipeline = {};
-    pipeline.id = Pipeline_basic2d;
-
-    pipeline.shaders[ShaderStage_vertex]   = create_shader(ShaderID_basic2d_vert);
-    pipeline.shaders[ShaderStage_fragment] = create_shader(ShaderID_basic2d_frag);
-
-    // TODO(jesper): i think it probably makes sense to move this into the
-    // material, but unsure
-    pipeline.sampler_count = 1;
-    pipeline.samplers = g_persistent->alloc_array<VkSampler>(pipeline.sampler_count);
-    pipeline.samplers[0] = create_sampler();
-
-    auto layouts = array_create<VkDescriptorSetLayout>(g_stack);
-    { // material
+    } break;
+    case Pipeline_basic2d: {
+        // material
         auto binds = array_create<VkDescriptorSetLayoutBinding>(g_stack);
         array_add(&binds, {
             0,
@@ -1132,33 +946,186 @@ VulkanPipeline pipeline_create_basic2d()
                                              &pipeline.descriptor_layout_material);
         DEBUG_ASSERT(result == VK_SUCCESS);
         array_add(&layouts, pipeline.descriptor_layout_material);
+    } break;
+    case Pipeline_mesh: {
+        { // pipeline
+            auto binds = array_create<VkDescriptorSetLayoutBinding>(g_stack);
+            array_add(&binds, {
+                0,
+                VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                1,
+                VK_SHADER_STAGE_VERTEX_BIT,
+                nullptr
+            });
+
+            VkDescriptorSetLayoutCreateInfo layout_info = {};
+            layout_info.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+            layout_info.bindingCount = (u32)binds.count;
+            layout_info.pBindings    = binds.data;
+
+            result = vkCreateDescriptorSetLayout(g_vulkan->handle,
+                                                 &layout_info,
+                                                 nullptr,
+                                                 &pipeline.descriptor_layout_pipeline);
+            DEBUG_ASSERT(result == VK_SUCCESS);
+
+            array_add(&layouts, pipeline.descriptor_layout_pipeline);
+        }
+
+        { // material
+            auto binds = array_create<VkDescriptorSetLayoutBinding>(g_stack);
+            array_add(&binds, {
+                0,
+                VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                1,
+                VK_SHADER_STAGE_FRAGMENT_BIT,
+                nullptr
+            });
+
+            VkDescriptorSetLayoutCreateInfo layout_info = {};
+            layout_info.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+            layout_info.bindingCount = (u32)binds.count;
+            layout_info.pBindings    = binds.data;
+
+            result = vkCreateDescriptorSetLayout(g_vulkan->handle,
+                                                 &layout_info,
+                                                 nullptr,
+                                                 &pipeline.descriptor_layout_material);
+            DEBUG_ASSERT(result == VK_SUCCESS);
+
+            array_add(&layouts, pipeline.descriptor_layout_material);
+        }
+    } break;
+    case Pipeline_terrain: {
+        { // pipeline
+            auto binds = array_create<VkDescriptorSetLayoutBinding>(g_stack);
+            array_add(&binds, {
+                0,
+                VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                1,
+                VK_SHADER_STAGE_VERTEX_BIT,
+                nullptr
+            });
+
+            VkDescriptorSetLayoutCreateInfo layout_info = {};
+            layout_info.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+            layout_info.bindingCount = (u32)binds.count;
+            layout_info.pBindings    = binds.data;
+
+            result = vkCreateDescriptorSetLayout(g_vulkan->handle,
+                                                 &layout_info,
+                                                 nullptr,
+                                                 &pipeline.descriptor_layout_pipeline);
+            DEBUG_ASSERT(result == VK_SUCCESS);
+
+            array_add(&layouts, pipeline.descriptor_layout_pipeline);
+        }
+    } break;
     }
 
-    VkPushConstantRange push_constants = {};
-    push_constants.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-    push_constants.offset = 0;
-    push_constants.size = sizeof(Matrix4);
+    // NOTE(jesper): create a pool size descriptor for each type of
+    // descriptor this shader program uses
+    auto psizes = array_create<VkDescriptorPoolSize>(g_stack);
+
+    VkDescriptorPoolCreateInfo pool_info = {};
+    pool_info.sType  = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+
+    VkDescriptorSetAllocateInfo dai = {};
+    dai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+
+    switch (id) {
+    case Pipeline_mesh: {
+        array_add(&psizes, { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         1 });
+        //array_add(&pool_sizes, { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1 });
+
+        pool_info.poolSizeCount = (u32)psizes.count;
+        pool_info.pPoolSizes    = psizes.data;
+        pool_info.maxSets       = 1;
+
+        dai.descriptorSetCount = 1;
+        dai.pSetLayouts        = &layouts[0];
+    } break;
+    case Pipeline_terrain: {
+        array_add(&psizes, { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1 });
+
+        pool_info.poolSizeCount = (u32)psizes.count;
+        pool_info.pPoolSizes    = psizes.data;
+        pool_info.maxSets       = 1;
+
+        dai.descriptorSetCount = 1;
+        dai.pSetLayouts        = &pipeline.descriptor_layout_pipeline;
+    } break;
+    default: break;
+    }
+
+    if (pool_info.poolSizeCount > 0) {
+        result = vkCreateDescriptorPool(g_vulkan->handle, &pool_info, nullptr,
+                                        &pipeline.descriptor_pool);
+        DEBUG_ASSERT(result == VK_SUCCESS);
+
+        dai.descriptorPool     = pipeline.descriptor_pool;
+    }
+
+    if (dai.descriptorSetCount > 0) {
+        result = vkAllocateDescriptorSets(g_vulkan->handle, &dai,
+                                          &pipeline.descriptor_set);
+        DEBUG_ASSERT(result == VK_SUCCESS);
+    }
 
     VkPipelineLayoutCreateInfo layout_info = {};
-    layout_info.sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    layout_info.setLayoutCount         = (i32)layouts.count;
-    layout_info.pSetLayouts            = layouts.data;
-    layout_info.pushConstantRangeCount = 1;
-    layout_info.pPushConstantRanges    = &push_constants;
+    layout_info.sType          = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    layout_info.setLayoutCount = (i32)layouts.count;
+    layout_info.pSetLayouts    = layouts.data;
 
-    result = vkCreatePipelineLayout(g_vulkan->handle,
-                                    &layout_info,
-                                    nullptr,
+    switch (id) {
+    case Pipeline_font:
+    case Pipeline_basic2d:
+    case Pipeline_mesh:
+    case Pipeline_terrain: {
+        VkPushConstantRange push_constants = {};
+        push_constants.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+        push_constants.offset = 0;
+        push_constants.size = sizeof(Matrix4);
+
+        layout_info.pushConstantRangeCount = 1;
+        layout_info.pPushConstantRanges    = &push_constants;
+    } break;
+    }
+
+    result = vkCreatePipelineLayout(g_vulkan->handle, &layout_info, nullptr,
                                     &pipeline.layout);
     DEBUG_ASSERT(result == VK_SUCCESS);
 
     auto vbinds = array_create<VkVertexInputBindingDescription>(g_stack);
-    array_add(&vbinds, { 0, sizeof(f32) * 4, VK_VERTEX_INPUT_RATE_VERTEX });
-
     auto vdescs = array_create<VkVertexInputAttributeDescription>(g_stack);
-    array_add(&vdescs, { 0, 0, VK_FORMAT_R32G32_SFLOAT, 0 });
-    array_add(&vdescs, { 1, 0, VK_FORMAT_R32G32_SFLOAT, sizeof(f32) * 2 });
 
+    switch (id) {
+    case Pipeline_font:
+        array_add(&vbinds, { 0, sizeof(f32) * 4, VK_VERTEX_INPUT_RATE_VERTEX });
+
+        array_add(&vdescs, { 0, 0, VK_FORMAT_R32G32_SFLOAT, 0 });
+        array_add(&vdescs, { 1, 0, VK_FORMAT_R32G32_SFLOAT, sizeof(f32) * 2 });
+        break;
+    case Pipeline_basic2d:
+        array_add(&vbinds, { 0, sizeof(f32) * 4, VK_VERTEX_INPUT_RATE_VERTEX });
+
+        array_add(&vdescs, { 0, 0, VK_FORMAT_R32G32_SFLOAT, 0 });
+        array_add(&vdescs, { 1, 0, VK_FORMAT_R32G32_SFLOAT, sizeof(f32) * 2 });
+        break;
+    case Pipeline_mesh:
+        array_add(&vbinds, { 0, sizeof(f32) * 8, VK_VERTEX_INPUT_RATE_VERTEX });
+
+        array_add(&vdescs, { 0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0 });
+        array_add(&vdescs, { 1, 0, VK_FORMAT_R32G32B32_SFLOAT, sizeof(f32) * 3 });
+        array_add(&vdescs, { 2, 0, VK_FORMAT_R32G32_SFLOAT,    sizeof(f32) * 6 });
+        break;
+    case Pipeline_terrain:
+        array_add(&vbinds, { 0, sizeof(f32) * 6, VK_VERTEX_INPUT_RATE_VERTEX });
+
+        array_add(&vdescs, { 0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0 });
+        array_add(&vdescs, { 1, 0, VK_FORMAT_R32G32B32_SFLOAT, sizeof(f32) * 3 });
+        break;
+    }
 
     VkPipelineVertexInputStateCreateInfo vii = {};
     vii.sType                           = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
@@ -1201,17 +1168,24 @@ VulkanPipeline pipeline_create_basic2d()
     raster.lineWidth               = 1.0;
 
     VkPipelineColorBlendAttachmentState cba = {};
-    cba.blendEnable         = VK_TRUE;
-    cba.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-    cba.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-    cba.colorBlendOp        = VK_BLEND_OP_ADD;
-    cba.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-    cba.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-    cba.alphaBlendOp        = VK_BLEND_OP_ADD;
-    cba.colorWriteMask      = VK_COLOR_COMPONENT_R_BIT |
-                                                 VK_COLOR_COMPONENT_G_BIT |
-                                                 VK_COLOR_COMPONENT_B_BIT |
-                                                 VK_COLOR_COMPONENT_A_BIT;
+    switch (id) {
+    case Pipeline_font:
+        cba.blendEnable         = VK_TRUE;
+        cba.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+        cba.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+        cba.colorBlendOp        = VK_BLEND_OP_ADD;
+        cba.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+        cba.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+        cba.alphaBlendOp        = VK_BLEND_OP_ADD;
+        break;
+    default:
+        cba.blendEnable         = VK_FALSE;
+        break;
+    }
+    cba.colorWriteMask = VK_COLOR_COMPONENT_R_BIT |
+                         VK_COLOR_COMPONENT_G_BIT |
+                         VK_COLOR_COMPONENT_B_BIT |
+                         VK_COLOR_COMPONENT_A_BIT;
 
     VkPipelineColorBlendStateCreateInfo cbi = {};
     cbi.sType             = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
@@ -1255,708 +1229,24 @@ VulkanPipeline pipeline_create_basic2d()
     });
 
     VkPipelineDepthStencilStateCreateInfo ds = {};
-    ds.sType                 = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-    ds.depthTestEnable       = VK_FALSE;
-    ds.depthWriteEnable      = VK_FALSE;
+    ds.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
     ds.depthBoundsTestEnable = VK_FALSE;
+    switch (id) {
+    case Pipeline_mesh:
+    case Pipeline_terrain:
+        ds.depthTestEnable  = VK_TRUE;
+        ds.depthWriteEnable = VK_TRUE;
+        ds.depthCompareOp   = VK_COMPARE_OP_LESS;
+        break;
+    default:
+        ds.depthTestEnable  = VK_FALSE;
+        ds.depthWriteEnable = VK_FALSE;
+        break;
+    }
 
     VkGraphicsPipelineCreateInfo pinfo = {};
     pinfo.sType               = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
     pinfo.stageCount          = (i32)stages.count;
-    pinfo.pStages             = stages.data;
-    pinfo.pVertexInputState   = &vii;
-    pinfo.pInputAssemblyState = &iai;
-    pinfo.pViewportState      = &viewport_info;
-    pinfo.pRasterizationState = &raster;
-    pinfo.pMultisampleState   = &msi;
-    pinfo.pColorBlendState    = &cbi;
-    pinfo.pDepthStencilState  = &ds;
-    pinfo.layout              = pipeline.layout;
-    pinfo.renderPass          = g_vulkan->renderpass;
-    pinfo.basePipelineHandle  = VK_NULL_HANDLE;
-    pinfo.basePipelineIndex   = -1;
-
-    result = vkCreateGraphicsPipelines(g_vulkan->handle,
-                                       VK_NULL_HANDLE,
-                                       1,
-                                       &pinfo,
-                                       nullptr,
-                                       &pipeline.handle);
-    DEBUG_ASSERT(result == VK_SUCCESS);
-    return pipeline;
-}
-
-VulkanPipeline pipeline_create_generic()
-{
-    void *sp = g_stack->sp;
-    defer { g_stack->reset(sp); };
-
-    VkResult result;
-    VulkanPipeline pipeline = {};
-    pipeline.id = Pipeline_generic;
-
-    pipeline.shaders[ShaderStage_vertex]   = create_shader(ShaderID_generic_vert);
-    pipeline.shaders[ShaderStage_fragment] = create_shader(ShaderID_generic_frag);
-
-    pipeline.sampler_count = 1;
-    pipeline.samplers = g_persistent->alloc_array<VkSampler>(pipeline.sampler_count);
-    pipeline.samplers[0] = create_sampler();
-
-    auto layouts = array_create<VkDescriptorSetLayout>(g_frame);
-    { // pipeline
-        auto binds = array_create<VkDescriptorSetLayoutBinding>(g_stack);
-        array_add(&binds, {
-            0,
-            VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-            1,
-            VK_SHADER_STAGE_VERTEX_BIT,
-            nullptr
-        });
-
-        VkDescriptorSetLayoutCreateInfo layout_info = {};
-        layout_info.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-        layout_info.bindingCount = (i32)binds.count;
-        layout_info.pBindings    = binds.data;
-
-        result = vkCreateDescriptorSetLayout(g_vulkan->handle,
-                                             &layout_info,
-                                             nullptr,
-                                             &pipeline.descriptor_layout_pipeline);
-        DEBUG_ASSERT(result == VK_SUCCESS);
-
-        array_add(&layouts, pipeline.descriptor_layout_pipeline);
-    }
-
-    { // material
-        auto binds = array_create<VkDescriptorSetLayoutBinding>(g_stack);
-        array_add(&binds, {
-            1,
-            VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-            1,
-            VK_SHADER_STAGE_FRAGMENT_BIT,
-            nullptr
-        });
-
-        VkDescriptorSetLayoutCreateInfo layout_info = {};
-        layout_info.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-        layout_info.bindingCount = (i32)binds.count;
-        layout_info.pBindings    = binds.data;
-
-        result = vkCreateDescriptorSetLayout(g_vulkan->handle,
-                                             &layout_info,
-                                             nullptr,
-                                             &pipeline.descriptor_layout_pipeline);
-        DEBUG_ASSERT(result == VK_SUCCESS);
-
-        array_add(&layouts, pipeline.descriptor_layout_material);
-    }
-
-    // NOTE(jesper): create a pool size descriptor for each type of
-    // descriptor this shader program uses
-    auto psizes = array_create<VkDescriptorPoolSize>(g_stack);
-    array_add(&psizes, { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1 });
-
-    VkDescriptorPoolCreateInfo pool_info = {};
-    pool_info.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    pool_info.poolSizeCount = (i32)psizes.count;
-    pool_info.pPoolSizes    = psizes.data;
-    pool_info.maxSets       = 1;
-
-    result = vkCreateDescriptorPool(g_vulkan->handle,
-                                    &pool_info,
-                                    nullptr,
-                                    &pipeline.descriptor_pool);
-    DEBUG_ASSERT(result == VK_SUCCESS);
-
-    VkDescriptorSetAllocateInfo dai = {};
-    dai.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    dai.descriptorPool     = pipeline.descriptor_pool;
-    dai.descriptorSetCount = 1;
-    dai.pSetLayouts        = &pipeline.descriptor_layout_pipeline;
-
-    result = vkAllocateDescriptorSets(g_vulkan->handle,
-                                      &dai,
-                                      &pipeline.descriptor_set);
-    DEBUG_ASSERT(result == VK_SUCCESS);
-
-    VkPushConstantRange push_constants = {};
-    push_constants.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-    push_constants.offset = 0;
-    push_constants.size = sizeof(Matrix4);
-
-    VkPipelineLayoutCreateInfo layout_info = {};
-    layout_info.sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    layout_info.setLayoutCount         = (i32)layouts.count;
-    layout_info.pSetLayouts            = layouts.data;
-    layout_info.pushConstantRangeCount = 1;
-    layout_info.pPushConstantRanges    = &push_constants;
-
-    result = vkCreatePipelineLayout(g_vulkan->handle,
-                                    &layout_info,
-                                    nullptr,
-                                    &pipeline.layout);
-    DEBUG_ASSERT(result == VK_SUCCESS);
-
-    auto vbinds = array_create<VkVertexInputBindingDescription>(g_stack);
-    array_add(&vbinds, { 0, sizeof(f32) * 9, VK_VERTEX_INPUT_RATE_VERTEX });
-
-    auto vdescs = array_create<VkVertexInputAttributeDescription>(g_stack);
-    array_add(&vdescs, { 0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0 });
-    array_add(&vdescs, { 1, 0, VK_FORMAT_R32G32B32_SFLOAT, sizeof(f32) * 3 });
-    array_add(&vdescs, { 1, 0, VK_FORMAT_R32G32_SFLOAT,    sizeof(f32) * 7 });
-
-    VkPipelineVertexInputStateCreateInfo vii = {};
-    vii.sType                           = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-    vii.vertexBindingDescriptionCount   = (i32)vbinds.count;
-    vii.pVertexBindingDescriptions      = vbinds.data;
-    vii.vertexAttributeDescriptionCount = (i32)vdescs.count;
-    vii.pVertexAttributeDescriptions    = vdescs.data;
-
-    VkPipelineInputAssemblyStateCreateInfo iai = {};
-    iai.sType                  = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-    iai.topology               = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-    iai.primitiveRestartEnable = VK_FALSE;
-
-    VkViewport viewport = {};
-    viewport.x        = 0.0f;
-    viewport.y        = 0.0f;
-    viewport.width    = (f32) g_vulkan->swapchain.extent.width;
-    viewport.height   = (f32) g_vulkan->swapchain.extent.height;
-    viewport.minDepth = 0.0f;
-    viewport.maxDepth = 1.0f;
-
-    VkRect2D scissor = {};
-    scissor.offset = {0, 0};
-    scissor.extent = g_vulkan->swapchain.extent;
-
-    VkPipelineViewportStateCreateInfo viewport_info = {};
-    viewport_info.sType         = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-    viewport_info.viewportCount = 1;
-    viewport_info.pViewports    = &viewport;
-    viewport_info.scissorCount  = 1;
-    viewport_info.pScissors     = &scissor;
-
-    VkPipelineRasterizationStateCreateInfo raster = {};
-    raster.sType                   = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-    raster.depthClampEnable        = VK_FALSE;
-    raster.rasterizerDiscardEnable = VK_FALSE;
-    raster.polygonMode             = VK_POLYGON_MODE_FILL;
-    raster.cullMode                = VK_CULL_MODE_NONE;
-    raster.depthBiasEnable         = VK_FALSE;
-    raster.lineWidth               = 1.0;
-
-    VkPipelineColorBlendAttachmentState cba = {};
-    cba.blendEnable    = VK_FALSE;
-    cba.colorWriteMask = VK_COLOR_COMPONENT_R_BIT |
-                                            VK_COLOR_COMPONENT_G_BIT |
-                                            VK_COLOR_COMPONENT_B_BIT |
-                                            VK_COLOR_COMPONENT_A_BIT;
-
-    VkPipelineColorBlendStateCreateInfo cbi = {};
-    cbi.sType             = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-    cbi.logicOpEnable     = VK_FALSE;
-    cbi.logicOp           = VK_LOGIC_OP_CLEAR;
-    cbi.attachmentCount   = 1;
-    cbi.pAttachments      = &cba;
-    cbi.blendConstants[0] = 0.0f;
-    cbi.blendConstants[1] = 0.0f;
-    cbi.blendConstants[2] = 0.0f;
-    cbi.blendConstants[3] = 0.0f;
-
-    VkPipelineMultisampleStateCreateInfo msi = {};
-    msi.sType                 = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-    msi.rasterizationSamples  = VK_SAMPLE_COUNT_1_BIT;
-    msi.sampleShadingEnable   = VK_FALSE;
-    msi.minSampleShading      = 0;
-    msi.pSampleMask           = nullptr;
-    msi.alphaToCoverageEnable = VK_FALSE;
-    msi.alphaToOneEnable      = VK_FALSE;
-
-    // NOTE(jesper): it seems like it'd be worth creating and caching this
-    // inside the VulkanShader objects
-    auto stages = array_create<VkPipelineShaderStageCreateInfo>(g_stack);
-    array_add(&stages, {
-        VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-        nullptr, 0,
-        pipeline.shaders[ShaderStage_vertex].stage,
-        pipeline.shaders[ShaderStage_vertex].module,
-        pipeline.shaders[ShaderStage_vertex].name,
-        nullptr
-    });
-
-    array_add(&stages, {
-        VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-        nullptr, 0,
-        pipeline.shaders[ShaderStage_fragment].stage,
-        pipeline.shaders[ShaderStage_fragment].module,
-        pipeline.shaders[ShaderStage_fragment].name,
-        nullptr
-    });
-
-    VkPipelineDepthStencilStateCreateInfo ds = {};
-    ds.sType                 = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-    ds.depthTestEnable       = VK_FALSE;
-    ds.depthWriteEnable      = VK_FALSE;
-    ds.depthBoundsTestEnable = VK_FALSE;
-
-    VkGraphicsPipelineCreateInfo pinfo = {};
-    pinfo.sType               = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-    pinfo.stageCount          = (i32)stages.count;
-    pinfo.pStages             = stages.data;
-    pinfo.pVertexInputState   = &vii;
-    pinfo.pInputAssemblyState = &iai;
-    pinfo.pViewportState      = &viewport_info;
-    pinfo.pRasterizationState = &raster;
-    pinfo.pMultisampleState   = &msi;
-    pinfo.pColorBlendState    = &cbi;
-    pinfo.pDepthStencilState  = &ds;
-    pinfo.layout              = pipeline.layout;
-    pinfo.renderPass          = g_vulkan->renderpass;
-    pinfo.basePipelineHandle  = VK_NULL_HANDLE;
-    pinfo.basePipelineIndex   = -1;
-
-    result = vkCreateGraphicsPipelines(g_vulkan->handle,
-                                       VK_NULL_HANDLE,
-                                       1,
-                                       &pinfo,
-                                       nullptr,
-                                       &pipeline.handle);
-    DEBUG_ASSERT(result == VK_SUCCESS);
-    return pipeline;
-}
-
-VulkanPipeline pipeline_create_terrain()
-{
-    void *sp = g_stack->sp;
-    defer { g_stack->reset(sp); };
-
-    VkResult result;
-    VulkanPipeline pipeline = {};
-    pipeline.id = Pipeline_terrain;
-
-    pipeline.shaders[ShaderStage_vertex]   = create_shader(ShaderID_terrain_vert);
-    pipeline.shaders[ShaderStage_fragment] = create_shader(ShaderID_terrain_frag);
-
-    auto layouts = array_create<VkDescriptorSetLayout>(g_frame);
-    { // pipeline
-        auto binds = array_create<VkDescriptorSetLayoutBinding>(g_stack);
-        array_add(&binds, {
-            0,
-            VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-            1,
-            VK_SHADER_STAGE_VERTEX_BIT,
-            nullptr
-        });
-
-        VkDescriptorSetLayoutCreateInfo layout_info = {};
-        layout_info.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-        layout_info.bindingCount = (u32)binds.count;
-        layout_info.pBindings    = binds.data;
-
-        result = vkCreateDescriptorSetLayout(g_vulkan->handle,
-                                             &layout_info,
-                                             nullptr,
-                                             &pipeline.descriptor_layout_pipeline);
-        DEBUG_ASSERT(result == VK_SUCCESS);
-
-        array_add(&layouts, pipeline.descriptor_layout_pipeline);
-    }
-
-    // NOTE(jesper): create a pool size descriptor for each type of
-    // descriptor this shader program uses
-    auto psizes = array_create<VkDescriptorPoolSize>(g_stack);
-    array_add(&psizes, { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1 });
-
-    VkDescriptorPoolCreateInfo pool_info = {};
-    pool_info.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    pool_info.poolSizeCount = (u32)psizes.count;
-    pool_info.pPoolSizes    = psizes.data;
-    pool_info.maxSets       = 1;
-
-    result = vkCreateDescriptorPool(g_vulkan->handle,
-                                    &pool_info,
-                                    nullptr,
-                                    &pipeline.descriptor_pool);
-    DEBUG_ASSERT(result == VK_SUCCESS);
-
-    VkDescriptorSetAllocateInfo dai = {};
-    dai.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    dai.descriptorPool     = pipeline.descriptor_pool;
-    dai.descriptorSetCount = 1;
-    dai.pSetLayouts        = &pipeline.descriptor_layout_pipeline;
-
-    result = vkAllocateDescriptorSets(g_vulkan->handle,
-                                      &dai,
-                                      &pipeline.descriptor_set);
-    DEBUG_ASSERT(result == VK_SUCCESS);
-
-    VkPushConstantRange push_constants = {};
-    push_constants.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-    push_constants.offset = 0;
-    push_constants.size = sizeof(Matrix4);
-
-    VkPipelineLayoutCreateInfo layout_info = {};
-    layout_info.sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    layout_info.setLayoutCount         = (u32)layouts.count;
-    layout_info.pSetLayouts            = layouts.data;
-    layout_info.pushConstantRangeCount = 1;
-    layout_info.pPushConstantRanges    = &push_constants;
-
-    result = vkCreatePipelineLayout(g_vulkan->handle,
-                                    &layout_info,
-                                    nullptr,
-                                    &pipeline.layout);
-    DEBUG_ASSERT(result == VK_SUCCESS);
-
-    auto vbinds = array_create<VkVertexInputBindingDescription>(g_stack);
-    array_add(&vbinds, { 0, sizeof(f32) * 6, VK_VERTEX_INPUT_RATE_VERTEX });
-
-    auto vdescs = array_create<VkVertexInputAttributeDescription>(g_stack);
-    array_add(&vdescs, { 0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0 });
-    array_add(&vdescs, { 1, 0, VK_FORMAT_R32G32B32_SFLOAT, sizeof(f32) * 3 });
-
-    VkPipelineVertexInputStateCreateInfo vii = {};
-    vii.sType                           = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-    vii.vertexBindingDescriptionCount   = (u32)vbinds.count;
-    vii.pVertexBindingDescriptions      = vbinds.data;
-    vii.vertexAttributeDescriptionCount = (u32)vdescs.count;
-    vii.pVertexAttributeDescriptions    = vdescs.data;
-
-    VkPipelineInputAssemblyStateCreateInfo iai = {};
-    iai.sType                  = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-    iai.topology               = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-    iai.primitiveRestartEnable = VK_FALSE;
-
-    VkViewport viewport = {};
-    viewport.x        = 0.0f;
-    viewport.y        = 0.0f;
-    viewport.width    = (f32) g_vulkan->swapchain.extent.width;
-    viewport.height   = (f32) g_vulkan->swapchain.extent.height;
-    viewport.minDepth = 0.0f;
-    viewport.maxDepth = 1.0f;
-
-    VkRect2D scissor = {};
-    scissor.offset = {0, 0};
-    scissor.extent = g_vulkan->swapchain.extent;
-
-    VkPipelineViewportStateCreateInfo viewport_info = {};
-    viewport_info.sType         = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-    viewport_info.viewportCount = 1;
-    viewport_info.pViewports    = &viewport;
-    viewport_info.scissorCount  = 1;
-    viewport_info.pScissors     = &scissor;
-
-    VkPipelineRasterizationStateCreateInfo raster = {};
-    raster.sType                   = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-    raster.depthClampEnable        = VK_FALSE;
-    raster.rasterizerDiscardEnable = VK_FALSE;
-    raster.polygonMode             = VK_POLYGON_MODE_FILL;
-    raster.cullMode                = VK_CULL_MODE_NONE;
-    raster.depthBiasEnable         = VK_FALSE;
-    raster.lineWidth               = 1.0;
-
-    VkPipelineColorBlendAttachmentState cba = {};
-    cba.blendEnable    = VK_FALSE;
-    cba.colorWriteMask = VK_COLOR_COMPONENT_R_BIT |
-                                            VK_COLOR_COMPONENT_G_BIT |
-                                            VK_COLOR_COMPONENT_B_BIT |
-                                            VK_COLOR_COMPONENT_A_BIT;
-
-    VkPipelineColorBlendStateCreateInfo cbi = {};
-    cbi.sType             = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-    cbi.logicOpEnable     = VK_FALSE;
-    cbi.logicOp           = VK_LOGIC_OP_CLEAR;
-    cbi.attachmentCount   = 1;
-    cbi.pAttachments      = &cba;
-    cbi.blendConstants[0] = 0.0f;
-    cbi.blendConstants[1] = 0.0f;
-    cbi.blendConstants[2] = 0.0f;
-    cbi.blendConstants[3] = 0.0f;
-
-    VkPipelineMultisampleStateCreateInfo msi = {};
-    msi.sType                 = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-    msi.rasterizationSamples  = VK_SAMPLE_COUNT_1_BIT;
-    msi.sampleShadingEnable   = VK_FALSE;
-    msi.minSampleShading      = 0;
-    msi.pSampleMask           = nullptr;
-    msi.alphaToCoverageEnable = VK_FALSE;
-    msi.alphaToOneEnable      = VK_FALSE;
-
-    // NOTE(jesper): it seems like it'd be worth creating and caching this
-    // inside the VulkanShader objects
-    auto stages = array_create<VkPipelineShaderStageCreateInfo>(g_stack);
-    array_add(&stages, {
-        VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-        nullptr, 0,
-        pipeline.shaders[ShaderStage_vertex].stage,
-        pipeline.shaders[ShaderStage_vertex].module,
-        pipeline.shaders[ShaderStage_vertex].name,
-        nullptr
-    });
-
-    array_add(&stages, {
-        VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-        nullptr, 0,
-        pipeline.shaders[ShaderStage_fragment].stage,
-        pipeline.shaders[ShaderStage_fragment].module,
-        pipeline.shaders[ShaderStage_fragment].name,
-        nullptr
-    });
-
-    VkPipelineDepthStencilStateCreateInfo ds = {};
-    ds.sType                 = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-    ds.depthTestEnable       = VK_TRUE;
-    ds.depthWriteEnable      = VK_TRUE;
-    ds.depthCompareOp        = VK_COMPARE_OP_LESS;
-    ds.depthBoundsTestEnable = VK_FALSE;
-
-    VkGraphicsPipelineCreateInfo pinfo = {};
-    pinfo.sType               = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-    pinfo.stageCount          = (u32)stages.count;
-    pinfo.pStages             = stages.data;
-    pinfo.pVertexInputState   = &vii;
-    pinfo.pInputAssemblyState = &iai;
-    pinfo.pViewportState      = &viewport_info;
-    pinfo.pRasterizationState = &raster;
-    pinfo.pMultisampleState   = &msi;
-    pinfo.pColorBlendState    = &cbi;
-    pinfo.pDepthStencilState  = &ds;
-    pinfo.layout              = pipeline.layout;
-    pinfo.renderPass          = g_vulkan->renderpass;
-    pinfo.basePipelineHandle  = VK_NULL_HANDLE;
-    pinfo.basePipelineIndex   = -1;
-
-    result = vkCreateGraphicsPipelines(g_vulkan->handle,
-                                       VK_NULL_HANDLE,
-                                       1,
-                                       &pinfo,
-                                       nullptr,
-                                       &pipeline.handle);
-    DEBUG_ASSERT(result == VK_SUCCESS);
-    return pipeline;
-}
-
-VulkanPipeline pipeline_create_mesh()
-{
-    void *sp = g_stack->sp;
-    defer { g_stack->reset(sp); };
-
-    VkResult result;
-    VulkanPipeline pipeline = {};
-    pipeline.id = Pipeline_mesh;
-
-    pipeline.shaders[ShaderStage_vertex]   = create_shader(ShaderID_mesh_vert);
-    pipeline.shaders[ShaderStage_fragment] = create_shader(ShaderID_mesh_frag);
-
-    // TODO(jesper): i think it probably makes sense to move this into the
-    // material, but unsure
-    pipeline.sampler_count = 1;
-    pipeline.samplers = g_persistent->alloc_array<VkSampler>(pipeline.sampler_count);
-    pipeline.samplers[0] = create_sampler();
-
-
-    auto layouts = array_create<VkDescriptorSetLayout>(g_frame);
-    { // pipeline
-        auto binds = array_create<VkDescriptorSetLayoutBinding>(g_stack);
-        array_add(&binds, {
-            0,
-            VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-            1,
-            VK_SHADER_STAGE_VERTEX_BIT,
-            nullptr
-        });
-
-        VkDescriptorSetLayoutCreateInfo layout_info = {};
-        layout_info.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-        layout_info.bindingCount = (u32)binds.count;
-        layout_info.pBindings    = binds.data;
-
-        result = vkCreateDescriptorSetLayout(g_vulkan->handle,
-                                             &layout_info,
-                                             nullptr,
-                                             &pipeline.descriptor_layout_pipeline);
-        DEBUG_ASSERT(result == VK_SUCCESS);
-
-        array_add(&layouts, pipeline.descriptor_layout_pipeline);
-    }
-
-    { // material
-        auto binds = array_create<VkDescriptorSetLayoutBinding>(g_stack);
-        array_add(&binds, {
-            0,
-            VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-            1,
-            VK_SHADER_STAGE_FRAGMENT_BIT,
-            nullptr
-        });
-
-        VkDescriptorSetLayoutCreateInfo layout_info = {};
-        layout_info.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-        layout_info.bindingCount = (u32)binds.count;
-        layout_info.pBindings    = binds.data;
-
-        result = vkCreateDescriptorSetLayout(g_vulkan->handle,
-                                             &layout_info,
-                                             nullptr,
-                                             &pipeline.descriptor_layout_material);
-        DEBUG_ASSERT(result == VK_SUCCESS);
-
-        array_add(&layouts, pipeline.descriptor_layout_material);
-    }
-
-    // NOTE(jesper): create a pool size descriptor for each type of
-    // descriptor this shader program uses
-    auto pool_sizes = array_create<VkDescriptorPoolSize>(g_frame);
-    array_add(&pool_sizes, { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         1 });
-    //array_add(&pool_sizes, { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1 });
-
-    VkDescriptorPoolCreateInfo pool_info = {};
-    pool_info.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    pool_info.poolSizeCount = (u32)pool_sizes.count;
-    pool_info.pPoolSizes    = pool_sizes.data;
-    pool_info.maxSets       = 1;
-
-    result = vkCreateDescriptorPool(g_vulkan->handle,
-                                    &pool_info,
-                                    nullptr,
-                                    &pipeline.descriptor_pool);
-    DEBUG_ASSERT(result == VK_SUCCESS);
-
-    VkDescriptorSetAllocateInfo dai = {};
-    dai.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    dai.descriptorPool     = pipeline.descriptor_pool;
-    dai.descriptorSetCount = 1;
-    dai.pSetLayouts        = &layouts[0];
-
-    result = vkAllocateDescriptorSets(g_vulkan->handle,
-                                      &dai,
-                                      &pipeline.descriptor_set);
-    DEBUG_ASSERT(result == VK_SUCCESS);
-
-    VkPushConstantRange push_constants = {};
-    push_constants.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-    push_constants.offset = 0;
-    push_constants.size = sizeof(Matrix4);
-
-    VkPipelineLayoutCreateInfo layout_info = {};
-    layout_info.sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    layout_info.setLayoutCount         = (u32)layouts.count;
-    layout_info.pSetLayouts            = layouts.data;
-    layout_info.pushConstantRangeCount = 1;
-    layout_info.pPushConstantRanges    = &push_constants;
-
-    result = vkCreatePipelineLayout(g_vulkan->handle,
-                                    &layout_info,
-                                    nullptr,
-                                    &pipeline.layout);
-    DEBUG_ASSERT(result == VK_SUCCESS);
-
-    auto vbinds = array_create<VkVertexInputBindingDescription>(g_stack);
-    array_add(&vbinds, { 0, sizeof(f32) * 8, VK_VERTEX_INPUT_RATE_VERTEX });
-
-    auto vdescs = array_create<VkVertexInputAttributeDescription>(g_stack);
-    array_add(&vdescs, { 0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0 });
-    array_add(&vdescs, { 1, 0, VK_FORMAT_R32G32B32_SFLOAT, sizeof(f32) * 3 });
-    array_add(&vdescs, { 2, 0, VK_FORMAT_R32G32_SFLOAT,    sizeof(f32) * 6 });
-
-    VkPipelineVertexInputStateCreateInfo vii = {};
-    vii.sType                           = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-    vii.vertexBindingDescriptionCount   = (u32)vbinds.count;
-    vii.pVertexBindingDescriptions      = vbinds.data;
-    vii.vertexAttributeDescriptionCount = (u32)vdescs.count;
-    vii.pVertexAttributeDescriptions    = vdescs.data;
-
-    VkPipelineInputAssemblyStateCreateInfo iai = {};
-    iai.sType                  = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-    iai.topology               = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-    iai.primitiveRestartEnable = VK_FALSE;
-
-    VkViewport viewport = {};
-    viewport.x        = 0.0f;
-    viewport.y        = 0.0f;
-    viewport.width    = (f32) g_vulkan->swapchain.extent.width;
-    viewport.height   = (f32) g_vulkan->swapchain.extent.height;
-    viewport.minDepth = 0.0f;
-    viewport.maxDepth = 1.0f;
-
-    VkRect2D scissor = {};
-    scissor.offset = {0, 0};
-    scissor.extent = g_vulkan->swapchain.extent;
-
-    VkPipelineViewportStateCreateInfo viewport_info = {};
-    viewport_info.sType         = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-    viewport_info.viewportCount = 1;
-    viewport_info.pViewports    = &viewport;
-    viewport_info.scissorCount  = 1;
-    viewport_info.pScissors     = &scissor;
-
-    VkPipelineRasterizationStateCreateInfo raster = {};
-    raster.sType                   = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-    raster.depthClampEnable        = VK_FALSE;
-    raster.rasterizerDiscardEnable = VK_FALSE;
-    raster.polygonMode             = VK_POLYGON_MODE_FILL;
-    raster.cullMode                = VK_CULL_MODE_NONE;
-    raster.depthBiasEnable         = VK_FALSE;
-    raster.lineWidth               = 1.0;
-
-    VkPipelineColorBlendAttachmentState cba = {};
-    cba.blendEnable    = VK_FALSE;
-    cba.colorWriteMask = VK_COLOR_COMPONENT_R_BIT |
-                                            VK_COLOR_COMPONENT_G_BIT |
-                                            VK_COLOR_COMPONENT_B_BIT |
-                                            VK_COLOR_COMPONENT_A_BIT;
-
-    VkPipelineColorBlendStateCreateInfo cbi = {};
-    cbi.sType             = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-    cbi.logicOpEnable     = VK_FALSE;
-    cbi.logicOp           = VK_LOGIC_OP_CLEAR;
-    cbi.attachmentCount   = 1;
-    cbi.pAttachments      = &cba;
-    cbi.blendConstants[0] = 0.0f;
-    cbi.blendConstants[1] = 0.0f;
-    cbi.blendConstants[2] = 0.0f;
-    cbi.blendConstants[3] = 0.0f;
-
-    VkPipelineMultisampleStateCreateInfo msi = {};
-    msi.sType                 = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-    msi.rasterizationSamples  = VK_SAMPLE_COUNT_1_BIT;
-    msi.sampleShadingEnable   = VK_FALSE;
-    msi.minSampleShading      = 0;
-    msi.pSampleMask           = nullptr;
-    msi.alphaToCoverageEnable = VK_FALSE;
-    msi.alphaToOneEnable      = VK_FALSE;
-
-    // NOTE(jesper): it seems like it'd be worth creating and caching this
-    // inside the VulkanShader objects
-    auto stages = array_create<VkPipelineShaderStageCreateInfo>(g_stack);
-    array_add(&stages, {
-        VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-        nullptr, 0,
-        pipeline.shaders[ShaderStage_vertex].stage,
-        pipeline.shaders[ShaderStage_vertex].module,
-        pipeline.shaders[ShaderStage_vertex].name,
-        nullptr
-    });
-
-    array_add(&stages, {
-        VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-        nullptr, 0,
-        pipeline.shaders[ShaderStage_fragment].stage,
-        pipeline.shaders[ShaderStage_fragment].module,
-        pipeline.shaders[ShaderStage_fragment].name,
-        nullptr
-    });
-
-    VkPipelineDepthStencilStateCreateInfo ds = {};
-    ds.sType                 = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-    ds.depthTestEnable       = VK_TRUE;
-    ds.depthWriteEnable      = VK_TRUE;
-    ds.depthCompareOp        = VK_COMPARE_OP_LESS;
-    ds.depthBoundsTestEnable = VK_FALSE;
-
-    VkGraphicsPipelineCreateInfo pinfo = {};
-    pinfo.sType               = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-    pinfo.stageCount          = (u32)stages.count;
     pinfo.pStages             = stages.data;
     pinfo.pVertexInputState   = &vii;
     pinfo.pInputAssemblyState = &iai;

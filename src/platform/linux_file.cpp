@@ -119,11 +119,13 @@ char *platform_path(GamePath root)
             i64 length = readlink(linkname, buffer, PATH_MAX);
             DEBUG_ASSERT(length >= 0);
 
-            for (; length >= 0; length--) {
-                if (buffer[length-1] == '/') {
-                    break;
+            char *last = nullptr;
+            for (i32 i = 0; i < length; i++) {
+                if (buffer[i] == '/') {
+                    last = &buffer[i];
                 }
             }
+            length = (i64)(last - buffer + 1);
 
             u64 total_length = length + strlen("../assets/") + 1;
             path = (char*)malloc(total_length);
@@ -336,7 +338,10 @@ char* platform_file_read(const char *path, usize *file_size)
 {
     struct stat st;
     i32 result = stat(path, &st);
-    DEBUG_ASSERT(result == 0);
+    if (result != 0) {
+        DEBUG_LOG(Log_error, "couldn't stat file: %s", path);
+        return nullptr;
+    }
 
     char *buffer = (char*)malloc(st.st_size);
 

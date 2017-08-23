@@ -415,30 +415,31 @@ void game_init(PlatformState *platform)
     // create font atlas
     {
         usize font_size;
-        char *font_path = platform_resolve_path(GamePath_data,
-                                                "fonts/Roboto-Regular.ttf");
-        u8 *font_data = (u8*)platform_file_read(font_path, &font_size);
+        char *font_path = platform_resolve_path(GamePath_data, "fonts/Roboto-Regular.ttf");
+        if (font_path != nullptr) {
+            u8 *font_data = (u8*)platform_file_read(font_path, &font_size);
 
-        u8 *bitmap = g_frame->alloc_array<u8>(1024*1024);
-        stbtt_BakeFontBitmap(font_data, 0, g_game->overlay.fsize, bitmap,
-                             1024, 1024, 0, 256, g_game->overlay.font);
+            u8 *bitmap = g_frame->alloc_array<u8>(1024*1024);
+            stbtt_BakeFontBitmap(font_data, 0, g_game->overlay.fsize, bitmap,
+                                 1024, 1024, 0, 256, g_game->overlay.font);
 
-        VkComponentMapping components = {};
-        components.a = VK_COMPONENT_SWIZZLE_R;
-        add_texture("font-regular", 1024, 1024, VK_FORMAT_R8_UNORM, bitmap,
-                    components);
+            VkComponentMapping components = {};
+            components.a = VK_COMPONENT_SWIZZLE_R;
+            add_texture("font-regular", 1024, 1024, VK_FORMAT_R8_UNORM, bitmap,
+                        components);
 
-        // TODO(jesper): this size is really wrong
-        g_game->overlay.vbo = create_vbo(1024*1024);
+            // TODO(jesper): this size is really wrong
+            g_game->overlay.vbo = create_vbo(1024*1024);
+        }
     }
 
 
     // create pipelines
     {
-        g_game->pipelines.mesh    = pipeline_create_mesh();
-        g_game->pipelines.basic2d = pipeline_create_basic2d();
-        g_game->pipelines.font    = pipeline_create_font();
-        g_game->pipelines.terrain = pipeline_create_terrain();
+        g_game->pipelines.mesh    = create_pipeline(Pipeline_mesh);
+        g_game->pipelines.basic2d = create_pipeline(Pipeline_basic2d);
+        g_game->pipelines.font    = create_pipeline(Pipeline_font);
+        g_game->pipelines.terrain = create_pipeline(Pipeline_terrain);
     }
 
     // create ubos
@@ -568,11 +569,11 @@ void game_init(PlatformState *platform)
                 Texel t1   = ((Texel*)hm.data)[i     * hm.width + j+1];
                 Texel t2   = ((Texel*)hm.data)[(i+1) * hm.width + j+1];
                 Texel t3   = ((Texel*)hm.data)[(i+1) * hm.width + j];
+
                 Vector3 v0 = to_world * Vector3{ (f32)j,   (f32)t0.r, (f32)i   };
                 Vector3 v1 = to_world * Vector3{ (f32)j+1, (f32)t1.r, (f32)i   };
                 Vector3 v2 = to_world * Vector3{ (f32)j+1, (f32)t2.r, (f32)i+1 };
                 Vector3 v3 = to_world * Vector3{ (f32)j,   (f32)t3.r, (f32)i+1 };
-
 
                 Vector3 n = surface_normal(v0, v1, v2);
                 array_add(&vertices, {v0, n});

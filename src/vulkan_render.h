@@ -20,8 +20,6 @@ enum ShaderStage {
 };
 
 enum ShaderID {
-    ShaderID_generic_vert,
-    ShaderID_generic_frag,
     ShaderID_mesh_vert,
     ShaderID_mesh_frag,
     ShaderID_basic2d_vert,
@@ -34,7 +32,6 @@ enum ShaderID {
 enum PipelineID {
     Pipeline_font,
     Pipeline_mesh,
-    Pipeline_generic,
     Pipeline_terrain,
     Pipeline_basic2d
 };
