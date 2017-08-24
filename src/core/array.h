@@ -9,6 +9,8 @@
 #ifndef ARRAY_H
 #define ARRAY_H
 
+#include "platform/platform_debug.h"
+
 template<typename T>
 struct Array {
     T* data        = nullptr;
@@ -19,6 +21,7 @@ struct Array {
 
     T& operator[] (isize i)
     {
+        DEBUG_ASSERT(i < count);
         return data[i];
     }
 };
@@ -31,6 +34,7 @@ struct StaticArray {
 
     T& operator[] (isize i)
     {
+        DEBUG_ASSERT(i < count);
         return data[i];
     }
 };

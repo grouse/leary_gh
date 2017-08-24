@@ -31,6 +31,7 @@
 
 #include "core/serialize.cpp"
 
+
 struct Entity {
     i32        id;
     i32        index;
@@ -56,6 +57,16 @@ struct RenderObject {
     i32            vertex_count;
     Matrix4        transform;
     Material       *material;
+};
+
+struct Terrain {
+    struct Chunk {
+        Array<Vertex> vertices;
+        f32           width, depth;
+        Vector3       origin;
+        RenderObject  render_object;
+    };
+    Array<Chunk> chunks;
 };
 
 struct Camera {
@@ -539,11 +550,6 @@ void game_init(PlatformState *platform)
             u8 r, g, b, a;
         };
 
-        struct Vertex {
-            Vector3 p;
-            Vector3 n;
-        };
-
         u32  vc       = hm.height * hm.width;
         auto vertices = array_create<Vertex>(g_persistent, vc);
 
@@ -576,17 +582,149 @@ void game_init(PlatformState *platform)
                 Vector3 v3 = to_world * Vector3{ (f32)j,   (f32)t3.r, (f32)i+1 };
 
                 Vector3 n = surface_normal(v0, v1, v2);
-                array_add(&vertices, {v0, n});
-                array_add(&vertices, {v1, n});
-                array_add(&vertices, {v2, n});
+                array_add(&vertices, {v0, n, {}});
+                array_add(&vertices, {v1, n, {}});
+                array_add(&vertices, {v2, n, {}});
 
                 n = surface_normal(v0, v2, v3);
-                array_add(&vertices, {v0, n});
-                array_add(&vertices, {v2, n});
-                array_add(&vertices, {v3, n});
+                array_add(&vertices, {v0, n, {}});
+                array_add(&vertices, {v2, n, {}});
+                array_add(&vertices, {v3, n, {}});
             }
         }
 
+        // NOTE(jesper): this is redundant; we're transforming the heightmap
+        // vertices to [-50,50] with to_world. Included for completeness when
+        // moving to arbitrary meshes
+        f32 min_x =  F32_MAX, min_z =  F32_MAX;
+        f32 max_x = -F32_MAX, max_z = -F32_MAX;
+        for (i32 i = 0; i < vertices.count; i++) {
+            if (vertices[i].p.z < min_z) {
+                min_z = vertices[i].p.z;
+            } else if (vertices[i].p.z > max_z) {
+                max_z = vertices[i].p.z;
+            }
+
+            if (vertices[i].p.x < min_x) {
+                min_x = vertices[i].p.x;
+            } else if (vertices[i].p.x > max_x) {
+                max_x = vertices[i].p.x;
+            }
+        }
+
+
+        // TODO(jesper): make this data driven, and decide on a good value
+        i32 nchunks = 64;
+        i32 ncl     = log(nchunks)/log(4);
+
+        f32 width  = max_x - min_x;
+        f32 depth  = max_z - min_z;
+        f32 cwidth = width  / ncl;
+        f32 cdepth = depth / ncl;
+
+        i32 rc      = 1;
+        for (i32 i = 0; i < ncl; i++) {
+            rc *= 2;
+        }
+
+        Terrain t = {};
+        t.chunks = array_create<Terrain::Chunk>(g_heap, nchunks);
+        t.chunks.count = nchunks;
+
+        Vector3 origin = { cwidth / 2.0f, 0.0f, cdepth / 2.0f };
+        for (i32 i = 0; i < rc; i++) {
+            origin.x = cwidth / 2.0f;
+            for (i32 j = 0; j < rc; j++) {
+                i32 index = i * rc + j;
+
+                t.chunks[index].vertices.allocator = g_heap;
+                t.chunks[index].width  = cwidth;
+                t.chunks[index].depth  = cdepth;
+                t.chunks[index].origin = origin;
+
+                origin.x += cwidth / 2.0f;
+            }
+            origin.z += cdepth / 2.0f;
+        }
+
+        struct Triangle {
+            Vector3 p0;
+            Vector3 p1;
+            Vector3 p2;
+        };
+
+        for (i32 i = 0; i < vertices.count; i+=3) {
+            bool found = false;
+
+            Vertex v0 = vertices[i];
+            Vertex v1 = vertices[i+1];
+            Vertex v2 = vertices[i+2];
+
+            for (i32 c = 0; c < t.chunks.count; c++) {
+                f32 hwidth = t.chunks[i].width / 2.0f;
+                f32 hdepth = t.chunks[i].depth / 2.0f;
+
+                if (v0.p.x <= (t.chunks[c].origin.x + hwidth) &&
+                    v0.p.x >= (t.chunks[c].origin.x - hwidth) &&
+                    v0.p.z <= (t.chunks[c].origin.z + hdepth) &&
+                    v0.p.z >= (t.chunks[c].origin.z - hdepth))
+                {
+                    array_add(&t.chunks[c].vertices, v0);
+                    array_add(&t.chunks[c].vertices, v1);
+                    array_add(&t.chunks[c].vertices, v2);
+
+                    found = true;
+                    break;
+                }
+
+                if (v1.p.x <= (t.chunks[c].origin.x + hwidth) &&
+                    v1.p.x >= (t.chunks[c].origin.x - hwidth) &&
+                    v1.p.z <= (t.chunks[c].origin.z + hdepth) &&
+                    v1.p.z >= (t.chunks[c].origin.z - hdepth))
+                {
+                    array_add(&t.chunks[c].vertices, v0);
+                    array_add(&t.chunks[c].vertices, v1);
+                    array_add(&t.chunks[c].vertices, v2);
+
+                    found = true;
+                    break;
+                }
+
+                if (v2.p.x <= (t.chunks[c].origin.x + hwidth) &&
+                    v2.p.x >= (t.chunks[c].origin.x - hwidth) &&
+                    v2.p.z <= (t.chunks[c].origin.z + hdepth) &&
+                    v2.p.z >= (t.chunks[c].origin.z - hdepth))
+                {
+                    array_add(&t.chunks[c].vertices, v0);
+                    array_add(&t.chunks[c].vertices, v1);
+                    array_add(&t.chunks[c].vertices, v2);
+
+                    found = true;
+                    break;
+                }
+            }
+
+            if (!found) {
+                DEBUG_ASSERT(false);
+            }
+        }
+
+        for (i32 i = 0; i < t.chunks.count; i++) {
+            Terrain::Chunk &c = t.chunks[i];
+            usize vertex_size = c.vertices.count * sizeof(c.vertices[0]);
+            if (vertex_size == 0) {
+                continue;
+            }
+
+            c.render_object.pipeline = g_game->pipelines.terrain;
+
+            c.render_object.vertex_count = c.vertices.count;
+            c.render_object.vertices     = create_vbo(c.vertices.data, vertex_size);
+
+            // TODO(jesper): don't do this.
+            array_add(&g_game->render_objects, c.render_object);
+        }
+#if 0
         RenderObject ro = {};
         ro.pipeline       = g_game->pipelines.terrain;
 
@@ -595,6 +733,7 @@ void game_init(PlatformState *platform)
         ro.vertices       = create_vbo(vertices.data, vertex_size);
 
         array_add(&g_game->render_objects, ro);
+#endif
         set_texture(&g_game->materials.heightmap, ResourceSlot_diffuse, hm);
 
     }

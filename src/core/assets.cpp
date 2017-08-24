@@ -9,8 +9,8 @@
 #include "vulkan_render.h"
 
 struct Vertex {
-    Vector3 vector;
-    Vector3 normal;
+    Vector3 p;
+    Vector3 n;
     Vector2 uv;
 };
 
@@ -293,19 +293,19 @@ Mesh load_mesh_obj(const char *filename)
             in0--; in1--; in2--;
 
             Vertex v0;
-            v0.vector = vectors[iv0];
-            v0.normal = normals[in0];
-            v0.uv     = uvs[it0];
+            v0.p  = vectors[iv0];
+            v0.n  = normals[in0];
+            v0.uv = uvs[it0];
 
             Vertex v1;
-            v1.vector = vectors[iv1];
-            v1.normal = normals[in1];
-            v1.uv     = uvs[it1];
+            v1.p  = vectors[iv1];
+            v1.n  = normals[in1];
+            v1.uv = uvs[it1];
 
             Vertex v2;
-            v2.vector = vectors[iv2];
-            v2.normal = normals[in2];
-            v2.uv     = uvs[it2];
+            v2.p  = vectors[iv2];
+            v2.n  = normals[in2];
+            v2.uv = uvs[it2];
 
             array_add(&vertices, v0);
             array_add(&vertices, v1);

@@ -11,6 +11,7 @@
 
 // TODO(jesper): better pi(e)
 #define PI 3.1415942f
+#define F32_MAX 3.402823466e+38F
 
 INTROSPECT struct Vector2 {
 	f32 x, y;
