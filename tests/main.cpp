@@ -36,12 +36,14 @@
         } \
     } while(0)
 
+#include "test_array.cpp"
 #include "test_allocator.cpp"
 
 int main()
 {
     bool result = true;
-    result = result && allocators_test();
+    result = result && test_allocators();
+    result = result && test_array();
     return 0;
 }
 

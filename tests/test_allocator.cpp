@@ -6,7 +6,7 @@
  * Copyright (c) 2017 - all rights reserved
  */
 
-bool allocators_test_heap()
+bool test_heap_allocator()
 {
     TEST_START("allocators::heap");
     bool result = true;
@@ -31,11 +31,11 @@ bool allocators_test_heap()
 }
 
 
-bool allocators_test()
+bool test_allocators()
 {
     TEST_START("allocators");
     bool result = true;
-    result = result && allocators_test_heap();
+    result = result && test_heap_allocator();
     return result;
 }
 
