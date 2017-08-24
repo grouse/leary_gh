@@ -82,6 +82,11 @@ isize array_remove_ordered(Array<T> *a, isize i)
 		return --a->count;
 	}
 
+	for (; i < a->count-1; i++) {
+	    a->data[i] = a->data[i+1];
+	}
+
+	return --a->count;
 }
 
 
@@ -129,7 +134,7 @@ isize array_remove(StaticArray<T> *a, isize i)
 		return --a->count;
 	}
 
-	a->data[a->count-1] = a->data[i];
-	return --a->count;
+	a->data[i] = a->data[--a->count];
+	return a->count;
 }
 
