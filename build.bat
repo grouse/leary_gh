@@ -25,20 +25,16 @@ PUSHD %BUILD_DIR%
 REM TODO(jesper): move this into a separate build script; we won't need to and
 REM don't want to rebuild all the assets every build, it'll become real slow
 REM real fast
-glslangValidator -V %ROOT%\src\render\shaders\generic.frag -o %BUILD_DIR%\data\shaders\generic.frag.spv
-glslangValidator -V %ROOT%\src\render\shaders\generic.vert -o %BUILD_DIR%\data\shaders\generic.vert.spv
-
-glslangValidator -V %ROOT%\src\render\shaders\font.frag -o %BUILD_DIR%\data\shaders\font.frag.spv
-glslangValidator -V %ROOT%\src\render\shaders\font.vert -o %BUILD_DIR%\data\shaders\font.vert.spv
-
-glslangValidator -V %ROOT%\src\render\shaders\mesh.frag -o %BUILD_DIR%\data\shaders\mesh.frag.spv
-glslangValidator -V %ROOT%\src\render\shaders\mesh.vert -o %BUILD_DIR%\data\shaders\mesh.vert.spv
-
-glslangValidator -V %ROOT%\src\render\shaders\terrain.frag -o %BUILD_DIR%\data\shaders\terrain.frag.spv
-glslangValidator -V %ROOT%\src\render\shaders\terrain.vert -o %BUILD_DIR%\data\shaders\terrain.vert.spv
-
-xcopy /i /y %ROOT%\assets\fonts %BUILD_DIR%\data\fonts
-xcopy /i /y %ROOT%\assets\models %BUILD_DIR%\data\models
+glslangValidator -V %ROOT%\src\shaders\generic.glsl -DVERTEX_SHADER -S vert -g -o %BUILD_DIR%\data\shaders\generic.vert.spv
+glslangValidator -V %ROOT%\src\shaders\generic.glsl -DFRAGMENT_SHADER -S frag -g -o %BUILD_DIR%\data\shaders\generic.frag.spv
+glslangValidator -V %ROOT%\src\shaders\font.glsl -DVERTEX_SHADER -S vert -g -o %BUILD_DIR%\data\shaders\font.vert.spv
+glslangValidator -V %ROOT%\src\shaders\font.glsl -DFRAGMENT_SHADER -S frag -g -o %BUILD_DIR%\data\shaders\font.frag.spv
+glslangValidator -V %ROOT%\src\shaders\basic2d.glsl -DVERTEX_SHADER -S vert -g -o %BUILD_DIR%\data\shaders\basic2d.vert.spv
+glslangValidator -V %ROOT%\src\shaders\basic2d.glsl -DFRAGMENT_SHADER -S frag -g -o %BUILD_DIR%\data\shaders\basic2d.frag.spv
+glslangValidator -V %ROOT%\src\shaders\mesh.glsl -DVERTEX_SHADER -S vert -g -o %BUILD_DIR%\data\shaders\mesh.vert.spv
+glslangValidator -V %ROOT%\src\shaders\mesh.glsl -DFRAGMENT_SHADER -S frag -g -o %BUILD_DIR%\data\shaders\mesh.frag.spv
+glslangValidator -V %ROOT%\src\shaders\terrain.glsl -DVERTEX_SHADER -S vert -g -o %BUILD_DIR%\data\shaders\terrain.vert.spv
+glslangValidator -V %ROOT%\src\shaders\terrain.glsl -DFRAGMENT_SHADER -S frag -g -o %BUILD_DIR%\data\shaders\terrain.frag.spv
 
 cl %FLAGS% %UNOPTIMIZED% %INCLUDE_DIR% %ROOT%\src\platform\win32_leary.cpp /link %LIBS% /DLL /OUT:game.dll
 cl %FLAGS% %UNOPTIMIZED% %INCLUDE_DIR% /Feleary.exe %ROOT%\src\platform/win32_main.cpp /SUBSYSTEM:WINDOWS
