@@ -42,8 +42,8 @@ struct Entity {
 struct IndexRenderObject {
     i32            entity_id;
     VulkanPipeline pipeline;
-    VulkanBuffer   vertices;
-    VulkanBuffer   indices;
+    VulkanBuffer   vbo;
+    VulkanBuffer   ibo;
     i32            index_count;
     //Matrix4        transform;
     Material       *material;
@@ -53,7 +53,7 @@ struct IndexRenderObject {
 // pipeline binds
 struct RenderObject {
     VulkanPipeline pipeline;
-    VulkanBuffer   vertices;
+    VulkanBuffer   vbo;
     i32            vertex_count;
     Matrix4        transform;
     Material       *material;
@@ -62,9 +62,10 @@ struct RenderObject {
 struct Terrain {
     struct Chunk {
         Array<Vertex> vertices;
-        RenderObject  render_object;
+        VulkanBuffer vbo;
     };
     Array<Chunk> chunks;
+    VulkanPipeline *pipeline;
 };
 
 struct Camera {
@@ -508,8 +509,8 @@ void game_init(PlatformState *platform)
         obj.entity_id   = player.id;
         obj.pipeline    = g_game->pipelines.mesh;
         obj.index_count = (i32)cube.indices.count;
-        obj.vertices    = create_vbo(cube.vertices.data, vertex_size);
-        obj.indices     = create_ibo(cube.indices.data, index_size);
+        obj.vbo         = create_vbo(cube.vertices.data, vertex_size);
+        obj.ibo         = create_ibo(cube.indices.data, index_size);
 
         //obj.transform = translate(Matrix4::identity(), {x, y, z});
         array_add(&g_game->index_render_objects, obj);
@@ -533,8 +534,8 @@ void game_init(PlatformState *platform)
         obj.entity_id   = e.id;
         obj.pipeline    = g_game->pipelines.mesh;
         obj.index_count = (i32)cube.indices.count;
-        obj.vertices    = create_vbo(cube.vertices.data, vertex_size);
-        obj.indices     = create_ibo(cube.indices.data, index_size);
+        obj.vbo         = create_vbo(cube.vertices.data, vertex_size);
+        obj.ibo         = create_ibo(cube.indices.data, index_size);
 
         //obj.transform = translate(Matrix4::identity(), {x, y, z});
         array_add(&g_game->index_render_objects, obj);
@@ -636,13 +637,12 @@ void game_init(PlatformState *platform)
             }
         }
 
+        t.pipeline = &g_game->pipelines.terrain;
         for (i32 i = 0; i < t.chunks.count; i++) {
             Terrain::Chunk &c = t.chunks[i];
 
             usize vertex_size = c.vertices.count * sizeof(c.vertices[0]);
-            c.render_object.pipeline     = g_game->pipelines.terrain;
-            c.render_object.vertex_count = c.vertices.count;
-            c.render_object.vertices     = create_vbo(c.vertices.data, vertex_size);
+            c.vbo      = create_vbo(c.vertices.data, vertex_size);
         }
 
         g_terrain = t;
@@ -718,7 +718,7 @@ void game_quit(PlatformState *platform)
     vkQueueWaitIdle(g_vulkan->queue);
 
     for (i32 i = 0; i < g_terrain.chunks.count; i++) {
-        buffer_destroy(g_terrain.chunks[i].render_object.vertices);
+        buffer_destroy(g_terrain.chunks[i].vbo);
     }
 
     for (int i = 0; i < g_game->overlay.items.count; i++) {
@@ -746,12 +746,12 @@ void game_quit(PlatformState *platform)
     pipeline_destroy(g_game->pipelines.terrain);
 
     for (i32 i = 0; i < g_game->render_objects.count; i++) {
-        buffer_destroy(g_game->render_objects[i].vertices);
+        buffer_destroy(g_game->render_objects[i].vbo);
     }
 
     for (i32 i = 0; i < g_game->index_render_objects.count; i++) {
-        buffer_destroy(g_game->index_render_objects[i].vertices);
-        buffer_destroy(g_game->index_render_objects[i].indices);
+        buffer_destroy(g_game->index_render_objects[i].vbo);
+        buffer_destroy(g_game->index_render_objects[i].ibo);
     }
 
     buffer_destroy_ubo(g_game->fp_camera.ubo);
@@ -1225,20 +1225,20 @@ void render_terrain(VkCommandBuffer command)
     VkDeviceSize offsets[] = { 0 };
     vkCmdBindPipeline(command,
                       VK_PIPELINE_BIND_POINT_GRAPHICS,
-                      g_game->pipelines.terrain.handle);
+                      g_terrain.pipeline->handle);
 
     vkCmdBindDescriptorSets(command,
                             VK_PIPELINE_BIND_POINT_GRAPHICS,
-                            g_game->pipelines.terrain.layout,
+                            g_terrain.pipeline->layout,
                             0,
-                            1, &g_game->pipelines.terrain.descriptor_set,
+                            1, &g_terrain.pipeline->descriptor_set,
                             0, nullptr);
 
     for (i32 i = 0; i < g_terrain.chunks.count; i++) {
         Terrain::Chunk &c = g_terrain.chunks[i];
 
-        vkCmdBindVertexBuffers(command, 0, 1, &c.render_object.vertices.handle, offsets);
-        vkCmdDraw(command, c.render_object.vertex_count, 1, 0, 0);
+        vkCmdBindVertexBuffers(command, 0, 1, &c.vbo.handle, offsets);
+        vkCmdDraw(command, c.vertices.count, 1, 0, 0);
     }
 }
 
@@ -1277,7 +1277,7 @@ void game_render()
                                 1, &object.pipeline.descriptor_set,
                                 0, nullptr);
 
-        vkCmdBindVertexBuffers(command, 0, 1, &object.vertices.handle, offsets);
+        vkCmdBindVertexBuffers(command, 0, 1, &object.vbo.handle, offsets);
 
         vkCmdPushConstants(command, object.pipeline.layout, VK_SHADER_STAGE_VERTEX_BIT,
                            0, sizeof(object.transform), &object.transform);
@@ -1312,8 +1312,8 @@ void game_render()
                                 (i32)descriptors.count, descriptors.data,
                                 0, nullptr);
 
-        vkCmdBindVertexBuffers(command, 0, 1, &object.vertices.handle, offsets);
-        vkCmdBindIndexBuffer(command, object.indices.handle,
+        vkCmdBindVertexBuffers(command, 0, 1, &object.vbo.handle, offsets);
+        vkCmdBindIndexBuffer(command, object.ibo.handle,
                              0, VK_INDEX_TYPE_UINT32);
 
 
