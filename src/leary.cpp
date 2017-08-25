@@ -613,10 +613,11 @@ void game_init(PlatformState *platform)
         }
 
         Terrain t = {};
-        t.chunks = array_create<Terrain::Chunk>(g_heap, 2);
-        t.chunks.count = 2;
+        t.chunks = array_create<Terrain::Chunk>(g_heap, 4);
+        t.chunks.count = 4;
 
         f32 mid_x = (min_x + max_x) / 2.0f;
+        f32 mid_z = (min_z + max_z) / 2.0f;
         for (i32 i = 0; i < t.chunks.count; i++) {
             t.chunks[i].vertices = array_create<Vertex>(g_heap);
         }
@@ -627,13 +628,25 @@ void game_init(PlatformState *platform)
             Vertex v2 = vertices[i+2];
 
             if (v0.p.x >= mid_x || v1.p.x >= mid_x || v2.p.x >= mid_x) {
-                array_add(&t.chunks[0].vertices, v0);
-                array_add(&t.chunks[0].vertices, v1);
-                array_add(&t.chunks[0].vertices, v2);
+                if (v0.p.z >= mid_z || v1.p.z >= mid_z || v2.p.z >= mid_z) {
+                    array_add(&t.chunks[0].vertices, v0);
+                    array_add(&t.chunks[0].vertices, v1);
+                    array_add(&t.chunks[0].vertices, v2);
+                } else {
+                    array_add(&t.chunks[1].vertices, v0);
+                    array_add(&t.chunks[1].vertices, v1);
+                    array_add(&t.chunks[1].vertices, v2);
+                }
             } else {
-                array_add(&t.chunks[1].vertices, v0);
-                array_add(&t.chunks[1].vertices, v1);
-                array_add(&t.chunks[1].vertices, v2);
+                if (v0.p.z >= mid_z || v1.p.z >= mid_z || v2.p.z >= mid_z) {
+                    array_add(&t.chunks[2].vertices, v0);
+                    array_add(&t.chunks[2].vertices, v1);
+                    array_add(&t.chunks[2].vertices, v2);
+                } else {
+                    array_add(&t.chunks[3].vertices, v0);
+                    array_add(&t.chunks[3].vertices, v1);
+                    array_add(&t.chunks[3].vertices, v2);
+                }
             }
         }
 
