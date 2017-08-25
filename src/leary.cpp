@@ -1220,21 +1220,9 @@ void game_update(f32 dt)
 
 }
 
-void game_render()
+void render_terrain(VkCommandBuffer command)
 {
-    PROFILE_FUNCTION();
-    void *sp = g_stack->sp;
-    defer { g_stack->reset(sp); };
-
-    u32 image_index = swapchain_acquire();
-
-
     VkDeviceSize offsets[] = { 0 };
-    VkResult result;
-
-    VkCommandBuffer command = command_buffer_begin();
-    renderpass_begin(command, image_index);
-
     vkCmdBindPipeline(command,
                       VK_PIPELINE_BIND_POINT_GRAPHICS,
                       g_game->pipelines.terrain.handle);
@@ -1252,6 +1240,25 @@ void game_render()
         vkCmdBindVertexBuffers(command, 0, 1, &c.render_object.vertices.handle, offsets);
         vkCmdDraw(command, c.render_object.vertex_count, 1, 0, 0);
     }
+}
+
+void game_render()
+{
+    PROFILE_FUNCTION();
+    void *sp = g_stack->sp;
+    defer { g_stack->reset(sp); };
+
+    u32 image_index = swapchain_acquire();
+
+
+    VkDeviceSize offsets[] = { 0 };
+    VkResult result;
+
+    VkCommandBuffer command = command_buffer_begin();
+    renderpass_begin(command, image_index);
+
+    render_terrain(command);
+
 
     for (i32 i = 0; i < g_game->render_objects.count; i++) {
         RenderObject &object = g_game->render_objects[i];
