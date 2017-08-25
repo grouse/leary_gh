@@ -62,8 +62,6 @@ struct RenderObject {
 struct Terrain {
     struct Chunk {
         Array<Vertex> vertices;
-        f32           width, depth;
-        Vector3       origin;
         RenderObject  render_object;
     };
     Array<Chunk> chunks;
@@ -187,6 +185,7 @@ Settings     g_settings;
 extern PlatformState *g_platform;
 
 Catalog      g_texture_catalog;
+Terrain      g_terrain;
 
 void debug_add_texture(const char *name,
                        i32 tid,
@@ -596,134 +595,58 @@ void game_init(PlatformState *platform)
         // NOTE(jesper): this is redundant; we're transforming the heightmap
         // vertices to [-50,50] with to_world. Included for completeness when
         // moving to arbitrary meshes
-        f32 min_x =  F32_MAX, min_z =  F32_MAX;
-        f32 max_x = -F32_MAX, max_z = -F32_MAX;
+        f32 min_x = F32_MAX, max_x = -F32_MAX;
+        f32 min_z = F32_MAX, max_z = -F32_MAX;
         for (i32 i = 0; i < vertices.count; i++) {
-            if (vertices[i].p.z < min_z) {
-                min_z = vertices[i].p.z;
-            } else if (vertices[i].p.z > max_z) {
-                max_z = vertices[i].p.z;
-            }
-
             if (vertices[i].p.x < min_x) {
                 min_x = vertices[i].p.x;
             } else if (vertices[i].p.x > max_x) {
                 max_x = vertices[i].p.x;
             }
-        }
 
-
-        // TODO(jesper): make this data driven, and decide on a good value
-        i32 nchunks = 64;
-        i32 ncl     = log(nchunks)/log(4);
-
-        f32 width  = max_x - min_x;
-        f32 depth  = max_z - min_z;
-        f32 cwidth = width  / ncl;
-        f32 cdepth = depth / ncl;
-
-        i32 rc      = 1;
-        for (i32 i = 0; i < ncl; i++) {
-            rc *= 2;
+            if (vertices[i].p.z < min_z) {
+                min_z = vertices[i].p.z;
+            } else if (vertices[i].p.z > max_z) {
+                max_z = vertices[i].p.z;
+            }
         }
 
         Terrain t = {};
-        t.chunks = array_create<Terrain::Chunk>(g_heap, nchunks);
-        t.chunks.count = nchunks;
+        t.chunks = array_create<Terrain::Chunk>(g_heap, 2);
+        t.chunks.count = 2;
 
-        Vector3 origin = { cwidth / 2.0f, 0.0f, cdepth / 2.0f };
-        for (i32 i = 0; i < rc; i++) {
-            origin.x = cwidth / 2.0f;
-            for (i32 j = 0; j < rc; j++) {
-                i32 index = i * rc + j;
-
-                t.chunks[index].vertices.allocator = g_heap;
-                t.chunks[index].width  = cwidth;
-                t.chunks[index].depth  = cdepth;
-                t.chunks[index].origin = origin;
-
-                origin.x += cwidth / 2.0f;
-            }
-            origin.z += cdepth / 2.0f;
+        f32 mid_x = (min_x + max_x) / 2.0f;
+        for (i32 i = 0; i < t.chunks.count; i++) {
+            t.chunks[i].vertices = array_create<Vertex>(g_heap);
         }
 
-        struct Triangle {
-            Vector3 p0;
-            Vector3 p1;
-            Vector3 p2;
-        };
-
-        for (i32 i = 0; i < vertices.count; i+=3) {
-            bool found = false;
-
+        for (i32 i = 0; i < vertices.count; i+= 3) {
             Vertex v0 = vertices[i];
             Vertex v1 = vertices[i+1];
             Vertex v2 = vertices[i+2];
 
-            for (i32 c = 0; c < t.chunks.count; c++) {
-                f32 hwidth = t.chunks[i].width / 2.0f;
-                f32 hdepth = t.chunks[i].depth / 2.0f;
-
-                if (v0.p.x <= (t.chunks[c].origin.x + hwidth) &&
-                    v0.p.x >= (t.chunks[c].origin.x - hwidth) &&
-                    v0.p.z <= (t.chunks[c].origin.z + hdepth) &&
-                    v0.p.z >= (t.chunks[c].origin.z - hdepth))
-                {
-                    array_add(&t.chunks[c].vertices, v0);
-                    array_add(&t.chunks[c].vertices, v1);
-                    array_add(&t.chunks[c].vertices, v2);
-
-                    found = true;
-                    break;
-                }
-
-                if (v1.p.x <= (t.chunks[c].origin.x + hwidth) &&
-                    v1.p.x >= (t.chunks[c].origin.x - hwidth) &&
-                    v1.p.z <= (t.chunks[c].origin.z + hdepth) &&
-                    v1.p.z >= (t.chunks[c].origin.z - hdepth))
-                {
-                    array_add(&t.chunks[c].vertices, v0);
-                    array_add(&t.chunks[c].vertices, v1);
-                    array_add(&t.chunks[c].vertices, v2);
-
-                    found = true;
-                    break;
-                }
-
-                if (v2.p.x <= (t.chunks[c].origin.x + hwidth) &&
-                    v2.p.x >= (t.chunks[c].origin.x - hwidth) &&
-                    v2.p.z <= (t.chunks[c].origin.z + hdepth) &&
-                    v2.p.z >= (t.chunks[c].origin.z - hdepth))
-                {
-                    array_add(&t.chunks[c].vertices, v0);
-                    array_add(&t.chunks[c].vertices, v1);
-                    array_add(&t.chunks[c].vertices, v2);
-
-                    found = true;
-                    break;
-                }
-            }
-
-            if (!found) {
-                DEBUG_ASSERT(false);
+            if (v0.p.x >= mid_x || v1.p.x >= mid_x || v2.p.x >= mid_x) {
+                array_add(&t.chunks[0].vertices, v0);
+                array_add(&t.chunks[0].vertices, v1);
+                array_add(&t.chunks[0].vertices, v2);
+            } else {
+                array_add(&t.chunks[1].vertices, v0);
+                array_add(&t.chunks[1].vertices, v1);
+                array_add(&t.chunks[1].vertices, v2);
             }
         }
 
         for (i32 i = 0; i < t.chunks.count; i++) {
             Terrain::Chunk &c = t.chunks[i];
+
             usize vertex_size = c.vertices.count * sizeof(c.vertices[0]);
-            if (vertex_size == 0) {
-                continue;
-            }
-
-            c.render_object.pipeline = g_game->pipelines.terrain;
-
+            c.render_object.pipeline     = g_game->pipelines.terrain;
             c.render_object.vertex_count = c.vertices.count;
             c.render_object.vertices     = create_vbo(c.vertices.data, vertex_size);
-
-            // TODO(jesper): don't do this.
-            array_add(&g_game->render_objects, c.render_object);
         }
+
+        g_terrain = t;
+        array_destroy(&vertices);
 #if 0
         RenderObject ro = {};
         ro.pipeline       = g_game->pipelines.terrain;
@@ -793,6 +716,10 @@ void game_quit(PlatformState *platform)
     platform_set_raw_mouse(platform, false);
 
     vkQueueWaitIdle(g_vulkan->queue);
+
+    for (i32 i = 0; i < g_terrain.chunks.count; i++) {
+        buffer_destroy(g_terrain.chunks[i].render_object.vertices);
+    }
 
     for (int i = 0; i < g_game->overlay.items.count; i++) {
         DebugOverlayItem &item = g_game->overlay.items[i];
@@ -1307,6 +1234,24 @@ void game_render()
 
     VkCommandBuffer command = command_buffer_begin();
     renderpass_begin(command, image_index);
+
+    vkCmdBindPipeline(command,
+                      VK_PIPELINE_BIND_POINT_GRAPHICS,
+                      g_game->pipelines.terrain.handle);
+
+    vkCmdBindDescriptorSets(command,
+                            VK_PIPELINE_BIND_POINT_GRAPHICS,
+                            g_game->pipelines.terrain.layout,
+                            0,
+                            1, &g_game->pipelines.terrain.descriptor_set,
+                            0, nullptr);
+
+    for (i32 i = 0; i < g_terrain.chunks.count; i++) {
+        Terrain::Chunk &c = g_terrain.chunks[i];
+
+        vkCmdBindVertexBuffers(command, 0, 1, &c.render_object.vertices.handle, offsets);
+        vkCmdDraw(command, c.render_object.vertex_count, 1, 0, 0);
+    }
 
     for (i32 i = 0; i < g_game->render_objects.count; i++) {
         RenderObject &object = g_game->render_objects[i];
