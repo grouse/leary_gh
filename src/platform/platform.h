@@ -97,6 +97,8 @@
 struct Mutex {
 #if defined(__linux__)
     pthread_mutex_t native;
+#elif defined(_WIN32)
+    HANDLE native;
 #else
     #error "unsupported platform"
 #endif

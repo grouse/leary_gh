@@ -104,13 +104,13 @@ struct DebugRenderItem {
 struct DebugOverlayItem {
     const char               *title;
     Vector2 tl, br;
-    Array<DebugOverlayItem*> children  = {};
-    bool                     collapsed = false;
+    Array<DebugOverlayItem*> children;
+    bool                     collapsed;
     DebugOverlayItemType     type;
     union {
         void            *data;
-        DebugRenderItem ritem = {};
-    };
+        DebugRenderItem ritem;
+    } u;
 };
 
 struct DebugOverlay {
@@ -200,11 +200,11 @@ void debug_add_texture(const char *name,
         return;
     }
 
-    DebugOverlayItem item;
+    DebugOverlayItem item = {};
     item.title            = name;
     item.type             = Debug_render_item;
-    item.ritem.pipeline   = pipeline;
-    item.ritem.constants  = push_constants_create(pipeline->id);
+    item.u.ritem.pipeline   = pipeline;
+    item.u.ritem.constants  = push_constants_create(pipeline->id);
 
     Matrix4 t = Matrix4::identity();
     t[0].x =  g_screen_to_view[0].x;
@@ -223,11 +223,11 @@ void debug_add_texture(const char *name,
         0.0f,  0.0f,  0.0f, 0.0f,
     };
 
-    item.ritem.vbo = create_vbo(vertices, sizeof(vertices) * sizeof(f32));
-    item.ritem.vertex_count = 6;
+    item.u.ritem.vbo = create_vbo(vertices, sizeof(vertices) * sizeof(f32));
+    item.u.ritem.vertex_count = 6;
 
-    item.ritem.descriptors = array_create<VkDescriptorSet>(g_heap, 1);
-    array_add(&item.ritem.descriptors, material.descriptor_set);
+    item.u.ritem.descriptors = array_create<VkDescriptorSet>(g_heap, 1);
+    array_add(&item.u.ritem.descriptors, material.descriptor_set);
     array_add(&overlay->items, item);
 }
 
@@ -383,11 +383,8 @@ void render_font(stbtt_bakedchar *font,
     *offset += vertices_size;
 }
 
-void game_init(PlatformState *platform)
+void game_init()
 {
-    g_platform = platform;
-    g_settings = platform->settings;
-
     g_game = g_persistent->ialloc<GameState>();
 
     init_profiling();
@@ -395,8 +392,8 @@ void game_init(PlatformState *platform)
     init_vulkan();
     init_texture_catalog();
 
-    f32 width = (f32)platform->settings.video.resolution.width;
-    f32 height = (f32)platform->settings.video.resolution.height;
+    f32 width = (f32)g_settings.video.resolution.width;
+    f32 height = (f32)g_settings.video.resolution.height;
     f32 aspect = width / height;
     f32 vfov   = radians(45.0f);
 
@@ -679,7 +676,7 @@ void game_init(PlatformState *platform)
     g_game->overlay.items        = array_create<DebugOverlayItem>(g_heap);
     g_game->overlay.render_queue = array_create<DebugRenderItem>(g_heap);
     {
-        DebugOverlayItem allocators;
+        DebugOverlayItem allocators = {};
         allocators.title    = "Allocators";
         allocators.children = array_create<DebugOverlayItem*>(g_heap);
         allocators.type     = Debug_allocators;
@@ -687,31 +684,31 @@ void game_init(PlatformState *platform)
         auto stack = g_heap->talloc<DebugOverlayItem>();
         stack->type  = Debug_allocator_stack;
         stack->title = "stack";
-        stack->data  = (void*)g_stack;
+        stack->u.data  = (void*)g_stack;
         array_add(&allocators.children, stack);
 
         auto frame = g_heap->talloc<DebugOverlayItem>();
         frame->type  = Debug_allocator_stack;
         frame->title = "frame";
-        frame->data  = (void*)g_frame;
+        frame->u.data  = (void*)g_frame;
         array_add(&allocators.children, frame);
 
         auto persistent = g_heap->talloc<DebugOverlayItem>();
         persistent->type  = Debug_allocator_stack;
         persistent->title = "persistent";
-        persistent->data  = (void*)g_persistent;
+        persistent->u.data  = (void*)g_persistent;
         array_add(&allocators.children, persistent);
 
         auto free_list = g_heap->talloc<DebugOverlayItem>();
         free_list->type  = Debug_allocator_free_list;
         free_list->title = "free list";
-        free_list->data  = (void*)g_heap;
+        free_list->u.data  = (void*)g_heap;
         array_add(&allocators.children, free_list);
 
         array_add(&g_game->overlay.items, allocators);
 
 
-        DebugOverlayItem timers;
+        DebugOverlayItem timers = {};
         timers.title = "Profile Timers";
         timers.type  = Debug_profile_timers;
         array_add(&g_game->overlay.items, timers);
@@ -722,11 +719,11 @@ void game_init(PlatformState *platform)
     }
 }
 
-void game_quit(PlatformState *platform)
+void game_quit()
 {
     // NOTE(jesper): disable raw mouse as soon as possible to ungrab the cursor
     // on Linux
-    platform_set_raw_mouse(platform, false);
+    platform_set_raw_mouse(false);
 
     vkQueueWaitIdle(g_vulkan->queue);
 
@@ -737,7 +734,7 @@ void game_quit(PlatformState *platform)
     for (int i = 0; i < g_game->overlay.items.count; i++) {
         DebugOverlayItem &item = g_game->overlay.items[i];
         if (item.type == Debug_render_item) {
-            buffer_destroy(item.ritem.vbo);
+            buffer_destroy(item.u.ritem.vbo);
         }
     }
 
@@ -770,7 +767,7 @@ void game_quit(PlatformState *platform)
     buffer_destroy_ubo(g_game->fp_camera.ubo);
     vulkan_destroy();
 
-    platform_quit(platform);
+    platform_quit();
 }
 
 void* game_pre_reload()
@@ -822,7 +819,7 @@ void game_reload(void *s)
     g_frame->dealloc(state);
 }
 
-void game_input(PlatformState *platform, InputEvent event)
+void game_input(InputEvent event)
 {
     switch (event.type) {
     case InputType_key_press: {
@@ -834,7 +831,7 @@ void game_input(PlatformState *platform, InputEvent event)
 
         switch (event.key.code) {
         case Key_escape:
-            game_quit(platform);
+            game_quit();
             break;
         case Key_W:
             // TODO(jesper): tweak movement speed when we have a sense of scale
@@ -874,7 +871,7 @@ void game_input(PlatformState *platform, InputEvent event)
             g_game->physics.velocities[pid].z = -5.0f;
         } break;
         case Key_C:
-            platform_toggle_raw_mouse(platform);
+            platform_toggle_raw_mouse();
             break;
         default:
             //DEBUG_LOG("unhandled key press: %d", event.key.code);
@@ -897,7 +894,7 @@ void game_input(PlatformState *platform, InputEvent event)
                 e.key.code     = Key_S;
                 e.key.repeated = false;
 
-                game_input(platform, e);
+                game_input(e);
             }
             break;
         case Key_S:
@@ -908,7 +905,7 @@ void game_input(PlatformState *platform, InputEvent event)
                 e.key.code     = Key_W;
                 e.key.repeated = false;
 
-                game_input(platform, e);
+                game_input(e);
             }
             break;
         case Key_A:
@@ -919,7 +916,7 @@ void game_input(PlatformState *platform, InputEvent event)
                 e.key.code     = Key_D;
                 e.key.repeated = false;
 
-                game_input(platform, e);
+                game_input(e);
             }
             break;
         case Key_D:
@@ -930,7 +927,7 @@ void game_input(PlatformState *platform, InputEvent event)
                 e.key.code     = Key_A;
                 e.key.repeated = false;
 
-                game_input(platform, e);
+                game_input(e);
             }
             break;
         case Key_left: {
@@ -943,7 +940,7 @@ void game_input(PlatformState *platform, InputEvent event)
                 e.key.code     = Key_right;
                 e.key.repeated = false;
 
-                game_input(platform, e);
+                game_input(e);
             }
         } break;
         case Key_right: {
@@ -956,7 +953,7 @@ void game_input(PlatformState *platform, InputEvent event)
                 e.key.code     = Key_left;
                 e.key.repeated = false;
 
-                game_input(platform, e);
+                game_input(e);
             }
         } break;
         case Key_up: {
@@ -969,7 +966,7 @@ void game_input(PlatformState *platform, InputEvent event)
                 e.key.code     = Key_down;
                 e.key.repeated = false;
 
-                game_input(platform, e);
+                game_input(e);
             }
         } break;
         case Key_down: {
@@ -982,7 +979,7 @@ void game_input(PlatformState *platform, InputEvent event)
                 e.key.code     = Key_up;
                 e.key.repeated = false;
 
-                game_input(platform, e);
+                game_input(e);
             }
         } break;
         default:
@@ -1070,21 +1067,21 @@ void debug_overlay_update(DebugOverlay *overlay, f32 dt)
 
         switch (item.type) {
         case Debug_allocators: {
-            for (int i = 0; i < item.children.count; i++) {
-                DebugOverlayItem &child = *item.children[i];
+            for (int c = 0; c < item.children.count; c++) {
+                DebugOverlayItem &child = *item.children[c];
 
                 switch (child.type) {
                 case Debug_allocator_stack: {
-                    StackAllocator *a = (StackAllocator*)child.data;
+                    StackAllocator *a = (StackAllocator*)child.u.data;
                     snprintf(buffer, buffer_size,
-                             "  %s: { sp: %p, size: %ld, remaining: %ld }\n",
+                             "  %s: { sp: %p, size: %zd, remaining: %zd }\n",
                              child.title, a->sp, a->size, a->remaining);
                     render_font(font, buffer, &pos, vcount, mapped, &offset);
                 } break;
                 case Debug_allocator_free_list: {
-                    Allocator *a = (Allocator*)child.data;
+                    Allocator *a = (Allocator*)child.u.data;
                     snprintf(buffer, buffer_size,
-                             "  %s: { size: %ld, remaining: %ld }\n",
+                             "  %s: { size: %zd, remaining: %zd }\n",
                              child.title, a->size, a->remaining);
                     render_font(font, buffer, &pos, vcount, mapped, &offset);
                 } break;
@@ -1111,8 +1108,8 @@ void debug_overlay_update(DebugOverlay *overlay, f32 dt)
 
 
             ProfileTimers &timers = g_profile_timers_prev;
-            for (int i = 0; i < timers.count; i++) {
-                snprintf(buffer, buffer_size, "%s: ", timers.name[i]);
+            for (int j = 0; j < timers.count; j++) {
+                snprintf(buffer, buffer_size, "%s: ", timers.name[j]);
                 render_font(font, buffer, &pos, vcount, mapped, &offset);
 
                 if (pos.x >= c1.x) {
@@ -1126,8 +1123,8 @@ void debug_overlay_update(DebugOverlay *overlay, f32 dt)
 
             c1.x = MAX(c0.x + 250.0f, c1.x) + margin;
             pos.x  = c1.x;
-            for (int i = 0; i < timers.count; i++) {
-                snprintf(buffer, buffer_size, "%" PRIu64, timers.cycles[i]);
+            for (int j = 0; j < timers.count; j++) {
+                snprintf(buffer, buffer_size, "%" PRIu64, timers.cycles[j]);
                 render_font(font, buffer, &pos, vcount, mapped, &offset);
 
                 if (pos.x >= c2.x) {
@@ -1141,8 +1138,8 @@ void debug_overlay_update(DebugOverlay *overlay, f32 dt)
 
             c2.x = MAX(c1.x + 100.0f, c2.x) + margin;
             pos.x  = c2.x;
-            for (int i = 0; i < timers.count; i++) {
-                snprintf(buffer, buffer_size, "%u", timers.calls[i]);
+            for (int j = 0; j < timers.count; j++) {
+                snprintf(buffer, buffer_size, "%u", timers.calls[j]);
                 render_font(font, buffer, &pos, vcount, mapped, &offset);
 
                 if (pos.x >= c3.x) {
@@ -1156,8 +1153,8 @@ void debug_overlay_update(DebugOverlay *overlay, f32 dt)
 
             c3.x = MAX(c2.x + 75.0f, c3.x) + margin;
             pos.x  = c3.x;
-            for (int i = 0; i < timers.count; i++) {
-                snprintf(buffer, buffer_size, "%f", timers.cycles[i] / (f32)timers.calls[i]);
+            for (int j = 0; j < timers.count; j++) {
+                snprintf(buffer, buffer_size, "%f", timers.cycles[j] / (f32)timers.calls[j]);
                 render_font(font, buffer, &pos, vcount, mapped, &offset);
 
                 pos.x  = c3.x;
@@ -1172,12 +1169,12 @@ void debug_overlay_update(DebugOverlay *overlay, f32 dt)
             pos.x = base_x;
         } break;
         case Debug_render_item: {
-            item.ritem.position = g_screen_to_view * (pos + Vector2{10.0f, 0.0f});
+            item.u.ritem.position = g_screen_to_view * (pos + Vector2{10.0f, 0.0f});
 
-            Matrix4 t = translate(Matrix4::identity(), item.ritem.position);
-            set_push_constant(&item.ritem.constants, t);
+            Matrix4 t = translate(Matrix4::identity(), item.u.ritem.position);
+            set_push_constant(&item.u.ritem.constants, t);
 
-            array_add(&overlay->render_queue, item.ritem);
+            array_add(&overlay->render_queue, item.u.ritem);
         } break;
         default:
             DEBUG_LOG("unknown debug menu type: %d", item.type);
@@ -1251,7 +1248,7 @@ void render_terrain(VkCommandBuffer command)
         Terrain::Chunk &c = g_terrain.chunks[i];
 
         vkCmdBindVertexBuffers(command, 0, 1, &c.vbo.handle, offsets);
-        vkCmdDraw(command, c.vertices.count, 1, 0, 0);
+        vkCmdDraw(command, (u32)c.vertices.count, 1, 0, 0);
     }
 }
 
@@ -1380,14 +1377,14 @@ void game_render()
                                 VK_PIPELINE_BIND_POINT_GRAPHICS,
                                 item.pipeline->layout,
                                 0,
-                                item.descriptors.count,
+                                (u32)item.descriptors.count,
                                 item.descriptors.data,
                                 0, nullptr);
 
         vkCmdPushConstants(command, item.pipeline->layout,
                            VK_SHADER_STAGE_VERTEX_BIT,
                            item.constants.offset,
-                           item.constants.size,
+                           (u32)item.constants.size,
                            item.constants.data);
 
         Matrix4 t = translate(Matrix4::identity(), item.position);

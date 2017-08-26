@@ -22,39 +22,40 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
+extern PlatformState *g_platform;
+
 VkResult
 platform_vulkan_create_surface(VkInstance instance,
-                               VkSurfaceKHR *surface,
-                               PlatformState *platform)
+                               VkSurfaceKHR *surface)
 {
-	Win32State *native = (Win32State*)platform->native;
-	VkWin32SurfaceCreateInfoKHR create_info = {
-		VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
-		nullptr,
-		0,
-		native->hinstance,
-		native->hwnd
-	};
+    Win32State *native = (Win32State*)g_platform->native;
+    VkWin32SurfaceCreateInfoKHR create_info = {
+        VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
+        nullptr,
+        0,
+        native->hinstance,
+        native->hwnd
+    };
 
-	return vkCreateWin32SurfaceKHR(instance, &create_info, nullptr, surface);
+    return vkCreateWin32SurfaceKHR(instance, &create_info, nullptr, surface);
 }
 
 bool
 platform_vulkan_enable_instance_extension(VkExtensionProperties &extension)
 {
-	bool enable = false;
+    bool enable = false;
 
-	enable |= strcmp(extension.extensionName, VK_KHR_WIN32_SURFACE_EXTENSION_NAME) == 0;
+    enable |= strcmp(extension.extensionName, VK_KHR_WIN32_SURFACE_EXTENSION_NAME) == 0;
 
-	return enable;
+    return enable;
 }
 
 bool
 platform_vulkan_enable_instance_layer(VkLayerProperties layer)
 {
-	(void)layer;
-	bool enable = false;
-	return enable;
+    (void)layer;
+    bool enable = false;
+    return enable;
 }
 
 

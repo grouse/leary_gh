@@ -8,7 +8,7 @@
 
 #include "string.h"
 
-constexpr i32 string_length(const char *str)
+i32 string_length(const char *str)
 {
     i32 length = 0;
     while (*str++) {

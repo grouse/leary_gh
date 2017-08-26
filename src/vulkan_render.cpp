@@ -252,7 +252,7 @@ void present_frame(u32 image)
 {
     VkPresentInfoKHR info = {};
     info.sType              = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-    info.waitSemaphoreCount = g_vulkan->present_semaphores.count;
+    info.waitSemaphoreCount = (u32)g_vulkan->present_semaphores.count;
     info.pWaitSemaphores    = g_vulkan->present_semaphores.data;
     info.swapchainCount     = 1;
     info.pSwapchains        = &g_vulkan->swapchain.handle;
@@ -280,14 +280,14 @@ void submit_frame()
     VkSubmitInfo info = {};
     info.sType                = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
-    info.commandBufferCount   = g_vulkan->commands_queued.count;
+    info.commandBufferCount   = (u32)g_vulkan->commands_queued.count;
     info.pCommandBuffers      = g_vulkan->commands_queued.data;
 
-    info.waitSemaphoreCount   = g_vulkan->semaphores_submit_wait.count;
+    info.waitSemaphoreCount   = (u32)g_vulkan->semaphores_submit_wait.count;
     info.pWaitSemaphores      = g_vulkan->semaphores_submit_wait.data;
     info.pWaitDstStageMask    = g_vulkan->semaphores_submit_wait_stages.data;
 
-    info.signalSemaphoreCount = g_vulkan->semaphores_submit_signal.count;
+    info.signalSemaphoreCount = (u32)g_vulkan->semaphores_submit_signal.count;
     info.pSignalSemaphores    = g_vulkan->semaphores_submit_signal.data;
 
 
@@ -298,7 +298,7 @@ void submit_frame()
     // actually freeing them, to be reset and reused with
     // command_buffer_begin
     vkFreeCommandBuffers(g_vulkan->handle, g_vulkan->command_pool,
-                         g_vulkan->commands_queued.count,
+                         (u32)g_vulkan->commands_queued.count,
                          g_vulkan->commands_queued.data);
 
     g_vulkan->commands_queued.count          = 0;

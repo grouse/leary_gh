@@ -43,89 +43,89 @@ u8 align_address_adjustment(void *address, u8 alignment, u8 header_size)
 }
 
 
-void* StackAllocator::alloc(isize size)
+void* StackAllocator::alloc(isize asize)
 {
     u8 header_size = sizeof(AllocationHeader);
 
     void *unaligned = this->sp;
     void *aligned   = align_address(unaligned, 16, header_size);
 
-    this->sp = (void*)((uptr)aligned + size);
+    this->sp = (void*)((uptr)aligned + asize);
     this->remaining = this->size - (isize)((uptr)this->sp - (uptr)this->mem);
 
     DEBUG_ASSERT(this->remaining > 0);
 
     auto header = (AllocationHeader*)((uptr)aligned - header_size);
-    header->size      = size;
+    header->size      = asize;
     header->unaligned = unaligned;
 
     return aligned;
 }
 
-void *LinearAllocator::alloc(isize size)
+void *LinearAllocator::alloc(isize asize)
 {
     u8 header_size = sizeof(AllocationHeader);
 
     void *unaligned = this->current;
     void *aligned   = align_address(unaligned, 16, header_size);
 
-    this->current = (void*)((uptr)aligned + size);
+    this->current = (void*)((uptr)aligned + asize);
     this->remaining = this->size - (isize)((uptr)this->current - (uptr)this->mem);
     DEBUG_ASSERT((uptr)this->current < ((uptr)this->mem + this->size));
 
     AllocationHeader *header = (AllocationHeader*)((uptr)aligned - header_size);
-    header->size      = size;
+    header->size      = asize;
     header->unaligned = unaligned;
 
     return aligned;
 }
 
-void *HeapAllocator::alloc(isize size)
+void *HeapAllocator::alloc(isize asize)
 {
     u8 header_size = sizeof(AllocationHeader);
-    isize required = size + header_size + 16;
+    isize required = asize + header_size + 16;
 
     FreeBlock *prev = nullptr;
-    FreeBlock *free = this->free;
-    while(free != nullptr) {
-        u8 adjustment = align_address_adjustment(free, 16, header_size);
-        if (free->size > (size + adjustment)) {
+    FreeBlock *fb = this->free;
+    while(fb != nullptr) {
+        u8 adjustment = align_address_adjustment(fb, 16, header_size);
+        if (fb->size > (asize + adjustment)) {
             break;
         }
 
         // TODO(jesper): find best fitting free block
-        prev = free;
-        free = free->next;
+        prev = fb;
+        fb   = free->next;
     }
 
-    DEBUG_ASSERT(((uptr)free + size) < ((uptr)this->mem + this->size));
-    DEBUG_ASSERT(free && free->size >= required);
-    if (free == nullptr || free->size < required) {
+    DEBUG_ASSERT(((uptr)fb + asize) < ((uptr)this->mem + this->size));
+    DEBUG_ASSERT(fb && fb->size >= required);
+    if (fb == nullptr || fb->size < required) {
         return nullptr;
     }
 
-    void *unaligned = (void*)free;
+    void *unaligned = (void*)fb;
     void *aligned   = align_address(unaligned, 16, header_size);
 
-    isize free_size = free->size;
-    isize remaining = free_size - size;
+    isize free_size = fb->size;
+    isize rem       = free_size - asize;
 
     // TODO(jesper): double check suitable value of minimum remaining
-    if (remaining < (header_size + 48)) {
+    if (rem < (header_size + 48)) {
         this->remaining -= free_size;
 
-        size = free_size;
+        asize = free_size;
 
         if (prev != nullptr) {
-            prev->next = free->next;
+            prev->next = fb->next;
         } else {
             this->free = this->free->next;
         }
     } else {
         this->remaining -= size;
 
-        FreeBlock *nfree = (FreeBlock*)((uptr)aligned + size);
-        nfree->size = remaining;
+        FreeBlock *nfree = (FreeBlock*)((uptr)aligned + asize);
+        nfree->size = rem;
         nfree->next = free->next;
 
         if (prev != nullptr) {
@@ -136,7 +136,7 @@ void *HeapAllocator::alloc(isize size)
     }
 
     auto header = (AllocationHeader*)((uptr)aligned - header_size);
-    header->size      = size;
+    header->size      = asize;
     header->unaligned = unaligned;
 
     return aligned;
@@ -195,45 +195,45 @@ void StackAllocator::dealloc(void *ptr)
 void HeapAllocator::dealloc(void *ptr)
 {
     auto  header = (AllocationHeader*)((uptr)ptr - sizeof(AllocationHeader));
-    isize size   = header->size;
+    isize asize  = header->size;
 
-    this->remaining += size;
+    this->remaining += asize;
 
-    uptr mem = (uptr)header->unaligned;
-    uptr end = mem + size;
+    uptr m = (uptr)header->unaligned;
+    uptr end = m + asize;
 
-    FreeBlock *nfree = (FreeBlock*)mem;
-    nfree->size      = size;
+    FreeBlock *nfree = (FreeBlock*)m;
+    nfree->size      = asize;
 
     bool expanded   = false;
     bool insert     = false;
     FreeBlock *prev = nullptr;
-    FreeBlock *free = this->free;
+    FreeBlock *fb   = this->free;
     FreeBlock *next = nullptr;
 
-    while (free != nullptr) {
-        if (end == (uptr)free) {
-            nfree->size = nfree->size + free->size;
-            nfree->next = free->next;
+    while (fb != nullptr) {
+        if (end == (uptr)fb) {
+            nfree->size = nfree->size + fb->size;
+            nfree->next = fb->next;
 
             if (prev != nullptr) {
                 prev->next = nfree;
             }
             expanded = true;
             break;
-        } else if (((uptr)free + free->size) == mem) {
-            free->size = free->size + nfree->size;
+        } else if (((uptr)fb + fb->size) == m) {
+            fb->size = fb->size + nfree->size;
             expanded = true;
             break;
-        } else if ((uptr)free > mem) {
-            prev = free;
-            next = free->next;
+        } else if ((uptr)fb > m) {
+            prev = fb;
+            next = fb->next;
             insert = true;
             break;
         }
 
-        prev = free;
-        free = free->next;
+        prev = fb;
+        fb   = fb->next;
     }
 
     DEBUG_ASSERT(insert || expanded);
@@ -243,66 +243,66 @@ void HeapAllocator::dealloc(void *ptr)
     }
 }
 
-void* LinearAllocator::realloc(void *ptr, isize size)
+void* LinearAllocator::realloc(void *ptr, isize asize)
 {
     if (ptr == nullptr) {
-        return alloc(size);
+        return alloc(asize);
     }
 
     auto header = (AllocationHeader*)((uptr)ptr - sizeof(AllocationHeader));
     if ((uptr)ptr + header->size == (uptr)this->current) {
-        isize extra = size - header->size;
+        isize extra = asize - header->size;
         DEBUG_ASSERT(extra > 0); // NOTE(jesper): untested
 
         this->current   = (void*)((uptr)this->current + extra);
         this->remaining = this->size - (isize)((uptr)this->current - (uptr)this->mem);
-        header->size    = size;
+        header->size    = asize;
         return ptr;
     } else {
         DEBUG_LOG("can't expand linear allocation, leaking memory");
-        void *nptr = alloc(size);
+        void *nptr = alloc(asize);
         memcpy(nptr, ptr, header->size);
         return nptr;
     }
 }
 
-void* StackAllocator::realloc(void *ptr, isize size)
+void* StackAllocator::realloc(void *ptr, isize asize)
 {
     if (ptr == nullptr) {
-        return alloc(size);
+        return alloc(asize);
     }
 
     // NOTE(jesper): reallocing can be bad as we'll almost certainly leak the
     // memory, but for the general use case this should be fine
     auto header = (AllocationHeader*)((uptr)ptr - sizeof(AllocationHeader));
     if ((uptr)ptr + header->size == (uptr)this->sp) {
-        isize extra = size - header->size;
+        isize extra = asize - header->size;
         DEBUG_ASSERT(extra > 0); // NOTE(jesper): untested
 
         this->sp        = (void*)((uptr)this->sp + extra);
         this->remaining = this->size - (isize)((uptr)this->sp - (uptr)this->mem);
         DEBUG_ASSERT(this->remaining > 0);
 
-        header->size = size;
+        header->size = asize;
         return ptr;
     } else {
         DEBUG_LOG("can't expand stack allocation, leaking memory");
-        void *nptr = alloc(size);
+        void *nptr = alloc(asize);
         memcpy(nptr, ptr, header->size);
         return nptr;
     }
 }
 
-void* HeapAllocator::realloc(void *ptr, isize size)
+void* HeapAllocator::realloc(void *ptr, isize asize)
 {
     if (ptr == nullptr) {
-        return alloc(size);
+        return alloc(asize);
     }
 
     auto header = (AllocationHeader*)((uptr)ptr - sizeof(AllocationHeader));
 
     // TODO(jesper): try to find neighbour FreeBlock and expand
-    void *nptr = alloc(size);
+    void *nptr = alloc(asize);
     memcpy(nptr, ptr, header->size);
     dealloc(ptr);
 
@@ -321,9 +321,9 @@ void StackAllocator::reset(void *ptr)
     this->remaining = this->size - (isize)((uptr)this->sp - (uptr)this->mem);
 }
 
-void* SystemAllocator::alloc(isize size)
+void* SystemAllocator::alloc(isize asize)
 {
-    return malloc(size);
+    return malloc(asize);
 }
 
 void SystemAllocator::dealloc(void *ptr)
@@ -331,7 +331,7 @@ void SystemAllocator::dealloc(void *ptr)
     free(ptr);
 }
 
-void* SystemAllocator::realloc(void *ptr, isize size)
+void* SystemAllocator::realloc(void *ptr, isize asize)
 {
-    return ::realloc(ptr, size);
+    return ::realloc(ptr, asize);
 }

@@ -7,7 +7,7 @@
  */
 
 #define MURMUR_SEED (0xdeadbeef)
-constexpr u32 hash32(void *key, i32 length)
+u32 hash32(void *key, i32 length)
 {
     u8 *data = (u8*)key;
 
@@ -44,7 +44,7 @@ constexpr u32 hash32(void *key, i32 length)
     return h;
 }
 
-constexpr u32 hash32(const char *str)
+u32 hash32(const char *str)
 {
     return hash32((u8*)str, string_length(str));
 }

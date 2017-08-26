@@ -32,10 +32,10 @@ struct Allocator {
     template <typename T>
     inline T* ialloc()
     {
-        T *mem = (T*)alloc(sizeof(T));
-        T e    = {};
-        memcpy(mem, &e, sizeof(T));
-        return mem;
+        T *m = (T*)alloc(sizeof(T));
+        T e  = {};
+        memcpy(m, &e, sizeof(T));
+        return m;
     }
 
     template <typename T>
@@ -76,8 +76,8 @@ struct Allocator {
     template<typename T>
     inline T* realloc_array(T *ptr, isize capacity)
     {
-        isize size = capacity * sizeof(T);
-        return (T*)realloc(ptr, size);
+        isize s = capacity * sizeof(T);
+        return (T*)realloc(ptr, s);
     }
 };
 

@@ -401,7 +401,7 @@ Texture* add_texture(const char *name,
     t.format  = format;
     t.data    = pixels;
 
-    i32 id = g_texture_catalog.textures.count;
+    i32 id = (i32)g_texture_catalog.textures.count;
     t.id   = id;
 
     init_vk_texture(&t, components);
@@ -419,7 +419,7 @@ Texture* add_texture(Path path)
         return nullptr;
     }
 
-    i32 id = g_texture_catalog.textures.count;
+    i32 id = (i32)g_texture_catalog.textures.count;
     t.id   = id;
 
     init_vk_texture(&t, VkComponentMapping{});
