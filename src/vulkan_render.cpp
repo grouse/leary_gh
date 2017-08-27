@@ -218,7 +218,7 @@ bool has_stencil(VkFormat format)
            format == VK_FORMAT_D24_UNORM_S8_UINT;
 }
 
-VkCommandBuffer command_buffer_begin()
+VkCommandBuffer begin_cmd_buffer()
 {
     // TODO(jesper): don't allocate command buffers on demand; allocate a big
     // pool of them in the device init and keep a freelist if unused ones, or
@@ -296,7 +296,7 @@ void submit_frame()
 
     // TODO(jesper): move the command buffers into a free list instead of
     // actually freeing them, to be reset and reused with
-    // command_buffer_begin
+    // begin_cmd_buffer
     vkFreeCommandBuffers(g_vulkan->handle, g_vulkan->command_pool,
                          (u32)g_vulkan->commands_queued.count,
                          g_vulkan->commands_queued.data);
@@ -336,7 +336,7 @@ void renderpass_begin(VkCommandBuffer cmd, u32 image)
     vkCmdBeginRenderPass(cmd, &info, VK_SUBPASS_CONTENTS_INLINE);
 }
 
-void command_buffer_end(VkCommandBuffer buffer,
+void end_cmd_buffer(VkCommandBuffer buffer,
                         bool submit = true)
 {
     VkResult result = vkEndCommandBuffer(buffer);
@@ -349,7 +349,7 @@ void command_buffer_end(VkCommandBuffer buffer,
     }
 }
 
-void image_transition(VkCommandBuffer command,
+void transition_image(VkCommandBuffer command,
                       VkImage image, VkFormat format,
                       VkImageLayout src,
                       VkImageLayout dst,
@@ -432,15 +432,15 @@ void image_transition(VkCommandBuffer command,
                          1, &barrier);
 }
 
-void image_transition_immediate(VkImage image, VkFormat format,
-                                VkImageLayout src,
-                                VkImageLayout dst,
-                                VkPipelineStageFlagBits psrc,
-                                VkPipelineStageFlagBits pdst)
+void im_transition_image(VkImage image, VkFormat format,
+                         VkImageLayout src,
+                         VkImageLayout dst,
+                         VkPipelineStageFlagBits psrc,
+                         VkPipelineStageFlagBits pdst)
 {
-    VkCommandBuffer command = command_buffer_begin();
-    image_transition(command, image, format, src, dst, psrc, pdst);
-    command_buffer_end(command);
+    VkCommandBuffer command = begin_cmd_buffer();
+    transition_image(command, image, format, src, dst, psrc, pdst);
+    end_cmd_buffer(command);
 }
 
 VkImage image_create(VkFormat format,
@@ -670,11 +670,11 @@ VulkanSwapchain swapchain_create(VulkanPhysicalDevice *physical_device,
                                &swapchain.depth.imageview);
     DEBUG_ASSERT(result == VK_SUCCESS);
 
-    image_transition_immediate(swapchain.depth.image, swapchain.depth.format,
-                               VK_IMAGE_LAYOUT_UNDEFINED,
-                               VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-                               VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-                               VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
+    im_transition_image(swapchain.depth.image, swapchain.depth.format,
+                        VK_IMAGE_LAYOUT_UNDEFINED,
+                        VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+                        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
 
     return swapchain;
 }
@@ -1278,7 +1278,7 @@ VulkanPipeline create_pipeline(PipelineID id)
 void image_copy(u32 width, u32 height,
                 VkImage src, VkImage dst)
 {
-    VkCommandBuffer command = command_buffer_begin();
+    VkCommandBuffer command = begin_cmd_buffer();
 
     // TODO(jesper): support mip layers
     VkImageSubresourceLayers subresource = {};
@@ -1303,7 +1303,7 @@ void image_copy(u32 width, u32 height,
                    dst, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                    1, &region);
 
-    command_buffer_end(command);
+    end_cmd_buffer(command);
 }
 
 
@@ -1402,22 +1402,22 @@ void update_vk_texture(Texture *texture, Texture ntexture)
     // recreate the VkImage, for now we just support same format, width, height
     // and size copies so we _should_ be fine to just reuse the image and image
     // memory
-    image_transition_immediate(staging_image, texture->format,
-                               VK_IMAGE_LAYOUT_PREINITIALIZED,
-                               VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                               VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-                               VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
-    image_transition_immediate(texture->image, texture->format,
-                               VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                               VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                               VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-                               VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
+    im_transition_image(staging_image, texture->format,
+                        VK_IMAGE_LAYOUT_PREINITIALIZED,
+                        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
+    im_transition_image(texture->image, texture->format,
+                        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
     image_copy(texture->width, texture->height, staging_image, texture->image);
-    image_transition_immediate(texture->image, texture->format,
-                               VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                               VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                               VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-                               VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
+    im_transition_image(texture->image, texture->format,
+                        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
 
     vkFreeMemory(g_vulkan->handle, staging_memory, nullptr);
     vkDestroyImage(g_vulkan->handle, staging_image, nullptr);
@@ -1517,22 +1517,22 @@ void init_vk_texture(Texture *texture, VkComponentMapping components)
                                   VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
                                   &texture->memory);
 
-    image_transition_immediate(staging_image, texture->format,
-                               VK_IMAGE_LAYOUT_PREINITIALIZED,
-                               VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                               VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-                               VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
-    image_transition_immediate(texture->image, texture->format,
-                               VK_IMAGE_LAYOUT_PREINITIALIZED,
-                               VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                               VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-                               VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
+    im_transition_image(staging_image, texture->format,
+                        VK_IMAGE_LAYOUT_PREINITIALIZED,
+                        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
+    im_transition_image(texture->image, texture->format,
+                        VK_IMAGE_LAYOUT_PREINITIALIZED,
+                        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
     image_copy(texture->width, texture->height, staging_image, texture->image);
-    image_transition_immediate(texture->image, texture->format,
-                               VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                               VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                               VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-                               VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
+    im_transition_image(texture->image, texture->format,
+                        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
 
     VkImageViewCreateInfo view_info = {};
     view_info.sType                           = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -2141,7 +2141,7 @@ VulkanBuffer create_buffer(usize size,
 
 void buffer_copy(VkBuffer src, VkBuffer dst, VkDeviceSize size)
 {
-    VkCommandBuffer command = command_buffer_begin();
+    VkCommandBuffer command = begin_cmd_buffer();
 
     VkBufferCopy region = {};
     region.srcOffset    = 0;
@@ -2150,7 +2150,7 @@ void buffer_copy(VkBuffer src, VkBuffer dst, VkDeviceSize size)
 
     vkCmdCopyBuffer(command, src, dst, 1, &region);
 
-    command_buffer_end(command, true);
+    end_cmd_buffer(command, true);
 }
 
 VulkanBuffer create_vbo(void *data, usize size)

@@ -1264,7 +1264,7 @@ void game_render()
     VkDeviceSize offsets[] = { 0 };
     VkResult result;
 
-    VkCommandBuffer command = command_buffer_begin();
+    VkCommandBuffer command = begin_cmd_buffer();
     renderpass_begin(command, image_index);
 
     render_terrain(command);
@@ -1397,7 +1397,7 @@ void game_render()
     g_game->overlay.render_queue.count = 0;
 
     renderpass_end(command);
-    command_buffer_end(command, false);
+    end_cmd_buffer(command, false);
 
     submit_semaphore_wait(g_vulkan->swapchain.available,
                           VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
