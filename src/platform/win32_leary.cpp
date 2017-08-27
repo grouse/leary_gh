@@ -16,6 +16,7 @@
 #include "win32_input.cpp"
 
 PlatformState   *g_platform;
+Settings        g_settings;
 HeapAllocator   *g_heap;
 LinearAllocator *g_frame;
 LinearAllocator *g_persistent;
