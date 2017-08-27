@@ -352,7 +352,9 @@ void command_buffer_end(VkCommandBuffer buffer,
 void image_transition(VkCommandBuffer command,
                       VkImage image, VkFormat format,
                       VkImageLayout src,
-                      VkImageLayout dst)
+                      VkImageLayout dst,
+                      VkPipelineStageFlagBits psrc,
+                      VkPipelineStageFlagBits pdst)
 {
     VkImageAspectFlags aspect_mask = 0;
     switch (dst) {
@@ -423,9 +425,7 @@ void image_transition(VkCommandBuffer command,
         break;
     }
 
-    vkCmdPipelineBarrier(command,
-                         VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-                         VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+    vkCmdPipelineBarrier(command, psrc, pdst,
                          0,
                          0, nullptr,
                          0, nullptr,
@@ -434,10 +434,12 @@ void image_transition(VkCommandBuffer command,
 
 void image_transition_immediate(VkImage image, VkFormat format,
                                 VkImageLayout src,
-                                VkImageLayout dst)
+                                VkImageLayout dst,
+                                VkPipelineStageFlagBits psrc,
+                                VkPipelineStageFlagBits pdst)
 {
     VkCommandBuffer command = command_buffer_begin();
-    image_transition(command, image, format, src, dst);
+    image_transition(command, image, format, src, dst, psrc, pdst);
     command_buffer_end(command);
 }
 
@@ -670,7 +672,9 @@ VulkanSwapchain swapchain_create(VulkanPhysicalDevice *physical_device,
 
     image_transition_immediate(swapchain.depth.image, swapchain.depth.format,
                                VK_IMAGE_LAYOUT_UNDEFINED,
-                               VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+                               VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+                               VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                               VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
 
     return swapchain;
 }
@@ -1400,14 +1404,20 @@ void update_vk_texture(Texture *texture, Texture ntexture)
     // memory
     image_transition_immediate(staging_image, texture->format,
                                VK_IMAGE_LAYOUT_PREINITIALIZED,
-                               VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+                               VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                               VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                               VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
     image_transition_immediate(texture->image, texture->format,
                                VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                               VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+                               VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                               VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                               VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
     image_copy(texture->width, texture->height, staging_image, texture->image);
     image_transition_immediate(texture->image, texture->format,
                                VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                               VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+                               VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                               VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                               VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
 
     vkFreeMemory(g_vulkan->handle, staging_memory, nullptr);
     vkDestroyImage(g_vulkan->handle, staging_image, nullptr);
@@ -1509,14 +1519,20 @@ void init_vk_texture(Texture *texture, VkComponentMapping components)
 
     image_transition_immediate(staging_image, texture->format,
                                VK_IMAGE_LAYOUT_PREINITIALIZED,
-                               VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+                               VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                               VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                               VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
     image_transition_immediate(texture->image, texture->format,
                                VK_IMAGE_LAYOUT_PREINITIALIZED,
-                               VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+                               VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                               VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                               VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
     image_copy(texture->width, texture->height, staging_image, texture->image);
     image_transition_immediate(texture->image, texture->format,
                                VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                               VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+                               VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                               VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                               VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
 
     VkImageViewCreateInfo view_info = {};
     view_info.sType                           = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
