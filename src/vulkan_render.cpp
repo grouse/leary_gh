@@ -306,19 +306,19 @@ void submit_frame()
     g_vulkan->semaphores_submit_signal.count = 0;
 }
 
-void renderpass_end(VkCommandBuffer cmd)
+void end_renderpass(VkCommandBuffer cmd)
 {
     vkCmdEndRenderPass(cmd);
 }
 
 #define VK_LOAD_FUNC(i, f) (PFN_##f)vkGetInstanceProcAddr(i, #f)
-void vulkan_load(VkInstance instance)
+void load_vulkan(VkInstance instance)
 {
     CreateDebugReportCallbackEXT  = VK_LOAD_FUNC(instance, vkCreateDebugReportCallbackEXT);
     DestroyDebugReportCallbackEXT = VK_LOAD_FUNC(instance, vkDestroyDebugReportCallbackEXT);
 }
 
-void renderpass_begin(VkCommandBuffer cmd, u32 image)
+void begin_renderpass(VkCommandBuffer cmd, u32 image)
 {
     VkClearValue clear_values[2];
     clear_values[0].color        = { {1.0f, 0.0f, 0.0f, 0.0f} };
@@ -1691,7 +1691,7 @@ void init_vulkan()
      * Create debug callbacks
      *************************************************************************/
     {
-        vulkan_load(g_vulkan->instance);
+        load_vulkan(g_vulkan->instance);
         vkdebug_create();
     }
 
@@ -1749,7 +1749,7 @@ void init_vulkan()
                 break;
             default:
             case VK_PHYSICAL_DEVICE_TYPE_OTHER:
-                DEBUG_LOG("  deviceTyswapchain_acquirepe    : Unknown");
+                DEBUG_LOG("  deviceTyacquire_swapchainpe    : Unknown");
                 break;
             }
             DEBUG_LOG("  deviceName    : %s", properties.deviceName);
@@ -2008,7 +2008,7 @@ void init_vulkan()
     DEBUG_ASSERT(result == VK_SUCCESS);
 }
 
-void pipeline_destroy(VulkanPipeline pipeline)
+void destroy_pipeline(VulkanPipeline pipeline)
 {
     // TODO(jesper): find a better way to clean these up; not every pipeline
     // will have every shader stage and we'll probably want to keep shader
@@ -2031,7 +2031,7 @@ void pipeline_destroy(VulkanPipeline pipeline)
     vkDestroyPipeline(g_vulkan->handle, pipeline.handle, nullptr);
 }
 
-void swapchain_destroy(VulkanSwapchain swapchain)
+void destroy_swapchain(VulkanSwapchain swapchain)
 {
     for (i32 i = 0; i < (i32)g_vulkan->swapchain.images_count; i++) {
         vkDestroyImageView(g_vulkan->handle, swapchain.imageviews[i], nullptr);
@@ -2064,7 +2064,7 @@ void buffer_destroy_ubo(VulkanUniformBuffer ubo)
     buffer_destroy(ubo.buffer);
 }
 
-void vulkan_destroy()
+void destroy_vulkan()
 {
     for (i32 i = 0; i < g_vulkan->framebuffers.count; ++i) {
         vkDestroyFramebuffer(g_vulkan->handle, g_vulkan->framebuffers[i], nullptr);
@@ -2083,7 +2083,7 @@ void vulkan_destroy()
 
     // TODO(jesper): move out of here when the swapchain<->device dependency is
     // fixed
-    swapchain_destroy(g_vulkan->swapchain);
+    destroy_swapchain(g_vulkan->swapchain);
 
 
     vkDestroyDevice(g_vulkan->handle,     nullptr);
@@ -2227,7 +2227,7 @@ void buffer_data(VulkanUniformBuffer ubo, void *data, usize offset, usize size)
     buffer_copy(ubo.staging.handle, ubo.buffer.handle, size);
 }
 
-u32 swapchain_acquire()
+u32 acquire_swapchain()
 {
     VkResult result;
     u32 image_index;
@@ -2360,7 +2360,7 @@ void set_ubo(VulkanPipeline *pipeline,
     vkUpdateDescriptorSets(g_vulkan->handle, 1, &writes, 0, nullptr);
 }
 
-PushConstants push_constants_create(PipelineID pipeline)
+PushConstants create_push_constants(PipelineID pipeline)
 {
     PushConstants c = {};
 

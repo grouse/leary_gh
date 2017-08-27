@@ -204,7 +204,7 @@ void debug_add_texture(const char *name,
     item.title            = name;
     item.type             = Debug_render_item;
     item.u.ritem.pipeline   = pipeline;
-    item.u.ritem.constants  = push_constants_create(pipeline->id);
+    item.u.ritem.constants  = create_push_constants(pipeline->id);
 
     Matrix4 t = Matrix4::identity();
     t[0].x =  g_screen_to_view[0].x;
@@ -750,10 +750,10 @@ void game_quit()
     destroy_material(g_game->materials.phong);
     destroy_material(g_game->materials.player);
 
-    pipeline_destroy(g_game->pipelines.basic2d);
-    pipeline_destroy(g_game->pipelines.font);
-    pipeline_destroy(g_game->pipelines.mesh);
-    pipeline_destroy(g_game->pipelines.terrain);
+    destroy_pipeline(g_game->pipelines.basic2d);
+    destroy_pipeline(g_game->pipelines.font);
+    destroy_pipeline(g_game->pipelines.mesh);
+    destroy_pipeline(g_game->pipelines.terrain);
 
     for (i32 i = 0; i < g_game->render_objects.count; i++) {
         buffer_destroy(g_game->render_objects[i].vbo);
@@ -765,7 +765,7 @@ void game_quit()
     }
 
     buffer_destroy_ubo(g_game->fp_camera.ubo);
-    vulkan_destroy();
+    destroy_vulkan();
 
     platform_quit();
 }
@@ -814,7 +814,7 @@ void game_reload(void *s)
     g_view_to_screen      = state->view_to_screen;
 
     g_vulkan              = state->vulkan_device;
-    vulkan_load(g_vulkan->instance);
+    load_vulkan(g_vulkan->instance);
 
     g_frame->dealloc(state);
 }
@@ -1258,14 +1258,14 @@ void game_render()
     void *sp = g_stack->sp;
     defer { g_stack->reset(sp); };
 
-    u32 image_index = swapchain_acquire();
+    u32 image_index = acquire_swapchain();
 
 
     VkDeviceSize offsets[] = { 0 };
     VkResult result;
 
     VkCommandBuffer command = begin_cmd_buffer();
-    renderpass_begin(command, image_index);
+    begin_renderpass(command, image_index);
 
     render_terrain(command);
 
@@ -1396,7 +1396,7 @@ void game_render()
     }
     g_game->overlay.render_queue.count = 0;
 
-    renderpass_end(command);
+    end_renderpass(command);
     end_cmd_buffer(command, false);
 
     submit_semaphore_wait(g_vulkan->swapchain.available,
