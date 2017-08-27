@@ -46,10 +46,10 @@ char *platform_path(GamePath root)
                 if (PathRemoveFileSpec(buffer) == TRUE)
                     module_length = (DWORD) strlen(buffer);
 
-                i64 length = module_length + strlen("\\data\\") + 1;
+                i64 length = module_length + strlen("\\..\\assets\\") + 1;
                 path = (char*)malloc(length);
                 strcpy(path, buffer);
-                strcat(path, "\\data\\");
+                strcat(path, "\\..\\assets\\");
                 path[length-1] = '\0';
             }
         }
@@ -84,6 +84,13 @@ char *platform_path(GamePath root)
             path[length-1] = '\0';
         }
     } break;
+    case GamePath_textures: {
+        char *data_path = platform_path(GamePath_data);
+        u64 length = strlen(data_path) + strlen("textures\\") + 1;
+        path = (char*)malloc(length);
+        strcpy(path, data_path);
+        strcat(path, "textures\\");
+    } break;
     default:
         DEBUG_ASSERT(false);
         return nullptr;
@@ -106,15 +113,19 @@ char *platform_resolve_path(GamePath root, const char *path)
 {
     char *resolved = nullptr;
 
+    // TODO(jesper): stick these in platform state or something, if we reload
+    // the code these will be leaked and it's not pretty
     static const char *data_path        = platform_path(GamePath_data);
     static const char *models_path      = platform_path(GamePath_models);
     static const char *shaders_path     = platform_path(GamePath_shaders);
     static const char *preferences_path = platform_path(GamePath_preferences);
+    static const char *textures_path    = platform_path(GamePath_textures);
 
     static const u64 data_path_length        = strlen(data_path);
     static const u64 models_path_length      = strlen(models_path);
     static const u64 shaders_path_length     = strlen(shaders_path);
     static const u64 preferences_path_length = strlen(preferences_path);
+    static const u64 textures_path_length    = strlen(textures_path);
 
     switch (root) {
     case GamePath_data:
@@ -131,6 +142,12 @@ char *platform_resolve_path(GamePath root, const char *path)
         usize length = models_path_length + strlen(path) + 1;
         resolved = (char*)malloc(length);
         strcpy(resolved, models_path);
+        strcat(resolved, path);
+    } break;
+    case GamePath_textures: {
+        usize length = textures_path_length + strlen(path) + 1;
+        resolved = (char*)malloc(length);
+        strcpy(resolved, textures_path);
         strcat(resolved, path);
     } break;
     case GamePath_preferences:
@@ -278,7 +295,68 @@ char *platform_resolve_relative(const char *path)
 
 Array<Path> list_files(const char *folder, Allocator *allocator)
 {
-    (void)folder;
-    (void)allocator;
-    return {};
+    Array<Path> files = {};
+    files.allocator   = allocator;
+
+    // TODO(jesper): ROBUSTNESS: better path length
+    char path[2048];
+    sprintf(path, "%s\\*.*", folder);
+
+    isize dlen = strlen(folder);
+    bool eslash = (folder[dlen-1] == '\\');
+
+    HANDLE h = NULL;
+    WIN32_FIND_DATA fd;
+    h = FindFirstFile(path, &fd);
+    if (h == INVALID_HANDLE_VALUE) {
+        DEBUG_LOG(Log_error, "could not find file in folder: %s", folder);
+        return {};
+    }
+
+    do {
+        if (strcmp(fd.cFileName, ".") == 0 || strcmp(fd.cFileName, "..") == 0) {
+            continue;
+        }
+        if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+            // TODO(jesper): handle sub-folders
+            DEBUG_LOG(Log_warning, "sub-folders are unimplemented");
+        } else {
+            isize flen = strlen(fd.cFileName);
+
+            Path p;
+            if (!eslash) {
+                isize length = dlen + flen + 2;
+                p.absolute = { length, (char*)allocator->alloc(length) };
+
+                strcpy(p.absolute.bytes, folder);
+                p.absolute[dlen]   = '\\';
+                p.absolute[dlen+1] = '\0';
+            } else {
+                isize length = dlen + flen + 1;
+                p.absolute = { length, (char*)allocator->alloc(length) };
+                strcpy(p.absolute.bytes, folder);
+            }
+            strcat(p.absolute.bytes, fd.cFileName);
+
+            if (!eslash) {
+                p.filename = { flen, p.absolute.bytes + dlen + 1 };
+            } else {
+                p.filename = { flen, p.absolute.bytes + dlen };
+            }
+
+            isize ext = 0;
+            for (i32 i = 0; i < p.filename.length; i++) {
+                if (p.filename[i] == '.') {
+                    ext = i;
+                }
+            }
+            p.extension = { flen - ext, p.filename.bytes + ext + 1 };
+
+            DEBUG_LOG("adding file: %s", p.absolute.bytes);
+            array_add(&files, p);
+        }
+    } while (FindNextFile(h, &fd));
+
+    FindClose(h);
+    return files;
 }
