@@ -60,6 +60,10 @@ struct MouseState {
 
 void platform_quit()
 {
+    char *settings_path = platform_resolve_path(GamePath_preferences, "settings.conf");
+    serialize_save_conf(settings_path, Settings_members,
+                        ARRAY_SIZE(Settings_members), &g_settings);
+
     _exit(EXIT_SUCCESS);
 }
 
@@ -222,8 +226,11 @@ DL_EXPORT
 PLATFORM_INIT_FUNC(platform_init)
 {
     g_platform = platform;
+    g_settings = {};
 
-    Settings settings = {};
+    char *settings_path = platform_resolve_path(GamePath_preferences, "settings.conf");
+    serialize_load_conf(settings_path, Settings_members,
+                        ARRAY_SIZE(Settings_members), &g_settings);
 
     isize frame_size      = 64  * 1024 * 1024;
     isize persistent_size = 256 * 1024 * 1024;
@@ -258,8 +265,8 @@ PLATFORM_INIT_FUNC(platform_init)
                                 WS_TILED | WS_VISIBLE,
                                 0,
                                 0,
-                                settings.video.resolution.width,
-                                settings.video.resolution.height,
+                                g_settings.video.resolution.width,
+                                g_settings.video.resolution.height,
                                 nullptr,
                                 nullptr,
                                 instance,

@@ -117,7 +117,7 @@ void platform_quit(PlatformState *platform)
 
     char *settings_path = platform_resolve_path(GamePath_preferences, "settings.conf");
     serialize_save_conf(settings_path, Settings_members,
-                        ARRAY_SIZE(Settings_members), &platform->settings);
+                        ARRAY_SIZE(Settings_members), &g_settings);
 
     // TODO(jesper): do we need to unload the .so ?
     exit(EXIT_SUCCESS);
@@ -242,7 +242,7 @@ PLATFORM_INIT_FUNC(platform_init)
 
     char *settings_path = platform_resolve_path(GamePath_preferences, "settings.conf");
     serialize_load_conf(settings_path, Settings_members,
-                        ARRAY_SIZE(Settings_members), &platform->settings);
+                        ARRAY_SIZE(Settings_members), &g_settings);
 
     native->display = XOpenDisplay(nullptr);
     i32 screen     = DefaultScreen(native->display);

@@ -182,7 +182,7 @@ GameState    *g_game;
 Matrix4      g_view_to_screen; // [-1  , 1]   -> [0, w]
 Matrix4      g_screen_to_view; // [0, w] -> [-1  , 1]
 
-Settings     g_settings;
+extern Settings      g_settings;
 extern PlatformState *g_platform;
 
 Catalog      g_texture_catalog;

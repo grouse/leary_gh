@@ -139,8 +139,6 @@ INTROSPECT struct Settings
 };
 
 struct PlatformState {
-    Settings     settings  = {};
-
     StaticArray<ProfileTimer> profile      = {};
     StaticArray<ProfileTimer> profile_prev = {};
 
