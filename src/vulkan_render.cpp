@@ -352,9 +352,7 @@ void end_cmd_buffer(VkCommandBuffer buffer,
 void transition_image(VkCommandBuffer command,
                       VkImage image, VkFormat format,
                       VkImageLayout src,
-                      VkImageLayout dst,
-                      VkPipelineStageFlagBits psrc,
-                      VkPipelineStageFlagBits pdst)
+                      VkImageLayout dst)
 {
     VkImageAspectFlags aspect_mask = 0;
     switch (dst) {
@@ -385,15 +383,21 @@ void transition_image(VkCommandBuffer command,
     barrier.subresourceRange.baseArrayLayer = 0;
     barrier.subresourceRange.layerCount     = 1;
 
+    VkPipelineStageFlagBits psrc = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+    VkPipelineStageFlagBits pdst = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+
     switch (src) {
     case VK_IMAGE_LAYOUT_UNDEFINED:
         barrier.srcAccessMask = 0;
+        psrc = VK_PIPELINE_STAGE_HOST_BIT;
         break;
     case VK_IMAGE_LAYOUT_PREINITIALIZED:
         barrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT;
+        psrc = VK_PIPELINE_STAGE_TRANSFER_BIT;
         break;
     case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
         barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        psrc = VK_PIPELINE_STAGE_TRANSFER_BIT;
         break;
     case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
         barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_INPUT_ATTACHMENT_READ_BIT;
@@ -411,12 +415,15 @@ void transition_image(VkCommandBuffer command,
         break;
     case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
         barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        pdst = VK_PIPELINE_STAGE_TRANSFER_BIT;
         break;
     case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
         barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        pdst = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
         break;
     case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
         barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+        pdst = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
         break;
     default:
         // TODO(jesper): unimplemented transfer
@@ -434,12 +441,10 @@ void transition_image(VkCommandBuffer command,
 
 void im_transition_image(VkImage image, VkFormat format,
                          VkImageLayout src,
-                         VkImageLayout dst,
-                         VkPipelineStageFlagBits psrc,
-                         VkPipelineStageFlagBits pdst)
+                         VkImageLayout dst)
 {
     VkCommandBuffer command = begin_cmd_buffer();
-    transition_image(command, image, format, src, dst, psrc, pdst);
+    transition_image(command, image, format, src, dst);
     end_cmd_buffer(command);
 }
 
@@ -672,9 +677,7 @@ VulkanSwapchain swapchain_create(VulkanPhysicalDevice *physical_device,
 
     im_transition_image(swapchain.depth.image, swapchain.depth.format,
                         VK_IMAGE_LAYOUT_UNDEFINED,
-                        VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-                        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-                        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
+                        VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 
     return swapchain;
 }
@@ -1404,20 +1407,14 @@ void update_vk_texture(Texture *texture, Texture ntexture)
     // memory
     im_transition_image(staging_image, texture->format,
                         VK_IMAGE_LAYOUT_PREINITIALIZED,
-                        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-                        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
+                        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
     im_transition_image(texture->image, texture->format,
                         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-                        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
+                        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
     image_copy(texture->width, texture->height, staging_image, texture->image);
     im_transition_image(texture->image, texture->format,
                         VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-                        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
+                        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
     vkFreeMemory(g_vulkan->handle, staging_memory, nullptr);
     vkDestroyImage(g_vulkan->handle, staging_image, nullptr);
@@ -1519,20 +1516,14 @@ void init_vk_texture(Texture *texture, VkComponentMapping components)
 
     im_transition_image(staging_image, texture->format,
                         VK_IMAGE_LAYOUT_PREINITIALIZED,
-                        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-                        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
+                        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
     im_transition_image(texture->image, texture->format,
                         VK_IMAGE_LAYOUT_PREINITIALIZED,
-                        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-                        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
+                        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
     image_copy(texture->width, texture->height, staging_image, texture->image);
     im_transition_image(texture->image, texture->format,
                         VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-                        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
+                        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
     VkImageViewCreateInfo view_info = {};
     view_info.sType                           = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
