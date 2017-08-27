@@ -108,6 +108,10 @@ void init_mutex(Mutex *m);
 void lock_mutex(Mutex *m);
 void unlock_mutex(Mutex *m);
 
+void platform_quit();
+void platform_toggle_raw_mouse();
+void platform_set_raw_mouse(bool enable);
+
 #define CATALOG_CALLBACK(fname)  void fname(Path path)
 typedef CATALOG_CALLBACK(catalog_callback_t);
 

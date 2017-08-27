@@ -17,9 +17,13 @@ if not exist %BUILD_DIR% mkdir %BUILD_DIR%
 if not exist %BUILD_DIR%\data mkdir %BUILD_DIR%\data
 if not exist %BUILD_DIR%\data\shaders mkdir %BUILD_DIR%\data\shaders
 
+echo "-----------"
+echo %VULKAN_LOCATION%
+
 SET INCLUDE_DIR=%INCLUDE_DIR% -I%VULKAN_LOCATION%\Include
 
 SET LIBS=User32.lib Shlwapi.lib Shell32.lib %VULKAN_LOCATION%\Lib\vulkan-1.lib
+echo %LIBS%
 
 PUSHD %BUILD_DIR%
 REM TODO(jesper): move this into a separate build script; we won't need to and
@@ -36,6 +40,6 @@ glslangValidator -V %ROOT%\src\shaders\mesh.glsl -DFRAGMENT_SHADER -S frag -g -o
 glslangValidator -V %ROOT%\src\shaders\terrain.glsl -DVERTEX_SHADER -S vert -g -o %BUILD_DIR%\data\shaders\terrain.vert.spv
 glslangValidator -V %ROOT%\src\shaders\terrain.glsl -DFRAGMENT_SHADER -S frag -g -o %BUILD_DIR%\data\shaders\terrain.frag.spv
 
-cl %FLAGS% %UNOPTIMIZED% %INCLUDE_DIR% %ROOT%\src\platform\win32_leary.cpp /link %LIBS% /DLL /OUT:game.dll
-cl %FLAGS% %UNOPTIMIZED% %INCLUDE_DIR% /Feleary.exe %ROOT%\src\platform/win32_main.cpp /SUBSYSTEM:WINDOWS
+REM cl %FLAGS% %UNOPTIMIZED% %INCLUDE_DIR% %ROOT%\src\platform\win32_leary.cpp /link %LIBS% /DLL /OUT:game.dll
+cl %FLAGS% %UNOPTIMIZED% %INCLUDE_DIR% /Feleary.exe %ROOT%\src\platform/win32_main.cpp /SUBSYSTEM:WINDOWS /link %LIBS%
 POPD

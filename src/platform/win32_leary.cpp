@@ -28,9 +28,28 @@ struct Win32State {
 
 #include "win32_vulkan.cpp"
 
-void platform_toggle_raw_mouse();
-void platform_set_raw_mouse(bool enable);
-void platform_quit();
+void create_catalog_thread(const char *folder, catalog_callback_t *callback)
+{
+    (void)folder;
+    (void)callback;
+}
+
+
+void init_mutex(Mutex *m)
+{
+    m->native = CreateMutex(NULL, FALSE, NULL);
+}
+
+void lock_mutex(Mutex *m)
+{
+    WaitForSingleObject(m->native, INFINITE);
+}
+
+void unlock_mutex(Mutex *m)
+{
+    ReleaseMutex(m->native);
+}
+
 
 #include "leary.cpp"
 
@@ -39,17 +58,17 @@ struct MouseState {
     f32 dx, dy;
 };
 
-void platform_quit(PlatformState *)
+void platform_quit()
 {
     _exit(EXIT_SUCCESS);
 }
 
-void platform_toggle_raw_mouse(PlatformState *state)
+void platform_toggle_raw_mouse()
 {
-    state->raw_mouse = !state->raw_mouse;
-    DEBUG_LOG("toggle raw mouse: %d", state->raw_mouse);
+    g_platform->raw_mouse = !g_platform->raw_mouse;
+    DEBUG_LOG("toggle raw mouse: %d", g_platform->raw_mouse);
 
-    if (state->raw_mouse) {
+    if (g_platform->raw_mouse) {
         RAWINPUTDEVICE rid[1];
         rid[0].usUsagePage = 0x01;
         rid[0].usUsage = 0x02;
@@ -76,12 +95,12 @@ void platform_toggle_raw_mouse(PlatformState *state)
     }
 }
 
-void platform_set_raw_mouse(PlatformState *state, bool enable)
+void platform_set_raw_mouse(bool enable)
 {
-    if ((enable && !state->raw_mouse) ||
-        (!enable && state->raw_mouse))
+    if ((enable && !g_platform->raw_mouse) ||
+        (!enable && g_platform->raw_mouse))
     {
-        platform_toggle_raw_mouse(state);
+        platform_toggle_raw_mouse();
     }
 }
 
@@ -247,7 +266,7 @@ PLATFORM_INIT_FUNC(platform_init)
                                 nullptr);
 
     if (native->hwnd == nullptr) {
-        platform_quit(platform);
+        platform_quit();
     }
 
     game_init();
@@ -279,7 +298,7 @@ PLATFORM_RELOAD_FUNC(platform_reload)
 DL_EXPORT
 PLATFORM_UPDATE_FUNC(platform_update)
 {
-	(void)platform;
+    (void)platform;
     profile_start_frame();
 
     PROFILE_START(win32_input);
