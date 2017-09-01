@@ -76,7 +76,7 @@ struct Camera {
     Vector3             position;
     f32 yaw   = 0.0f;
     f32 pitch = 0.0f;
-    Quaternion rotation = Quaternion::make({ 0.0f, 1.0f, 0.0f }, 0.5f * PI);
+    Quaternion rotation = Quaternion::make({ 1.0f, 0.0f, 0.0f }, 2.2f * PI);
 };
 
 struct Physics {
@@ -150,7 +150,7 @@ struct GameState {
     Array<Entity> entities;
     Physics physics;
 
-    Camera fp_camera;
+    Camera fp_camera = {};
 
     Array<RenderObject> render_objects;
     Array<IndexRenderObject> index_render_objects;
