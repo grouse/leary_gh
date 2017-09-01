@@ -54,12 +54,27 @@ char *platform_path(GamePath root)
             }
         }
     } break;
+    case GamePath_binary: {
+        TCHAR buffer[MAX_PATH];
+        DWORD module_length = GetModuleFileName(NULL, buffer, MAX_PATH);
+
+        if (module_length != 0) {
+            if (PathRemoveFileSpec(buffer) == TRUE)
+                module_length = (DWORD) strlen(buffer);
+
+            i64 length = module_length + strlen("\\") + 1;
+            path = (char*)malloc(length);
+            strcpy(path, buffer);
+            strcat(path, "\\");
+            path[length-1] = '\0';
+        }
+    } break;
     case GamePath_shaders: {
-        char *data_path = platform_path(GamePath_data);
-        i64 length = strlen(data_path) + strlen("shaders\\") + 1;
+        char *bin_path = platform_path(GamePath_binary);
+        i64 length = strlen(bin_path) + strlen("data\\shaders\\") + 1;
         path = (char*)malloc(length);
-        strcpy(path, data_path);
-        strcat(path, "shaders\\");
+        strcpy(path, bin_path);
+        strcat(path, "data\\shaders\\");
         path[length-1] = '\0';
     } break;
     case GamePath_models: {
@@ -116,12 +131,14 @@ char *platform_resolve_path(GamePath root, const char *path)
     // TODO(jesper): stick these in platform state or something, if we reload
     // the code these will be leaked and it's not pretty
     static const char *data_path        = platform_path(GamePath_data);
+    static const char *binary_path      = platform_path(GamePath_binary);
     static const char *models_path      = platform_path(GamePath_models);
     static const char *shaders_path     = platform_path(GamePath_shaders);
     static const char *preferences_path = platform_path(GamePath_preferences);
     static const char *textures_path    = platform_path(GamePath_textures);
 
     static const u64 data_path_length        = strlen(data_path);
+    static const u64 binary_path_length      = strlen(binary_path);
     static const u64 models_path_length      = strlen(models_path);
     static const u64 shaders_path_length     = strlen(shaders_path);
     static const u64 preferences_path_length = strlen(preferences_path);
@@ -133,6 +150,12 @@ char *platform_resolve_path(GamePath root, const char *path)
         strcpy(resolved, data_path);
         strcat(resolved, path);
         break;
+    case GamePath_binary: {
+        usize length = binary_path_length + strlen(path) + 1;
+        resolved = (char*)malloc(length);
+        strcpy(resolved, binary_path);
+        strcat(resolved, path);
+    } break;
     case GamePath_shaders:
         resolved = (char*)malloc(shaders_path_length + strlen(path));
         strcpy(resolved, shaders_path);
