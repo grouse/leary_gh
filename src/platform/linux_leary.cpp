@@ -18,6 +18,7 @@
 #include <pthread.h>
 
 PlatformState   *g_platform;
+Settings        g_settings;
 HeapAllocator   *g_heap;
 LinearAllocator *g_frame;
 LinearAllocator *g_persistent;
@@ -37,10 +38,6 @@ struct LinuxState {
         i32 y;
     } mouse;
 };
-
-void platform_toggle_raw_mouse(PlatformState *platform);
-void platform_set_raw_mouse(PlatformState *platform, bool enable);
-void platform_quit(PlatformState *platform);
 
 #include "platform/linux_vulkan.cpp"
 
@@ -63,14 +60,14 @@ void unlock_mutex(Mutex *m)
     pthread_mutex_unlock(&m->native);
 }
 
-void platform_toggle_raw_mouse(PlatformState *platform)
+void platform_toggle_raw_mouse()
 {
-    LinuxState *native = (LinuxState*)platform->native;
+    LinuxState *native = (LinuxState*)g_platform->native;
 
-    platform->raw_mouse = !platform->raw_mouse;
-    DEBUG_LOG("raw mouse mode set to: %d", platform->raw_mouse);
+    g_platform->raw_mouse = !g_platform->raw_mouse;
+    DEBUG_LOG("raw mouse mode set to: %d", g_platform->raw_mouse);
 
-    if (platform->raw_mouse) {
+    if (g_platform->raw_mouse) {
         XGrabPointer(native->display, native->window, false,
                      (KeyPressMask | KeyReleaseMask) & 0,
                      GrabModeAsync, GrabModeAsync,
@@ -101,18 +98,18 @@ void platform_toggle_raw_mouse(PlatformState *platform)
     XFlush(native->display);
 }
 
-void platform_set_raw_mouse(PlatformState *platform, bool enable)
+void platform_set_raw_mouse(bool enable)
 {
-    if ((enable && !platform->raw_mouse) ||
-        (!enable && platform->raw_mouse))
+    if ((enable && !g_platform->raw_mouse) ||
+        (!enable && g_platform->raw_mouse))
     {
-        platform_toggle_raw_mouse(platform);
+        platform_toggle_raw_mouse();
     }
 }
 
-void platform_quit(PlatformState *platform)
+void platform_quit()
 {
-    LinuxState *native = (LinuxState*)platform->native;
+    LinuxState *native = (LinuxState*)g_platform->native;
     XUngrabPointer(native->display, CurrentTime);
 
     char *settings_path = platform_resolve_path(GamePath_preferences, "settings.conf");
@@ -221,6 +218,9 @@ void create_catalog_thread(const char *folder, catalog_callback_t *callback)
 DL_EXPORT
 PLATFORM_INIT_FUNC(platform_init)
 {
+    g_platform = platform;
+    g_settings = {};
+
     isize frame_size      = 64  * 1024 * 1024;
     isize persistent_size = 256 * 1024 * 1024;
     isize heap_size       = 256 * 1024 * 1024;
@@ -238,7 +238,7 @@ PLATFORM_INIT_FUNC(platform_init)
     g_stack      = new StackAllocator (stack_mem,      stack_size);
 
     LinuxState *native = g_persistent->ialloc<LinuxState>();
-    platform->native   = native;
+    g_platform->native = native;
 
     char *settings_path = platform_resolve_path(GamePath_preferences, "settings.conf");
     serialize_load_conf(settings_path, Settings_members,
@@ -249,8 +249,8 @@ PLATFORM_INIT_FUNC(platform_init)
     native->window  = XCreateSimpleWindow(native->display,
                                          DefaultRootWindow(native->display),
                                          0, 0,
-                                         platform->settings.video.resolution.width,
-                                         platform->settings.video.resolution.height,
+                                         g_settings.video.resolution.width,
+                                         g_settings.video.resolution.height,
                                          2, BlackPixel(native->display, screen),
                                          BlackPixel(native->display, screen));
 
@@ -278,7 +278,7 @@ PLATFORM_INIT_FUNC(platform_init)
                              &event, &error))
         {
             DEBUG_ASSERT(false && "XInput2 extension not found, this is required");
-            platform_quit(platform);
+            platform_quit();
         }
 
         u8 mask[3] = { 0, 0, 0 };
@@ -308,7 +308,7 @@ PLATFORM_INIT_FUNC(platform_init)
                                                    1, 1);
     }
 
-    game_init(platform);
+    game_init();
 
     i32 num_screens = XScreenCount(native->display);
     for (i32 i = 0; i < num_screens; i++) {
@@ -372,7 +372,7 @@ PLATFORM_UPDATE_FUNC(platform_update)
             event.key.code     = linux_keycode(xevent.xkey.keycode);
             event.key.repeated = false;
 
-            game_input(platform, event);
+            game_input(event);
         } break;
         case KeyRelease: {
             InputEvent event;
@@ -392,7 +392,7 @@ PLATFORM_UPDATE_FUNC(platform_update)
                 }
             }
 
-            game_input(platform, event);
+            game_input(event);
         } break;
         case ButtonPress: {
             InputEvent event;
@@ -400,7 +400,7 @@ PLATFORM_UPDATE_FUNC(platform_update)
             event.mouse.x      = xevent.xbutton.x;
             event.mouse.y      = xevent.xbutton.y;
             event.mouse.button = xevent.xbutton.button;
-            game_input(platform, event);
+            game_input(event);
         } break;
         case MotionNotify: {
 #if 0
@@ -433,7 +433,7 @@ PLATFORM_UPDATE_FUNC(platform_update)
         } break;
         case ClientMessage: {
             if ((Atom)xevent.xclient.data.l[0] == native->WM_DELETE_WINDOW) {
-                game_quit(platform);
+                game_quit();
             }
         } break;
         case GenericEvent: {
@@ -481,7 +481,7 @@ PLATFORM_UPDATE_FUNC(platform_update)
                     event.mouse.dx = deltas[0];
                     event.mouse.dy = deltas[1];
 
-                    game_input(platform, event);
+                    game_input(event);
                 } break;
                 default:
                     DEBUG_LOG("unhandled xinput2 event: %d",

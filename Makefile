@@ -1,6 +1,8 @@
+mkfile_path := $(abspath $(lastword $(MAKEFILE_LIST)))
 
-ROOT  = .
-BUILD = ./build
+ROOT  = ${CURDIR}
+
+BUILD = $(ROOT)/build
 
 .DEFAULT_GOAL := all
 
