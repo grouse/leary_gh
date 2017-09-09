@@ -10,6 +10,12 @@
 #include "core/types.h"
 #include "platform/platform.h"
 
+#include "core/tokenizer.cpp"
+#include "core/allocator.cpp"
+#include "core/array.cpp"
+
+LinearAllocator *g_debug_frame;
+
 #if defined(_WIN32)
     #include "platform/win32_debug.cpp"
     #include "platform/win32_file.cpp"
@@ -19,11 +25,6 @@
 #else
     #error "unsupported platform"
 #endif
-
-#include "core/tokenizer.cpp"
-
-#include "core/allocator.cpp"
-#include "core/array.cpp"
 
 
 timespec get_time()
@@ -45,6 +46,10 @@ i64 get_time_difference(timespec start, timespec end)
 
 int main()
 {
+    isize debug_frame_size = 64  * 1024 * 1024;
+    void *debug_frame_mem = malloc(debug_frame_size);
+    g_debug_frame = new LinearAllocator(debug_frame_mem, debug_frame_size);
+
     benchmark_array();
     return 0;
 }

@@ -702,6 +702,12 @@ void game_init()
         persistent->u.data  = (void*)g_persistent;
         array_add(&allocators.children, persistent);
 
+        auto debug_frame = g_heap->talloc<DebugOverlayItem>();
+        debug_frame->type  = Debug_allocator_stack;
+        debug_frame->title = "debug_frame";
+        debug_frame->u.data  = (void*)g_debug_frame;
+        array_add(&allocators.children, debug_frame);
+
         auto free_list = g_heap->talloc<DebugOverlayItem>();
         free_list->type  = Debug_allocator_free_list;
         free_list->title = "free list";
@@ -1425,4 +1431,5 @@ void game_update_and_render(f32 dt)
     debug_overlay_update(&g_game->overlay, dt);
 
     g_frame->reset();
+    g_debug_frame->reset();
 }

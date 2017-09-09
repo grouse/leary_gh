@@ -21,6 +21,7 @@ PlatformState   *g_platform;
 Settings        g_settings;
 HeapAllocator   *g_heap;
 LinearAllocator *g_frame;
+LinearAllocator *g_debug_frame;
 LinearAllocator *g_persistent;
 StackAllocator  *g_stack;
 
@@ -221,21 +222,24 @@ PLATFORM_INIT_FUNC(platform_init)
     g_platform = platform;
     g_settings = {};
 
-    isize frame_size      = 64  * 1024 * 1024;
-    isize persistent_size = 256 * 1024 * 1024;
-    isize heap_size       = 256 * 1024 * 1024;
-    isize stack_size      = 16  * 1024 * 1024;
+    isize frame_size       = 64  * 1024 * 1024;
+    isize debug_frame_size = 64  * 1024 * 1024;
+    isize persistent_size  = 256 * 1024 * 1024;
+    isize heap_size        = 256 * 1024 * 1024;
+    isize stack_size       = 16  * 1024 * 1024;
 
     // TODO(jesper): allocate these using appropriate syscalls
-    void *frame_mem      = malloc(frame_size);
-    void *persistent_mem = malloc(persistent_size);
-    void *heap_mem       = malloc(heap_size);
-    void *stack_mem      = malloc(stack_size);
+    void *frame_mem       = malloc(frame_size);
+    void *debug_frame_mem = malloc(debug_frame_size);
+    void *persistent_mem  = malloc(persistent_size);
+    void *heap_mem        = malloc(heap_size);
+    void *stack_mem       = malloc(stack_size);
 
-    g_heap       = new HeapAllocator  (heap_mem,       heap_size);
-    g_frame      = new LinearAllocator(frame_mem,      frame_size);
-    g_persistent = new LinearAllocator(persistent_mem, persistent_size);
-    g_stack      = new StackAllocator (stack_mem,      stack_size);
+    g_heap        = new HeapAllocator  (heap_mem,        heap_size);
+    g_frame       = new LinearAllocator(frame_mem,       frame_size);
+    g_debug_frame = new LinearAllocator(debug_frame_mem, debug_frame_size);
+    g_persistent  = new LinearAllocator(persistent_mem,  persistent_size);
+    g_stack       = new StackAllocator (stack_mem,       stack_size);
 
     init_paths(g_persistent);
 
@@ -337,20 +341,23 @@ PLATFORM_PRE_RELOAD_FUNC(platform_pre_reload)
 {
     platform->game_reload_state = game_pre_reload();
 
-    platform->frame      = g_frame;
-    platform->heap       = g_heap;
-    platform->persistent = g_persistent;
-    platform->stack      = g_stack;
+    platform->frame       = g_frame;
+    platform->debug_frame = g_debug_frame;
+    platform->stack       = g_stack;
+    platform->heap        = g_heap;
+    platform->persistent  = g_persistent;
+    platform->stack       = g_stack;
 }
 
 DL_EXPORT
 PLATFORM_RELOAD_FUNC(platform_reload)
 {
-    g_frame      = platform->frame;
-    g_heap       = platform->heap;
-    g_persistent = platform->persistent;
-    g_stack      = platform->stack;
-    g_platform   = platform;
+    g_frame       = platform->frame;
+    g_debug_frame = platform->debug_frame;
+    g_heap        = platform->heap;
+    g_persistent  = platform->persistent;
+    g_stack       = platform->stack;
+    g_platform    = platform;
 
     game_reload(platform->game_reload_state);
 }

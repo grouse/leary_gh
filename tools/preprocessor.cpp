@@ -16,6 +16,14 @@
 
 #include "platform/platform.h"
 
+
+#include "core/tokenizer.cpp"
+#include "core/allocator.cpp"
+#include "core/array.cpp"
+
+SystemAllocator *g_system;
+LinearAllocator *g_debug_frame;
+
 #if defined(_WIN32)
     #include "platform/win32_debug.cpp"
     #include "platform/win32_file.cpp"
@@ -26,11 +34,6 @@
     #error "unsupported platform"
 #endif
 
-#include "core/tokenizer.cpp"
-#include "core/allocator.cpp"
-#include "core/array.cpp"
-
-LinearAllocator *g_persistent;
 
 enum VariableType {
     VariableType_int32,
@@ -457,12 +460,14 @@ void parse_struct_type_info(Tokenizer tokenizer, PreprocessorOutput *output)
     array_add(&output->structs, struct_info);
 }
 
-SystemAllocator *g_system;
-
 int main(int argc, char **argv)
 {
     SystemAllocator allocator = {};
     g_system = &allocator;
+
+    isize debug_frame_size = 64  * 1024 * 1024;
+    void *debug_frame_mem = malloc(debug_frame_size);
+    g_debug_frame = new LinearAllocator(debug_frame_mem, debug_frame_size);
 
     init_paths(g_system);
 

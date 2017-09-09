@@ -147,6 +147,7 @@ struct PlatformState {
 
     HeapAllocator   *heap;
     LinearAllocator *frame;
+    LinearAllocator *debug_frame;
     LinearAllocator *persistent;
     StackAllocator  *stack;
 
