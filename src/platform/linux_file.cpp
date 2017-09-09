@@ -192,7 +192,7 @@ char* resolve_relative(const char *path)
     return realpath(path, nullptr);
 }
 
-char* resolve_path(GamePath rp, const char *path)
+char* resolve_path(GamePath rp, const char *path, Allocator *a)
 {
     usize length, plength;
     char *resolved;
@@ -231,7 +231,7 @@ char* resolve_path(GamePath rp, const char *path)
         return nullptr;
     }
 
-    resolved = (char*)malloc(length + 1);
+    resolved = (char*)a->alloc(length + 1);
     p        = strcpy(resolved, root);
     strcat(p, path);
 

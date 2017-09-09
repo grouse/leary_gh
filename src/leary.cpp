@@ -423,7 +423,7 @@ void game_init()
     // create font atlas
     {
         usize font_size;
-        char *font_path = resolve_path(GamePath_data, "fonts/Roboto-Regular.ttf");
+        char *font_path = resolve_path(GamePath_data, "fonts/Roboto-Regular.ttf", g_stack);
         if (font_path != nullptr) {
             u8 *font_data = (u8*)read_file(font_path, &font_size);
 

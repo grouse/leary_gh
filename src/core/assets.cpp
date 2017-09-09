@@ -189,12 +189,11 @@ Mesh load_mesh_obj(const char *filename)
 {
     Mesh mesh = {};
 
-    char *path = resolve_path(GamePath_models, filename);
+    char *path = resolve_path(GamePath_models, filename, g_frame);
     if (path == nullptr) {
         DEBUG_LOG("unable to resolve path: %s", path);
         return mesh;
     }
-    defer { free(path); };
 
     usize size;
     char *file = read_file(path, &size);
@@ -501,7 +500,7 @@ CATALOG_CALLBACK(texture_catalog_process)
 void init_texture_catalog()
 {
     g_texture_catalog = {};
-    g_texture_catalog.folder = resolve_path(GamePath_textures, "");
+    g_texture_catalog.folder = resolve_path(GamePath_textures, "", g_persistent);
     g_texture_catalog.textures.allocator      = g_heap;
     g_texture_catalog.process_queue.allocator = g_heap;
 

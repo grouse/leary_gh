@@ -714,7 +714,7 @@ VulkanShader create_shader(ShaderID id)
 
     switch (id) {
     case ShaderID_terrain_vert: {
-        char *path = resolve_path(GamePath_shaders, "terrain.vert.spv");
+        char *path = resolve_path(GamePath_shaders, "terrain.vert.spv", g_frame);
 
         usize size;
         u32 *source = (u32*)read_file(path, &size);
@@ -731,10 +731,9 @@ VulkanShader create_shader(ShaderID id)
         DEBUG_ASSERT(result == VK_SUCCESS);
 
         free(source);
-        free(path);
     } break;
     case ShaderID_terrain_frag: {
-        char *path = resolve_path(GamePath_shaders, "terrain.frag.spv");
+        char *path = resolve_path(GamePath_shaders, "terrain.frag.spv", g_frame);
 
         usize size;
         u32 *source = (u32*)read_file(path, &size);
@@ -751,10 +750,9 @@ VulkanShader create_shader(ShaderID id)
         DEBUG_ASSERT(result == VK_SUCCESS);
 
         free(source);
-        free(path);
     } break;
     case ShaderID_mesh_vert: {
-        char *path = resolve_path(GamePath_shaders, "mesh.vert.spv");
+        char *path = resolve_path(GamePath_shaders, "mesh.vert.spv", g_frame);
 
         usize size;
         u32 *source = (u32*)read_file(path, &size);
@@ -771,10 +769,9 @@ VulkanShader create_shader(ShaderID id)
         DEBUG_ASSERT(result == VK_SUCCESS);
 
         free(source);
-        free(path);
     } break;
     case ShaderID_mesh_frag: {
-        char *path = resolve_path(GamePath_shaders, "mesh.frag.spv");
+        char *path = resolve_path(GamePath_shaders, "mesh.frag.spv", g_frame);
 
         usize size;
         u32 *source = (u32*)read_file(path, &size);
@@ -791,10 +788,9 @@ VulkanShader create_shader(ShaderID id)
         DEBUG_ASSERT(result == VK_SUCCESS);
 
         free(source);
-        free(path);
     } break;
     case ShaderID_basic2d_vert: {
-        char *path = resolve_path(GamePath_shaders, "basic2d.vert.spv");
+        char *path = resolve_path(GamePath_shaders, "basic2d.vert.spv", g_frame);
 
         usize size;
         u32 *source = (u32*)read_file(path, &size);
@@ -811,10 +807,9 @@ VulkanShader create_shader(ShaderID id)
         DEBUG_ASSERT(result == VK_SUCCESS);
 
         free(source);
-        free(path);
     } break;
     case ShaderID_basic2d_frag: {
-        char *path = resolve_path(GamePath_shaders, "basic2d.frag.spv");
+        char *path = resolve_path(GamePath_shaders, "basic2d.frag.spv", g_frame);
 
         usize size;
         u32 *source = (u32*)read_file(path, &size);
@@ -831,10 +826,9 @@ VulkanShader create_shader(ShaderID id)
         DEBUG_ASSERT(result == VK_SUCCESS);
 
         free(source);
-        free(path);
     } break;
     case ShaderID_font_frag: {
-        char *path = resolve_path(GamePath_shaders, "font.frag.spv");
+        char *path = resolve_path(GamePath_shaders, "font.frag.spv", g_frame);
 
         usize size;
         u32 *source = (u32*)read_file(path, &size);
@@ -851,7 +845,6 @@ VulkanShader create_shader(ShaderID id)
         DEBUG_ASSERT(result == VK_SUCCESS);
 
         free(source);
-        free(path);
     } break;
     default:
         DEBUG_LOG("unknown shader id: %d", id);
