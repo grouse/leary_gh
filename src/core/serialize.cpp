@@ -256,8 +256,7 @@ void serialize_load_conf(char *path,
 
     usize size;
     char *file, *ptr;
-    file = ptr = read_file(path, &size);
+    file = ptr = read_file(path, &size, g_frame);
     member_from_string(&ptr, size, members, num_members, out);
-    free(file);
 }
 

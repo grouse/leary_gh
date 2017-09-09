@@ -385,6 +385,9 @@ void render_font(stbtt_bakedchar *font,
 
 void game_init()
 {
+    void *sp = g_stack->sp;
+    defer { g_stack->reset(sp); };
+
     g_game = g_persistent->ialloc<GameState>();
 
     init_profiling();
@@ -425,7 +428,7 @@ void game_init()
         usize font_size;
         char *font_path = resolve_path(GamePath_data, "fonts/Roboto-Regular.ttf", g_stack);
         if (font_path != nullptr) {
-            u8 *font_data = (u8*)read_file(font_path, &font_size);
+            u8 *font_data = (u8*)read_file(font_path, &font_size, g_frame);
 
             u8 *bitmap = g_frame->alloc_array<u8>(1024*1024);
             stbtt_BakeFontBitmap(font_data, 0, g_game->overlay.fsize, bitmap,

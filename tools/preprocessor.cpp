@@ -457,10 +457,14 @@ void parse_struct_type_info(Tokenizer tokenizer, PreprocessorOutput *output)
     array_add(&output->structs, struct_info);
 }
 
+SystemAllocator *g_system;
+
 int main(int argc, char **argv)
 {
     SystemAllocator allocator = {};
-    init_paths(&allocator);
+    g_system = &allocator;
+
+    init_paths(g_system);
 
     char *output_path = nullptr;
     char *input_root  = nullptr;
@@ -559,7 +563,7 @@ int main(int argc, char **argv)
         strcat(file_path, files[i]);
 
         usize size;
-        char *file = read_file(file_path, &size);
+        char *file = read_file(file_path, &size, g_system);
 
         if (file == nullptr) {
             return 0;

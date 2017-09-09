@@ -306,7 +306,7 @@ void write_file(void *file_handle, void *buffer, usize bytes)
     DEBUG_ASSERT((usize)written == bytes);
 }
 
-char* read_file(const char *path, usize *file_size)
+char* read_file(const char *path, usize *file_size, Allocator *a)
 {
     struct stat st;
     i32 result = stat(path, &st);
@@ -315,7 +315,7 @@ char* read_file(const char *path, usize *file_size)
         return nullptr;
     }
 
-    char *buffer = (char*)malloc(st.st_size);
+    char *buffer = (char*)a->alloc(st.st_size);
 
     i32 fd = open(path, O_RDONLY);
     DEBUG_ASSERT(fd >= 0);

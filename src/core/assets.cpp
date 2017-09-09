@@ -65,12 +65,11 @@ Texture load_texture_bmp(const char *path)
     Texture texture = {};
 
     usize size;
-    char *file = read_file(path, &size);
+    char *file = read_file(path, &size, g_frame);
     if (file == nullptr) {
         DEBUG_LOG("unable to read file: %s", path);
         return texture;
     }
-    defer { free(file); };
 
     DEBUG_LOG("Loading bmp: %s", path);
     DEBUG_LOG("-- file size: %llu bytes", size);
@@ -196,12 +195,11 @@ Mesh load_mesh_obj(const char *filename)
     }
 
     usize size;
-    char *file = read_file(path, &size);
+    char *file = read_file(path, &size, g_frame);
     if (file == nullptr) {
         DEBUG_LOG("unable to read file: %s", path);
         return mesh;
     }
-    defer { free(file); };
 
     char *end  = file + size;
 
