@@ -237,7 +237,7 @@ PLATFORM_INIT_FUNC(platform_init)
     g_persistent = new LinearAllocator(persistent_mem, persistent_size);
     g_stack      = new StackAllocator (stack_mem,      stack_size);
 
-    init_paths();
+    init_paths(g_persistent);
 
     LinuxState *native = g_persistent->ialloc<LinuxState>();
     g_platform->native = native;

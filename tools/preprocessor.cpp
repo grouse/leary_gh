@@ -30,6 +30,8 @@
 #include "core/allocator.cpp"
 #include "core/array.cpp"
 
+LinearAllocator *g_persistent;
+
 enum VariableType {
     VariableType_int32,
     VariableType_uint32,
@@ -458,6 +460,7 @@ void parse_struct_type_info(Tokenizer tokenizer, PreprocessorOutput *output)
 int main(int argc, char **argv)
 {
     SystemAllocator allocator = {};
+    init_paths(&allocator);
 
     char *output_path = nullptr;
     char *input_root  = nullptr;

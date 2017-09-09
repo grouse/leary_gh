@@ -43,7 +43,7 @@ struct PlatformPaths {
 
 PlatformPaths g_paths;
 
-void init_paths()
+void init_paths(Allocator *a)
 {
     g_paths = {};
 
@@ -69,7 +69,7 @@ void init_paths()
     }
     link_length = (i64)(last - link_buffer + 1);
 
-    g_paths.exe = { link_length, (char*)malloc(link_length + 1) };
+    g_paths.exe = { link_length, (char*)a->alloc(link_length + 1) };
     strncpy(g_paths.exe.bytes, link_buffer, link_length);
 
     // --- app data dir
@@ -78,17 +78,17 @@ void init_paths()
     if (data_env) {
         length = strlen(data_env);
         if (data_env[length-1] != '/') {
-            g_paths.data = { length + 1, (char*)malloc(length + 2) };
+            g_paths.data = { length + 1, (char*)a->alloc(length + 2) };
             p = strcpy(g_paths.data.bytes, data_env);
             g_paths.data[length-1] = '/';
             g_paths.data[length]   = '\0';
         } else {
-            g_paths.data = { length, (char*)malloc(length + 1) };
+            g_paths.data = { length, (char*)a->alloc(length + 1) };
             strcpy(g_paths.data.bytes, data_env);
         }
     } else {
         length = g_paths.exe.length + strlen("../assets/");
-        g_paths.data = { length, (char*)malloc(length + 1) };
+        g_paths.data = { length, (char*)a->alloc(length + 1) };
         p = strncpy(g_paths.data.bytes, g_paths.exe.bytes, g_paths.exe.length);
         strcat(p, "../assets/");
     }
@@ -97,13 +97,13 @@ void init_paths()
     char *local_share = getenv("XDG_DATA_HOME");
     if (local_share) {
         length = strlen(local_share) + strlen("leary/");
-        g_paths.preferences = { length, (char*)malloc(length) + 1 };
+        g_paths.preferences = { length, (char*)a->alloc(length) + 1 };
         p = strcpy(g_paths.preferences.bytes, local_share);
         strcat(p, "leary/");
     } else {
         struct passwd *pw = getpwuid(getuid());
         length = strlen(pw->pw_dir) + strlen("/.local/share/leary/");
-        g_paths.preferences = { length, (char*)malloc(length) + 1 };
+        g_paths.preferences = { length, (char*)a->alloc(length) + 1 };
         p = strcpy(g_paths.preferences.bytes, pw->pw_dir);
         strcat(p, "/.local/share/leary/");
     }
@@ -111,19 +111,19 @@ void init_paths()
 
     // --- shaders dir
     length = g_paths.exe.length + strlen("data/sahders/");
-    g_paths.shaders = { length, (char*)malloc(length + 1) };
+    g_paths.shaders = { length, (char*)a->alloc(length + 1) };
     p = strcpy(g_paths.shaders.bytes, g_paths.exe.bytes);
     strcat(p, "data/shaders/");
 
     // -- textures dir
     length = g_paths.data.length + strlen("textures/");
-    g_paths.textures = { length, (char*)malloc(length + 1) };
+    g_paths.textures = { length, (char*)a->alloc(length + 1) };
     p = strcpy(g_paths.textures.bytes, g_paths.data.bytes);
     strcat(p, "textures/");
 
     // -- models dir
     length = g_paths.data.length + strlen("models/");
-    g_paths.models = { length, (char*)malloc(length + 1) };
+    g_paths.models = { length, (char*)a->alloc(length + 1) };
     p = strcpy(g_paths.models.bytes, g_paths.data.bytes);
     strcat(p, "models/");
 }
