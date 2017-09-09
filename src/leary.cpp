@@ -423,9 +423,9 @@ void game_init()
     // create font atlas
     {
         usize font_size;
-        char *font_path = platform_resolve_path(GamePath_data, "fonts/Roboto-Regular.ttf");
+        char *font_path = resolve_path(GamePath_data, "fonts/Roboto-Regular.ttf");
         if (font_path != nullptr) {
-            u8 *font_data = (u8*)platform_file_read(font_path, &font_size);
+            u8 *font_data = (u8*)read_file(font_path, &font_size);
 
             u8 *bitmap = g_frame->alloc_array<u8>(1024*1024);
             stbtt_BakeFontBitmap(font_data, 0, g_game->overlay.fsize, bitmap,

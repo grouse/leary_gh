@@ -112,7 +112,7 @@ void platform_quit()
     LinuxState *native = (LinuxState*)g_platform->native;
     XUngrabPointer(native->display, CurrentTime);
 
-    char *settings_path = platform_resolve_path(GamePath_preferences, "settings.conf");
+    char *settings_path = resolve_path(GamePath_preferences, "settings.conf");
     serialize_save_conf(settings_path, Settings_members,
                         ARRAY_SIZE(Settings_members), &g_settings);
 
@@ -237,22 +237,24 @@ PLATFORM_INIT_FUNC(platform_init)
     g_persistent = new LinearAllocator(persistent_mem, persistent_size);
     g_stack      = new StackAllocator (stack_mem,      stack_size);
 
+    init_paths();
+
     LinuxState *native = g_persistent->ialloc<LinuxState>();
     g_platform->native = native;
 
-    char *settings_path = platform_resolve_path(GamePath_preferences, "settings.conf");
+    char *settings_path = resolve_path(GamePath_preferences, "settings.conf");
     serialize_load_conf(settings_path, Settings_members,
                         ARRAY_SIZE(Settings_members), &g_settings);
 
     native->display = XOpenDisplay(nullptr);
-    i32 screen     = DefaultScreen(native->display);
+    i32 screen      = DefaultScreen(native->display);
     native->window  = XCreateSimpleWindow(native->display,
-                                         DefaultRootWindow(native->display),
-                                         0, 0,
-                                         g_settings.video.resolution.width,
-                                         g_settings.video.resolution.height,
-                                         2, BlackPixel(native->display, screen),
-                                         BlackPixel(native->display, screen));
+                                          DefaultRootWindow(native->display),
+                                          0, 0,
+                                          g_settings.video.resolution.width,
+                                          g_settings.video.resolution.height,
+                                          2, BlackPixel(native->display, screen),
+                                          BlackPixel(native->display, screen));
 
     XSelectInput(native->display, native->window,
                  KeyPressMask | KeyReleaseMask | StructureNotifyMask |

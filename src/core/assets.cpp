@@ -65,7 +65,7 @@ Texture load_texture_bmp(const char *path)
     Texture texture = {};
 
     usize size;
-    char *file = platform_file_read(path, &size);
+    char *file = read_file(path, &size);
     if (file == nullptr) {
         DEBUG_LOG("unable to read file: %s", path);
         return texture;
@@ -189,7 +189,7 @@ Mesh load_mesh_obj(const char *filename)
 {
     Mesh mesh = {};
 
-    char *path = platform_resolve_path(GamePath_models, filename);
+    char *path = resolve_path(GamePath_models, filename);
     if (path == nullptr) {
         DEBUG_LOG("unable to resolve path: %s", path);
         return mesh;
@@ -197,7 +197,7 @@ Mesh load_mesh_obj(const char *filename)
     defer { free(path); };
 
     usize size;
-    char *file = platform_file_read(path, &size);
+    char *file = read_file(path, &size);
     if (file == nullptr) {
         DEBUG_LOG("unable to read file: %s", path);
         return mesh;
@@ -501,7 +501,7 @@ CATALOG_CALLBACK(texture_catalog_process)
 void init_texture_catalog()
 {
     g_texture_catalog = {};
-    g_texture_catalog.folder = platform_resolve_path(GamePath_textures, "");
+    g_texture_catalog.folder = resolve_path(GamePath_textures, "");
     g_texture_catalog.textures.allocator      = g_heap;
     g_texture_catalog.process_queue.allocator = g_heap;
 

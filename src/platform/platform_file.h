@@ -19,7 +19,7 @@ enum FileAccess {
 
 enum GamePath {
     GamePath_data,
-    GamePath_binary,
+    GamePath_exe,
     GamePath_models,
     GamePath_shaders,
     GamePath_fonts,

@@ -32,6 +32,102 @@
 #include "core/array.h"
 #include "platform_file.h"
 
+struct PlatformPaths {
+    String preferences;
+    String data;
+    String exe;
+    String shaders;
+    String textures;
+    String models;
+};
+
+PlatformPaths g_paths;
+
+void init_paths()
+{
+    g_paths = {};
+
+    isize length;
+    char *p;
+
+    // --- exe dir
+    // NOTE(jesper): other paths depend on this being resolved early
+    char linkname[64];
+    pid_t pid = getpid();
+    i64 result = snprintf(linkname, sizeof(linkname), "/proc/%i/exe", pid);
+    DEBUG_ASSERT(result >= 0);
+
+    char link_buffer[PATH_MAX];
+    i64 link_length = readlink(linkname, link_buffer, PATH_MAX);
+    DEBUG_ASSERT(link_length >= 0);
+
+    char *last = nullptr;
+    for (i32 i = 0; i < link_length; i++) {
+        if (link_buffer[i] == '/') {
+            last = &link_buffer[i];
+        }
+    }
+    link_length = (i64)(last - link_buffer + 1);
+
+    g_paths.exe = { link_length, (char*)malloc(link_length + 1) };
+    strncpy(g_paths.exe.bytes, link_buffer, link_length);
+
+    // --- app data dir
+    // NOTE(jesper): other paths depend on this being resolved early
+    char *data_env = getenv("LEARY_DATA_ROOT");
+    if (data_env) {
+        length = strlen(data_env);
+        if (data_env[length-1] != '/') {
+            g_paths.data = { length + 1, (char*)malloc(length + 2) };
+            p = strcpy(g_paths.data.bytes, data_env);
+            g_paths.data[length-1] = '/';
+            g_paths.data[length]   = '\0';
+        } else {
+            g_paths.data = { length, (char*)malloc(length + 1) };
+            strcpy(g_paths.data.bytes, data_env);
+        }
+    } else {
+        length = g_paths.exe.length + strlen("../assets/");
+        g_paths.data = { length, (char*)malloc(length + 1) };
+        p = strncpy(g_paths.data.bytes, g_paths.exe.bytes, g_paths.exe.length);
+        strcat(p, "../assets/");
+    }
+
+    // --- app preferences dir
+    char *local_share = getenv("XDG_DATA_HOME");
+    if (local_share) {
+        length = strlen(local_share) + strlen("leary/");
+        g_paths.preferences = { length, (char*)malloc(length) + 1 };
+        p = strcpy(g_paths.preferences.bytes, local_share);
+        strcat(p, "leary/");
+    } else {
+        struct passwd *pw = getpwuid(getuid());
+        length = strlen(pw->pw_dir) + strlen("/.local/share/leary/");
+        g_paths.preferences = { length, (char*)malloc(length) + 1 };
+        p = strcpy(g_paths.preferences.bytes, pw->pw_dir);
+        strcat(p, "/.local/share/leary/");
+    }
+
+
+    // --- shaders dir
+    length = g_paths.exe.length + strlen("data/sahders/");
+    g_paths.shaders = { length, (char*)malloc(length + 1) };
+    p = strcpy(g_paths.shaders.bytes, g_paths.exe.bytes);
+    strcat(p, "data/shaders/");
+
+    // -- textures dir
+    length = g_paths.data.length + strlen("textures/");
+    g_paths.textures = { length, (char*)malloc(length + 1) };
+    p = strcpy(g_paths.textures.bytes, g_paths.data.bytes);
+    strcat(p, "textures/");
+
+    // -- models dir
+    length = g_paths.data.length + strlen("models/");
+    g_paths.models = { length, (char*)malloc(length + 1) };
+    p = strcpy(g_paths.models.bytes, g_paths.data.bytes);
+    strcat(p, "models/");
+}
+
 Array<Path> list_files(const char *folder, Allocator *allocator)
 {
     // TODO: this should maybe return an array of File which might include full
@@ -91,190 +187,66 @@ Array<Path> list_files(const char *folder, Allocator *allocator)
     return files;
 }
 
-char *platform_path(GamePath root)
-{
-    char *path = nullptr;
-
-    switch (root) {
-    case GamePath_data: {
-        char *data_env = getenv("LEARY_DATA_ROOT");
-        if (data_env) {
-            u64 length = strlen(data_env) + 1;
-            if (data_env[length-2] != '/') {
-                path = (char*)malloc(length + 1);
-                strcpy(path, data_env);
-                path[length-1] = '/';
-                path[length]   = '\0';
-            } else {
-                path = (char*)malloc(length);
-                strcpy(path, data_env);
-            }
-        } else {
-            char linkname[64];
-            pid_t pid = getpid();
-            i64 result = snprintf(linkname, sizeof(linkname), "/proc/%i/exe", pid);
-            DEBUG_ASSERT(result >= 0);
-
-            char buffer[PATH_MAX];
-            i64 length = readlink(linkname, buffer, PATH_MAX);
-            DEBUG_ASSERT(length >= 0);
-
-            char *last = nullptr;
-            for (i32 i = 0; i < length; i++) {
-                if (buffer[i] == '/') {
-                    last = &buffer[i];
-                }
-            }
-            length = (i64)(last - buffer + 1);
-
-            u64 total_length = length + strlen("../assets/") + 1;
-            path = (char*)malloc(total_length);
-            strncpy(path, buffer, length);
-            strcat(path, "../assets/");
-        }
-    } break;
-    case GamePath_binary: {
-        char linkname[64];
-        pid_t pid = getpid();
-        i64 result = snprintf(linkname, sizeof(linkname), "/proc/%i/exe", pid);
-        DEBUG_ASSERT(result >= 0);
-
-        char buffer[PATH_MAX];
-        i64 length = readlink(linkname, buffer, PATH_MAX);
-        DEBUG_ASSERT(length >= 0);
-
-        for (; length >= 0; length--) {
-            if (buffer[length-1] == '/') {
-                break;
-            }
-        }
-
-        path = (char*)malloc(length + 1);
-        strncpy(path, buffer, length);
-    } break;
-    case GamePath_shaders: {
-        char *data_path = platform_path(GamePath_binary);
-        u64 length = strlen(data_path) + strlen("data/shaders/") + 1;
-        path = (char*)malloc(length);
-        strcpy(path, data_path);
-        strcat(path, "data/shaders/");
-    } break;
-    case GamePath_textures: {
-        char *data_path = platform_path(GamePath_data);
-        u64 length = strlen(data_path) + strlen("textures/") + 1;
-        path = (char*)malloc(length);
-        strcpy(path, data_path);
-        strcat(path, "textures/");
-    } break;
-    case GamePath_models: {
-        char *data_path = platform_path(GamePath_data);
-        u64 length = strlen(data_path) + strlen("models/") + 1;
-        path = (char*)malloc(length);
-        strcpy(path, data_path);
-        strcat(path, "models/");
-    } break;
-    case GamePath_preferences: {
-        char *local_share = getenv("XDG_DATA_HOME");
-        if (local_share) {
-            u64 length = strlen(local_share) + strlen("leary/") + 1;
-            path = (char*)malloc(length);
-            strcpy(path, local_share);
-            strcat(path, "leary/");
-        } else {
-            struct passwd *pw = getpwuid(getuid());
-            u64 length = strlen(pw->pw_dir) + strlen("/.local/share/leary/") + 1;
-            path = (char*)malloc(length);
-            strcpy(path, pw->pw_dir);
-            strcat(path, "/.local/share/leary/");
-        }
-    } break;
-    default:
-        DEBUG_ASSERT(false);
-        break;
-    }
-
-    return path;
-}
-
-char *platform_resolve_relative(const char *path)
+char* resolve_relative(const char *path)
 {
     return realpath(path, nullptr);
 }
 
-char *platform_resolve_path(GamePath root, const char *path)
+char* resolve_path(GamePath rp, const char *path)
 {
-    // TODO(jesper): stick these in platform state or something, if we reload
-    // the code these will be leaked and it's not pretty
-    static const char *data_path        = platform_path(GamePath_data);
-    static const char *binary_path      = platform_path(GamePath_binary);
-    static const char *models_path      = platform_path(GamePath_models);
-    static const char *shaders_path     = platform_path(GamePath_shaders);
-    static const char *textures_path    = platform_path(GamePath_textures);
-    static const char *preferences_path = platform_path(GamePath_preferences);
+    usize length, plength;
+    char *resolved;
+    char *p, *root;
 
-    static const u64 data_path_length        = strlen(data_path);
-    static const u64 binary_path_length      = strlen(binary_path);
-    static const u64 models_path_length      = strlen(models_path);
-    static const u64 shaders_path_length     = strlen(shaders_path);
-    static const u64 textures_path_length    = strlen(textures_path);
-    static const u64 preferences_path_length = strlen(preferences_path);
+    plength = strlen(path);
 
-    char *resolved = nullptr;
-
-    switch (root) {
+    switch (rp) {
     case GamePath_data: {
-        usize length = data_path_length + strlen(path) + 1;
-        resolved = (char*)malloc(length);
-        strcpy(resolved, data_path);
-        strcat(resolved, path);
+        length = g_paths.data.length + plength;
+        root   = g_paths.data.bytes;
     } break;
-    case GamePath_binary: {
-        usize length = binary_path_length + strlen(path) + 1;
-        resolved = (char*)malloc(length);
-        strcpy(resolved, binary_path);
-        strcat(resolved, path);
+    case GamePath_exe: {
+        length = g_paths.exe.length + plength;
+        root   = g_paths.exe.bytes;
     } break;
     case GamePath_shaders: {
-        usize length = shaders_path_length + strlen(path) + 1;
-        resolved = (char*)malloc(length);
-        strcpy(resolved, shaders_path);
-        strcat(resolved, path);
+        length = g_paths.shaders.length + plength;
+        root   = g_paths.shaders.bytes;
     } break;
     case GamePath_textures: {
-        usize length = textures_path_length + strlen(path) + 1;
-        resolved = (char*)malloc(length);
-        strcpy(resolved, textures_path);
-        strcat(resolved, path);
+        length = g_paths.textures.length + plength;
+        root   = g_paths.textures.bytes;
     } break;
     case GamePath_models: {
-        usize length = models_path_length + strlen(path) + 1;
-        resolved = (char*)malloc(length);
-        strcpy(resolved, models_path);
-        strcat(resolved, path);
+        length = g_paths.models.length + plength;
+        root   = g_paths.models.bytes;
     } break;
     case GamePath_preferences: {
-        usize length = preferences_path_length + strlen(path) + 1;
-        resolved = (char*)malloc(length);
-        strcpy(resolved, preferences_path);
-        strcat(resolved, path);
+        length = g_paths.preferences.length + plength;
+        root   = g_paths.preferences.bytes;
     } break;
     default:
+        DEBUG_LOG(Log_error, "unknown path root: %d", rp);
         DEBUG_ASSERT(false);
-        break;
+        return nullptr;
     }
+
+    resolved = (char*)malloc(length + 1);
+    p        = strcpy(resolved, root);
+    strcat(p, path);
 
     return resolved;
 }
 
 
 
-bool platform_file_exists(const char *path)
+bool file_exists(const char *path)
 {
     struct stat st;
     return (stat(path, &st) == 0);
 }
 
-bool platform_file_create(const char *path)
+bool create_file(const char *path)
 {
     // TODO(jesper): create folders if needed
     i32 access = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
@@ -289,7 +261,7 @@ bool platform_file_create(const char *path)
 
 
 
-void* platform_file_open(const char *path, FileAccess access)
+void* open_file(const char *path, FileAccess access)
 {
     i32 flags = 0;
 
@@ -316,7 +288,7 @@ void* platform_file_open(const char *path, FileAccess access)
     return (void*)(i64)fd;
 }
 
-void platform_file_close(void *file_handle)
+void close_file(void *file_handle)
 {
     i32 fd = (i32)(i64)file_handle;
     DEBUG_ASSERT(fd >= 0);
@@ -326,7 +298,7 @@ void platform_file_close(void *file_handle)
 
 
 
-void platform_file_write(void *file_handle, void *buffer, usize bytes)
+void write_file(void *file_handle, void *buffer, usize bytes)
 {
     i32 fd = (i32)(i64)file_handle;
     isize written = write(fd, buffer, bytes);
@@ -334,7 +306,7 @@ void platform_file_write(void *file_handle, void *buffer, usize bytes)
     DEBUG_ASSERT((usize)written == bytes);
 }
 
-char* platform_file_read(const char *path, usize *file_size)
+char* read_file(const char *path, usize *file_size)
 {
     struct stat st;
     i32 result = stat(path, &st);
