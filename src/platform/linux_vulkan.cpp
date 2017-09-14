@@ -28,13 +28,12 @@ VkResult
 platform_vulkan_create_surface(VkInstance instance,
                                VkSurfaceKHR *surface)
 {
-	LinuxState *native = (LinuxState*)g_platform->native;
 	VkXlibSurfaceCreateInfoKHR info = {};
 	info.sType  = VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR;
 	info.pNext  = nullptr;
 	info.flags  = 0;
-	info.dpy    = native->display;
-	info.window = native->window;
+	info.dpy    = g_platform->native.display;
+	info.window = g_platform->native.window;
 
 	return vkCreateXlibSurfaceKHR(instance, &info, nullptr, surface);
 }

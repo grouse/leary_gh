@@ -7,7 +7,8 @@
  */
 
 #include <time.h>
-#include "core/types.h"
+
+#include "leary.h"
 #include "platform/platform.h"
 
 #include "core/lexer.cpp"

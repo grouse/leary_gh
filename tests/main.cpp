@@ -6,8 +6,10 @@
  * Copyright (c) 2017 - all rights reserved
  */
 
-#include "core/types.h"
+#include "leary.h"
 #include "platform/platform.h"
+
+#include "core/types.h"
 
 #include "core/lexer.cpp"
 #include "core/allocator.cpp"

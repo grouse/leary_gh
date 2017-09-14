@@ -16,11 +16,12 @@
 #include <math.h>
 #include <utility>
 
-#include "platform/platform.h"
-#include "platform/platform_input.h"
-
 #include "core/types.h"
 #include "core/allocator.h"
+#include "core/string.h"
+
+#include "platform/platform.h"
+#include "platform/platform_input.h"
 
 #define ARRAY_SIZE(a) (isize)(sizeof((a)) / sizeof((a)[0]))
 
@@ -50,6 +51,25 @@ Defer<F> operator+ (DeferDummy, F&& f)
 }
 
 #define defer auto defer_( __LINE__ ) = DeferDummy( ) + [&]( )
+
+INTROSPECT struct Resolution
+{
+    i32 width  = 1280;
+    i32 height = 720;
+};
+
+INTROSPECT struct VideoSettings
+{
+    Resolution resolution;
+
+    i16 fullscreen = 0;
+    i16 vsync      = 1;
+};
+
+INTROSPECT struct Settings
+{
+    VideoSettings video;
+};
 
 #endif /* LEARY_H */
 

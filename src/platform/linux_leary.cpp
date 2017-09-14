@@ -25,21 +25,6 @@ LinearAllocator *g_debug_frame;
 LinearAllocator *g_persistent;
 StackAllocator  *g_stack;
 
-struct LinuxState {
-    Window     window;
-    Display    *display;
-    XkbDescPtr xkb;
-    i32        xinput2;
-    Cursor     hidden_cursor;
-
-    Atom WM_DELETE_WINDOW;
-
-    struct {
-        i32 x;
-        i32 y;
-    } mouse;
-};
-
 #include "platform/linux_vulkan.cpp"
 
 #include "leary.cpp"
@@ -63,40 +48,41 @@ void unlock_mutex(Mutex *m)
 
 void platform_toggle_raw_mouse()
 {
-    LinuxState *native = (LinuxState*)g_platform->native;
+    Display *dpy = g_platform->native.display;
+    Window  &wnd = g_platform->native.window;
 
     g_platform->raw_mouse = !g_platform->raw_mouse;
     DEBUG_LOG("raw mouse mode set to: %d", g_platform->raw_mouse);
 
     if (g_platform->raw_mouse) {
-        XGrabPointer(native->display, native->window, false,
+        XGrabPointer(dpy, wnd, false,
                      (KeyPressMask | KeyReleaseMask) & 0,
                      GrabModeAsync, GrabModeAsync,
-                     native->window, native->hidden_cursor, CurrentTime);
+                     wnd, g_platform->native.hidden_cursor, CurrentTime);
     } else {
-        XUngrabPointer(native->display, CurrentTime);
+        XUngrabPointer(dpy, CurrentTime);
 
-        i32 num_screens = XScreenCount(native->display);
+        i32 num_screens = XScreenCount(dpy);
 
         for (i32 i = 0; i < num_screens; i++) {
-            Window root = XRootWindow(native->display, i);
+            Window root = XRootWindow(dpy, i);
             Window child;
 
             u32 mask;
             i32 root_x, root_y, win_x, win_y;
-            bool result = XQueryPointer(native->display, native->window,
+            bool result = XQueryPointer(dpy, wnd,
                                         &root, &child,
                                         &root_x, &root_y, &win_x, &win_y,
                                         &mask);
             if (result) {
-                native->mouse.x = win_x;
-                native->mouse.y = win_y;
+                g_platform->native.mouse.x = win_x;
+                g_platform->native.mouse.y = win_y;
                 break;
             }
         }
     }
 
-    XFlush(native->display);
+    XFlush(dpy);
 }
 
 void platform_set_raw_mouse(bool enable)
@@ -110,8 +96,7 @@ void platform_set_raw_mouse(bool enable)
 
 void platform_quit()
 {
-    LinuxState *native = (LinuxState*)g_platform->native;
-    XUngrabPointer(native->display, CurrentTime);
+    XUngrabPointer(g_platform->native.display, CurrentTime);
 
     char *settings_path = resolve_path(GamePath_preferences, "settings.conf", g_stack);
     serialize_save_conf(settings_path, Settings_members,
@@ -222,6 +207,8 @@ PLATFORM_INIT_FUNC(platform_init)
     g_platform = platform;
     g_settings = {};
 
+    NativePlatformState *native = &g_platform->native;
+
     isize frame_size       = 64  * 1024 * 1024;
     isize debug_frame_size = 64  * 1024 * 1024;
     isize persistent_size  = 256 * 1024 * 1024;
@@ -242,9 +229,6 @@ PLATFORM_INIT_FUNC(platform_init)
     g_stack       = new StackAllocator (stack_mem,       stack_size);
 
     init_paths(g_persistent);
-
-    LinuxState *native = g_persistent->ialloc<LinuxState>();
-    g_platform->native = native;
 
     char *settings_path = resolve_path(GamePath_preferences, "settings.conf", g_frame);
     serialize_load_conf(settings_path, Settings_members,
@@ -339,27 +323,27 @@ PLATFORM_INIT_FUNC(platform_init)
 DL_EXPORT
 PLATFORM_PRE_RELOAD_FUNC(platform_pre_reload)
 {
-    platform->game_reload_state = game_pre_reload();
+    platform->reload_state.game = game_pre_reload();
 
-    platform->frame       = g_frame;
-    platform->debug_frame = g_debug_frame;
-    platform->stack       = g_stack;
-    platform->heap        = g_heap;
-    platform->persistent  = g_persistent;
-    platform->stack       = g_stack;
+    platform->reload_state.frame       = g_frame;
+    platform->reload_state.debug_frame = g_debug_frame;
+    platform->reload_state.stack       = g_stack;
+    platform->reload_state.heap        = g_heap;
+    platform->reload_state.persistent  = g_persistent;
+    platform->reload_state.stack       = g_stack;
 }
 
 DL_EXPORT
 PLATFORM_RELOAD_FUNC(platform_reload)
 {
-    g_frame       = platform->frame;
-    g_debug_frame = platform->debug_frame;
-    g_heap        = platform->heap;
-    g_persistent  = platform->persistent;
-    g_stack       = platform->stack;
+    g_frame       = platform->reload_state.frame;
+    g_debug_frame = platform->reload_state.debug_frame;
+    g_heap        = platform->reload_state.heap;
+    g_persistent  = platform->reload_state.persistent;
+    g_stack       = platform->reload_state.stack;
     g_platform    = platform;
 
-    game_reload(platform->game_reload_state);
+    game_reload(platform->reload_state.game);
 }
 
 DL_EXPORT
@@ -367,7 +351,7 @@ PLATFORM_UPDATE_FUNC(platform_update)
 {
     profile_start_frame();
 
-    LinuxState *native = (LinuxState*)platform->native;
+    NativePlatformState *native = &g_platform->native;
 
     PROFILE_START(linux_input);
     XEvent xevent;

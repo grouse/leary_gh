@@ -25,46 +25,42 @@
 #ifndef LEARY_PLATFORM_MAIN_H
 #define LEARY_PLATFORM_MAIN_H
 
-#include <cstring>
-#include "core/types.h"
 
+// -- platform specific includes
 #if defined(__linux__)
     #include <X11/Xlib.h>
     #include <X11/XKBlib.h>
     #include <X11/extensions/XInput2.h>
 
-    #define DL_EXPORT extern "C"
-
-    #define FILE_SEP "/"
-    #define FILE_EOL "\n"
-
     #define VK_USE_PLATFORM_XLIB_KHR
-
-    #define PACKED(decl) decl __attribute__((__packed__))
+    #include <vulkan/vulkan.h>
 #elif defined(_WIN32)
     #include <Windows.h>
-    #include <Shlobj.h>
-    #include <Shlwapi.h>
-
-    #define DL_EXPORT extern "C" __declspec(dllexport)
-
-    #define VK_USE_PLATFORM_WIN32_KHR
-
     #undef near
     #undef far
 
-    #define FILE_SEP "\\"
-    #define FILE_EOL "\r\n"
+    #include <Shlobj.h>
+    #include <Shlwapi.h>
 
-    #define PACKED(decl) __pragma(pack(push, 1)) decl __pragma(pack(pop))
+
+    #define VK_USE_PLATFORM_WIN32_KHR
+    #include <vulkan/vulkan.h>
 #else
     #error "unsupported platform"
 #endif
 
-#include <vulkan/vulkan.h>
 
+// -- platform generic includes
+#include <cstring>
+
+#include "leary.h"
+#include "core/string.h"
+
+
+
+// -- platform generic defines
 #ifndef INTROSPECT
-    #define INTROSPECT
+#define INTROSPECT
 #endif
 
 
@@ -72,38 +68,124 @@
 #define LEARY_DYNAMIC 0
 #endif
 
-#if !LEARY_DYNAMIC
-    #undef DL_EXPORT
-    #define DL_EXPORT
-#endif
+#define PLATFORM_PRE_RELOAD_FUNC(fname) void  fname(PlatformState *platform)
+#define PLATFORM_RELOAD_FUNC(fname)     void  fname(PlatformState *platform)
+#define PLATFORM_UPDATE_FUNC(fname)     void  fname(PlatformState *platform, f32 dt)
 
 
-#include "leary.h"
-#include "core/profiling.h"
-#include "platform_file.h"
 
+// -- platform specific defines
 #if defined(__linux__)
+    #if LEARY_DYNAMIC
+        #define DL_EXPORT extern "C"
+    #else
+        #define DL_EXPORT
+    #endif // LEARY_DYNAMIC
+
+    #define FILE_SEP "/"
+    #define FILE_EOL "\n"
+
+    #define PACKED(decl) decl __attribute__((__packed__))
+
     #define PLATFORM_INIT_FUNC(fname)       void fname(PlatformState *platform)
 #elif defined(_WIN32)
+    #if LEARY_DYNAMIC
+        #define DL_EXPORT extern "C" __declspec(dllexport)
+    #else
+        #define DL_EXPORT
+    #endif // LEARY_DYNAMIC
+
+    #define FILE_SEP "\\"
+    #define FILE_EOL "\r\n"
+
+    #define PACKED(decl) __pragma(pack(push, 1)) decl __pragma(pack(pop))
+
     #define PLATFORM_INIT_FUNC(fname)       void fname(PlatformState *platform, HINSTANCE instance)
 #else
     #error "unsupported platform"
 #endif
 
-#define PLATFORM_PRE_RELOAD_FUNC(fname) void  fname(PlatformState *platform)
-#define PLATFORM_RELOAD_FUNC(fname)     void  fname(PlatformState *platform)
-#define PLATFORM_UPDATE_FUNC(fname)     void  fname(PlatformState *platform, f32 dt)
 
-struct Mutex {
+
+// -- platform specific types
 #if defined(__linux__)
-    pthread_mutex_t native;
+
+struct NativePlatformState {
+    Window     window;
+    Display    *display;
+    XkbDescPtr xkb;
+    i32        xinput2;
+    Cursor     hidden_cursor;
+
+    Atom WM_DELETE_WINDOW;
+
+    struct {
+        i32 x;
+        i32 y;
+    } mouse;
+};
+
+typedef pthread_mutex_t NativeMutex;
+
 #elif defined(_WIN32)
-    HANDLE native;
+
+struct NativePlatformState {
+    HINSTANCE hinstance;
+    HWND      hwnd;
+};
+
+typedef HANDLE NativeMutex;
+
 #else
     #error "unsupported platform"
 #endif
+
+
+
+// -- platform generic types
+struct PlatformState {
+    NativePlatformState native;
+
+    bool raw_mouse = false;
+
+    struct {
+        void            *game;
+
+        HeapAllocator   *heap;
+        LinearAllocator *frame;
+        LinearAllocator *debug_frame;
+        LinearAllocator *persistent;
+        StackAllocator  *stack;
+    } reload_state;
 };
 
+struct Mutex {
+    NativeMutex native;
+};
+
+enum FileAccess {
+    FileAccess_read,
+    FileAccess_write,
+    FileAccess_read_write
+};
+
+enum GamePath {
+    GamePath_data,
+    GamePath_exe,
+    GamePath_models,
+    GamePath_shaders,
+    GamePath_fonts,
+    GamePath_textures,
+    GamePath_preferences
+};
+
+struct Path {
+    String absolute;
+    String filename; // TODO: should this be with or without extension?
+    String extension;
+};
+
+// -- functions
 void init_mutex(Mutex *m);
 void lock_mutex(Mutex *m);
 void unlock_mutex(Mutex *m);
@@ -116,43 +198,5 @@ void platform_set_raw_mouse(bool enable);
 typedef CATALOG_CALLBACK(catalog_callback_t);
 
 void create_catalog_thread(const char *folder, catalog_callback_t *callback);
-Array<Path> list_files(const char *folder, Allocator *allocator);
-
-INTROSPECT struct Resolution
-{
-    i32 width  = 1280;
-    i32 height = 720;
-};
-
-INTROSPECT struct VideoSettings
-{
-    Resolution resolution;
-
-    // NOTE: these are integers to later support different fullscreen and vsync techniques
-    i16 fullscreen = 0;
-    i16 vsync      = 1;
-};
-
-INTROSPECT struct Settings
-{
-    VideoSettings video;
-};
-
-struct PlatformState {
-    StaticArray<ProfileTimer> profile      = {};
-    StaticArray<ProfileTimer> profile_prev = {};
-
-    bool         raw_mouse = false;
-    void         *native   = nullptr;
-
-    HeapAllocator   *heap;
-    LinearAllocator *frame;
-    LinearAllocator *debug_frame;
-    LinearAllocator *persistent;
-    StackAllocator  *stack;
-
-    void *game_reload_state;
-
-};
 
 #endif // LEARY_PLATFORM_MAIN_H
