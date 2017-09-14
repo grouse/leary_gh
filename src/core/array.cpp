@@ -40,9 +40,9 @@ void array_destroy(Array<T> *a)
 template<typename T>
 void array_resize(Array<T> *a, isize count)
 {
-    DEBUG_ASSERT(a->count    == 0);
-    DEBUG_ASSERT(a->capacity == 0);
-    DEBUG_ASSERT(a->data == nullptr);
+    assert(a->count    == 0);
+    assert(a->capacity == 0);
+    assert(a->data == nullptr);
 
     a->count    = count;
     a->capacity = count;
@@ -52,7 +52,7 @@ void array_resize(Array<T> *a, isize count)
 template<typename T>
 isize array_add(Array<T> *a, T e)
 {
-    DEBUG_ASSERT(a->allocator != nullptr);
+    assert(a->allocator != nullptr);
 
     if (a->count >= a->capacity) {
         isize capacity = a->capacity == 0 ? 1 : a->capacity * 2;
@@ -121,7 +121,7 @@ void array_destroy(StaticArray<T> *a)
 template<typename T>
 isize array_add(StaticArray<T> *a, T e)
 {
-    DEBUG_ASSERT(a->count <= a->capacity);
+    assert(a->count <= a->capacity);
 
     a->data[a->count] = e;
     return a->count++;

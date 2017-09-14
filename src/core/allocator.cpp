@@ -53,7 +53,7 @@ void* StackAllocator::alloc(isize asize)
     this->sp = (void*)((uptr)aligned + asize);
     this->remaining = this->size - (isize)((uptr)this->sp - (uptr)this->mem);
 
-    DEBUG_ASSERT(this->remaining > 0);
+    assert(this->remaining > 0);
 
     auto header = (AllocationHeader*)((uptr)aligned - header_size);
     header->size      = asize;
@@ -71,7 +71,7 @@ void *LinearAllocator::alloc(isize asize)
 
     this->current = (void*)((uptr)aligned + asize);
     this->remaining = this->size - (isize)((uptr)this->current - (uptr)this->mem);
-    DEBUG_ASSERT((uptr)this->current < ((uptr)this->mem + this->size));
+    assert((uptr)this->current < ((uptr)this->mem + this->size));
 
     AllocationHeader *header = (AllocationHeader*)((uptr)aligned - header_size);
     header->size      = asize;
@@ -98,8 +98,8 @@ void *HeapAllocator::alloc(isize asize)
         fb   = free->next;
     }
 
-    DEBUG_ASSERT(((uptr)fb + asize) < ((uptr)this->mem + this->size));
-    DEBUG_ASSERT(fb && fb->size >= required);
+    assert(((uptr)fb + asize) < ((uptr)this->mem + this->size));
+    assert(fb && fb->size >= required);
     if (fb == nullptr || fb->size < required) {
         return nullptr;
     }
@@ -236,7 +236,7 @@ void HeapAllocator::dealloc(void *ptr)
         fb   = fb->next;
     }
 
-    DEBUG_ASSERT(insert || expanded);
+    assert(insert || expanded);
     if (!expanded) {
         prev->next  = nfree;
         nfree->next = next;
@@ -252,7 +252,7 @@ void* LinearAllocator::realloc(void *ptr, isize asize)
     auto header = (AllocationHeader*)((uptr)ptr - sizeof(AllocationHeader));
     if ((uptr)ptr + header->size == (uptr)this->current) {
         isize extra = asize - header->size;
-        DEBUG_ASSERT(extra > 0); // NOTE(jesper): untested
+        assert(extra > 0); // NOTE(jesper): untested
 
         this->current   = (void*)((uptr)this->current + extra);
         this->remaining = this->size - (isize)((uptr)this->current - (uptr)this->mem);
@@ -277,11 +277,11 @@ void* StackAllocator::realloc(void *ptr, isize asize)
     auto header = (AllocationHeader*)((uptr)ptr - sizeof(AllocationHeader));
     if ((uptr)ptr + header->size == (uptr)this->sp) {
         isize extra = asize - header->size;
-        DEBUG_ASSERT(extra > 0); // NOTE(jesper): untested
+        assert(extra > 0); // NOTE(jesper): untested
 
         this->sp        = (void*)((uptr)this->sp + extra);
         this->remaining = this->size - (isize)((uptr)this->sp - (uptr)this->mem);
-        DEBUG_ASSERT(this->remaining > 0);
+        assert(this->remaining > 0);
 
         header->size = asize;
         return ptr;

@@ -123,7 +123,7 @@ void* catalog_thread_process(void *data)
     char buffer[INOTIFY_BUF_SIZE];
 
     int fd = inotify_init();
-    DEBUG_ASSERT(fd >= 0);
+    assert(fd >= 0);
 
     isize flen = strlen(ctd->folder);
 
@@ -134,7 +134,7 @@ void* catalog_thread_process(void *data)
     while (true) {
         int length = read(fd, buffer, INOTIFY_BUF_SIZE);
 
-        DEBUG_ASSERT(length >= 0);
+        assert(length >= 0);
         int i = 0;
         while (i < length) {
             struct inotify_event *event = (struct inotify_event*)&buffer[i];
@@ -198,7 +198,7 @@ void create_catalog_thread(const char *folder, catalog_callback_t *callback)
 
     pthread_t *thread = g_heap->talloc<pthread_t>();
     int result = pthread_create(thread, NULL, &catalog_thread_process, data);
-    DEBUG_ASSERT(result == 0);
+    assert(result == 0);
 }
 
 DL_EXPORT
@@ -267,7 +267,7 @@ PLATFORM_INIT_FUNC(platform_init)
                              &native->xinput2,
                              &event, &error))
         {
-            DEBUG_ASSERT(false && "XInput2 extension not found, this is required");
+            assert(false && "XInput2 extension not found, this is required");
             platform_quit();
         }
 

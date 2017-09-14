@@ -21,7 +21,7 @@ struct Array {
 
     T& operator[] (isize i)
     {
-        DEBUG_ASSERT(i < count);
+        assert(i < count);
         return data[i];
     }
 };
@@ -34,7 +34,7 @@ struct StaticArray {
 
     T& operator[] (isize i)
     {
-        DEBUG_ASSERT(i < count);
+        assert(i < count);
         return data[i];
     }
 };

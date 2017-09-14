@@ -85,7 +85,7 @@ DynamicLib load_code(char *path)
 
 	struct stat st;
 	int result = stat(path, &st);
-	DEBUG_ASSERT(result == 0);
+	assert(result == 0);
 
 	lib.load_time = st.st_mtime;
 	lib.handle    = dlopen(path, RTLD_NOW | RTLD_GLOBAL);
@@ -127,7 +127,7 @@ timespec get_time()
 {
 	timespec ts;
 	i32 result = clock_gettime(CLOCK_MONOTONIC, &ts);
-	DEBUG_ASSERT(result == 0);
+	assert(result == 0);
 	return ts;
 }
 
@@ -135,7 +135,7 @@ i64 get_time_difference(timespec start, timespec end)
 {
 	i64 difference = (end.tv_sec - start.tv_sec) * 1000000000 +
 	                 (end.tv_nsec - start.tv_nsec);
-	DEBUG_ASSERT(difference >= 0);
+	assert(difference >= 0);
 	return difference;
 }
 
@@ -145,11 +145,11 @@ int main()
 	char linkname[64];
 	pid_t pid = getpid();
 	i64 result = snprintf(linkname, sizeof(linkname), "/proc/%i/exe", pid);
-	DEBUG_ASSERT(result >= 0);
+	assert(result >= 0);
 
 	char buffer[PATH_MAX];
 	i64 length = readlink(linkname, buffer, PATH_MAX);
-	DEBUG_ASSERT(length >= 0);
+	assert(length >= 0);
 
 	for (; length >= 0; length--) {
 		if (buffer[length-1] == '/') {
@@ -178,14 +178,14 @@ int main()
 		last_time             = current_time;
 
 		f32 dt = (f32)difference / 1000000000.0f;
-		DEBUG_ASSERT(difference >= 0);
+		assert(difference >= 0);
 
 #if LEARY_DYNAMIC
 		code_reload_timer += dt;
 		if (code_reload_timer >= code_reload_rate) {
 			struct stat st;
 			int result = stat(lib_path, &st);
-			DEBUG_ASSERT(result == 0);
+			assert(result == 0);
 
 			if (st.st_mtime > lib.load_time) {
 				platform_pre_reload(&platform);

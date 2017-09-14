@@ -255,7 +255,7 @@ Entity* entity_find(i32 id)
         }
     }
 
-    DEBUG_ASSERT(false);
+    assert(false);
     return nullptr;
 }
 
@@ -303,7 +303,7 @@ i32 physics_id(Physics *physics, i32 entity_id)
         }
     }
 
-    DEBUG_ASSERT(id != -1);
+    assert(id != -1);
     return id;
 }
 
@@ -542,8 +542,8 @@ void game_init()
 
     {
         Texture hm = find_texture("terrain.bmp");
-        DEBUG_ASSERT(hm.id != TEXTURE_INVALID_ID);
-        DEBUG_ASSERT(hm.size > 0);
+        assert(hm.id != TEXTURE_INVALID_ID);
+        assert(hm.size > 0);
 
         struct Texel {
             u8 r, g, b, a;
@@ -1418,7 +1418,7 @@ void game_render()
 
     PROFILE_START(vulkan_swap);
     result = vkQueueWaitIdle(g_vulkan->queue);
-    DEBUG_ASSERT(result == VK_SUCCESS);
+    assert(result == VK_SUCCESS);
     PROFILE_END(vulkan_swap);
 }
 

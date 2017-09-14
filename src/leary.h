@@ -14,11 +14,11 @@
 #endif
 
 #include <math.h>
+#include <assert.h>
 #include <utility>
 
 #include "core/types.h"
 #include "core/allocator.h"
-#include "core/string.h"
 
 #include "platform/platform.h"
 #include "platform/platform_input.h"

@@ -57,11 +57,11 @@ static void platform_debug_print(const char *file,
     va_start(args, fmt);
     i32 length = vsnprintf(message, DEBUG_BUFFER_SIZE, fmt, args);
     va_end(args);
-    DEBUG_ASSERT(length < DEBUG_BUFFER_SIZE);
+    assert(length < DEBUG_BUFFER_SIZE);
 
     length = snprintf(buffer, DEBUG_BUFFER_SIZE, "%s:%d: %s: [%s] %s\n",
                       file, line, channel_str, function, message);
-    DEBUG_ASSERT(length < DEBUG_BUFFER_SIZE);
+    assert(length < DEBUG_BUFFER_SIZE);
     write(1, buffer, length);
 }
 
@@ -79,10 +79,10 @@ static void platform_debug_print(const char *file,
     va_start(args, fmt);
     i32 length = vsnprintf(message, DEBUG_BUFFER_SIZE, fmt, args);
     va_end(args);
-    DEBUG_ASSERT(length < DEBUG_BUFFER_SIZE);
+    assert(length < DEBUG_BUFFER_SIZE);
 
     length = snprintf(buffer, DEBUG_BUFFER_SIZE, "%s:%d: %s: [%s] %s\n",
                       file, line, channel_str, function, message);
-    DEBUG_ASSERT(length < DEBUG_BUFFER_SIZE);
+    assert(length < DEBUG_BUFFER_SIZE);
     write(1, buffer, length);
 }

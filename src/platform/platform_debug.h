@@ -33,14 +33,6 @@
     #error "unsupported error"
 #endif
 
-#define DEBUG_ASSERT(condition) \
-    do { \
-        if (!(condition)) { \
-            DEBUG_LOG(Log_assert, "assertion failed: %s", #condition); \
-            DEBUG_BREAK(); \
-        } \
-    } while(0)
-
 #define DEBUG_LOG(...)        platform_debug_print(DEBUG_FILENAME, __LINE__, __FUNCTION__, __VA_ARGS__)
 #define DEBUG_UNIMPLEMENTED() DEBUG_LOG(Log_unimplemented, "fixme! stub");
 

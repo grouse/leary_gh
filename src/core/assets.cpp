@@ -75,7 +75,7 @@ Texture load_texture_bmp(const char *path)
     DEBUG_LOG("-- file size: %llu bytes", size);
 
 
-    DEBUG_ASSERT(file[0] == 'B' && file[1] == 'M');
+    assert(file[0] == 'B' && file[1] == 'M');
 
     char *ptr = file;
     BitmapFileHeader *fh = (BitmapFileHeader*)ptr;
@@ -100,7 +100,7 @@ Texture load_texture_bmp(const char *path)
         DEBUG_LOG("-- version 3");
     }
 
-    DEBUG_ASSERT(h->header_size == 40);
+    assert(h->header_size == 40);
     ptr += sizeof(BitmapHeader);
 
     if (h->compression != 0) {
@@ -248,7 +248,7 @@ Mesh load_mesh_obj(const char *filename)
             } while (face < end && face[0] != '\n' && face[0] != '\r');
 
             // NOTE(jesper): only supporting triangulated meshes
-            DEBUG_ASSERT(num_dividers == 6);
+            assert(num_dividers == 6);
             num_faces++;
         }
 
@@ -259,10 +259,10 @@ Mesh load_mesh_obj(const char *filename)
         while (ptr < end && is_newline(ptr[0]));
     }
 
-    DEBUG_ASSERT(vectors.count > 0);
-    DEBUG_ASSERT(normals.count > 0);
-    DEBUG_ASSERT(uvs.count> 0);
-    DEBUG_ASSERT(num_faces> 0);
+    assert(vectors.count > 0);
+    assert(normals.count > 0);
+    assert(uvs.count> 0);
+    assert(num_faces> 0);
 
     DEBUG_LOG("-- vectors : %d", vectors.count);
     DEBUG_LOG("-- normals : %d", normals.count);

@@ -22,28 +22,28 @@ member_to_string(StructMemberInfo &member,
         i32 value = *(i32*)(((char*)ptr) + member.offset);
         bytes = sprintf(buffer, "%s = %d", member.name, value);
 
-        DEBUG_ASSERT(bytes < size);
+        assert(bytes < size);
         break;
     }
     case VariableType_uint32: {
         u32 value = *(u32*)(((char*)ptr) + member.offset);
         bytes = sprintf(buffer, "%s = %u", member.name, value);
 
-        DEBUG_ASSERT(bytes < size);
+        assert(bytes < size);
         break;
     }
     case VariableType_int16: {
         i16 value = *(i16*)(((char*)ptr) + member.offset);
         bytes = sprintf(buffer, "%s = %" PRId16 , member.name, value);
 
-        DEBUG_ASSERT(bytes < size);
+        assert(bytes < size);
         break;
     }
     case VariableType_uint16: {
         u16 value = *(u16*)(((char*)ptr) + member.offset);
         bytes = sprintf(buffer, "%s = %" PRIu16, member.name, value);
 
-        DEBUG_ASSERT(bytes < size);
+        assert(bytes < size);
         break;
     }
     case VariableType_resolution: {
@@ -69,7 +69,7 @@ member_to_string(StructMemberInfo &member,
                 buffer += child_bytes;
             }
 
-            DEBUG_ASSERT(bytes < size);
+            assert(bytes < size);
         }
 
         child_bytes = sprintf(buffer, " }");
@@ -102,7 +102,7 @@ member_to_string(StructMemberInfo &member,
                 buffer += child_bytes;
             }
 
-            DEBUG_ASSERT(bytes < size);
+            assert(bytes < size);
         }
 
         child_bytes = sprintf(buffer, "}");
@@ -114,7 +114,7 @@ member_to_string(StructMemberInfo &member,
     }
     default: {
         bytes = sprintf(buffer, "unknown type");
-        DEBUG_ASSERT(bytes < size);
+        assert(bytes < size);
         break;
     }
     }
@@ -130,7 +130,7 @@ void serialize_save_conf(char *path,
     if (!file_exists(path) && !create_file(path)) {
         DEBUG_LOG(Log_warning, "path does not exist or can't be created: %s",
                   path);
-        DEBUG_ASSERT(false);
+        assert(false);
         return;
     }
 
@@ -180,15 +180,15 @@ member_from_string(char **ptr,
     while (token.type != Token::eof &&
            token.type != Token::close_curly_brace)
     {
-        DEBUG_ASSERT(token.type == Token::identifier);
+        assert(token.type == Token::identifier);
         Token name = token;
 
         StructMemberInfo *member = find_member(name.str, name.length,
                                                members, num_members);
-        DEBUG_ASSERT(member != nullptr);
+        assert(member != nullptr);
 
         token = next_token(&lexer);
-        DEBUG_ASSERT(token.type == Token::equals);
+        assert(token.type == Token::equals);
 
         switch (member->type) {
         case VariableType_int32: {
@@ -213,7 +213,7 @@ member_from_string(char **ptr,
         } break;
         case VariableType_resolution: {
             token = next_token(&lexer);
-            DEBUG_ASSERT(token.type == Token::open_curly_brace);
+            assert(token.type == Token::open_curly_brace);
 
             void *child = ((u8*)out + member->offset);
             member_from_string(&lexer.at, lexer.end - lexer.at,
@@ -224,7 +224,7 @@ member_from_string(char **ptr,
         } break;
         case VariableType_video_settings: {
             token = next_token(&lexer);
-            DEBUG_ASSERT(token.type == Token::open_curly_brace);
+            assert(token.type == Token::open_curly_brace);
 
             void *child = ((u8*)out + member->offset);
             member_from_string(&lexer.at, lexer.end - lexer.at,

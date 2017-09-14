@@ -54,11 +54,11 @@ void init_paths(Allocator *a)
     char linkname[64];
     pid_t pid = getpid();
     i64 result = snprintf(linkname, sizeof(linkname), "/proc/%i/exe", pid);
-    DEBUG_ASSERT(result >= 0);
+    assert(result >= 0);
 
     char link_buffer[PATH_MAX];
     i64 link_length = readlink(linkname, link_buffer, PATH_MAX);
-    DEBUG_ASSERT(link_length >= 0);
+    assert(link_length >= 0);
 
     char *last = nullptr;
     for (i32 i = 0; i < link_length; i++) {
@@ -226,7 +226,7 @@ char* resolve_path(GamePath rp, const char *path, Allocator *a)
     } break;
     default:
         DEBUG_LOG(Log_error, "unknown path root: %d", rp);
-        DEBUG_ASSERT(false);
+        assert(false);
         return nullptr;
     }
 
@@ -275,7 +275,7 @@ void* open_file(const char *path, FileAccess access)
         flags = O_RDWR;
         break;
     default:
-        DEBUG_ASSERT(false);
+        assert(false);
         return nullptr;
     }
 
@@ -290,7 +290,7 @@ void* open_file(const char *path, FileAccess access)
 void close_file(void *file_handle)
 {
     i32 fd = (i32)(i64)file_handle;
-    DEBUG_ASSERT(fd >= 0);
+    assert(fd >= 0);
 
     close(fd);
 }
@@ -301,8 +301,8 @@ void write_file(void *file_handle, void *buffer, usize bytes)
 {
     i32 fd = (i32)(i64)file_handle;
     isize written = write(fd, buffer, bytes);
-    DEBUG_ASSERT(written >= 0);
-    DEBUG_ASSERT((usize)written == bytes);
+    assert(written >= 0);
+    assert((usize)written == bytes);
 }
 
 char* read_file(const char *path, usize *file_size, Allocator *a)
@@ -317,10 +317,10 @@ char* read_file(const char *path, usize *file_size, Allocator *a)
     char *buffer = (char*)a->alloc(st.st_size);
 
     i32 fd = open(path, O_RDONLY);
-    DEBUG_ASSERT(fd >= 0);
+    assert(fd >= 0);
 
     isize bytes_read = read(fd, buffer, st.st_size);
-    DEBUG_ASSERT(bytes_read == st.st_size);
+    assert(bytes_read == st.st_size);
     *file_size = bytes_read;
 
     return buffer;

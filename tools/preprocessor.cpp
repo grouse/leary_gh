@@ -16,6 +16,7 @@
 
 #include "leary.h"
 #include "platform/platform.h"
+#include "platform/platform_debug.h"
 
 #include "core/lexer.cpp"
 #include "core/allocator.cpp"
@@ -225,7 +226,7 @@ void skip_struct_function(Lexer *lexer)
 void parse_array_type(Lexer lexer, Array<char*> *types)
 {
     Token t = next_token(&lexer);
-    DEBUG_ASSERT(t.type == Token::open_paren);
+    assert(t.type == Token::open_paren);
 
     t = next_token(&lexer);
 
@@ -249,13 +250,13 @@ void parse_array_struct(Lexer l, PreprocessorOutput *out)
     ArrayStruct s = {};
 
     t = next_token(&l);
-    DEBUG_ASSERT(is_identifier(t, "struct"));
+    assert(is_identifier(t, "struct"));
 
     t = next_token(&l);
     s.name = string_duplicate(t.str, t.length);
 
     t = next_token(&l);
-    DEBUG_ASSERT(t.type == Token::open_curly_brace);
+    assert(t.type == Token::open_curly_brace);
 
     Token start = t;
 
@@ -286,12 +287,12 @@ void parse_array_function(Lexer lexer,
     rettype = next_token(&lexer);
     if (is_identifier(rettype, "ARRAY")) {
         t = next_token(&lexer);
-        DEBUG_ASSERT(t.type == Token::open_paren);
+        assert(t.type == Token::open_paren);
 
         t = next_token(&lexer);
 
         t = next_token(&lexer);
-        DEBUG_ASSERT(t.type == Token::close_paren);
+        assert(t.type == Token::close_paren);
 
         rettype.length = (isize)((uptr)t.str + t.length - (uptr)rettype.str);
     }
@@ -301,7 +302,7 @@ void parse_array_function(Lexer lexer,
     f.fname = string_duplicate(t.str, t.length);
 
     t = next_token(&lexer);
-    DEBUG_ASSERT(t.type == Token::open_paren);
+    assert(t.type == Token::open_paren);
 
     while (t.type != Token::close_paren) {
         t = next_token(&lexer);
@@ -333,7 +334,7 @@ void parse_array_function(Lexer lexer,
     }
 
     t = next_token(&lexer);
-    DEBUG_ASSERT(t.type == Token::open_curly_brace);
+    assert(t.type == Token::open_curly_brace);
 
     i32 curly = 1;
 
@@ -357,7 +358,7 @@ void parse_struct_type_info(Lexer lexer, PreprocessorOutput *output)
     StructInfo struct_info = {};
 
     Token token = next_token(&lexer);
-    DEBUG_ASSERT(token.type == Token::identifier);
+    assert(token.type == Token::identifier);
 
     struct_info.name = string_duplicate(token.str, token.length);
 
@@ -434,7 +435,7 @@ void parse_struct_type_info(Lexer lexer, PreprocessorOutput *output)
                     array_add(&struct_info.members, tinfo);
                 } else if (token.type == Token::open_square_brace) {
                     token = next_token(&lexer);
-                    DEBUG_ASSERT(token.type != Token::close_square_brace);
+                    assert(token.type != Token::close_square_brace);
 
                     i64 size = read_i64(token);
 
@@ -444,7 +445,7 @@ void parse_struct_type_info(Lexer lexer, PreprocessorOutput *output)
                     struct_info.members[i].array.size       = size;
 
                     token = next_token(&lexer);
-                    DEBUG_ASSERT(token.type == Token::close_square_brace);
+                    assert(token.type == Token::close_square_brace);
                 }
                 token = next_token(&lexer);
             } while (token.type != Token::semicolon);
@@ -714,7 +715,7 @@ int main(int argc, char **argv)
             Tokenizer tn = make_lexer(f.body, strlen(f.body));
 
             Token tk = next_token(tn);
-            DEBUG_ASSERT(tk.type == Token::open_curly_brace);
+            assert(tk.type == Token::open_curly_brace);
 
             char *s = f.body;
             i32 curly = 1;
@@ -747,7 +748,7 @@ int main(int argc, char **argv)
             Tokenizer tn = make_tokenizer(s.body, strlen(s.body));
 
             Token tk = next_token(tn);
-            DEBUG_ASSERT(tk.type == Token::open_curly_brace);
+            assert(tk.type == Token::open_curly_brace);
 
             char *str = s.body;
             i32 curly = 1;

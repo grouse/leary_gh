@@ -9,7 +9,7 @@
 #ifndef LEARY_STRING_H
 #define LEARY_STRING_H
 
-#include "platform/platform_debug.h"
+#include "leary.h"
 
 // NOTE: IMPORTANT: this will likely _never_ have a constructor or + operator or
 // copy constructors or anything on those lines. This struct is _only_ intended
@@ -25,7 +25,7 @@ struct String {
 
     char& operator[] (isize i)
     {
-        DEBUG_ASSERT(i < length);
+        assert(i < length);
         return bytes[i];
     }
 };
