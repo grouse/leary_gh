@@ -28,9 +28,11 @@
 
 #include "platform_debug.h"
 
+#define DEBUG_BUFFER_SIZE (2048)
+
 extern LinearAllocator *g_debug_frame;
 
-static const char *log_channel_string(LogChannel channel)
+const char* log_channel_string(LogChannel channel)
 {
     switch (channel) {
     case Log_info:          return "info";
@@ -42,11 +44,11 @@ static const char *log_channel_string(LogChannel channel)
     }
 }
 
-static void platform_debug_print(const char *file,
-                                 u32 line,
-                                 const char *function,
-                                 LogChannel channel,
-                                 const char *fmt, ...)
+void platform_debug_print(const char *file,
+                          u32 line,
+                          const char *function,
+                          LogChannel channel,
+                          const char *fmt, ...)
 {
     const char *channel_str = log_channel_string(channel);
 
@@ -65,10 +67,10 @@ static void platform_debug_print(const char *file,
     write(1, buffer, length);
 }
 
-static void platform_debug_print(const char *file,
-                                 u32 line,
-                                 const char *function,
-                                 const char *fmt, ...)
+void platform_debug_print(const char *file,
+                          u32 line,
+                          const char *function,
+                          const char *fmt, ...)
 {
     const char *channel_str = log_channel_string(Log_info);
 

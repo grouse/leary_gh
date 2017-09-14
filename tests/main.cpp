@@ -7,7 +7,7 @@
  */
 
 #include "leary.h"
-#include "platform/platform_debug.h"
+#include "platform/platform.h"
 
 #include "core/types.h"
 

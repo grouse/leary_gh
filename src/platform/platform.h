@@ -53,8 +53,10 @@
 // -- platform generic includes
 #include <cstring>
 
-#include "leary.h"
 #include "core/string.h"
+
+#include "platform_debug.h"
+#include "platform_input.h"
 
 
 

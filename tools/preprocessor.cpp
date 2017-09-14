@@ -16,7 +16,6 @@
 
 #include "leary.h"
 #include "platform/platform.h"
-#include "platform/platform_debug.h"
 
 #include "core/lexer.cpp"
 #include "core/allocator.cpp"

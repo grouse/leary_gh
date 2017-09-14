@@ -29,6 +29,7 @@
 #include <pwd.h>
 #include <dirent.h>
 
+#include "platform.h"
 #include "core/array.h"
 
 struct PlatformPaths {

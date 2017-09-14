@@ -17,40 +17,11 @@
 #include <assert.h>
 #include <utility>
 
+#include "leary_macros.h"
+
 #include "core/types.h"
 #include "core/allocator.h"
-
-#include "platform/platform.h"
-#include "platform/platform_input.h"
-
-#define ARRAY_SIZE(a) (isize)(sizeof((a)) / sizeof((a)[0]))
-
-#define MIN(a, b) (a) < (b) ? (a) : (b)
-#define MAX(a, b) (a) > (b) ? (a) : (b)
-
-template <typename F>
-struct Defer {
-	Defer(F f) : f(f) {}
-	~Defer() { f(); }
-	F f;
-};
-
-template <typename F>
-Defer<F> defer_create( F f ) {
-	return Defer<F>( f );
-}
-
-#define defer__(line) defer_ ## line
-#define defer_(line) defer__( line )
-
-struct DeferDummy { };
-template<typename F>
-Defer<F> operator+ (DeferDummy, F&& f)
-{
-	return defer_create<F>(std::forward<F>(f));
-}
-
-#define defer auto defer_( __LINE__ ) = DeferDummy( ) + [&]( )
+#include "core/string.h"
 
 INTROSPECT struct Resolution
 {
