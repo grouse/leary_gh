@@ -174,9 +174,9 @@ member_from_string(char **ptr,
                    usize num_members,
                    void *out)
 {
-    Tokenizer tokenizer = make_tokenizer(*ptr, size);
+    Lexer lexer = create_lexer(*ptr, size);
 
-    Token token = next_token(tokenizer);
+    Token token = next_token(&lexer);
     while (token.type != Token::eof &&
            token.type != Token::close_curly_brace)
     {
@@ -187,47 +187,47 @@ member_from_string(char **ptr,
                                                members, num_members);
         DEBUG_ASSERT(member != nullptr);
 
-        token = next_token(tokenizer);
+        token = next_token(&lexer);
         DEBUG_ASSERT(token.type == Token::equals);
 
         switch (member->type) {
         case VariableType_int32: {
-            token = next_token(tokenizer);
-            i64 value = read_integer(token);
+            token = next_token(&lexer);
+            i64 value = read_i64(token);
             *(i32*)((u8*)out + member->offset) = (i32)value;
         } break;
         case VariableType_uint32: {
-            token = next_token(tokenizer);
-            u64 value = read_unsigned_integer(token);
+            token = next_token(&lexer);
+            u64 value = read_u64(token);
             *(u32*)((u8*)out + member->offset) = (u32)value;
         } break;
         case VariableType_int16: {
-            token = next_token(tokenizer);
-            i64 value = read_integer(token);
+            token = next_token(&lexer);
+            i64 value = read_i64(token);
             *(i16*)((u8*)out + member->offset) = (i16)value;
         } break;
         case VariableType_uint16: {
-            token = next_token(tokenizer);
-            u64 value = read_unsigned_integer(token);
+            token = next_token(&lexer);
+            u64 value = read_u64(token);
             *(u16*)((u8*)out + member->offset) = (u16)value;
         } break;
         case VariableType_resolution: {
-            token = next_token(tokenizer);
+            token = next_token(&lexer);
             DEBUG_ASSERT(token.type == Token::open_curly_brace);
 
             void *child = ((u8*)out + member->offset);
-            member_from_string(&tokenizer.at, tokenizer.end - tokenizer.at,
+            member_from_string(&lexer.at, lexer.end - lexer.at,
                                Resolution_members,
                                sizeof(Resolution_members) /
                                sizeof(StructMemberInfo),
                                child);
         } break;
         case VariableType_video_settings: {
-            token = next_token(tokenizer);
+            token = next_token(&lexer);
             DEBUG_ASSERT(token.type == Token::open_curly_brace);
 
             void *child = ((u8*)out + member->offset);
-            member_from_string(&tokenizer.at, tokenizer.end - tokenizer.at,
+            member_from_string(&lexer.at, lexer.end - lexer.at,
                                VideoSettings_members,
                                sizeof(VideoSettings_members) /
                                sizeof(StructMemberInfo),
@@ -237,11 +237,11 @@ member_from_string(char **ptr,
             DEBUG_LOG(Log_unimplemented, "unhandled case: %d", member->type);
         }
 
-        do token = next_token(tokenizer);
+        do token = next_token(&lexer);
         while (token.type == Token::comma);
     }
 
-    *ptr = tokenizer.at;
+    *ptr = lexer.at;
 }
 
 void serialize_load_conf(char *path,

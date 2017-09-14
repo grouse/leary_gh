@@ -20,7 +20,7 @@
 #include "core/allocator.cpp"
 #include "core/array.cpp"
 #include "core/hash_table.cpp"
-#include "core/tokenizer.cpp"
+#include "core/lexer.cpp"
 #include "core/profiling.cpp"
 #include "core/maths.cpp"
 #include "core/random.cpp"

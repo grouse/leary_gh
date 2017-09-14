@@ -9,7 +9,7 @@
 #include "core/types.h"
 #include "platform/platform.h"
 
-#include "core/tokenizer.cpp"
+#include "core/lexer.cpp"
 #include "core/allocator.cpp"
 #include "core/array.cpp"
 

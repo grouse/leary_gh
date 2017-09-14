@@ -17,7 +17,7 @@
 #include "platform/platform.h"
 
 
-#include "core/tokenizer.cpp"
+#include "core/lexer.cpp"
 #include "core/allocator.cpp"
 #include "core/array.cpp"
 
@@ -179,14 +179,14 @@ const char *variable_type_str(VariableType type)
     }
 }
 
-void skip_struct_function(Tokenizer &tokenizer)
+void skip_struct_function(Lexer *lexer)
 {
     Token token;
 
     i32 curly = 0;
     i32 paren = 0;
     do {
-        token = next_token(tokenizer);
+        token = next_token(lexer);
 
         if (token.type == Token::semicolon) {
             break;
@@ -195,7 +195,7 @@ void skip_struct_function(Tokenizer &tokenizer)
         if (token.type == Token::open_paren) {
             paren++;
             do {
-                token = next_token(tokenizer);
+                token = next_token(lexer);
                 if (token.type == Token::open_paren) {
                     paren++;
                 } else if (token.type == Token::close_paren) {
@@ -209,7 +209,7 @@ void skip_struct_function(Tokenizer &tokenizer)
         if (token.type == Token::open_curly_brace) {
             curly++;
             do {
-                token = next_token(tokenizer);
+                token = next_token(lexer);
                 if (token.type == Token::open_curly_brace) {
                     curly++;
                 } else if (token.type == Token::close_curly_brace) {
@@ -222,12 +222,12 @@ void skip_struct_function(Tokenizer &tokenizer)
     } while (true);
 }
 
-void parse_array_type(Tokenizer tokenizer, Array<char*> *types)
+void parse_array_type(Lexer lexer, Array<char*> *types)
 {
-    Token token = next_token(tokenizer);
-    DEBUG_ASSERT(token.type == Token::open_paren);
+    Token t = next_token(&lexer);
+    DEBUG_ASSERT(t.type == Token::open_paren);
 
-    Token t = next_token(tokenizer);
+    t = next_token(&lexer);
 
     if (t.str[0] == 'T') {
         return;
@@ -243,25 +243,25 @@ void parse_array_type(Tokenizer tokenizer, Array<char*> *types)
     array_add(types, tn);
 }
 
-void parse_array_struct(Tokenizer tk, PreprocessorOutput *out)
+void parse_array_struct(Lexer l, PreprocessorOutput *out)
 {
     Token t;
     ArrayStruct s = {};
 
-    t = next_token(tk);
+    t = next_token(&l);
     DEBUG_ASSERT(is_identifier(t, "struct"));
 
-    t = next_token(tk);
+    t = next_token(&l);
     s.name = string_duplicate(t.str, t.length);
 
-    t = next_token(tk);
+    t = next_token(&l);
     DEBUG_ASSERT(t.type == Token::open_curly_brace);
 
     Token start = t;
 
     i32 curly = 1;
     while (curly > 0) {
-        t = next_token(tk);
+        t = next_token(&l);
 
         if (t.type == Token::open_curly_brace) {
             curly++;
@@ -274,7 +274,7 @@ void parse_array_struct(Tokenizer tk, PreprocessorOutput *out)
     array_add(&out->astructs, s);
 }
 
-void parse_array_function(Tokenizer tokenizer,
+void parse_array_function(Lexer lexer,
                           PreprocessorOutput *output,
                           Allocator *allocator)
 {
@@ -283,41 +283,41 @@ void parse_array_function(Tokenizer tokenizer,
     ArrayFunction f = {};
     f.params = array_create<Parameter>(allocator);
 
-    rettype = next_token(tokenizer);
+    rettype = next_token(&lexer);
     if (is_identifier(rettype, "ARRAY")) {
-        t = next_token(tokenizer);
+        t = next_token(&lexer);
         DEBUG_ASSERT(t.type == Token::open_paren);
 
-        t = next_token(tokenizer);
+        t = next_token(&lexer);
 
-        t = next_token(tokenizer);
+        t = next_token(&lexer);
         DEBUG_ASSERT(t.type == Token::close_paren);
 
         rettype.length = (isize)((uptr)t.str + t.length - (uptr)rettype.str);
     }
     f.ret = string_duplicate(rettype.str, rettype.length);
 
-    t = next_token(tokenizer);
+    t = next_token(&lexer);
     f.fname = string_duplicate(t.str, t.length);
 
-    t = next_token(tokenizer);
+    t = next_token(&lexer);
     DEBUG_ASSERT(t.type == Token::open_paren);
 
     while (t.type != Token::close_paren) {
-        t = next_token(tokenizer);
+        t = next_token(&lexer);
         Token type = t;
 
-        t = next_token(tokenizer);
+        t = next_token(&lexer);
 
         if (t.type == Token::open_paren) {
-            do t = next_token(tokenizer);
+            do t = next_token(&lexer);
             while (t.type != Token::close_paren);
-            t = next_token(tokenizer);
+            t = next_token(&lexer);
         }
 
         if (t.type == Token::asterisk) {
             type.length = (isize)((uptr)t.str + t.length - (uptr)type.str);
-            t = next_token(tokenizer);
+            t = next_token(&lexer);
         }
 
         Token name = t;
@@ -326,20 +326,20 @@ void parse_array_function(Tokenizer tokenizer,
         p.name = string_duplicate(name.str, name.length);
         array_add(&f.params, p);
 
-        t = next_token(tokenizer);
+        t = next_token(&lexer);
         while (t.type != Token::comma && t.type != Token::close_paren) {
-            t = next_token(tokenizer);
+            t = next_token(&lexer);
         }
     }
 
-    t = next_token(tokenizer);
+    t = next_token(&lexer);
     DEBUG_ASSERT(t.type == Token::open_curly_brace);
 
     i32 curly = 1;
 
     Token body = t;
     do {
-        t = next_token(tokenizer);
+        t = next_token(&lexer);
         if (t.type == Token::open_curly_brace) {
             curly++;
         } else if (t.type == Token::close_curly_brace) {
@@ -352,57 +352,57 @@ void parse_array_function(Tokenizer tokenizer,
     array_add(&output->afuncs, f);
 }
 
-void parse_struct_type_info(Tokenizer tokenizer, PreprocessorOutput *output)
+void parse_struct_type_info(Lexer lexer, PreprocessorOutput *output)
 {
     StructInfo struct_info = {};
 
-    Token token = next_token(tokenizer);
+    Token token = next_token(&lexer);
     DEBUG_ASSERT(token.type == Token::identifier);
 
     struct_info.name = string_duplicate(token.str, token.length);
 
-    do token = next_token(tokenizer);
+    do token = next_token(&lexer);
     while (token.type != Token::open_curly_brace);
 
     struct_info.members = array_create<TypeInfo>(output->structs.allocator);
 
     do {
-        Tokenizer line_start = tokenizer;
+        Lexer line_start = lexer;
 
-        token = next_token(tokenizer);
+        token = next_token(&lexer);
 
         if (is_identifier(token, "static")) {
             continue;
         }
 
         if (is_identifier(token, "inline")) {
-            skip_struct_function(tokenizer);
+            skip_struct_function(&lexer);
 
-            token = peek_next_token(tokenizer);
+            token = peek_next_token(lexer);
             continue;
         }
 
         VariableType type = variable_type(token);
-        do token = next_token(tokenizer);
+        do token = next_token(&lexer);
         while (token.type != Token::identifier);
 
         if (is_identifier(token, "operator")) {
-            skip_struct_function(tokenizer);
+            skip_struct_function(&lexer);
 
-            token = peek_next_token(tokenizer);
+            token = peek_next_token(lexer);
             continue;
         }
 
         if (is_identifier(token, "ARRAY")) {
             parse_array_type(line_start, &output->arrays);
-            do token = next_token(tokenizer);
+            do token = next_token(&lexer);
             while (token.type != Token::semicolon);
             continue;
         }
 
         if (is_identifier(token, "SARRAY")) {
             parse_array_type(line_start, &output->arrays);
-            do token = next_token(tokenizer);
+            do token = next_token(&lexer);
             while (token.type != Token::semicolon);
             continue;
         }
@@ -413,48 +413,48 @@ void parse_struct_type_info(Tokenizer tokenizer, PreprocessorOutput *output)
 
         isize i = array_add(&struct_info.members, tinfo);
 
-        Token next = peek_next_token(tokenizer);
+        Token next = peek_next_token(lexer);
         if (next.type == Token::open_paren) {
-            skip_struct_function(line_start);
-            tokenizer = line_start;
+            skip_struct_function(&line_start);
+            lexer = line_start;
 
             array_remove(&struct_info.members, i);
 
-            token = peek_next_token(tokenizer);
+            token = peek_next_token(lexer);
             continue;
         } else if (next.type == Token::comma ||
                    next.type == Token::open_square_brace)
         {
-            token = next_token(tokenizer);
+            token = next_token(&lexer);
             do {
                 if (token.type == Token::comma) {
-                    token = next_token(tokenizer);
+                    token = next_token(&lexer);
 
                     tinfo.name = string_duplicate(token.str, token.length);
                     array_add(&struct_info.members, tinfo);
                 } else if (token.type == Token::open_square_brace) {
-                    token = next_token(tokenizer);
+                    token = next_token(&lexer);
                     DEBUG_ASSERT(token.type != Token::close_square_brace);
 
-                    i64 size = read_integer(token);
+                    i64 size = read_i64(token);
 
                     VariableType underlying = struct_info.members[i].type;
                     struct_info.members[i].type             = VariableType_carray;
                     struct_info.members[i].array.underlying = underlying;
                     struct_info.members[i].array.size       = size;
 
-                    token = next_token(tokenizer);
+                    token = next_token(&lexer);
                     DEBUG_ASSERT(token.type == Token::close_square_brace);
                 }
-                token = next_token(tokenizer);
+                token = next_token(&lexer);
             } while (token.type != Token::semicolon);
         } else {
             do {
-                token = next_token(tokenizer);
+                token = next_token(&lexer);
             } while (token.type != Token::semicolon);
         }
 
-        token = peek_next_token(tokenizer);
+        token = peek_next_token(lexer);
     } while (token.type == Token::identifier);
 
     array_add(&output->structs, struct_info);
@@ -574,41 +574,41 @@ int main(int argc, char **argv)
             return 0;
         }
 
-        Tokenizer tokenizer = make_tokenizer(file, size);
+        Lexer lexer = create_lexer(file, size);
 
         Token prev;
-        Token token = next_token(tokenizer);
+        Token token = next_token(&lexer);
 
-        while (tokenizer.at < tokenizer.end) {
+        while (lexer.at < lexer.end) {
 
             if (is_identifier(token, "INTROSPECT") &&
-                is_identifier(next_token(tokenizer), "struct"))
+                is_identifier(next_token(&lexer), "struct"))
             {
-                parse_struct_type_info(tokenizer, &output);
+                parse_struct_type_info(lexer, &output);
 #if 0
             } else if ((is_identifier(token, "ARRAY") ||
                         is_identifier(token, "ARRAY_CREATE")) &&
                        !is_identifier(prev, "define"))
             {
-                parse_array_type(tokenizer, &output.arrays);
+                parse_array_type(lexer, &output.arrays);
             } else if ((is_identifier(token, "SARRAY") ||
                         is_identifier(token, "SARRAY_CREATE")) &&
                        !is_identifier(prev, "define"))
             {
-                parse_array_type(tokenizer, &output.sarrays);
+                parse_array_type(lexer, &output.sarrays);
             } else if (is_identifier(token, "ARRAY_TEMPLATE") &&
                        !is_identifier(prev, "define"))
             {
-                if (is_identifier(peek_next_token(tokenizer), "struct")) {
-                    parse_array_struct(tokenizer, &output);
+                if (is_identifier(peek_next_token(&lexer), "struct")) {
+                    parse_array_struct(lexer, &output);
                 } else {
-                    parse_array_function(tokenizer, &output, &allocator);
+                    parse_array_function(lexer, &output, &allocator);
                 }
 #endif
             }
 
             prev = token;
-            token = next_token(tokenizer);
+            token = next_token(&lexer);
         }
     }
 
@@ -711,7 +711,7 @@ int main(int argc, char **argv)
 
             fprintf(ac_file, ")\n");
 
-            Tokenizer tn = make_tokenizer(f.body, strlen(f.body));
+            Tokenizer tn = make_lexer(f.body, strlen(f.body));
 
             Token tk = next_token(tn);
             DEBUG_ASSERT(tk.type == Token::open_curly_brace);
