@@ -7,6 +7,7 @@
  */
 
 #include <cstring>
+#include <cstdio>
 
 struct Lexer {
     char *at;
@@ -16,6 +17,8 @@ struct Lexer {
 
 struct Token {
     enum Type {
+        number,
+
         open_curly_brace,
         close_curly_brace,
         open_paren,
@@ -94,37 +97,45 @@ u64 read_u64(Token token)
     return result;
 }
 
+f32 read_f32(Token t)
+{
+    f32 result = 0.0f;
+    // TODO(jesper): replace with own sscanf for floats
+    sscanf(t.str, "%f", &result);
+    return result;
+}
+
 Token::Type token_type(char c)
 {
-    Token::Type type;
-
-    switch (c) {
-    case '{':  type = Token::open_curly_brace;  break;
-    case '}':  type = Token::close_curly_brace; break;
-    case '[':  type = Token::open_square_brace;  break;
-    case ']':  type = Token::close_square_brace; break;
-    case '(':  type = Token::open_paren;        break;
-    case ')':  type = Token::close_paren;       break;
-    case '<':  type = Token::greater_than;      break;
-    case '>':  type = Token::less_than;         break;
-    case ';':  type = Token::semicolon;         break;
-    case ':':  type = Token::colon;             break;
-    case '=':  type = Token::equals;            break;
-    case '*':  type = Token::asterisk;          break;
-    case ',':  type = Token::comma;             break;
-    case '.':  type = Token::period;            break;
-    case '&':  type = Token::ampersand;         break;
-    case '#':  type = Token::hash;              break;
-    case '/':  type = Token::forward_slash;     break;
-    case '"':  type = Token::double_quote;      break;
-    case '\'': type = Token::single_quote;      break;
-    case '\0': type = Token::eof;               break;
-    case '\n': type = Token::eol;               break;
-    case '\r': type = Token::eol;               break;
-    default:   type = Token::identifier;        break;
+    if (c >= '0' && c <= '9') {
+        return Token::number;
     }
 
-    return type;
+    switch (c) {
+    case '{':  return Token::open_curly_brace;
+    case '}':  return Token::close_curly_brace;
+    case '[':  return Token::open_square_brace;
+    case ']':  return Token::close_square_brace;
+    case '(':  return Token::open_paren;
+    case ')':  return Token::close_paren;
+    case '<':  return Token::greater_than;
+    case '>':  return Token::less_than;
+    case ';':  return Token::semicolon;
+    case ':':  return Token::colon;
+    case '=':  return Token::equals;
+    case '*':  return Token::asterisk;
+    case ',':  return Token::comma;
+    case '.':  return Token::period;
+    case '&':  return Token::ampersand;
+    case '#':  return Token::hash;
+    case '/':  return Token::forward_slash;
+    case '"':  return Token::double_quote;
+    case '\'': return Token::single_quote;
+    case '\0': return Token::eof;
+    case '\n': return Token::eol;
+    case '\r': return Token::eol;
+    default:   return Token::identifier;
+    }
 }
 
 Token next_token(Lexer *lexer)
@@ -167,6 +178,18 @@ Token next_token(Lexer *lexer)
             while (lexer->at < lexer->end) {
                 if (is_whitespace(lexer->at[0]) ||
                     token_type(lexer->at[0]) != Token::identifier)
+                {
+                    break;
+                }
+
+                lexer->at++;
+            }
+
+            token.length = (int32_t)(lexer->at - token.str);
+        } else if (token.type == Token::number) {
+            while (lexer->at < lexer->end) {
+                if (is_whitespace(lexer->at[0]) ||
+                    token_type(lexer->at[0]) != Token::number)
                 {
                     break;
                 }

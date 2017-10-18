@@ -513,3 +513,90 @@ void init_texture_catalog()
     // TODO(jesper): we can use 1 thread for all folders with inotify
     create_catalog_thread(g_texture_catalog.folder, &texture_catalog_process);
 }
+
+i32 load_entity(const char *p)
+{
+    usize size;
+    char *fp = read_file(p, &size, g_frame);
+    assert(fp != nullptr);
+
+    Token t;
+    Lexer l = create_lexer(fp, size);
+
+    t = next_token(&l);
+    if (t.type != Token::hash) {
+        DEBUG_LOG(Log_error, "parse error in %s: expected version declaration");
+        return -1;
+    }
+
+    t = next_token(&l);
+    if (t.type != Token::identifier || !is_identifier(t, "version")) {
+        DEBUG_LOG(Log_error, "parse error in %s: expected version declaration", p);
+        return -1;
+    }
+
+    t = next_token(&l);
+    if (t.type != Token::number) {
+        DEBUG_LOG(Log_error, "parse error in %s: expected version number", p);
+        return -1;
+    }
+
+    i64 version = read_i64(t);
+    assert(version == 1);
+
+    t = next_token(&l);
+    if (t.type != Token::identifier) {
+        DEBUG_LOG(Log_error, "parse error in %s: expected identifier", p);
+        return -1;
+    }
+
+    f32 x = 0.0f, y = 0.0f, z = 0.0f;
+
+    if (is_identifier(t, "position")) {
+
+        t = next_token(&l);
+        x = read_f32(t);
+
+        do t = next_token(&l);
+        while (t.type != Token::comma);
+
+        t = next_token(&l);
+        y = read_f32(t);
+
+        do t = next_token(&l);
+        while (t.type != Token::comma);
+
+        t = next_token(&l);
+        z = read_f32(t);
+
+        DEBUG_LOG("entity pos: %f, %f, %f", x, y, z);
+    } else {
+        DEBUG_LOG(Log_error, "parse error in %s: unknown identifier: %.*s",
+                  p, t.length, t.str);
+        return -1;
+    }
+
+    Entity e = entities_add(&g_game->entities, {x, y, z});
+
+    // TODO(jesper): determine if entity has physics enabled
+    i32 pid = physics_add(&g_game->physics, e);
+    (void)pid;
+
+    // TODO(jesper): find mesh in mesh table
+    Mesh cube = load_mesh_obj("cube.obj");
+
+    IndexRenderObject obj = {};
+    obj.material = &g_game->materials.phong;
+
+    usize vertex_size = cube.vertices.count * sizeof(cube.vertices[0]);
+    usize index_size  = cube.indices.count  * sizeof(cube.indices[0]);
+
+    obj.entity_id   = e.id;
+    obj.pipeline    = g_game->pipelines.mesh;
+    obj.index_count = (i32)cube.indices.count;
+    obj.vbo         = create_vbo(cube.vertices.data, vertex_size);
+    obj.ibo         = create_ibo(cube.indices.data, index_size);
+
+    array_add(&g_game->index_render_objects, obj);
+    return 1;
+}

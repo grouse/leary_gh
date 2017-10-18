@@ -160,6 +160,13 @@ struct PushConstants {
 void update_vk_texture(Texture *texture, Texture ntexture);
 void init_vk_texture(Texture *texture, VkComponentMapping components);
 
+VulkanBuffer create_vbo(void *data, usize size);
+VulkanBuffer create_vbo(usize size);
+
+VulkanBuffer create_ibo(u32 *indices, usize size);
+
+VulkanUniformBuffer create_ubo(usize size);
+
 
 #endif /* VULKAN_DEVICE_H */
 
