@@ -13,6 +13,7 @@ struct Lexer {
     char *at;
     char *end;
     usize size;
+    i32   line_number;
 };
 
 struct Token {
@@ -51,20 +52,32 @@ struct Token {
 Lexer create_lexer(char *ptr, usize size)
 {
     Lexer l = {};
-    l.at    = ptr;
-    l.end   = ptr + size;
-    l.size  = size;
+    l.at          = ptr;
+    l.end         = ptr + size;
+    l.size        = size;
+    l.line_number = 1;
     return l;
 }
 
 bool is_whitespace(char c)
 {
-    return (c == ' ' || c == '\t' || c == '\n' || c == '\r');
+    return (c == ' ' || c == '\t');
 }
 
 bool is_newline(char c)
 {
     return (c == '\n' || c == '\r');
+}
+
+void eat_newline(Lexer *l)
+{
+    if (l->at[0] == '\r') {
+        l->at++;
+    }
+
+    if (l->at[0] == '\n') {
+        l->at++;
+    }
 }
 
 i64 read_i64(Token token)
@@ -146,6 +159,9 @@ Token next_token(Lexer *lexer)
     while (lexer->at < lexer->end) {
         if (is_whitespace(lexer->at[0])) {
             lexer->at++;
+        } else if (is_newline(lexer->at[0])) {
+            lexer->line_number++;
+            eat_newline(lexer);
         } else if (token_type(lexer->at[0]) == Token::forward_slash &&
                    token_type(lexer->at[1]) == Token::forward_slash)
         {
@@ -154,6 +170,8 @@ Token next_token(Lexer *lexer)
             while (lexer->at[0] && !is_newline(lexer->at[0])) {
                 lexer->at++;
             }
+            lexer->line_number++;
+            eat_newline(lexer);
         } else if (token_type(lexer->at[0]) == Token::forward_slash &&
                    token_type(lexer->at[1]) == Token::asterisk)
         {

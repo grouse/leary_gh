@@ -552,28 +552,35 @@ i32 load_entity(const char *p)
 
     f32 x = 0.0f, y = 0.0f, z = 0.0f;
 
-    if (is_identifier(t, "position")) {
+    while (t.type != Token::eof) {
+        if (is_identifier(t, "position")) {
+
+            t = next_token(&l);
+            x = read_f32(t);
+
+            do t = next_token(&l);
+            while (t.type != Token::comma);
+
+            t = next_token(&l);
+            y = read_f32(t);
+
+            do t = next_token(&l);
+            while (t.type != Token::comma);
+
+            t = next_token(&l);
+            z = read_f32(t);
+
+            do t = next_token(&l);
+            while (t.type != Token::semicolon);
+
+            DEBUG_LOG("entity pos: %f, %f, %f", x, y, z);
+        } else {
+            DEBUG_LOG(Log_error, "parse error %s:%d: unknown identifier: %.*s",
+                      p, l.line_number, t.length, t.str);
+            return -1;
+        }
 
         t = next_token(&l);
-        x = read_f32(t);
-
-        do t = next_token(&l);
-        while (t.type != Token::comma);
-
-        t = next_token(&l);
-        y = read_f32(t);
-
-        do t = next_token(&l);
-        while (t.type != Token::comma);
-
-        t = next_token(&l);
-        z = read_f32(t);
-
-        DEBUG_LOG("entity pos: %f, %f, %f", x, y, z);
-    } else {
-        DEBUG_LOG(Log_error, "parse error in %s: unknown identifier: %.*s",
-                  p, t.length, t.str);
-        return -1;
     }
 
     Entity e = entities_add(&g_game->entities, {x, y, z});
