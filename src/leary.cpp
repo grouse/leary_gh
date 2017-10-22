@@ -64,7 +64,7 @@ Matrix4      g_screen_to_view; // [0, w] -> [-1  , 1]
 extern Settings      g_settings;
 extern PlatformState *g_platform;
 
-Catalog      g_texture_catalog;
+extern Catalog      g_catalog;
 Terrain      g_terrain;
 
 void debug_add_texture(const char *name,
@@ -272,7 +272,7 @@ void game_init()
     init_profiling();
 
     init_vulkan();
-    init_texture_catalog();
+    init_catalog_system();
 
     f32 width = (f32)g_settings.video.resolution.width;
     f32 height = (f32)g_settings.video.resolution.height;
@@ -635,8 +635,8 @@ void game_quit()
         }
     }
 
-    for (i32 i = 0; i < g_texture_catalog.textures.count; i++) {
-        destroy_texture(&g_texture_catalog.textures[i]);
+    for (i32 i = 0; i < g_catalog.textures.count; i++) {
+        destroy_texture(&g_catalog.textures[i]);
     }
 
     buffer_destroy(g_game->overlay.vbo);
@@ -676,7 +676,7 @@ void* game_pre_reload()
     state->profile_timers      = g_profile_timers;
     state->profile_timers_prev = g_profile_timers_prev;
 
-    state->texture_catalog     = g_texture_catalog;
+    state->texture_catalog     = g_catalog;
     state->settings            = g_settings;
 
     state->screen_to_view      = g_screen_to_view;
@@ -705,7 +705,7 @@ void game_reload(void *s)
     g_profile_timers_prev = state->profile_timers_prev;
 
     g_settings            = state->settings;
-    g_texture_catalog     = state->texture_catalog;
+    g_catalog     = state->texture_catalog;
 
     g_screen_to_view      = state->screen_to_view;
     g_view_to_screen      = state->view_to_screen;

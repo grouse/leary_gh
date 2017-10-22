@@ -110,7 +110,7 @@ void platform_quit()
 #define INOTIFY_BUF_SIZE   (1024 * (INOTIFY_EVENT_SIZE + 16))
 
 struct CatalogThreadData {
-    const char         *folder;
+    Array<char*>       folders;
     catalog_callback_t *callback;
 };
 
@@ -125,12 +125,18 @@ void* catalog_thread_process(void *data)
     int fd = inotify_init();
     assert(fd >= 0);
 
-    isize flen = strlen(ctd->folder);
+    HashTable<i32, char*> watches;
+    init_table(&watches, g_heap);
 
-    // NOTE(jesper): we're using IN_MOVED_FROM here because it seems when krita
-    // exports its images it writes it to a temporary file and then moves it.
-    // This is really quite weird, and I might contact krita about it.
-    int wd = inotify_add_watch(fd, ctd->folder, IN_CLOSE_WRITE | IN_MOVED_FROM);
+    for (i32 i = 0; i < ctd->folders.count; i++) {
+        // NOTE(jesper): we're using IN_MOVED_FROM here because it seems when krita
+        // exports its images it writes it to a temporary file and then moves it.
+        // This is really quite weird, and I might contact krita about it.
+        int wd = inotify_add_watch(fd, ctd->folders[i],
+                                   IN_CLOSE_WRITE | IN_MOVED_FROM);
+        table_add(&watches, wd, ctd->folders[i]);
+    }
+
     while (true) {
         int length = read(fd, buffer, INOTIFY_BUF_SIZE);
 
@@ -142,19 +148,30 @@ void* catalog_thread_process(void *data)
                 // TODO(jesper): supported created and deleted file events
                 if (!(event->mask & IN_ISDIR)) {
                     Path p;
-                    bool eslash  = ctd->folder[flen-1] == '/';
+
+                    char **folder = table_find(&watches, event->wd);
+                    if (folder == nullptr) {
+                        DEBUG_LOG(Log_error,
+                                  "unable to find folder for watch descriptor: %d",
+                                  event->wd);
+                        continue;
+                    }
+
+                    isize flen  = strlen(*folder);
+                    bool eslash = *folder[flen-1] == '/';
+
                     if (!eslash) {
                         isize length = flen + event->len + 2;
                         // TODO(jesper): replace with thread safe allocator
                         p.absolute = { length, (char*)malloc(length) };
-                        strcpy(p.absolute.bytes, ctd->folder);
+                        strcpy(p.absolute.bytes, *folder);
                         p.absolute[flen]   = '/';
                         p.absolute[flen+1] = '\0';
                     } else {
                         isize length = flen + event->len + 1;
                         // TODO(jesper): replace with thread safe allocator
                         p.absolute   = { length, (char*)malloc(length) };
-                        strcpy(p.absolute.bytes, ctd->folder);
+                        strcpy(p.absolute.bytes, *folder);
                     }
 
                     strcat(p.absolute.bytes, event->name);
@@ -184,16 +201,19 @@ void* catalog_thread_process(void *data)
         }
     }
 
-    inotify_rm_watch( fd, wd );
-    close( fd );
+#if 0
+    // TODO(jesper): iterate over the hash table and remove the watches
+    inotify_rm_watch(fd, wd );
+#endif
+    close(fd);
 
     return nullptr;
 }
 
-void create_catalog_thread(const char *folder, catalog_callback_t *callback)
+void create_catalog_thread(Array<char*> folders, catalog_callback_t *callback)
 {
     auto data      = g_persistent->talloc<CatalogThreadData>();
-    data->folder   = folder;
+    data->folders  = folders;
     data->callback = callback;
 
     pthread_t *thread = g_heap->talloc<pthread_t>();

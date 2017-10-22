@@ -34,7 +34,7 @@ void init_table(HashTable<K, V> *table, Allocator *a)
 template <typename K, typename V>
 V* table_add(HashTable<K, V> *table, K key, V value)
 {
-    u64 hash  = hash64(key);
+    u64 hash  = hash32((void*)&key, sizeof(K));
     u64 index = hash % TABLE_SIZE;
 
     for (i32 i = 0; i < table->table[index].count; i++) {
@@ -50,7 +50,7 @@ V* table_add(HashTable<K, V> *table, K key, V value)
 
     Pair<K, V> pair = { key, value };
     isize i = array_add(&table->table[index], pair);
-    return &table->table[index][i];
+    return &table->table[index][i].value;
 }
 
 template <typename V>
@@ -125,7 +125,7 @@ V* table_add(HashTable<char*, V> *table, const char *key, V value)
 template <typename K, typename V>
 V* table_find(HashTable<K, V> *table, K key)
 {
-    u64 hash  = hash64(key);
+    u64 hash  = hash32((void*)&key, sizeof(K));
     u64 index = hash % TABLE_SIZE;
 
     for (i32 i = 0; i < table->table[index].count; i++) {

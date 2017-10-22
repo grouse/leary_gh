@@ -54,6 +54,7 @@
 #include <cstring>
 
 #include "core/string.h"
+#include "core/array.h"
 
 #include "platform_debug.h"
 #include "platform_input.h"
@@ -199,6 +200,6 @@ void platform_set_raw_mouse(bool enable);
 #define CATALOG_CALLBACK(fname)  void fname(Path path)
 typedef CATALOG_CALLBACK(catalog_callback_t);
 
-void create_catalog_thread(const char *folder, catalog_callback_t *callback);
+void create_catalog_thread(Array<char*> folders, catalog_callback_t *callback);
 
 #endif // LEARY_PLATFORM_MAIN_H

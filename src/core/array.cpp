@@ -30,6 +30,15 @@ Array<T> array_create(Allocator *allocator, isize capacity)
 }
 
 template<typename T>
+void init_array(Array<T> *arr, Allocator *a)
+{
+    arr->allocator = a;
+    arr->data      = nullptr;
+    arr->count     = 0;
+    arr->capacity  = 0;
+}
+
+template<typename T>
 void array_destroy(Array<T> *a)
 {
     a->allocator->dealloc(a->data);
