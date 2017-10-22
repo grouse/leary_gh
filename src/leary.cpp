@@ -75,7 +75,7 @@ void debug_add_texture(const char *name,
 {
     Texture texture = find_texture(tid);
 
-    if (texture.id == TEXTURE_INVALID_ID) {
+    if (texture.id == ASSET_INVALID_ID) {
         return;
     }
 
@@ -431,7 +431,7 @@ void game_init()
 
     {
         Texture hm = find_texture("terrain.bmp");
-        assert(hm.id != TEXTURE_INVALID_ID);
+        assert(hm.id != ASSET_INVALID_ID);
         assert(hm.size > 0);
 
         struct Texel {
@@ -635,9 +635,12 @@ void game_quit()
         }
     }
 
-    for (i32 i = 0; i < g_catalog.textures.count; i++) {
-        destroy_texture(&g_catalog.textures[i]);
+#if 0
+    // TODO(jesper): iterate over textures and destroy
+    for (i32 i = 0; i < g_textures.count; i++) {
+        destroy_texture(&g_textures[i]);
     }
+#endif
 
     buffer_destroy(g_game->overlay.vbo);
     buffer_destroy(g_game->overlay.texture.vbo);
@@ -914,8 +917,6 @@ void debug_overlay_update(DebugOverlay *overlay, f32 dt)
     void *sp = g_stack->sp;
     defer { g_stack->reset(sp); };
 
-    process_texture_catalog();
-
     stbtt_bakedchar *font = overlay->font;
     i32 *vcount           = &overlay->vertex_count;
 
@@ -1085,6 +1086,8 @@ void debug_overlay_update(DebugOverlay *overlay, f32 dt)
 void game_update(f32 dt)
 {
     PROFILE_FUNCTION();
+
+    process_catalog_system();
 
     Entity &player = g_game->entities[0];
 

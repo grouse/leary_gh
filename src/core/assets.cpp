@@ -9,6 +9,9 @@
 #include "vulkan_render.h"
 
 
+#define CATALOG_PROCESS_FUNC(fname) void fname(Path path)
+typedef CATALOG_PROCESS_FUNC(catalog_process_t);
+
 struct Vertex {
     Vector3 p;
     Vector3 n;
@@ -25,14 +28,16 @@ struct Mesh {
     Array<u32>    indices;
 };
 
+HashTable<i32, Texture> g_textures;
 
 struct Catalog {
     Array<char*> folders;
     const char *folder;
 
-    // NOTE: mapping between texture name and texture id
-    HashTable<const char*, i32> table;
-    Array<Texture> textures;
+    // NOTE: mapping between asset names and asset id
+    i32 next_asset_id = 0;
+    HashTable<const char*, i32>                assets;
+    HashTable<const char*, catalog_process_t*> processes;
 
     Mutex mutex;
     Array<Path> process_queue;
@@ -402,16 +407,16 @@ Texture* add_texture(const char *name,
     t.height  = height;
     t.format  = format;
     t.data    = pixels;
-
-    i32 id = (i32)g_catalog.textures.count;
-    t.id   = id;
+    t.id      = g_catalog.next_asset_id++;
 
     init_vk_texture(&t, components);
 
-    array_add(&g_catalog.textures, t);
-    table_add(&g_catalog.table, name, id);
+    table_add(&g_catalog.assets, name, t.id);
 
-    return &g_catalog.textures[id];
+    Texture *ret = table_add(&g_textures, t.id, t);
+    assert(ret != nullptr);
+
+    return ret;
 }
 
 Texture* add_texture(Path path)
@@ -421,21 +426,23 @@ Texture* add_texture(Path path)
         return nullptr;
     }
 
-    i32 id = (i32)g_catalog.textures.count;
-    t.id   = id;
+    t.id = g_catalog.next_asset_id++;
 
     init_vk_texture(&t, VkComponentMapping{});
 
-    array_add(&g_catalog.textures, t);
-    table_add(&g_catalog.table, path.filename.bytes, id);
-    return &g_catalog.textures[id];
+    table_add(&g_catalog.assets, path.filename.bytes, t.id);
+
+    Texture *ret = table_add(&g_textures, t.id, t);
+    assert(ret != nullptr);
+
+    return ret;
 }
 
 i32 find_texture_id(const char *name)
 {
-    i32 *id = table_find(&g_catalog.table, name);
+    i32 *id = table_find(&g_catalog.assets, name);
     if (id == nullptr) {
-        return TEXTURE_INVALID_ID;
+        return ASSET_INVALID_ID;
     }
 
     return *id;
@@ -443,24 +450,38 @@ i32 find_texture_id(const char *name)
 
 Texture find_texture(i32 id)
 {
-    if (id == TEXTURE_INVALID_ID || id >= g_catalog.textures.count) {
-        return Texture{};
+    if (id == ASSET_INVALID_ID) {
+        DEBUG_LOG(Log_error, "invalid texture id: %d", id);
+        return {};
     }
 
-    return g_catalog.textures[id];
+    Texture *t = table_find(&g_textures, id);
+    if (t == nullptr) {
+        DEBUG_LOG(Log_error, "invalid texture id: %d", id);
+        return {};
+    }
+
+    return *t;
 }
 
 Texture find_texture(const char *name)
 {
-    i32 *id = table_find(&g_catalog.table, name);
-    if (id == nullptr) {
-        return Texture{};
+    i32 *id = table_find(&g_catalog.assets, name);
+    if (id == nullptr || *id == ASSET_INVALID_ID) {
+        DEBUG_LOG(Log_error, "unable to find texture with name: %s", name);
+        return {};
     }
 
-    return g_catalog.textures[*id];
+    Texture *t = table_find(&g_textures, *id);
+    if (t == nullptr) {
+        DEBUG_LOG(Log_error, "invalid texture id: %d", *id);
+        return {};
+    }
+
+    return *t;
 }
 
-void process_texture_catalog()
+void process_catalog_system()
 {
     PROFILE_FUNCTION();
 
@@ -470,47 +491,69 @@ void process_texture_catalog()
     // mean handling multi-threaded command buffer creation and submission
     for (i32 i = 0; i < g_catalog.process_queue.count; i++) {
         Path &p = g_catalog.process_queue[i];
-        i32 id = find_texture_id(p.filename.bytes);
-        if (id == TEXTURE_INVALID_ID) {
-            // TODO(jesper): support creation of new textures at runtime
+
+        catalog_process_t **func = table_find(&g_catalog.processes, p.extension.bytes);
+        if (func == nullptr) {
+            DEBUG_LOG(Log_error,
+                      "could not find process function for extension: %.*s",
+                      p.extension.length, p.extension.bytes);
             continue;
         }
 
-        Texture t = load_texture(p);
-        if (t.data != nullptr) {
-            update_vk_texture(&g_catalog.textures[id], t);
-        }
+        (*func)(p);
     }
+
     g_catalog.process_queue.count = 0;
     unlock_mutex(&g_catalog.mutex);
 }
 
-CATALOG_CALLBACK(texture_catalog_process)
+CATALOG_CALLBACK(catalog_thread_proc)
 {
-    i32 id = find_texture_id(path.filename.bytes);
-    if (id == TEXTURE_INVALID_ID) {
-        // TODO(jesper): support creation of new textures
+    i32 *id = table_find(&g_catalog.assets, path.filename.bytes);
+    if (id == nullptr || *id == ASSET_INVALID_ID) {
+        DEBUG_LOG(Log_warning, "did not find asset in catalog system: %s",
+                  path.filename.bytes);
+        // TODO(jesper): support creation of new assets?
         return;
     }
 
-    printf("texture modified: %s\n", path.filename.bytes);
+    printf("asset modified: %s\n", path.filename.bytes);
 
     lock_mutex(&g_catalog.mutex);
     array_add(&g_catalog.process_queue, path);
     unlock_mutex(&g_catalog.mutex);
 }
 
+CATALOG_PROCESS_FUNC(process_texture_bmp)
+{
+    i32 id = find_texture_id(path.filename.bytes);
+    if (id == ASSET_INVALID_ID) {
+        // TODO(jesper): support creation of new textures
+        return;
+    }
+
+    Texture n = load_texture(path);
+    if (n.data != nullptr) {
+        Texture *t = table_find(&g_textures, id);
+        update_vk_texture(t, n);
+    }
+}
+
 
 void init_catalog_system()
 {
     g_catalog = {};
-    init_array(&g_catalog.folders, g_heap);
-    array_add(&g_catalog.folders, resolve_path(GamePath_data, "textures", g_persistent));
-    g_catalog.textures.allocator      = g_heap;
-    g_catalog.process_queue.allocator = g_heap;
+    init_table(&g_catalog.assets,        g_heap);
+    init_array(&g_catalog.folders,       g_heap);
+    init_table(&g_catalog.processes,     g_heap);
+    init_array(&g_catalog.process_queue, g_heap);
 
     init_mutex(&g_catalog.mutex);
-    init_table(&g_catalog.table, g_heap);
+
+    array_add(&g_catalog.folders, resolve_path(GamePath_data, "textures", g_persistent));
+    table_add(&g_catalog.processes, "bmp", process_texture_bmp);
+
+    init_table(&g_textures, g_heap);
 
     for (i32 i = 0; i < g_catalog.folders.count; i++) {
         Array<Path> files = list_files(g_catalog.folders[i], g_heap);
@@ -520,7 +563,7 @@ void init_catalog_system()
     }
 
     // TODO(jesper): we can use 1 thread for all folders with inotify
-    create_catalog_thread(g_catalog.folders, &texture_catalog_process);
+    create_catalog_thread(g_catalog.folders, &catalog_thread_proc);
 }
 
 i32 load_entity(const char *p)

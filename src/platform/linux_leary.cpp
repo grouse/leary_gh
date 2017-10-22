@@ -149,29 +149,31 @@ void* catalog_thread_process(void *data)
                 if (!(event->mask & IN_ISDIR)) {
                     Path p;
 
-                    char **folder = table_find(&watches, event->wd);
-                    if (folder == nullptr) {
+                    char **ret = table_find(&watches, event->wd);
+                    if (ret == nullptr) {
                         DEBUG_LOG(Log_error,
                                   "unable to find folder for watch descriptor: %d",
                                   event->wd);
                         continue;
                     }
 
-                    isize flen  = strlen(*folder);
-                    bool eslash = *folder[flen-1] == '/';
+                    char *folder = *ret;
+
+                    isize flen  = strlen(folder);
+                    bool eslash = folder[flen-1] == '/';
 
                     if (!eslash) {
                         isize length = flen + event->len + 2;
                         // TODO(jesper): replace with thread safe allocator
                         p.absolute = { length, (char*)malloc(length) };
-                        strcpy(p.absolute.bytes, *folder);
+                        strcpy(p.absolute.bytes, folder);
                         p.absolute[flen]   = '/';
                         p.absolute[flen+1] = '\0';
                     } else {
                         isize length = flen + event->len + 1;
                         // TODO(jesper): replace with thread safe allocator
                         p.absolute   = { length, (char*)malloc(length) };
-                        strcpy(p.absolute.bytes, *folder);
+                        strcpy(p.absolute.bytes, folder);
                     }
 
                     strcat(p.absolute.bytes, event->name);

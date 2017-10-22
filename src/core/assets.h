@@ -9,10 +9,10 @@
 #ifndef LEARY_ASSETS_H
 #define LEARY_ASSETS_H
 
-#define TEXTURE_INVALID_ID (-1)
+#define ASSET_INVALID_ID (-1)
 
 struct Texture {
-    i32   id = TEXTURE_INVALID_ID;
+    i32   id = ASSET_INVALID_ID;
     u32   width;
     u32   height;
 
