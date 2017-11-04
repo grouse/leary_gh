@@ -481,91 +481,6 @@ Texture find_texture(const char *name)
     return *t;
 }
 
-void process_catalog_system()
-{
-    PROFILE_FUNCTION();
-
-    lock_mutex(&g_catalog.mutex);
-    // TODO(jesper): we could potentially make this multi-threaded if we ensure
-    // that we have thread safe versions of update_vk_texture, currently that'd
-    // mean handling multi-threaded command buffer creation and submission
-    for (i32 i = 0; i < g_catalog.process_queue.count; i++) {
-        Path &p = g_catalog.process_queue[i];
-
-        catalog_process_t **func = table_find(&g_catalog.processes, p.extension.bytes);
-        if (func == nullptr) {
-            DEBUG_LOG(Log_error,
-                      "could not find process function for extension: %.*s",
-                      p.extension.length, p.extension.bytes);
-            continue;
-        }
-
-        (*func)(p);
-    }
-
-    g_catalog.process_queue.count = 0;
-    unlock_mutex(&g_catalog.mutex);
-}
-
-CATALOG_CALLBACK(catalog_thread_proc)
-{
-    i32 *id = table_find(&g_catalog.assets, path.filename.bytes);
-    if (id == nullptr || *id == ASSET_INVALID_ID) {
-        DEBUG_LOG(Log_warning, "did not find asset in catalog system: %s",
-                  path.filename.bytes);
-        // TODO(jesper): support creation of new assets?
-        return;
-    }
-
-    printf("asset modified: %s\n", path.filename.bytes);
-
-    lock_mutex(&g_catalog.mutex);
-    array_add(&g_catalog.process_queue, path);
-    unlock_mutex(&g_catalog.mutex);
-}
-
-CATALOG_PROCESS_FUNC(process_texture_bmp)
-{
-    i32 id = find_texture_id(path.filename.bytes);
-    if (id == ASSET_INVALID_ID) {
-        // TODO(jesper): support creation of new textures
-        return;
-    }
-
-    Texture n = load_texture(path);
-    if (n.data != nullptr) {
-        Texture *t = table_find(&g_textures, id);
-        update_vk_texture(t, n);
-    }
-}
-
-
-void init_catalog_system()
-{
-    g_catalog = {};
-    init_table(&g_catalog.assets,        g_heap);
-    init_array(&g_catalog.folders,       g_heap);
-    init_table(&g_catalog.processes,     g_heap);
-    init_array(&g_catalog.process_queue, g_heap);
-
-    init_mutex(&g_catalog.mutex);
-
-    array_add(&g_catalog.folders, resolve_path(GamePath_data, "textures", g_persistent));
-    table_add(&g_catalog.processes, "bmp", process_texture_bmp);
-
-    init_table(&g_textures, g_heap);
-
-    for (i32 i = 0; i < g_catalog.folders.count; i++) {
-        Array<Path> files = list_files(g_catalog.folders[i], g_heap);
-        for (i32 i = 0; i < files.count; i++) {
-            add_texture(files[i]);
-        }
-    }
-
-    // TODO(jesper): we can use 1 thread for all folders with inotify
-    create_catalog_thread(g_catalog.folders, &catalog_thread_proc);
-}
-
 i32 load_entity(const char *p)
 {
     usize size;
@@ -658,4 +573,110 @@ i32 load_entity(const char *p)
 
     array_add(&g_game->index_render_objects, obj);
     return 1;
+}
+
+void process_catalog_system()
+{
+    PROFILE_FUNCTION();
+
+    lock_mutex(&g_catalog.mutex);
+    // TODO(jesper): we could potentially make this multi-threaded if we ensure
+    // that we have thread safe versions of update_vk_texture, currently that'd
+    // mean handling multi-threaded command buffer creation and submission
+    for (i32 i = 0; i < g_catalog.process_queue.count; i++) {
+        Path &p = g_catalog.process_queue[i];
+
+        catalog_process_t **func = table_find(&g_catalog.processes, p.extension.bytes);
+        if (func == nullptr) {
+            DEBUG_LOG(Log_error,
+                      "could not find process function for extension: %.*s",
+                      p.extension.length, p.extension.bytes);
+            continue;
+        }
+
+        (*func)(p);
+    }
+
+    g_catalog.process_queue.count = 0;
+    unlock_mutex(&g_catalog.mutex);
+}
+
+CATALOG_CALLBACK(catalog_thread_proc)
+{
+    i32 *id = table_find(&g_catalog.assets, path.filename.bytes);
+    if (id == nullptr || *id == ASSET_INVALID_ID) {
+        DEBUG_LOG(Log_warning, "did not find asset in catalog system: %s",
+                  path.filename.bytes);
+        // TODO(jesper): support creation of new assets?
+        return;
+    }
+
+    printf("asset modified: %s\n", path.filename.bytes);
+
+    lock_mutex(&g_catalog.mutex);
+    array_add(&g_catalog.process_queue, path);
+    unlock_mutex(&g_catalog.mutex);
+}
+
+CATALOG_PROCESS_FUNC(process_texture_bmp)
+{
+    i32 id = find_texture_id(path.filename.bytes);
+    if (id == ASSET_INVALID_ID) {
+        add_texture(path);
+        return;
+    }
+
+    Texture n = load_texture(path);
+    if (n.data != nullptr) {
+        Texture *t = table_find(&g_textures, id);
+        update_vk_texture(t, n);
+    }
+}
+
+CATALOG_PROCESS_FUNC(process_entity)
+{
+    (void)path;
+}
+
+
+void init_catalog_system()
+{
+    g_catalog = {};
+    init_table(&g_catalog.assets,        g_heap);
+    init_array(&g_catalog.folders,       g_heap);
+    init_table(&g_catalog.processes,     g_heap);
+    init_array(&g_catalog.process_queue, g_heap);
+
+    init_mutex(&g_catalog.mutex);
+
+    array_add(&g_catalog.folders, resolve_path(GamePath_data, "textures", g_persistent));
+    table_add(&g_catalog.processes, "bmp", process_texture_bmp);
+
+    array_add(&g_catalog.folders, resolve_path(GamePath_data, "entities", g_persistent));
+    table_add(&g_catalog.processes, "ent", process_entity);
+
+    init_table(&g_textures, g_heap);
+
+    for (i32 i = 0; i < g_catalog.folders.count; i++) {
+        Array<Path> files = list_files(g_catalog.folders[i], g_heap);
+        for (i32 i = 0; i < files.count; i++) {
+            Path &p = files[i];
+
+            catalog_process_t **func = table_find(&g_catalog.processes,
+                                                  p.extension.bytes);
+
+            if (func == nullptr) {
+                DEBUG_LOG(Log_error,
+                          "could not find process function for extension: %.*s",
+                          p.extension.length, p.extension.bytes);
+                continue;
+            }
+
+            (*func)(p);
+
+        }
+    }
+
+    // TODO(jesper): we can use 1 thread for all folders with inotify
+    create_catalog_thread(g_catalog.folders, &catalog_thread_proc);
 }
