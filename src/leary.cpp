@@ -68,14 +68,13 @@ extern Catalog      g_catalog;
 Terrain      g_terrain;
 
 void debug_add_texture(const char *name,
-                       i32 tid,
+                       AssetID tid,
                        Material material,
                        VulkanPipeline *pipeline,
                        DebugOverlay *overlay)
 {
-    Texture texture = find_texture(tid);
-
-    if (texture.id == ASSET_INVALID_ID) {
+    Texture *texture = find_texture(tid);
+    if (texture == nullptr) {
         return;
     }
 
@@ -89,7 +88,7 @@ void debug_add_texture(const char *name,
     t[0].x =  g_screen_to_view[0].x;
     t[1].y =  g_screen_to_view[1].y;
 
-    Vector2 dim = { (f32)texture.width, (f32)texture.height };
+    Vector2 dim = { (f32)texture->width, (f32)texture->height };
     dim = t * dim;
 
     f32 vertices[] = {
@@ -353,9 +352,9 @@ void game_init()
         set_ubo(&g_game->pipelines.mesh, ResourceSlot_mvp, &g_game->fp_camera.ubo);
         set_ubo(&g_game->pipelines.terrain, ResourceSlot_mvp, &g_game->fp_camera.ubo);
 
-        Texture font   = find_texture("font-regular");
-        Texture cube   = find_texture("dummy.bmp");
-        Texture player = find_texture("player.bmp");
+        Texture *font   = find_texture("font-regular");
+        Texture *cube   = find_texture("dummy.bmp");
+        Texture *player = find_texture("player.bmp");
 
         set_texture(&g_game->materials.font,   ResourceSlot_diffuse, font);
         set_texture(&g_game->materials.phong,  ResourceSlot_diffuse, cube);
@@ -430,15 +429,14 @@ void game_init()
 #endif
 
     {
-        Texture hm = find_texture("terrain.bmp");
-        assert(hm.id != ASSET_INVALID_ID);
-        assert(hm.size > 0);
+        Texture *hm = find_texture("terrain.bmp");
+        assert(hm != nullptr);
 
         struct Texel {
             u8 r, g, b, a;
         };
 
-        u32  vc       = hm.height * hm.width;
+        u32  vc       = hm->height * hm->width;
         auto vertices = array_create<Vertex>(g_persistent, vc);
 
         // TODO(jesper): move to settings/asset info/something
@@ -448,21 +446,21 @@ void game_init()
         f32 zz = w.z * 2.0f;
 
         Matrix4 to_world = Matrix4::identity();
-        to_world[0].x = xx / (f32)hm.width;
+        to_world[0].x = xx / (f32)hm->width;
         to_world[3].x = -w.x;
 
         to_world[1].y = zz / 255.0f;
         to_world[3].y = -w.z;
 
-        to_world[2].z = yy / (f32)hm.height;
+        to_world[2].z = yy / (f32)hm->height;
         to_world[3].z = -w.y;
 
-        for (u32 i = 0; i < hm.height-1; i++) {
-            for (u32 j = 0; j < hm.width-1; j++) {
-                Texel t0   = ((Texel*)hm.data)[i     * hm.width + j];
-                Texel t1   = ((Texel*)hm.data)[i     * hm.width + j+1];
-                Texel t2   = ((Texel*)hm.data)[(i+1) * hm.width + j+1];
-                Texel t3   = ((Texel*)hm.data)[(i+1) * hm.width + j];
+        for (u32 i = 0; i < hm->height-1; i++) {
+            for (u32 j = 0; j < hm->width-1; j++) {
+                Texel t0   = ((Texel*)hm->data)[i     * hm->width + j];
+                Texel t1   = ((Texel*)hm->data)[i     * hm->width + j+1];
+                Texel t2   = ((Texel*)hm->data)[(i+1) * hm->width + j+1];
+                Texel t3   = ((Texel*)hm->data)[(i+1) * hm->width + j];
 
                 Vector3 v0 = to_world * Vector3{ (f32)j,   (f32)t0.r, (f32)i   };
                 Vector3 v1 = to_world * Vector3{ (f32)j+1, (f32)t1.r, (f32)i   };
@@ -610,7 +608,7 @@ void game_init()
         timers.type  = Debug_profile_timers;
         array_add(&g_game->overlay.items, timers);
 
-        i32 hmt = find_texture_id("terrain.bmp");
+        AssetID hmt = find_asset_id("terrain.bmp");
         debug_add_texture("Terrain", hmt, g_game->materials.heightmap,
                           &g_game->pipelines.basic2d, &g_game->overlay);
     }

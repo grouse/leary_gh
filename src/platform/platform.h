@@ -53,8 +53,7 @@
 // -- platform generic includes
 #include <cstring>
 
-#include "core/string.h"
-#include "core/array.h"
+#include "core/core.h"
 
 #include "platform_debug.h"
 #include "platform_input.h"
@@ -182,11 +181,6 @@ enum GamePath {
     GamePath_preferences
 };
 
-struct Path {
-    String absolute;
-    String filename; // TODO: should this be with or without extension?
-    String extension;
-};
 
 // -- functions
 void init_mutex(Mutex *m);

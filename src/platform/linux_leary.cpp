@@ -9,6 +9,7 @@
 #include "core/types.h"
 
 #include "platform.h"
+#include "leary.h"
 
 #include "platform/linux_debug.cpp"
 #include "platform/linux_file.cpp"
@@ -18,7 +19,7 @@
 #include <pthread.h>
 
 PlatformState   *g_platform;
-Settings        g_settings;
+Settings         g_settings;
 HeapAllocator   *g_heap;
 LinearAllocator *g_frame;
 LinearAllocator *g_debug_frame;

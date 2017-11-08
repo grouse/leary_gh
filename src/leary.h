@@ -23,7 +23,6 @@
 
 #include "core/types.h"
 #include "core/allocator.h"
-#include "core/string.h"
 #include "core/maths.h"
 
 #include "vulkan_render.h"

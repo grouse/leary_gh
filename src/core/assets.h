@@ -9,10 +9,19 @@
 #ifndef LEARY_ASSETS_H
 #define LEARY_ASSETS_H
 
+#include "core.h"
+
 #define ASSET_INVALID_ID (-1)
 
+#define CATALOG_PROCESS_FUNC(fname) void fname(Path path)
+typedef CATALOG_PROCESS_FUNC(catalog_process_t);
+
+typedef i32 AssetID;
+typedef i32 TextureID;
+typedef i32 EntityID;
+
 struct Texture {
-    i32   id = ASSET_INVALID_ID;
+    AssetID asset_id = ASSET_INVALID_ID;
     u32   width;
     u32   height;
 
@@ -27,6 +36,21 @@ struct Texture {
     VkImage        image;
     VkImageView    image_view;
     VkDeviceMemory memory;
+};
+
+struct Catalog {
+    Array<char*> folders;
+    const char *folder;
+
+    AssetID next_asset_id = 0;
+    HashTable<const char*, catalog_process_t*> processes;
+
+    HashTable<const char*, AssetID>            assets;
+    HashTable<AssetID, TextureID>              textures;
+    HashTable<AssetID, EntityID>               entities;
+
+    Mutex mutex;
+    Array<Path> process_queue;
 };
 
 

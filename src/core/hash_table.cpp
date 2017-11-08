@@ -6,21 +6,7 @@
  * Copyright (c) 2017 - all rights reserved
  */
 
-#define TABLE_SIZE 128
-
-template <typename K, typename V>
-struct Pair {
-    K key;
-    V value;
-};
-
-template <typename K, typename V>
-struct HashTable {
-
-    // TODO(jesper): replace this with custom array implementation, I don't want
-    // to use the generalised array implementation here.
-    Array<Pair<K, V>> table[TABLE_SIZE];
-};
+#include "core.h"
 
 template <typename K, typename V>
 void init_table(HashTable<K, V> *table, Allocator *a)

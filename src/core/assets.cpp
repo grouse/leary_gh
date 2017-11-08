@@ -9,9 +9,6 @@
 #include "vulkan_render.h"
 
 
-#define CATALOG_PROCESS_FUNC(fname) void fname(Path path)
-typedef CATALOG_PROCESS_FUNC(catalog_process_t);
-
 struct Vertex {
     Vector3 p;
     Vector3 n;
@@ -28,20 +25,9 @@ struct Mesh {
     Array<u32>    indices;
 };
 
-HashTable<i32, Texture> g_textures;
+Array<Texture> g_textures;
+Catalog        g_catalog;
 
-struct Catalog {
-    Array<char*> folders;
-    const char *folder;
-
-    // NOTE: mapping between asset names and asset id
-    i32 next_asset_id = 0;
-    HashTable<const char*, i32>                assets;
-    HashTable<const char*, catalog_process_t*> processes;
-
-    Mutex mutex;
-    Array<Path> process_queue;
-};
 
 
 // NOTE(jesper): only Microsoft BMP version 3 is supported
@@ -67,7 +53,6 @@ PACKED(struct BitmapHeader {
     u32 colors_important;
 });
 
-Catalog g_catalog;
 
 Texture load_texture_bmp(const char *path)
 {
@@ -403,20 +388,20 @@ Texture* add_texture(const char *name,
                      VkComponentMapping components)
 {
     Texture t = {};
-    t.width   = width;
-    t.height  = height;
-    t.format  = format;
-    t.data    = pixels;
-    t.id      = g_catalog.next_asset_id++;
+    t.width    = width;
+    t.height   = height;
+    t.format   = format;
+    t.data     = pixels;
+    t.asset_id = g_catalog.next_asset_id++;
 
     init_vk_texture(&t, components);
 
-    table_add(&g_catalog.assets, name, t.id);
+    TextureID texture_id = (TextureID)array_add(&g_textures, t);
 
-    Texture *ret = table_add(&g_textures, t.id, t);
-    assert(ret != nullptr);
+    table_add(&g_catalog.assets,   name,       t.asset_id);
+    table_add(&g_catalog.textures, t.asset_id, texture_id);
 
-    return ret;
+    return &g_textures[texture_id];
 }
 
 Texture* add_texture(Path path)
@@ -426,19 +411,19 @@ Texture* add_texture(Path path)
         return nullptr;
     }
 
-    t.id = g_catalog.next_asset_id++;
+    t.asset_id = g_catalog.next_asset_id++;
 
     init_vk_texture(&t, VkComponentMapping{});
 
-    table_add(&g_catalog.assets, path.filename.bytes, t.id);
+    TextureID texture_id = (TextureID)array_add(&g_textures, t);
 
-    Texture *ret = table_add(&g_textures, t.id, t);
-    assert(ret != nullptr);
+    table_add( & g_catalog.assets,   path.filename.bytes, t.asset_id);
+    table_add( & g_catalog.textures, t.asset_id,          texture_id);
 
-    return ret;
+    return &g_textures[texture_id];
 }
 
-i32 find_texture_id(const char *name)
+AssetID find_asset_id(const char *name)
 {
     i32 *id = table_find(&g_catalog.assets, name);
     if (id == nullptr) {
@@ -448,37 +433,42 @@ i32 find_texture_id(const char *name)
     return *id;
 }
 
-Texture find_texture(i32 id)
+Texture* find_texture(AssetID id)
 {
     if (id == ASSET_INVALID_ID) {
         DEBUG_LOG(Log_error, "invalid texture id: %d", id);
         return {};
     }
 
-    Texture *t = table_find(&g_textures, id);
-    if (t == nullptr) {
-        DEBUG_LOG(Log_error, "invalid texture id: %d", id);
-        return {};
+    TextureID *tid = table_find(&g_catalog.textures, id);
+    if (tid == nullptr) {
+        DEBUG_LOG(Log_error, "invalid asset id for texture: %d", id);
+        return nullptr;
     }
 
-    return *t;
+    if (*tid >= g_textures.count) {
+        DEBUG_LOG(Log_error, "invalid texture id for texture: %d", tid);
+        return nullptr;
+    }
+
+    return &g_textures[*tid];
 }
 
-Texture find_texture(const char *name)
+Texture* find_texture(const char *name)
 {
-    i32 *id = table_find(&g_catalog.assets, name);
+    AssetID *id = table_find(&g_catalog.assets, name);
     if (id == nullptr || *id == ASSET_INVALID_ID) {
         DEBUG_LOG(Log_error, "unable to find texture with name: %s", name);
-        return {};
+        return nullptr;
     }
 
-    Texture *t = table_find(&g_textures, *id);
-    if (t == nullptr) {
-        DEBUG_LOG(Log_error, "invalid texture id: %d", *id);
-        return {};
+    TextureID *tid = table_find(&g_catalog.textures, *id);
+    if (tid == nullptr || *tid == ASSET_INVALID_ID) {
+        DEBUG_LOG(Log_error, "unable to find texture with name: %s", name);
+        return nullptr;
     }
 
-    return *t;
+    return &g_textures[*tid];
 }
 
 i32 load_entity(const char *p)
@@ -620,16 +610,19 @@ CATALOG_CALLBACK(catalog_thread_proc)
 
 CATALOG_PROCESS_FUNC(process_texture_bmp)
 {
-    i32 id = find_texture_id(path.filename.bytes);
+    AssetID id = find_asset_id(path.filename.bytes);
     if (id == ASSET_INVALID_ID) {
         add_texture(path);
         return;
     }
 
-    Texture n = load_texture(path);
-    if (n.data != nullptr) {
-        Texture *t = table_find(&g_textures, id);
-        update_vk_texture(t, n);
+
+    Texture *t = find_texture(id);
+    if (t != nullptr) {
+        Texture n = load_texture(path);
+        if (n.data != nullptr) {
+            update_vk_texture(t, n);
+        }
     }
 }
 
@@ -642,8 +635,12 @@ CATALOG_PROCESS_FUNC(process_entity)
 void init_catalog_system()
 {
     g_catalog = {};
-    init_table(&g_catalog.assets,        g_heap);
     init_array(&g_catalog.folders,       g_heap);
+
+    init_table(&g_catalog.assets,        g_heap);
+    init_table(&g_catalog.textures,      g_heap);
+    init_table(&g_catalog.entities,      g_heap);
+
     init_table(&g_catalog.processes,     g_heap);
     init_array(&g_catalog.process_queue, g_heap);
 
@@ -655,7 +652,7 @@ void init_catalog_system()
     array_add(&g_catalog.folders, resolve_path(GamePath_data, "entities", g_persistent));
     table_add(&g_catalog.processes, "ent", process_entity);
 
-    init_table(&g_textures, g_heap);
+    init_array(&g_textures, g_heap);
 
     for (i32 i = 0; i < g_catalog.folders.count; i++) {
         Array<Path> files = list_files(g_catalog.folders[i], g_heap);

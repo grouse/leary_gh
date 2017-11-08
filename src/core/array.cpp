@@ -6,7 +6,7 @@
  * Copyright (c) 2017 - all rights reserved
  */
 
-#include "array.h"
+#include "core.h"
 
 template<typename T>
 Array<T> array_create(Allocator *allocator)

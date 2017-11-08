@@ -30,7 +30,7 @@
 #include <dirent.h>
 
 #include "platform.h"
-#include "core/array.h"
+#include "leary_macros.h"
 
 struct PlatformPaths {
     String preferences;

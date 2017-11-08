@@ -13,22 +13,20 @@
 #define PROFILE_TIMERS_ENABLE 1
 #endif
 
-#include "core/array.h"
-
 struct ProfileTimer {
-	const char *name;
-	u64 cycles;
-	u32 calls;
-	bool open;
+    const char *name;
+    u64 cycles;
+    u32 calls;
+    bool open;
 };
 
 struct ProfileTimers {
-	i32        count;
-	i32        capacity;
-	const char **name;
-	u64        *cycles;
-	u32        *calls;
-	bool       *open;
+    i32        count;
+    i32        capacity;
+    const char **name;
+    u64        *cycles;
+    u32        *calls;
+    bool       *open;
 };
 
 extern ProfileTimers g_profile_timers;
@@ -39,13 +37,13 @@ extern ProfileTimers g_profile_timers_prev;
 #define NUM_PROFILE_TIMERS (256)
 
 #define PROFILE_START(name)\
-	u64 start_##name = rdtsc();\
-	i32 profile_timer_id_##name = profile_start_timer(#name)
+    u64 start_##name = rdtsc();\
+    i32 profile_timer_id_##name = profile_start_timer(#name)
 
 #define PROFILE_END(name)\
-	u64 end_##name = rdtsc();\
-	u64 difference_##name = end_##name - start_##name;\
-	profile_end_timer(profile_timer_id_##name, difference_##name)
+    u64 end_##name = rdtsc();\
+    u64 difference_##name = end_##name - start_##name;\
+    profile_end_timer(profile_timer_id_##name, difference_##name)
 
 #define PROFILE_BLOCK(name) ProfileBlock profile_block_##__LINE__(#name)
 #define PROFILE_FUNCTION() ProfileBlock profile_block_##__FUNCTION__(__FUNCTION__)
