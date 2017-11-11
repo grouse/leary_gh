@@ -576,12 +576,9 @@ void game_quit()
         }
     }
 
-#if 0
-    // TODO(jesper): iterate over textures and destroy
     for (i32 i = 0; i < g_textures.count; i++) {
         destroy_texture(&g_textures[i]);
     }
-#endif
 
     buffer_destroy(g_game->overlay.vbo);
     buffer_destroy(g_game->overlay.texture.vbo);
