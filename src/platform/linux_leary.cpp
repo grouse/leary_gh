@@ -53,7 +53,7 @@ void platform_toggle_raw_mouse()
     Window  &wnd = g_platform->native.window;
 
     g_platform->raw_mouse = !g_platform->raw_mouse;
-    DEBUG_LOG("raw mouse mode set to: %d", g_platform->raw_mouse);
+    LOG("raw mouse mode set to: %d", g_platform->raw_mouse);
 
     if (g_platform->raw_mouse) {
         XGrabPointer(dpy, wnd, false,
@@ -118,7 +118,7 @@ struct CatalogThreadData {
 void* catalog_thread_process(void *data)
 {
     // TODO(jesper): entering the realm of threads, we need thread safe
-    // DEBUG_LOG now!!!!
+    // LOG now!!!!
     CatalogThreadData *ctd = (CatalogThreadData*)data;
 
     char buffer[INOTIFY_BUF_SIZE];
@@ -152,7 +152,7 @@ void* catalog_thread_process(void *data)
 
                     char **ret = table_find(&watches, event->wd);
                     if (ret == nullptr) {
-                        DEBUG_LOG(Log_error,
+                        LOG(Log_error,
                                   "unable to find folder for watch descriptor: %d",
                                   event->wd);
                         continue;
@@ -281,7 +281,7 @@ PLATFORM_INIT_FUNC(platform_init)
 
     if (XkbQueryExtension(native->display, NULL, NULL, NULL, &xkb_major, &xkb_minor)) {
         native->xkb = XkbGetMap(native->display, XkbAllClientInfoMask, XkbUseCoreKbd);
-        DEBUG_LOG("Initialised XKB version %d.%d", xkb_major, xkb_minor);
+        LOG("Initialised XKB version %d.%d", xkb_major, xkb_minor);
     }
 
     {
@@ -500,16 +500,16 @@ PLATFORM_UPDATE_FUNC(platform_update)
                     game_input(event);
                 } break;
                 default:
-                    DEBUG_LOG("unhandled xinput2 event: %d",
+                    LOG("unhandled xinput2 event: %d",
                               xevent.xcookie.evtype);
                     break;
                 }
             } else {
-                DEBUG_LOG("unhandled generic event");
+                LOG("unhandled generic event");
             }
         } break;
         default: {
-            DEBUG_LOG("unhandled xevent type: %d", xevent.type);
+            LOG("unhandled xevent type: %d", xevent.type);
         } break;
         }
     }

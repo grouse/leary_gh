@@ -177,7 +177,7 @@ Array<Path> list_files(const char *folder, Allocator *allocator)
                 p.extension = { dlen - ext, p.filename.bytes + ext + 1 };
                 array_add(&files, p);
             } else {
-                DEBUG_LOG("unimplemented d_type: %d", dir->d_type);
+                LOG("unimplemented d_type: %d", dir->d_type);
             }
         }
 
@@ -226,7 +226,7 @@ char* resolve_path(GamePath rp, const char *path, Allocator *a)
         root   = g_paths.preferences.bytes;
     } break;
     default:
-        DEBUG_LOG(Log_error, "unknown path root: %d", rp);
+        LOG(Log_error, "unknown path root: %d", rp);
         assert(false);
         return nullptr;
     }
@@ -311,7 +311,7 @@ char* read_file(const char *path, usize *file_size, Allocator *a)
     struct stat st;
     i32 result = stat(path, &st);
     if (result != 0) {
-        DEBUG_LOG(Log_error, "couldn't stat file: %s", path);
+        LOG(Log_error, "couldn't stat file: %s", path);
         return nullptr;
     }
 

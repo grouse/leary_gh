@@ -181,7 +181,7 @@ void LinearAllocator::dealloc(void *ptr)
         this->current = header->unaligned;
         this->remaining = this->size - (isize)((uptr)this->current - (uptr)this->mem);
     } else {
-        DEBUG_LOG("calling dealloc on linear allocator, leaking memory");
+        LOG("calling dealloc on linear allocator, leaking memory");
     }
 }
 
@@ -259,7 +259,7 @@ void* LinearAllocator::realloc(void *ptr, isize asize)
         header->size    = asize;
         return ptr;
     } else {
-        DEBUG_LOG("can't expand linear allocation, leaking memory");
+        LOG("can't expand linear allocation, leaking memory");
         void *nptr = alloc(asize);
         memcpy(nptr, ptr, header->size);
         return nptr;
@@ -286,7 +286,7 @@ void* StackAllocator::realloc(void *ptr, isize asize)
         header->size = asize;
         return ptr;
     } else {
-        DEBUG_LOG("can't expand stack allocation, leaking memory");
+        LOG("can't expand stack allocation, leaking memory");
         void *nptr = alloc(asize);
         memcpy(nptr, ptr, header->size);
         return nptr;

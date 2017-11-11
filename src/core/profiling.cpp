@@ -55,7 +55,7 @@ i32 profile_start_timer(const char *name)
     g_profile_timers.open[index]  = true;
     g_profile_timers.calls[index] = 1;
 
-    DEBUG_LOG("new profile timer added: %d - %s", index, name);
+    LOG("new profile timer added: %d - %s", index, name);
     return index;
 }
 

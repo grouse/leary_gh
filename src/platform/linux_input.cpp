@@ -163,7 +163,7 @@ Key linux_keycode(u32 code)
     case 114: return Key_right;
     case 116: return Key_down;
     default:
-        DEBUG_LOG(Log_warning, "unhandled Linux keycode: %d", code);
+        LOG(Log_warning, "unhandled Linux keycode: %d", code);
         break;
     };
     return Key_unknown;

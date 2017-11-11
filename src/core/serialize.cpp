@@ -128,7 +128,7 @@ void serialize_save_conf(char *path,
                          void *ptr)
 {
     if (!file_exists(path) && !create_file(path)) {
-        DEBUG_LOG(Log_warning, "path does not exist or can't be created: %s",
+        LOG(Log_warning, "path does not exist or can't be created: %s",
                   path);
         assert(false);
         return;
@@ -234,7 +234,7 @@ member_from_string(char **ptr,
                                child);
         } break;
         default:
-            DEBUG_LOG(Log_unimplemented, "unhandled case: %d", member->type);
+            LOG(Log_unimplemented, "unhandled case: %d", member->type);
         }
 
         do token = next_token(&lexer);
@@ -250,7 +250,7 @@ void serialize_load_conf(char *path,
                          void *out)
 {
     if (!file_exists(path)) {
-        DEBUG_LOG(Log_warning, "path does not exist: %s", path);
+        LOG(Log_warning, "path does not exist: %s", path);
         return;
     }
 

@@ -28,7 +28,7 @@ V* table_add(HashTable<K, V> *table, K key, V value)
         // with defined operator==? hmmm
         if (table->table[index][i].key == key) {
             // TODO(jesper): to_string key
-            DEBUG_LOG("key already exists in hash table");
+            LOG("key already exists in hash table");
             assert(false);
             return nullptr;
         }
@@ -50,7 +50,7 @@ V* table_add(HashTable<const char*, V> *table, const char *key, V value)
         // with defined operator==? hmmm
         if (strcmp(table->table[index][i].key, key) == 0) {
             // TODO(jesper): to_string key
-            DEBUG_LOG("key already exists in hash table");
+            LOG("key already exists in hash table");
             assert(false);
             return nullptr;
         }
@@ -72,7 +72,7 @@ V* table_add(HashTable<char*, V> *table, char *key, V value)
         // with defined operator==? hmmm
         if (strcmp(table->table[index][i].key, key) == 0) {
             // TODO(jesper): to_string key
-            DEBUG_LOG("key already exists in hash table");
+            LOG("key already exists in hash table");
             assert(false);
             return nullptr;
         }
@@ -94,7 +94,7 @@ V* table_add(HashTable<char*, V> *table, const char *key, V value)
         // with defined operator==? hmmm
         if (strcmp(table->table[index][i].key, key) == 0) {
             // TODO(jesper): to_string key
-            DEBUG_LOG("key already exists in hash table");
+            LOG("key already exists in hash table");
             assert(false);
             return nullptr;
         }

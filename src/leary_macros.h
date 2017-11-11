@@ -44,8 +44,8 @@ Defer<F> operator+ (DeferDummy, F&& f)
 
 
 
-#define DEBUG_LOG(...)        platform_debug_print(DEBUG_FILENAME, __LINE__, __FUNCTION__, __VA_ARGS__)
-#define DEBUG_UNIMPLEMENTED() DEBUG_LOG(Log_unimplemented, "fixme! stub");
+#define LOG(...) platform_debug_print(DEBUG_FILENAME, __LINE__, __FUNCTION__, __VA_ARGS__)
+#define LOG_UNIMPLEMENTED() LOG(Log_unimplemented, "fixme! stub");
 
 #endif /* LEARY_MACROS_H */
 

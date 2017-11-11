@@ -62,12 +62,12 @@ Texture load_texture_bmp(const char *path)
     usize size;
     char *file = read_file(path, &size, g_frame);
     if (file == nullptr) {
-        DEBUG_LOG("unable to read file: %s", path);
+        LOG("unable to read file: %s", path);
         return texture;
     }
 
-    DEBUG_LOG("Loading bmp: %s", path);
-    DEBUG_LOG("-- file size: %llu bytes", size);
+    LOG("Loading bmp: %s", path);
+    LOG("-- file size: %llu bytes", size);
 
 
     assert(file[0] == 'B' && file[1] == 'M');
@@ -77,7 +77,7 @@ Texture load_texture_bmp(const char *path)
 
     if (fh->type != 0x4d42) {
         // TODO(jesper): support other bmp versions
-        DEBUG_UNIMPLEMENTED();
+        LOG_UNIMPLEMENTED();
         return Texture{};
     }
 
@@ -87,12 +87,12 @@ Texture load_texture_bmp(const char *path)
 
     if (h->header_size != 40) {
         // TODO(jesper): support other bmp versions
-        DEBUG_UNIMPLEMENTED();
+        LOG_UNIMPLEMENTED();
         return Texture{};
     }
 
     if (h->header_size == 40) {
-        DEBUG_LOG("-- version 3");
+        LOG("-- version 3");
     }
 
     assert(h->header_size == 40);
@@ -100,12 +100,12 @@ Texture load_texture_bmp(const char *path)
 
     if (h->compression != 0) {
         // TODO(jesper): support compression
-        DEBUG_UNIMPLEMENTED();
+        LOG_UNIMPLEMENTED();
         return Texture{};
     }
 
     if (h->compression == 0) {
-        DEBUG_LOG("-- uncompressed");
+        LOG("-- uncompressed");
     }
 
 
@@ -124,14 +124,14 @@ Texture load_texture_bmp(const char *path)
     }
 
     if (flip) {
-        DEBUG_LOG("-- bottom-up");
+        LOG("-- bottom-up");
     }
 
     // NOTE(jesper): bmp's with bbp > 16 doesn't have a color palette
     // NOTE(jesper): and other bbps are untested atm
     if (h->bpp != 24) {
         // TODO(jesper): only 24 bpp is tested and supported
-        DEBUG_UNIMPLEMENTED();
+        LOG_UNIMPLEMENTED();
         return Texture{};
     }
 
@@ -185,20 +185,20 @@ Mesh load_mesh_obj(const char *filename)
 
     char *path = resolve_path(GamePath_models, filename, g_frame);
     if (path == nullptr) {
-        DEBUG_LOG("unable to resolve path: %s", path);
+        LOG("unable to resolve path: %s", path);
         return mesh;
     }
 
     usize size;
     char *file = read_file(path, &size, g_frame);
     if (file == nullptr) {
-        DEBUG_LOG("unable to read file: %s", path);
+        LOG("unable to read file: %s", path);
         return mesh;
     }
 
     char *end  = file + size;
 
-    DEBUG_LOG("-- file size: %llu bytes", size);
+    LOG("-- file size: %llu bytes", size);
 
     i32 num_faces   = 0;
 
@@ -259,10 +259,10 @@ Mesh load_mesh_obj(const char *filename)
     assert(uvs.count> 0);
     assert(num_faces> 0);
 
-    DEBUG_LOG("-- vectors : %d", vectors.count);
-    DEBUG_LOG("-- normals : %d", normals.count);
-    DEBUG_LOG("-- uvs     : %d", uvs.count);
-    DEBUG_LOG("-- faces   : %d", num_faces);
+    LOG("-- vectors : %d", vectors.count);
+    LOG("-- normals : %d", normals.count);
+    LOG("-- uvs     : %d", uvs.count);
+    LOG("-- faces   : %d", num_faces);
 
     auto vertices = array_create<Vertex>(g_frame);
 
@@ -335,22 +335,22 @@ Mesh load_mesh_obj(const char *filename)
 
 #if 0
     for (i32 i = 0; i < mesh.vertices.count; i++) {
-        DEBUG_LOG("vertex[%d]", i);
-        DEBUG_LOG("vector = { %f, %f, %f }",
+        LOG("vertex[%d]", i);
+        LOG("vector = { %f, %f, %f }",
                   mesh.vertices[i].vector.x,
                   mesh.vertices[i].vector.y,
                   mesh.vertices[i].vector.z);
-        DEBUG_LOG("normal = { %f, %f, %f }",
+        LOG("normal = { %f, %f, %f }",
                   mesh.vertices[i].normal.x,
                   mesh.vertices[i].normal.y,
                   mesh.vertices[i].normal.z);
-        DEBUG_LOG("uv = { %f, %f }",
+        LOG("uv = { %f, %f }",
                   mesh.vertices[i].uv.x,
                   mesh.vertices[i].uv.y);
     }
 
     for (i32 i = 0; i < mesh.indices.count; i += 3) {
-        DEBUG_LOG("triangle: %u, %u, %u",
+        LOG("triangle: %u, %u, %u",
                   mesh.indices[i+0],
                   mesh.indices[i+1],
                   mesh.indices[i+2]);
@@ -375,7 +375,7 @@ Texture load_texture(Path path)
     if (ehash == bmp_hash) {
         t = load_texture_bmp(path.absolute.bytes);
     } else {
-        DEBUG_LOG("unknown texture extension: %s", path.extension.bytes);
+        LOG("unknown texture extension: %s", path.extension.bytes);
     }
 
     return t;
@@ -436,18 +436,18 @@ AssetID find_asset_id(const char *name)
 Texture* find_texture(AssetID id)
 {
     if (id == ASSET_INVALID_ID) {
-        DEBUG_LOG(Log_error, "invalid texture id: %d", id);
+        LOG(Log_error, "invalid texture id: %d", id);
         return {};
     }
 
     TextureID *tid = table_find(&g_catalog.textures, id);
     if (tid == nullptr) {
-        DEBUG_LOG(Log_error, "invalid asset id for texture: %d", id);
+        LOG(Log_error, "invalid asset id for texture: %d", id);
         return nullptr;
     }
 
     if (*tid >= g_textures.count) {
-        DEBUG_LOG(Log_error, "invalid texture id for texture: %d", tid);
+        LOG(Log_error, "invalid texture id for texture: %d", tid);
         return nullptr;
     }
 
@@ -458,13 +458,13 @@ Texture* find_texture(const char *name)
 {
     AssetID *id = table_find(&g_catalog.assets, name);
     if (id == nullptr || *id == ASSET_INVALID_ID) {
-        DEBUG_LOG(Log_error, "unable to find texture with name: %s", name);
+        LOG(Log_error, "unable to find texture with name: %s", name);
         return nullptr;
     }
 
     TextureID *tid = table_find(&g_catalog.textures, *id);
     if (tid == nullptr || *tid == ASSET_INVALID_ID) {
-        DEBUG_LOG(Log_error, "unable to find texture with name: %s", name);
+        LOG(Log_error, "unable to find texture with name: %s", name);
         return nullptr;
     }
 
@@ -477,7 +477,7 @@ EntityData parse_entity_data(Path p)
     char *fp = read_file(p.absolute.bytes, &size, g_frame);
 
     if (fp == nullptr) {
-        DEBUG_LOG(Log_error, "unable to read entity file: %s", p.absolute.bytes);
+        LOG(Log_error, "unable to read entity file: %s", p.absolute.bytes);
         return {};
     }
 
@@ -488,19 +488,19 @@ EntityData parse_entity_data(Path p)
 
     t = next_token(&l);
     if (t.type != Token::hash) {
-        DEBUG_LOG(Log_error, "parse error in %s: expected version declaration");
+        LOG(Log_error, "parse error in %s: expected version declaration");
         return {};
     }
 
     t = next_token(&l);
     if (t.type != Token::identifier || !is_identifier(t, "version")) {
-        DEBUG_LOG(Log_error, "parse error in %s: expected version declaration", p);
+        LOG(Log_error, "parse error in %s: expected version declaration", p);
         return {};
     }
 
     t = next_token(&l);
     if (t.type != Token::number) {
-        DEBUG_LOG(Log_error, "parse error in %s: expected version number", p);
+        LOG(Log_error, "parse error in %s: expected version number", p);
         return {};
     }
 
@@ -509,7 +509,7 @@ EntityData parse_entity_data(Path p)
 
     t = next_token(&l);
     if (t.type != Token::identifier) {
-        DEBUG_LOG(Log_error, "parse error in %s: expected identifier", p);
+        LOG(Log_error, "parse error in %s: expected identifier", p);
         return {};
     }
 
@@ -534,8 +534,8 @@ EntityData parse_entity_data(Path p)
             do t = next_token(&l);
             while (t.type != Token::semicolon);
         } else {
-            DEBUG_LOG(Log_error, "parse error %s:%d: unknown identifier: %.*s",
-                      p, l.line_number, t.length, t.str);
+            LOG(Log_error, "parse error %s:%d: unknown identifier: %.*s",
+                p, l.line_number, t.length, t.str);
             return {};
         }
 
@@ -598,9 +598,9 @@ void process_catalog_system()
 
         catalog_process_t **func = table_find(&g_catalog.processes, p.extension.bytes);
         if (func == nullptr) {
-            DEBUG_LOG(Log_error,
-                      "could not find process function for extension: %.*s",
-                      p.extension.length, p.extension.bytes);
+            LOG(Log_error,
+                "could not find process function for extension: %.*s",
+                p.extension.length, p.extension.bytes);
             continue;
         }
 
@@ -615,13 +615,10 @@ CATALOG_CALLBACK(catalog_thread_proc)
 {
     i32 *id = table_find(&g_catalog.assets, path.filename.bytes);
     if (id == nullptr || *id == ASSET_INVALID_ID) {
-        DEBUG_LOG(Log_warning, "did not find asset in catalog system: %s",
-                  path.filename.bytes);
-        // TODO(jesper): support creation of new assets?
+        LOG("asset not found in catalogue system: %s\n",
+            path.filename.bytes);
         return;
     }
-
-    printf("asset modified: %s\n", path.filename.bytes);
 
     lock_mutex(&g_catalog.mutex);
     array_add(&g_catalog.process_queue, path);
@@ -694,9 +691,9 @@ void init_catalog_system()
                                                   p.extension.bytes);
 
             if (func == nullptr) {
-                DEBUG_LOG(Log_error,
-                          "could not find process function for extension: %.*s",
-                          p.extension.length, p.extension.bytes);
+                LOG(Log_error,
+                    "could not find process function for extension: %.*s",
+                    p.extension.length, p.extension.bytes);
                 continue;
             }
 

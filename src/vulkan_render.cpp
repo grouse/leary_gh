@@ -157,8 +157,8 @@ debug_callback_func(VkFlags flags,
         break;
     }
 
-    DEBUG_LOG(channel, "[Vulkan:%s] [%s:%d] - %s",
-              layer, object_str, message_code, message);
+    LOG(channel, "[Vulkan:%s] [%s:%d] - %s",
+        layer, object_str, message_code, message);
     assert(channel != Log_error);
     return VK_FALSE;
 }
@@ -836,7 +836,7 @@ VulkanShader create_shader(ShaderID id)
         assert(result == VK_SUCCESS);
     } break;
     default:
-        DEBUG_LOG("unknown shader id: %d", id);
+        LOG("unknown shader id: %d", id);
         assert(false);
         break;
     }
@@ -1296,7 +1296,7 @@ void update_vk_texture(Texture *texture, Texture ntexture)
         texture->height != ntexture.height ||
         texture->size   != ntexture.size)
     {
-        DEBUG_LOG("updating of vulkan texture with non-matching format, width, height, or size is currently unsupported");
+        LOG("updating of vulkan texture with non-matching format, width, height, or size is currently unsupported");
         return;
     }
 
@@ -1588,16 +1588,16 @@ void init_vulkan()
         assert(result == VK_SUCCESS);
 
         for (u32 i = 0; i < supported_layers_count; i++) {
-            DEBUG_LOG("VkLayerProperties[%u]", i);
-            DEBUG_LOG("  layerName            : %s",
+            LOG("VkLayerProperties[%u]", i);
+            LOG("  layerName            : %s",
                       supported_layers[i].layerName);
-            DEBUG_LOG("  specVersion          : %u.%u.%u",
+            LOG("  specVersion          : %u.%u.%u",
                       VK_VERSION_MAJOR(supported_layers[i].specVersion),
                       VK_VERSION_MINOR(supported_layers[i].specVersion),
                       VK_VERSION_PATCH(supported_layers[i].specVersion));
-            DEBUG_LOG("  implementationVersion: %u",
+            LOG("  implementationVersion: %u",
                       supported_layers[i].implementationVersion);
-            DEBUG_LOG("  description          : %s",
+            LOG("  description          : %s",
                       supported_layers[i].description);
         }
 
@@ -1614,9 +1614,9 @@ void init_vulkan()
         assert(result == VK_SUCCESS);
 
         for (u32 i = 0; i < supported_extensions_count; i++) {
-            DEBUG_LOG("vkExtensionProperties[%u]", i);
-            DEBUG_LOG("  extensionName: %s", supported_extensions[i].extensionName);
-            DEBUG_LOG("  specVersion  : %u", supported_extensions[i].specVersion);
+            LOG("vkExtensionProperties[%u]", i);
+            LOG("  extensionName: %s", supported_extensions[i].extensionName);
+            LOG("  specVersion  : %u", supported_extensions[i].specVersion);
         }
 
 
@@ -1695,46 +1695,46 @@ void init_vulkan()
             VkPhysicalDeviceProperties properties;
             vkGetPhysicalDeviceProperties(physical_devices[i], &properties);
 
-            DEBUG_LOG("VkPhysicalDeviceProperties[%u]", i);
-            DEBUG_LOG("  apiVersion    : %d.%d.%d",
+            LOG("VkPhysicalDeviceProperties[%u]", i);
+            LOG("  apiVersion    : %d.%d.%d",
                       VK_VERSION_MAJOR(properties.apiVersion),
                       VK_VERSION_MINOR(properties.apiVersion),
                       VK_VERSION_PATCH(properties.apiVersion));
             // NOTE(jesper): only confirmed to be accurate, by experimentation,
             // on nvidia
-            DEBUG_LOG("  driverVersion : %u.%u",
+            LOG("  driverVersion : %u.%u",
                       (properties.driverVersion >> 22),
                       (properties.driverVersion >> 14) & 0xFF);
-            DEBUG_LOG("  vendorID      : 0x%X %s",
+            LOG("  vendorID      : 0x%X %s",
                       properties.vendorID,
                       vendor_string(properties.vendorID));
-            DEBUG_LOG("  deviceID      : 0x%X", properties.deviceID);
+            LOG("  deviceID      : 0x%X", properties.deviceID);
             switch (properties.deviceType) {
             case VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU:
-                DEBUG_LOG("  deviceType: Integrated GPU");
+                LOG("  deviceType: Integrated GPU");
                 if (!found_device) {
                     g_vulkan->physical_device.handle     = physical_devices[i];
                     g_vulkan->physical_device.properties = properties;
                 }
                 break;
             case VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU:
-                DEBUG_LOG("  deviceType    : Discrete GPU");
+                LOG("  deviceType    : Discrete GPU");
                 g_vulkan->physical_device.handle     = physical_devices[i];
                 g_vulkan->physical_device.properties = properties;
                 found_device = true;
                 break;
             case VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU:
-                DEBUG_LOG("  deviceType    : Virtual GPU");
+                LOG("  deviceType    : Virtual GPU");
                 break;
             case VK_PHYSICAL_DEVICE_TYPE_CPU:
-                DEBUG_LOG("  deviceType    : CPU");
+                LOG("  deviceType    : CPU");
                 break;
             default:
             case VK_PHYSICAL_DEVICE_TYPE_OTHER:
-                DEBUG_LOG("  deviceTyacquire_swapchainpe    : Unknown");
+                LOG("  deviceTyacquire_swapchainpe    : Unknown");
                 break;
             }
-            DEBUG_LOG("  deviceName    : %s", properties.deviceName);
+            LOG("  deviceName    : %s", properties.deviceName);
         }
 
         vkGetPhysicalDeviceMemoryProperties(g_vulkan->physical_device.handle,
@@ -1779,16 +1779,16 @@ void init_vulkan()
             assert(result == VK_SUCCESS);
 
 
-            DEBUG_LOG("VkQueueFamilyProperties[%u]", i);
-            DEBUG_LOG("  queueCount                 : %u",
+            LOG("VkQueueFamilyProperties[%u]", i);
+            LOG("  queueCount                 : %u",
                       property.queueCount);
-            DEBUG_LOG("  timestampValidBits         : %u",
+            LOG("  timestampValidBits         : %u",
                       property.timestampValidBits);
-            DEBUG_LOG("  minImageTransferGranualrity: (%u, %u, %u)",
+            LOG("  minImageTransferGranualrity: (%u, %u, %u)",
                       property.minImageTransferGranularity.depth,
                       property.minImageTransferGranularity.height,
                       property.minImageTransferGranularity.depth);
-            DEBUG_LOG("  supportsPresent            : %d",
+            LOG("  supportsPresent            : %d",
                       (i32)supports_present);
 
             // if it doesn't we keep on searching
@@ -2265,7 +2265,7 @@ Material create_material(VulkanPipeline *pipeline, MaterialID id)
         });
     } break;
     default:
-        DEBUG_LOG("unknown material");
+        LOG("unknown material");
         assert(false);
         break;
     }
@@ -2329,7 +2329,7 @@ void set_texture(Material *material, ResourceSlot slot, Texture *texture)
         writes.dstBinding      = 0;
         break;
     default:
-        DEBUG_LOG("unknown resource slot");
+        LOG("unknown resource slot");
         assert(false);
         break;
     }

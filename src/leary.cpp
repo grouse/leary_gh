@@ -712,7 +712,7 @@ void game_input(InputEvent event)
             platform_toggle_raw_mouse();
             break;
         default:
-            //DEBUG_LOG("unhandled key press: %d", event.key.code);
+            //LOG("unhandled key press: %d", event.key.code);
             break;
         }
     } break;
@@ -821,7 +821,7 @@ void game_input(InputEvent event)
             }
         } break;
         default:
-            //DEBUG_LOG("unhandled key release: %d", event.key.code);
+            //LOG("unhandled key release: %d", event.key.code);
             break;
         }
     } break;
@@ -843,7 +843,7 @@ void game_input(InputEvent event)
         }
     } break;
     default:
-        //DEBUG_LOG("unhandled input type: %d", event.type);
+        //LOG("unhandled input type: %d", event.type);
         break;
     }
 }
@@ -922,7 +922,7 @@ void debug_overlay_update(DebugOverlay *overlay, f32 dt)
                     render_font(font, buffer, &pos, vcount, mapped, &offset);
                 } break;
                 default:
-                    DEBUG_LOG("unhandled case: %d", item.type);
+                    LOG("unhandled case: %d", item.type);
                     break;
                 }
             }
@@ -1013,7 +1013,7 @@ void debug_overlay_update(DebugOverlay *overlay, f32 dt)
             array_add(&overlay->render_queue, item.u.ritem);
         } break;
         default:
-            DEBUG_LOG("unknown debug menu type: %d", item.type);
+            LOG("unknown debug menu type: %d", item.type);
             break;
         }
     }
