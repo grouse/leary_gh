@@ -166,6 +166,13 @@ VulkanBuffer create_ibo(u32 *indices, usize size);
 
 VulkanUniformBuffer create_ubo(usize size);
 
+void buffer_data(VulkanUniformBuffer ubo, void *data, usize offset, usize size);
+
+Material create_material(VulkanPipeline *pipeline, MaterialID id);
+
+void set_ubo(VulkanPipeline *pipeline, ResourceSlot slot, VulkanUniformBuffer *ubo);
+void set_texture(Material *material, ResourceSlot slot, Texture *texture);
+
 
 #endif /* VULKAN_DEVICE_H */
 

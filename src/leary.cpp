@@ -25,6 +25,7 @@
 #include "core/random.cpp"
 #include "core/assets.cpp"
 #include "core/string.cpp"
+#include "core/font.cpp"
 
 #include "vulkan_render.cpp"
 
@@ -54,18 +55,21 @@ struct GameReloadState {
     GameState     *game;
 };
 
-VulkanDevice *g_vulkan;
-GameState    *g_game;
 
 // NOTE(jesper): don't keep an address to these globals!!!!
-Matrix4      g_view_to_screen; // [-1  , 1]   -> [0, w]
-Matrix4      g_screen_to_view; // [0, w] -> [-1  , 1]
+Matrix4 g_view_to_screen; // [-1  , 1]   -> [0, w]
+Matrix4 g_screen_to_view; // [0, w] -> [-1  , 1]
 
 extern Settings      g_settings;
 extern PlatformState *g_platform;
+extern Catalog       g_catalog;
 
-extern Catalog      g_catalog;
-Terrain      g_terrain;
+Terrain        g_terrain;
+Array<Entity>  g_entities;
+Physics        g_physics;
+
+VulkanDevice *g_vulkan;
+GameState    *g_game;
 
 void debug_add_texture(const char *name,
                        AssetID tid,
@@ -109,28 +113,32 @@ void debug_add_texture(const char *name,
     array_add(&overlay->items, item);
 }
 
-Entity entities_add(Array<Entity> *entities, Vector3 pos)
+Entity entities_add(Vector3 pos)
 {
     Entity e   = {};
-    e.id       = (i32)entities->count;
+    e.id       = (i32)g_entities.count;
     e.position = pos;
 
-    i32 i = (i32)array_add(entities, e);
-    (*entities)[i].index = i;
+    i32 i = (i32)array_add(&g_entities, e);
+    g_entities[i].index = i;
 
     return e;
 }
 
-Array<Entity> entities_create()
+
+void init_entity_system()
 {
-    return array_create<Entity>(g_heap);
+    init_array(&g_entities, g_heap);
+
+    init_array(&g_physics.velocities, g_heap);
+    init_array(&g_physics.entities,   g_heap);
 }
 
 Entity* entity_find(i32 id)
 {
-    for (i32 i = 0; i < g_game->entities.count; i++) {
-        if (g_game->entities[i].id == id) {
-            return &g_game->entities[i];
+    for (i32 i = 0; i < g_entities.count; i++) {
+        if (g_entities[i].id == id) {
+            return &g_entities[i];
         }
     }
 
@@ -138,30 +146,20 @@ Entity* entity_find(i32 id)
     return nullptr;
 }
 
-Physics physics_create()
-{
-    Physics p = {};
-
-    p.velocities    = array_create<Vector3>(g_heap);
-    p.entities      = array_create<i32>(g_heap);
-
-    return p;
-}
-
-void physics_process(Physics *physics, f32 dt)
+void process_physics(f32 dt)
 {
     PROFILE_FUNCTION();
-    for (i32 i = 0; i < physics->velocities.count; i++) {
-        Entity *e    = entity_find(physics->entities[i]);
-        e->position += physics->velocities[i] * dt;
+    for (i32 i = 0; i < g_physics.velocities.count; i++) {
+        Entity *e    = entity_find(g_physics.entities[i]);
+        e->position += g_physics.velocities[i] * dt;
     }
 }
 
-i32 physics_add(Physics *physics, Entity entity)
+i32 physics_add(Entity entity)
 {
-    array_add(&physics->velocities,    {});
+    array_add(&g_physics.velocities, {});
 
-    i32 id = (i32)array_add(&physics->entities, entity.id);
+    i32 id = (i32)array_add(&g_physics.entities, entity.id);
     return id;
 }
 
@@ -171,12 +169,12 @@ void physics_remove(Physics *physics, i32 id)
     array_remove(&physics->entities,      id);
 }
 
-i32 physics_id(Physics *physics, i32 entity_id)
+i32 physics_id(i32 entity_id)
 {
     // TODO(jesper): make a more performant look-up
     i32 id = -1;
-    for (i32 i = 0; i < physics->entities.count; i++) {
-        if (physics->entities[i] == entity_id) {
+    for (i32 i = 0; i < g_physics.entities.count; i++) {
+        if (g_physics.entities[i] == entity_id) {
             id = i;
             break;
         }
@@ -263,30 +261,22 @@ void render_font(stbtt_bakedchar *font,
 
 void game_init()
 {
+    init_profiling();
+
     void *sp = g_stack->sp;
     defer { g_stack->reset(sp); };
 
     g_game = g_persistent->ialloc<GameState>();
 
-    init_profiling();
+    { // cameras and coordinate bases
+        f32 width = (f32)g_settings.video.resolution.width;
+        f32 height = (f32)g_settings.video.resolution.height;
+        f32 aspect = width / height;
+        f32 vfov   = radians(45.0f);
+        g_game->fp_camera.view       = Matrix4::identity();
+        g_game->fp_camera.position   = Vector3{0.0f, 5.0f, 0.0f};
+        g_game->fp_camera.projection = Matrix4::perspective(vfov, aspect, 0.1f, 10000.0f);
 
-    init_vulkan();
-    init_catalog_system();
-
-    f32 width = (f32)g_settings.video.resolution.width;
-    f32 height = (f32)g_settings.video.resolution.height;
-    f32 aspect = width / height;
-    f32 vfov   = radians(45.0f);
-
-    g_game->fp_camera.view       = Matrix4::identity();
-    g_game->fp_camera.position   = Vector3{0.0f, 5.0f, 0.0f};
-    g_game->fp_camera.projection = Matrix4::perspective(vfov, aspect, 0.1f, 10000.0f);
-
-    g_game->render_objects       = array_create<RenderObject>(g_persistent, 20);
-    g_game->index_render_objects = array_create<IndexRenderObject>(g_persistent, 20);
-
-
-    { // coordinate bases
         Matrix4 view = Matrix4::identity();
         view[0].x =  2.0f / width;
         view[3].x = -1.0f;
@@ -301,54 +291,19 @@ void game_init()
         g_view_to_screen = view;
     }
 
-    // create font atlas
     {
-        usize font_size;
-        char *font_path = resolve_path(GamePath_data, "fonts/Roboto-Regular.ttf", g_stack);
-        if (font_path != nullptr) {
-            u8 *font_data = (u8*)read_file(font_path, &font_size, g_frame);
-
-            u8 *bitmap = g_frame->alloc_array<u8>(1024*1024);
-            stbtt_BakeFontBitmap(font_data, 0, g_game->overlay.fsize, bitmap,
-                                 1024, 1024, 0, 256, g_game->overlay.font);
-
-            VkComponentMapping components = {};
-            components.a = VK_COMPONENT_SWIZZLE_R;
-            add_texture("font-regular", 1024, 1024, VK_FORMAT_R8_UNORM, bitmap,
-                        components);
-
-            // TODO(jesper): this size is really wrong
-            g_game->overlay.vbo = create_vbo(1024*1024);
-        }
+        init_array(&g_game->render_objects,       g_persistent, 20);
+        init_array(&g_game->index_render_objects, g_persistent, 20);
     }
 
+    init_vulkan();
+    init_entity_system();
+    init_catalog_system();
+    init_fonts();
 
-    // create pipelines
-    {
-        g_game->pipelines.mesh    = create_pipeline(Pipeline_mesh);
-        g_game->pipelines.basic2d = create_pipeline(Pipeline_basic2d);
-        g_game->pipelines.font    = create_pipeline(Pipeline_font);
-        g_game->pipelines.terrain = create_pipeline(Pipeline_terrain);
-    }
-
-    // create ubos
-    {
-        g_game->fp_camera.ubo = create_ubo(sizeof(Matrix4));
-
-        Matrix4 view_projection = g_game->fp_camera.projection * g_game->fp_camera.view;
-        buffer_data(g_game->fp_camera.ubo, &view_projection, 0, sizeof(view_projection));
-    }
-
-    // create materials
-    {
-        g_game->materials.font      = create_material(&g_game->pipelines.font, Material_basic2d);
-        g_game->materials.heightmap = create_material(&g_game->pipelines.basic2d, Material_basic2d);
-        g_game->materials.phong     = create_material(&g_game->pipelines.mesh, Material_phong);
-        g_game->materials.player    = create_material(&g_game->pipelines.mesh, Material_phong);
-    }
-
-    // update descriptor sets
-    {
+    { // update descriptor sets
+        // TODO(jesper): figure out a way for this to be done automatically by
+        // the asset loading system
         set_ubo(&g_game->pipelines.mesh, ResourceSlot_mvp, &g_game->fp_camera.ubo);
         set_ubo(&g_game->pipelines.terrain, ResourceSlot_mvp, &g_game->fp_camera.ubo);
 
@@ -361,11 +316,6 @@ void game_init()
         set_texture(&g_game->materials.player, ResourceSlot_diffuse, player);
     }
 
-    {
-        g_game->entities = entities_create();
-        g_game->physics  = physics_create();
-    }
-
     Random r = random_create(3);
     Mesh cube = load_mesh_obj("cube.obj");
 
@@ -374,8 +324,8 @@ void game_init()
         f32 y = -1.0f;
         f32 z = next_f32(&r) * 20.0f;
 
-        Entity player = entities_add(&g_game->entities, {x, y, z});
-        i32 pid = physics_add(&g_game->physics, player);
+        Entity player = entities_add({x, y, z});
+        i32 pid = physics_add(player);
         (void)pid;
 
         IndexRenderObject obj = {};
@@ -394,20 +344,13 @@ void game_init()
         array_add(&g_game->index_render_objects, obj);
     }
 
-    {
-        char *entity_path = resolve_path(GamePath_data, "entities/dummy.ent", g_stack);
-        i32 e = load_entity(entity_path);
-        assert(e != -1);
-    }
-
-
 #if 0
     for (i32 i = 0; i < 10; i++) {
         f32 x = next_f32(&r) * 20.0f;
         f32 y = -1.0f;
         f32 z = next_f32(&r) * 20.0f;
 
-        Entity e = entities_add(&g_game->entities, {x, y, z});
+        Entity e = entities_add({x, y, z});
         i32 pid  = physics_add(&g_game->physics, e);
         (void)pid;
 
@@ -753,20 +696,20 @@ void game_input(InputEvent event)
             }
             break;
         case Key_left: {
-            i32 pid = physics_id(&g_game->physics, 0);
-            g_game->physics.velocities[pid].x = 5.0f;
+            i32 pid = physics_id(0);
+            g_physics.velocities[pid].x = 5.0f;
         } break;
         case Key_right: {
-            i32 pid = physics_id(&g_game->physics, 0);
-            g_game->physics.velocities[pid].x = -5.0f;
+            i32 pid = physics_id(0);
+            g_physics.velocities[pid].x = -5.0f;
         } break;
         case Key_up: {
-            i32 pid = physics_id(&g_game->physics, 0);
-            g_game->physics.velocities[pid].z = 5.0f;
+            i32 pid = physics_id(0);
+            g_physics.velocities[pid].z = 5.0f;
         } break;
         case Key_down: {
-            i32 pid = physics_id(&g_game->physics, 0);
-            g_game->physics.velocities[pid].z = -5.0f;
+            i32 pid = physics_id(0);
+            g_physics.velocities[pid].z = -5.0f;
         } break;
         case Key_C:
             platform_toggle_raw_mouse();
@@ -829,8 +772,8 @@ void game_input(InputEvent event)
             }
             break;
         case Key_left: {
-            i32 pid = physics_id(&g_game->physics, 0);
-            g_game->physics.velocities[pid].x = 0.0f;
+            i32 pid = physics_id(0);
+            g_physics.velocities[pid].x = 0.0f;
 
             if (g_game->key_state[Key_right] == InputType_key_press) {
                 InputEvent e;
@@ -842,8 +785,8 @@ void game_input(InputEvent event)
             }
         } break;
         case Key_right: {
-            i32 pid = physics_id(&g_game->physics, 0);
-            g_game->physics.velocities[pid].x = 0.0f;
+            i32 pid = physics_id(0);
+            g_physics.velocities[pid].x = 0.0f;
 
             if (g_game->key_state[Key_left] == InputType_key_press) {
                 InputEvent e;
@@ -855,8 +798,8 @@ void game_input(InputEvent event)
             }
         } break;
         case Key_up: {
-            i32 pid = physics_id(&g_game->physics, 0);
-            g_game->physics.velocities[pid].z = 0.0f;
+            i32 pid = physics_id(0);
+            g_physics.velocities[pid].z = 0.0f;
 
             if (g_game->key_state[Key_down] == InputType_key_press) {
                 InputEvent e;
@@ -868,8 +811,8 @@ void game_input(InputEvent event)
             }
         } break;
         case Key_down: {
-            i32 pid = physics_id(&g_game->physics, 0);
-            g_game->physics.velocities[pid].z = 0.0f;
+            i32 pid = physics_id(0);
+            g_physics.velocities[pid].z = 0.0f;
 
             if (g_game->key_state[Key_up] == InputType_key_press) {
                 InputEvent e;
@@ -1087,7 +1030,7 @@ void game_update(f32 dt)
 
     process_catalog_system();
 
-    Entity &player = g_game->entities[0];
+    Entity &player = g_entities[0];
 
     {
         Quaternion r = Quaternion::make({0.0f, 1.0f, 0.0f}, 1.5f * dt);
@@ -1098,8 +1041,7 @@ void game_update(f32 dt)
     }
 
 
-    physics_process(&g_game->physics, dt);
-
+    process_physics(dt);
 
     {
         Vector3 &pos  = g_game->fp_camera.position;

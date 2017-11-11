@@ -1988,6 +1988,28 @@ void init_vulkan()
                                nullptr,
                                &g_vulkan->render_completed);
     assert(result == VK_SUCCESS);
+
+    { // create pipelines
+        g_game->pipelines.mesh    = create_pipeline(Pipeline_mesh);
+        g_game->pipelines.basic2d = create_pipeline(Pipeline_basic2d);
+        g_game->pipelines.font    = create_pipeline(Pipeline_font);
+        g_game->pipelines.terrain = create_pipeline(Pipeline_terrain);
+    }
+
+    { // create ubos
+        g_game->fp_camera.ubo = create_ubo(sizeof(Matrix4));
+
+        Matrix4 view_projection = g_game->fp_camera.projection * g_game->fp_camera.view;
+        buffer_data(g_game->fp_camera.ubo, &view_projection, 0, sizeof(view_projection));
+    }
+
+    // create materials
+    {
+        g_game->materials.font      = create_material(&g_game->pipelines.font, Material_basic2d);
+        g_game->materials.heightmap = create_material(&g_game->pipelines.basic2d, Material_basic2d);
+        g_game->materials.phong     = create_material(&g_game->pipelines.mesh, Material_phong);
+        g_game->materials.player    = create_material(&g_game->pipelines.mesh, Material_phong);
+    }
 }
 
 void destroy_pipeline(VulkanPipeline pipeline)

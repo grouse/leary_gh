@@ -25,10 +25,10 @@ struct Mesh {
     Array<u32>    indices;
 };
 
+extern Array<Entity> g_entities;
+
 Array<Texture> g_textures;
 Catalog        g_catalog;
-
-
 
 // NOTE(jesper): only Microsoft BMP version 3 is supported
 PACKED(struct BitmapFileHeader {
@@ -471,11 +471,17 @@ Texture* find_texture(const char *name)
     return &g_textures[*tid];
 }
 
-i32 load_entity(const char *p)
+EntityData parse_entity_data(Path p)
 {
     usize size;
-    char *fp = read_file(p, &size, g_frame);
-    assert(fp != nullptr);
+    char *fp = read_file(p.absolute.bytes, &size, g_frame);
+
+    if (fp == nullptr) {
+        DEBUG_LOG(Log_error, "unable to read entity file: %s", p.absolute.bytes);
+        return {};
+    }
+
+    EntityData data = {};
 
     Token t;
     Lexer l = create_lexer(fp, size);
@@ -483,19 +489,19 @@ i32 load_entity(const char *p)
     t = next_token(&l);
     if (t.type != Token::hash) {
         DEBUG_LOG(Log_error, "parse error in %s: expected version declaration");
-        return -1;
+        return {};
     }
 
     t = next_token(&l);
     if (t.type != Token::identifier || !is_identifier(t, "version")) {
         DEBUG_LOG(Log_error, "parse error in %s: expected version declaration", p);
-        return -1;
+        return {};
     }
 
     t = next_token(&l);
     if (t.type != Token::number) {
         DEBUG_LOG(Log_error, "parse error in %s: expected version number", p);
-        return -1;
+        return {};
     }
 
     i64 version = read_i64(t);
@@ -504,46 +510,49 @@ i32 load_entity(const char *p)
     t = next_token(&l);
     if (t.type != Token::identifier) {
         DEBUG_LOG(Log_error, "parse error in %s: expected identifier", p);
-        return -1;
+        return {};
     }
-
-    f32 x = 0.0f, y = 0.0f, z = 0.0f;
 
     while (t.type != Token::eof) {
         if (is_identifier(t, "position")) {
 
             t = next_token(&l);
-            x = read_f32(t);
+            data.position.x = read_f32(t);
 
             do t = next_token(&l);
             while (t.type != Token::comma);
 
             t = next_token(&l);
-            y = read_f32(t);
+            data.position.y = read_f32(t);
 
             do t = next_token(&l);
             while (t.type != Token::comma);
 
             t = next_token(&l);
-            z = read_f32(t);
+            data.position.z = read_f32(t);
 
             do t = next_token(&l);
             while (t.type != Token::semicolon);
-
-            DEBUG_LOG("entity pos: %f, %f, %f", x, y, z);
         } else {
             DEBUG_LOG(Log_error, "parse error %s:%d: unknown identifier: %.*s",
                       p, l.line_number, t.length, t.str);
-            return -1;
+            return {};
         }
 
         t = next_token(&l);
     }
 
-    Entity e = entities_add(&g_game->entities, {x, y, z});
+    data.valid = true;
+    return data;
+}
+
+i32 add_entity(Path p)
+{
+    EntityData data = parse_entity_data(p);
+    Entity e = entities_add(data.position);
 
     // TODO(jesper): determine if entity has physics enabled
-    i32 pid = physics_add(&g_game->physics, e);
+    i32 pid = physics_add(e);
     (void)pid;
 
     // TODO(jesper): find mesh in mesh table
@@ -562,7 +571,18 @@ i32 load_entity(const char *p)
     obj.ibo         = create_ibo(cube.indices.data, index_size);
 
     array_add(&g_game->index_render_objects, obj);
+
+    AssetID asset_id = g_catalog.next_asset_id++;
+
+    table_add(&g_catalog.assets,   p.filename.bytes, asset_id);
+    table_add(&g_catalog.entities, asset_id,         e.id);
+
     return 1;
+}
+
+i32 add_entity(const char *p)
+{
+    return add_entity(create_path(p));
 }
 
 void process_catalog_system()
@@ -608,14 +628,13 @@ CATALOG_CALLBACK(catalog_thread_proc)
     unlock_mutex(&g_catalog.mutex);
 }
 
-CATALOG_PROCESS_FUNC(process_texture_bmp)
+CATALOG_PROCESS_FUNC(catalog_process_bmp)
 {
     AssetID id = find_asset_id(path.filename.bytes);
     if (id == ASSET_INVALID_ID) {
         add_texture(path);
         return;
     }
-
 
     Texture *t = find_texture(id);
     if (t != nullptr) {
@@ -626,11 +645,23 @@ CATALOG_PROCESS_FUNC(process_texture_bmp)
     }
 }
 
-CATALOG_PROCESS_FUNC(process_entity)
-{
-    (void)path;
-}
 
+CATALOG_PROCESS_FUNC(catalog_process_entity)
+{
+    AssetID id = find_asset_id(path.filename.bytes);
+    if (id == ASSET_INVALID_ID) {
+        add_entity(path);
+        return;
+    }
+
+    EntityID *eid = table_find(&g_catalog.entities, id);
+    if (eid && *eid != ASSET_INVALID_ID) {
+        Entity &e = g_entities[*eid];
+
+        EntityData data = parse_entity_data(path);
+        e.position = data.position;
+    }
+}
 
 void init_catalog_system()
 {
@@ -647,10 +678,10 @@ void init_catalog_system()
     init_mutex(&g_catalog.mutex);
 
     array_add(&g_catalog.folders, resolve_path(GamePath_data, "textures", g_persistent));
-    table_add(&g_catalog.processes, "bmp", process_texture_bmp);
+    table_add(&g_catalog.processes, "bmp", catalog_process_bmp);
 
     array_add(&g_catalog.folders, resolve_path(GamePath_data, "entities", g_persistent));
-    table_add(&g_catalog.processes, "ent", process_entity);
+    table_add(&g_catalog.processes, "ent", catalog_process_entity);
 
     init_array(&g_textures, g_heap);
 

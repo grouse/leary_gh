@@ -81,11 +81,12 @@ struct String {
 
 struct Path {
     String absolute;
-    String filename; // TODO: should this be with or without extension?
-    String extension;
+    String filename;  // NOTE(jesper): includes extension
+    String extension; // NOTE(jesper): excluding .
 };
 
 
+Path create_path(const char *str);
 i32 string_length(const char *str);
 
 template<typename T>

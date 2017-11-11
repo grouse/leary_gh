@@ -38,6 +38,11 @@ struct Texture {
     VkDeviceMemory memory;
 };
 
+struct EntityData {
+    bool valid       = false;
+    Vector3 position = {};
+};
+
 struct Catalog {
     Array<char*> folders;
     const char *folder;

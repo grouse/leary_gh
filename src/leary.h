@@ -133,9 +133,6 @@ struct GameState {
 
     DebugOverlay overlay;
 
-    Array<Entity> entities;
-    Physics physics;
-
     Camera fp_camera = {};
 
     Array<RenderObject> render_objects;
@@ -167,8 +164,8 @@ INTROSPECT struct Settings
     VideoSettings video;
 };
 
-Entity entities_add(Array<Entity> *entities, Vector3 pos);
-i32 physics_add(Physics *physics, Entity entity);
+Entity entities_add(Vector3 pos);
+i32 physics_add(Entity entity);
 
 #endif /* LEARY_H */
 
