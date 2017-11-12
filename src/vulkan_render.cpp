@@ -1090,7 +1090,8 @@ VulkanPipeline create_pipeline(PipelineID id)
     raster.depthClampEnable        = VK_FALSE;
     raster.rasterizerDiscardEnable = VK_FALSE;
     raster.polygonMode             = VK_POLYGON_MODE_FILL;
-    raster.cullMode                = VK_CULL_MODE_NONE;
+    raster.frontFace               = VK_FRONT_FACE_CLOCKWISE;
+    raster.cullMode                = VK_CULL_MODE_BACK_BIT;
     raster.depthBiasEnable         = VK_FALSE;
     raster.lineWidth               = 1.0;
 
