@@ -446,19 +446,18 @@ void game_quit()
 
     vkQueueWaitIdle(g_vulkan->queue);
 
-    for (i32 i = 0; i < g_terrain.chunks.count; i++) {
-        buffer_destroy(g_terrain.chunks[i].vbo);
+    for (auto &it : g_terrain.chunks) {
+        buffer_destroy(it.vbo);
     }
 
-    for (int i = 0; i < g_game->overlay.items.count; i++) {
-        DebugOverlayItem &item = g_game->overlay.items[i];
+    for (auto &item : g_game->overlay.items) {
         if (item.type == Debug_render_item) {
             buffer_destroy(item.u.ritem.vbo);
         }
     }
 
-    for (i32 i = 0; i < g_textures.count; i++) {
-        destroy_texture(&g_textures[i]);
+    for (auto &it : g_textures) {
+        destroy_texture(&it);
     }
 
     buffer_destroy(g_game->overlay.vbo);
@@ -475,13 +474,13 @@ void game_quit()
     destroy_pipeline(g_game->pipelines.mesh);
     destroy_pipeline(g_game->pipelines.terrain);
 
-    for (i32 i = 0; i < g_game->render_objects.count; i++) {
-        buffer_destroy(g_game->render_objects[i].vbo);
+    for (auto &it : g_game->render_objects) {
+        buffer_destroy(it.vbo);
     }
 
-    for (i32 i = 0; i < g_game->index_render_objects.count; i++) {
-        buffer_destroy(g_game->index_render_objects[i].vbo);
-        buffer_destroy(g_game->index_render_objects[i].ibo);
+    for (auto &it : g_game->index_render_objects) {
+        buffer_destroy(it.vbo);
+        buffer_destroy(it.ibo);
     }
 
     buffer_destroy_ubo(g_game->fp_camera.ubo);
@@ -570,8 +569,8 @@ void game_input(InputEvent event)
             g_game->velocity.x = 3.0f;
             break;
         case Key_F:
-            for (int i = 0; i < g_game->overlay.items.count; i++) {
-                g_game->overlay.items[i].collapsed = !g_game->overlay.items[i].collapsed;
+            for (auto &item : g_game->overlay.items) {
+                item.collapsed = !item.collapsed;
             }
             break;
         case Key_left: {
@@ -714,9 +713,7 @@ void game_input(InputEvent event)
     } break;
     case InputType_mouse_press: {
         Vector2 p = { event.mouse.x, event.mouse.y };
-        for (u32 i = 0; i < g_game->overlay.items.count; i++) {
-            auto &item = g_game->overlay.items[i];
-
+        for (auto &item : g_game->overlay.items) {
             if (p.x >= item.tl.x && p.x <= item.br.x &&
                 p.y >= item.tl.y && p.y <= item.br.y)
             {
@@ -760,9 +757,7 @@ void process_debug_overlay(DebugOverlay *overlay, f32 dt)
              dt_ms, 1000.0f / dt_ms);
     render_font(font, buffer, &pos, vcount, mapped, &offset);
 
-    for (int i = 0; i < overlay->items.count; i++) {
-        DebugOverlayItem &item = overlay->items[i];
-
+    for (auto &item : overlay->items) {
         {
             f32 base_x = pos.x;
             item.tl = pos;
@@ -824,10 +819,9 @@ void process_debug_overlay(DebugOverlay *overlay, f32 dt)
 
             pos.x  = c0.x;
 
-
             ProfileTimers &timers = g_profile_timers_prev;
-            for (int j = 0; j < timers.count; j++) {
-                snprintf(buffer, buffer_size, "%s: ", timers.name[j]);
+            for (i32 i = 0; i < timers.count; i++) {
+                snprintf(buffer, buffer_size, "%s: ", timers.name[i]);
                 render_font(font, buffer, &pos, vcount, mapped, &offset);
 
                 if (pos.x >= c1.x) {
@@ -841,8 +835,8 @@ void process_debug_overlay(DebugOverlay *overlay, f32 dt)
 
             c1.x = MAX(c0.x + 250.0f, c1.x) + margin;
             pos.x  = c1.x;
-            for (int j = 0; j < timers.count; j++) {
-                snprintf(buffer, buffer_size, "%" PRIu64, timers.cycles[j]);
+            for (i32 i = 0; i < timers.count; i++) {
+                snprintf(buffer, buffer_size, "%" PRIu64, timers.cycles[i]);
                 render_font(font, buffer, &pos, vcount, mapped, &offset);
 
                 if (pos.x >= c2.x) {
@@ -856,8 +850,8 @@ void process_debug_overlay(DebugOverlay *overlay, f32 dt)
 
             c2.x = MAX(c1.x + 100.0f, c2.x) + margin;
             pos.x  = c2.x;
-            for (int j = 0; j < timers.count; j++) {
-                snprintf(buffer, buffer_size, "%u", timers.calls[j]);
+            for (i32 i = 0; i < timers.count; i++) {
+                snprintf(buffer, buffer_size, "%u", timers.calls[i]);
                 render_font(font, buffer, &pos, vcount, mapped, &offset);
 
                 if (pos.x >= c3.x) {
@@ -871,8 +865,8 @@ void process_debug_overlay(DebugOverlay *overlay, f32 dt)
 
             c3.x = MAX(c2.x + 75.0f, c3.x) + margin;
             pos.x  = c3.x;
-            for (int j = 0; j < timers.count; j++) {
-                snprintf(buffer, buffer_size, "%f", timers.cycles[j] / (f32)timers.calls[j]);
+            for (int i = 0; i < timers.count; i++) {
+                snprintf(buffer, buffer_size, "%f", timers.cycles[i] / (f32)timers.calls[i]);
                 render_font(font, buffer, &pos, vcount, mapped, &offset);
 
                 pos.x  = c3.x;
@@ -969,9 +963,7 @@ void render_terrain(VkCommandBuffer command)
                             descriptors.data,
                             0, nullptr);
 
-    for (i32 i = 0; i < g_terrain.chunks.count; i++) {
-        Terrain::Chunk &c = g_terrain.chunks[i];
-
+    for (auto &c : g_terrain.chunks) {
         vkCmdBindVertexBuffers(command, 0, 1, &c.vbo.handle, offsets);
         vkCmdDraw(command, (u32)c.vertices.count, 1, 0, 0);
     }
@@ -994,10 +986,7 @@ void game_render()
 
     render_terrain(command);
 
-
-    for (i32 i = 0; i < g_game->render_objects.count; i++) {
-        RenderObject &object = g_game->render_objects[i];
-
+    for (auto &object : g_game->render_objects) {
         vkCmdBindPipeline(command,
                           VK_PIPELINE_BIND_POINT_GRAPHICS,
                           object.pipeline.handle);
@@ -1020,9 +1009,7 @@ void game_render()
         vkCmdDraw(command, object.vertex_count, 1, 0, 0);
     }
 
-    for (i32 i = 0; i < g_game->index_render_objects.count; i++) {
-        IndexRenderObject &object = g_game->index_render_objects[i];
-
+    for (auto &object : g_game->index_render_objects) {
         vkCmdBindPipeline(command,
                           VK_PIPELINE_BIND_POINT_GRAPHICS,
                           object.pipeline.handle);
@@ -1091,9 +1078,8 @@ void game_render()
         vkCmdDraw(command, g_game->overlay.vertex_count, 1, 0, 0);
     }
 
-    for (int i = 0; i < g_game->overlay.render_queue.count; i++) {
-        auto &item = g_game->overlay.render_queue[i];
 
+    for (auto &item : g_game->overlay.render_queue) {
         vkCmdBindPipeline(command,
                           VK_PIPELINE_BIND_POINT_GRAPHICS,
                           item.pipeline->handle);

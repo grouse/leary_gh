@@ -30,6 +30,16 @@ struct Array {
         assert(i < count);
         return data[i];
     }
+
+    T* begin()
+    {
+        return &data[0];
+    }
+
+    T* end()
+    {
+        return &data[count];
+    }
 };
 
 template<typename T>
@@ -42,6 +52,16 @@ struct StaticArray {
     {
         assert(i < count);
         return data[i];
+    }
+
+    T* begin()
+    {
+        return &data[0];
+    }
+
+    T* end()
+    {
+        return &data[count];
     }
 };
 
