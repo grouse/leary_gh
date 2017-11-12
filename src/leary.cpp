@@ -136,6 +136,194 @@ void init_entity_system()
     init_array(&g_physics.entities,   g_heap);
 }
 
+void init_terrain()
+{
+    Texture *hm = find_texture("terrain.bmp");
+    assert(hm != nullptr);
+
+    struct Texel {
+        u8 r, g, b, a;
+    };
+
+    u32  vc       = hm->height * hm->width;
+    auto vertices = array_create<Vertex>(g_persistent, vc);
+
+    // TODO(jesper): move to settings/asset info/something
+    Vector3 w = { 50.0f, 50.0f, 5.0f };
+    f32 xx = w.x * 2.0f;
+    f32 yy = w.y * 2.0f;
+    f32 zz = w.z * 2.0f;
+
+    Matrix4 to_world = Matrix4::identity();
+    to_world[0].x = xx / (f32)hm->width;
+    to_world[3].x = -w.x;
+
+    to_world[1].y = zz / 255.0f;
+    to_world[3].y = -w.z;
+
+    to_world[2].z = yy / (f32)hm->height;
+    to_world[3].z = -w.y;
+
+    Vector2 uv_scale = { 0.5f, 0.5f };
+
+    for (u32 i = 0; i < hm->height-1; i++) {
+        for (u32 j = 0; j < hm->width-1; j++) {
+            Texel t0   = ((Texel*)hm->data)[i     * hm->width + j];
+            Texel t1   = ((Texel*)hm->data)[i     * hm->width + j+1];
+            Texel t2   = ((Texel*)hm->data)[(i+1) * hm->width + j+1];
+            Texel t3   = ((Texel*)hm->data)[(i+1) * hm->width + j];
+
+            Vector3 v0 = to_world * Vector3{ (f32)j,   (f32)t0.r, (f32)i   };
+            Vector3 v1 = to_world * Vector3{ (f32)j+1, (f32)t1.r, (f32)i   };
+            Vector3 v2 = to_world * Vector3{ (f32)j+1, (f32)t2.r, (f32)i+1 };
+            Vector3 v3 = to_world * Vector3{ (f32)j,   (f32)t3.r, (f32)i+1 };
+
+            Vector3 n = surface_normal(v0, v1, v2);
+            array_add(&vertices, { v0, n, uv_scale });
+            array_add(&vertices, { v1, n, uv_scale });
+            array_add(&vertices, { v2, n, uv_scale });
+
+            n = surface_normal(v0, v2, v3);
+            array_add(&vertices, { v0, n, uv_scale });
+            array_add(&vertices, { v2, n, uv_scale });
+            array_add(&vertices, { v3, n, uv_scale });
+        }
+    }
+
+    // NOTE(jesper): this is redundant; we're transforming the heightmap
+    // vertices to [-50,50] with to_world. Included for completeness when
+    // moving to arbitrary meshes
+    f32 min_x = F32_MAX, max_x = -F32_MAX;
+    f32 min_z = F32_MAX, max_z = -F32_MAX;
+    for (i32 i = 0; i < vertices.count; i++) {
+        if (vertices[i].p.x < min_x) {
+            min_x = vertices[i].p.x;
+        } else if (vertices[i].p.x > max_x) {
+            max_x = vertices[i].p.x;
+        }
+
+        if (vertices[i].p.z < min_z) {
+            min_z = vertices[i].p.z;
+        } else if (vertices[i].p.z > max_z) {
+            max_z = vertices[i].p.z;
+        }
+    }
+
+    Terrain t = {};
+    t.chunks = array_create<Terrain::Chunk>(g_heap, 4);
+    t.chunks.count = 4;
+
+    f32 mid_x = (min_x + max_x) / 2.0f;
+    f32 mid_z = (min_z + max_z) / 2.0f;
+    for (i32 i = 0; i < t.chunks.count; i++) {
+        t.chunks[i].vertices = array_create<Vertex>(g_heap);
+    }
+
+    for (i32 i = 0; i < vertices.count; i+= 3) {
+        Vertex v0 = vertices[i];
+        Vertex v1 = vertices[i+1];
+        Vertex v2 = vertices[i+2];
+
+        if (v0.p.x >= mid_x || v1.p.x >= mid_x || v2.p.x >= mid_x) {
+            if (v0.p.z >= mid_z || v1.p.z >= mid_z || v2.p.z >= mid_z) {
+                array_add(&t.chunks[0].vertices, v0);
+                array_add(&t.chunks[0].vertices, v1);
+                array_add(&t.chunks[0].vertices, v2);
+            } else {
+                array_add(&t.chunks[1].vertices, v0);
+                array_add(&t.chunks[1].vertices, v1);
+                array_add(&t.chunks[1].vertices, v2);
+            }
+        } else {
+            if (v0.p.z >= mid_z || v1.p.z >= mid_z || v2.p.z >= mid_z) {
+                array_add(&t.chunks[2].vertices, v0);
+                array_add(&t.chunks[2].vertices, v1);
+                array_add(&t.chunks[2].vertices, v2);
+            } else {
+                array_add(&t.chunks[3].vertices, v0);
+                array_add(&t.chunks[3].vertices, v1);
+                array_add(&t.chunks[3].vertices, v2);
+            }
+        }
+    }
+
+    t.pipeline = &g_game->pipelines.terrain;
+    t.material = &g_game->materials.terrain;
+    for (i32 i = 0; i < t.chunks.count; i++) {
+        Terrain::Chunk &c = t.chunks[i];
+
+        usize vertex_size = c.vertices.count * sizeof(c.vertices[0]);
+        c.vbo      = create_vbo(c.vertices.data, vertex_size);
+    }
+
+    g_terrain = t;
+    array_destroy(&vertices);
+#if 0
+    RenderObject ro = {};
+    ro.pipeline       = g_game->pipelines.terrain;
+
+    usize vertex_size = vertices.count * sizeof(vertices[0]);
+    ro.vertex_count   = vertices.count;
+    ro.vertices       = create_vbo(vertices.data, vertex_size);
+
+    array_add(&g_game->render_objects, ro);
+#endif
+    set_texture(&g_game->materials.heightmap, ResourceSlot_diffuse, hm);
+}
+
+void init_debug_overlay()
+{
+    g_game->overlay.items        = array_create<DebugOverlayItem>(g_heap);
+    g_game->overlay.render_queue = array_create<DebugRenderItem>(g_heap);
+
+    DebugOverlayItem allocators = {};
+    allocators.title    = "Allocators";
+    allocators.children = array_create<DebugOverlayItem*>(g_heap);
+    allocators.type     = Debug_allocators;
+
+    auto stack = g_heap->talloc<DebugOverlayItem>();
+    stack->type  = Debug_allocator_stack;
+    stack->title = "stack";
+    stack->u.data  = (void*)g_stack;
+    array_add(&allocators.children, stack);
+
+    auto frame = g_heap->talloc<DebugOverlayItem>();
+    frame->type  = Debug_allocator_stack;
+    frame->title = "frame";
+    frame->u.data  = (void*)g_frame;
+    array_add(&allocators.children, frame);
+
+    auto persistent = g_heap->talloc<DebugOverlayItem>();
+    persistent->type  = Debug_allocator_stack;
+    persistent->title = "persistent";
+    persistent->u.data  = (void*)g_persistent;
+    array_add(&allocators.children, persistent);
+
+    auto debug_frame = g_heap->talloc<DebugOverlayItem>();
+    debug_frame->type  = Debug_allocator_stack;
+    debug_frame->title = "debug_frame";
+    debug_frame->u.data  = (void*)g_debug_frame;
+    array_add(&allocators.children, debug_frame);
+
+    auto free_list = g_heap->talloc<DebugOverlayItem>();
+    free_list->type  = Debug_allocator_free_list;
+    free_list->title = "free list";
+    free_list->u.data  = (void*)g_heap;
+    array_add(&allocators.children, free_list);
+
+    array_add(&g_game->overlay.items, allocators);
+
+
+    DebugOverlayItem timers = {};
+    timers.title = "Profile Timers";
+    timers.type  = Debug_profile_timers;
+    array_add(&g_game->overlay.items, timers);
+
+    AssetID hmt = find_asset_id("terrain.bmp");
+    debug_add_texture("Terrain", hmt, g_game->materials.heightmap,
+                      &g_game->pipelines.basic2d, &g_game->overlay);
+}
+
 Entity* entity_find(i32 id)
 {
     for (i32 i = 0; i < g_entities.count; i++) {
@@ -186,81 +374,6 @@ i32 physics_id(i32 entity_id)
     return id;
 }
 
-void render_font(stbtt_bakedchar *font,
-                 const char *str,
-                 Vector2 *pos,
-                 i32 *out_vertex_count,
-                 void *buffer, usize *offset)
-{
-    i32 vertex_count = 0;
-
-    usize text_length = strlen(str);
-    if (text_length == 0) return;
-
-    usize vertices_size = sizeof(f32)*24*text_length;
-    auto vertices = (f32*)g_frame->alloc(vertices_size);
-
-    Matrix4 t = g_screen_to_view;
-
-    f32 bx = pos->x;
-
-    i32 vi = 0;
-    while (*str) {
-        char c = *str++;
-        if (c == '\n') {
-            pos->y += 20.0f;
-            pos->x  = bx;
-            vertices_size -= sizeof(f32)*4*6;
-            continue;
-        }
-
-        vertex_count += 6;
-
-        stbtt_aligned_quad q = {};
-        stbtt_GetBakedQuad(font, 1024, 1024, c, &pos->x, &pos->y, &q, 1);
-
-        Vector2 tl = t * Vector2{q.x0, q.y0 + 15.0f};
-        Vector2 tr = t * Vector2{q.x1, q.y0 + 15.0f};
-        Vector2 br = t * Vector2{q.x1, q.y1 + 15.0f};
-        Vector2 bl = t * Vector2{q.x0, q.y1 + 15.0f};
-
-        vertices[vi++] = tl.x;
-        vertices[vi++] = tl.y;
-        vertices[vi++] = q.s0;
-        vertices[vi++] = q.t0;
-
-        vertices[vi++] = tr.x;
-        vertices[vi++] = tr.y;
-        vertices[vi++] = q.s1;
-        vertices[vi++] = q.t0;
-
-        vertices[vi++] = br.x;
-        vertices[vi++] = br.y;
-        vertices[vi++] = q.s1;
-        vertices[vi++] = q.t1;
-
-        vertices[vi++] = br.x;
-        vertices[vi++] = br.y;
-        vertices[vi++] = q.s1;
-        vertices[vi++] = q.t1;
-
-        vertices[vi++] = bl.x;
-        vertices[vi++] = bl.y;
-        vertices[vi++] = q.s0;
-        vertices[vi++] = q.t1;
-
-        vertices[vi++] = tl.x;
-        vertices[vi++] = tl.y;
-        vertices[vi++] = q.s0;
-        vertices[vi++] = q.t0;
-    }
-
-    *out_vertex_count += vertex_count;
-
-    memcpy((void*)((uptr)buffer + *offset), vertices, vertices_size);
-    *offset += vertices_size;
-}
-
 void game_init()
 {
     init_profiling();
@@ -293,7 +406,7 @@ void game_init()
         g_view_to_screen = view;
     }
 
-    {
+    { // render objects
         init_array(&g_game->render_objects,       g_persistent, 20);
         init_array(&g_game->index_render_objects, g_persistent, 20);
     }
@@ -319,248 +432,10 @@ void game_init()
         set_texture(&g_game->materials.player,  ResourceSlot_diffuse, player);
     }
 
-    Random r = random_create(3);
-    Mesh cube = load_mesh_obj("cube.obj");
-
-    {
-        f32 x = next_f32(&r) * 20.0f;
-        f32 y = -1.0f;
-        f32 z = next_f32(&r) * 20.0f;
-
-        Entity player = entities_add({x, y, z});
-        i32 pid = physics_add(player);
-        (void)pid;
-
-        IndexRenderObject obj = {};
-        obj.material = &g_game->materials.player;
-
-        usize vertex_size = cube.vertices.count * sizeof(cube.vertices[0]);
-        usize index_size  = cube.indices.count  * sizeof(cube.indices[0]);
-
-        obj.entity_id   = player.id;
-        obj.pipeline    = g_game->pipelines.mesh;
-        obj.index_count = (i32)cube.indices.count;
-        obj.vbo         = create_vbo(cube.vertices.data, vertex_size);
-        obj.ibo         = create_ibo(cube.indices.data, index_size);
-
-        //obj.transform = translate(Matrix4::identity(), {x, y, z});
-        array_add(&g_game->index_render_objects, obj);
-    }
-
-#if 0
-    for (i32 i = 0; i < 10; i++) {
-        f32 x = next_f32(&r) * 20.0f;
-        f32 y = -1.0f;
-        f32 z = next_f32(&r) * 20.0f;
-
-        Entity e = entities_add({x, y, z});
-        i32 pid  = physics_add(&g_game->physics, e);
-        (void)pid;
-
-        IndexRenderObject obj = {};
-        obj.material = &g_game->materials.phong;
-
-        usize vertex_size = cube.vertices.count * sizeof(cube.vertices[0]);
-        usize index_size  = cube.indices.count  * sizeof(cube.indices[0]);
-
-        obj.entity_id   = e.id;
-        obj.pipeline    = g_game->pipelines.mesh;
-        obj.index_count = (i32)cube.indices.count;
-        obj.vbo         = create_vbo(cube.vertices.data, vertex_size);
-        obj.ibo         = create_ibo(cube.indices.data, index_size);
-
-        //obj.transform = translate(Matrix4::identity(), {x, y, z});
-        array_add(&g_game->index_render_objects, obj);
-    }
-#endif
-
-    {
-        Texture *hm = find_texture("terrain.bmp");
-        assert(hm != nullptr);
-
-        struct Texel {
-            u8 r, g, b, a;
-        };
-
-        u32  vc       = hm->height * hm->width;
-        auto vertices = array_create<Vertex>(g_persistent, vc);
-
-        // TODO(jesper): move to settings/asset info/something
-        Vector3 w = { 50.0f, 50.0f, 5.0f };
-        f32 xx = w.x * 2.0f;
-        f32 yy = w.y * 2.0f;
-        f32 zz = w.z * 2.0f;
-
-        Matrix4 to_world = Matrix4::identity();
-        to_world[0].x = xx / (f32)hm->width;
-        to_world[3].x = -w.x;
-
-        to_world[1].y = zz / 255.0f;
-        to_world[3].y = -w.z;
-
-        to_world[2].z = yy / (f32)hm->height;
-        to_world[3].z = -w.y;
-
-        Vector2 uv_scale = { 0.5f, 0.5f };
-
-        for (u32 i = 0; i < hm->height-1; i++) {
-            for (u32 j = 0; j < hm->width-1; j++) {
-                Texel t0   = ((Texel*)hm->data)[i     * hm->width + j];
-                Texel t1   = ((Texel*)hm->data)[i     * hm->width + j+1];
-                Texel t2   = ((Texel*)hm->data)[(i+1) * hm->width + j+1];
-                Texel t3   = ((Texel*)hm->data)[(i+1) * hm->width + j];
-
-                Vector3 v0 = to_world * Vector3{ (f32)j,   (f32)t0.r, (f32)i   };
-                Vector3 v1 = to_world * Vector3{ (f32)j+1, (f32)t1.r, (f32)i   };
-                Vector3 v2 = to_world * Vector3{ (f32)j+1, (f32)t2.r, (f32)i+1 };
-                Vector3 v3 = to_world * Vector3{ (f32)j,   (f32)t3.r, (f32)i+1 };
-
-                Vector3 n = surface_normal(v0, v1, v2);
-                array_add(&vertices, { v0, n, uv_scale });
-                array_add(&vertices, { v1, n, uv_scale });
-                array_add(&vertices, { v2, n, uv_scale });
-
-                n = surface_normal(v0, v2, v3);
-                array_add(&vertices, { v0, n, uv_scale });
-                array_add(&vertices, { v2, n, uv_scale });
-                array_add(&vertices, { v3, n, uv_scale });
-            }
-        }
-
-        // NOTE(jesper): this is redundant; we're transforming the heightmap
-        // vertices to [-50,50] with to_world. Included for completeness when
-        // moving to arbitrary meshes
-        f32 min_x = F32_MAX, max_x = -F32_MAX;
-        f32 min_z = F32_MAX, max_z = -F32_MAX;
-        for (i32 i = 0; i < vertices.count; i++) {
-            if (vertices[i].p.x < min_x) {
-                min_x = vertices[i].p.x;
-            } else if (vertices[i].p.x > max_x) {
-                max_x = vertices[i].p.x;
-            }
-
-            if (vertices[i].p.z < min_z) {
-                min_z = vertices[i].p.z;
-            } else if (vertices[i].p.z > max_z) {
-                max_z = vertices[i].p.z;
-            }
-        }
-
-        Terrain t = {};
-        t.chunks = array_create<Terrain::Chunk>(g_heap, 4);
-        t.chunks.count = 4;
-
-        f32 mid_x = (min_x + max_x) / 2.0f;
-        f32 mid_z = (min_z + max_z) / 2.0f;
-        for (i32 i = 0; i < t.chunks.count; i++) {
-            t.chunks[i].vertices = array_create<Vertex>(g_heap);
-        }
-
-        for (i32 i = 0; i < vertices.count; i+= 3) {
-            Vertex v0 = vertices[i];
-            Vertex v1 = vertices[i+1];
-            Vertex v2 = vertices[i+2];
-
-            if (v0.p.x >= mid_x || v1.p.x >= mid_x || v2.p.x >= mid_x) {
-                if (v0.p.z >= mid_z || v1.p.z >= mid_z || v2.p.z >= mid_z) {
-                    array_add(&t.chunks[0].vertices, v0);
-                    array_add(&t.chunks[0].vertices, v1);
-                    array_add(&t.chunks[0].vertices, v2);
-                } else {
-                    array_add(&t.chunks[1].vertices, v0);
-                    array_add(&t.chunks[1].vertices, v1);
-                    array_add(&t.chunks[1].vertices, v2);
-                }
-            } else {
-                if (v0.p.z >= mid_z || v1.p.z >= mid_z || v2.p.z >= mid_z) {
-                    array_add(&t.chunks[2].vertices, v0);
-                    array_add(&t.chunks[2].vertices, v1);
-                    array_add(&t.chunks[2].vertices, v2);
-                } else {
-                    array_add(&t.chunks[3].vertices, v0);
-                    array_add(&t.chunks[3].vertices, v1);
-                    array_add(&t.chunks[3].vertices, v2);
-                }
-            }
-        }
-
-        t.pipeline = &g_game->pipelines.terrain;
-        t.material = &g_game->materials.terrain;
-        for (i32 i = 0; i < t.chunks.count; i++) {
-            Terrain::Chunk &c = t.chunks[i];
-
-            usize vertex_size = c.vertices.count * sizeof(c.vertices[0]);
-            c.vbo      = create_vbo(c.vertices.data, vertex_size);
-        }
-
-        g_terrain = t;
-        array_destroy(&vertices);
-#if 0
-        RenderObject ro = {};
-        ro.pipeline       = g_game->pipelines.terrain;
-
-        usize vertex_size = vertices.count * sizeof(vertices[0]);
-        ro.vertex_count   = vertices.count;
-        ro.vertices       = create_vbo(vertices.data, vertex_size);
-
-        array_add(&g_game->render_objects, ro);
-#endif
-        set_texture(&g_game->materials.heightmap, ResourceSlot_diffuse, hm);
-
-    }
+    init_terrain();
+    init_debug_overlay();
 
     g_game->key_state = g_persistent->ialloc_array<i32>(256, InputType_key_release);
-
-    g_game->overlay.items        = array_create<DebugOverlayItem>(g_heap);
-    g_game->overlay.render_queue = array_create<DebugRenderItem>(g_heap);
-    {
-        DebugOverlayItem allocators = {};
-        allocators.title    = "Allocators";
-        allocators.children = array_create<DebugOverlayItem*>(g_heap);
-        allocators.type     = Debug_allocators;
-
-        auto stack = g_heap->talloc<DebugOverlayItem>();
-        stack->type  = Debug_allocator_stack;
-        stack->title = "stack";
-        stack->u.data  = (void*)g_stack;
-        array_add(&allocators.children, stack);
-
-        auto frame = g_heap->talloc<DebugOverlayItem>();
-        frame->type  = Debug_allocator_stack;
-        frame->title = "frame";
-        frame->u.data  = (void*)g_frame;
-        array_add(&allocators.children, frame);
-
-        auto persistent = g_heap->talloc<DebugOverlayItem>();
-        persistent->type  = Debug_allocator_stack;
-        persistent->title = "persistent";
-        persistent->u.data  = (void*)g_persistent;
-        array_add(&allocators.children, persistent);
-
-        auto debug_frame = g_heap->talloc<DebugOverlayItem>();
-        debug_frame->type  = Debug_allocator_stack;
-        debug_frame->title = "debug_frame";
-        debug_frame->u.data  = (void*)g_debug_frame;
-        array_add(&allocators.children, debug_frame);
-
-        auto free_list = g_heap->talloc<DebugOverlayItem>();
-        free_list->type  = Debug_allocator_free_list;
-        free_list->title = "free list";
-        free_list->u.data  = (void*)g_heap;
-        array_add(&allocators.children, free_list);
-
-        array_add(&g_game->overlay.items, allocators);
-
-
-        DebugOverlayItem timers = {};
-        timers.title = "Profile Timers";
-        timers.type  = Debug_profile_timers;
-        array_add(&g_game->overlay.items, timers);
-
-        AssetID hmt = find_asset_id("terrain.bmp");
-        debug_add_texture("Terrain", hmt, g_game->materials.heightmap,
-                          &g_game->pipelines.basic2d, &g_game->overlay);
-    }
 }
 
 void game_quit()
@@ -855,7 +730,7 @@ void game_input(InputEvent event)
     }
 }
 
-void debug_overlay_update(DebugOverlay *overlay, f32 dt)
+void process_debug_overlay(DebugOverlay *overlay, f32 dt)
 {
     PROFILE_FUNCTION();
 
@@ -1269,7 +1144,7 @@ void game_update_and_render(f32 dt)
     game_update(dt);
     game_render();
 
-    debug_overlay_update(&g_game->overlay, dt);
+    process_debug_overlay(&g_game->overlay, dt);
 
     g_frame->reset();
     g_debug_frame->reset();
