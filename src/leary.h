@@ -125,6 +125,7 @@ struct GameState {
     } pipelines;
 
     struct {
+        Material terrain;
         Material font;
         Material heightmap;
         Material phong;

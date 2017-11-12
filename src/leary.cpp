@@ -37,7 +37,9 @@ struct Terrain {
         VulkanBuffer vbo;
     };
     Array<Chunk> chunks;
+
     VulkanPipeline *pipeline;
+    Material       *material;
 };
 
 struct GameReloadState {
@@ -307,13 +309,14 @@ void game_init()
         set_ubo(&g_game->pipelines.mesh, ResourceSlot_mvp, &g_game->fp_camera.ubo);
         set_ubo(&g_game->pipelines.terrain, ResourceSlot_mvp, &g_game->fp_camera.ubo);
 
+        Texture *greybox = find_texture("greybox.bmp");
         Texture *font   = find_texture("font-regular");
-        Texture *cube   = find_texture("dummy.bmp");
         Texture *player = find_texture("player.bmp");
 
-        set_texture(&g_game->materials.font,   ResourceSlot_diffuse, font);
-        set_texture(&g_game->materials.phong,  ResourceSlot_diffuse, cube);
-        set_texture(&g_game->materials.player, ResourceSlot_diffuse, player);
+        set_texture(&g_game->materials.terrain, ResourceSlot_diffuse, greybox);
+        set_texture(&g_game->materials.font,    ResourceSlot_diffuse, font);
+        set_texture(&g_game->materials.phong,   ResourceSlot_diffuse, greybox);
+        set_texture(&g_game->materials.player,  ResourceSlot_diffuse, player);
     }
 
     Random r = random_create(3);
@@ -398,6 +401,8 @@ void game_init()
         to_world[2].z = yy / (f32)hm->height;
         to_world[3].z = -w.y;
 
+        Vector2 uv_scale = { 0.5f, 0.5f };
+
         for (u32 i = 0; i < hm->height-1; i++) {
             for (u32 j = 0; j < hm->width-1; j++) {
                 Texel t0   = ((Texel*)hm->data)[i     * hm->width + j];
@@ -411,14 +416,14 @@ void game_init()
                 Vector3 v3 = to_world * Vector3{ (f32)j,   (f32)t3.r, (f32)i+1 };
 
                 Vector3 n = surface_normal(v0, v1, v2);
-                array_add(&vertices, {v0, n, {}});
-                array_add(&vertices, {v1, n, {}});
-                array_add(&vertices, {v2, n, {}});
+                array_add(&vertices, { v0, n, uv_scale });
+                array_add(&vertices, { v1, n, uv_scale });
+                array_add(&vertices, { v2, n, uv_scale });
 
                 n = surface_normal(v0, v2, v3);
-                array_add(&vertices, {v0, n, {}});
-                array_add(&vertices, {v2, n, {}});
-                array_add(&vertices, {v3, n, {}});
+                array_add(&vertices, { v0, n, uv_scale });
+                array_add(&vertices, { v2, n, uv_scale });
+                array_add(&vertices, { v3, n, uv_scale });
             }
         }
 
@@ -480,6 +485,7 @@ void game_init()
         }
 
         t.pipeline = &g_game->pipelines.terrain;
+        t.material = &g_game->materials.terrain;
         for (i32 i = 0; i < t.chunks.count; i++) {
             Terrain::Chunk &c = t.chunks[i];
 
@@ -583,6 +589,7 @@ void game_quit()
     buffer_destroy(g_game->overlay.vbo);
     buffer_destroy(g_game->overlay.texture.vbo);
 
+    destroy_material(g_game->materials.terrain);
     destroy_material(g_game->materials.font);
     destroy_material(g_game->materials.heightmap);
     destroy_material(g_game->materials.phong);
@@ -1074,11 +1081,17 @@ void render_terrain(VkCommandBuffer command)
                       VK_PIPELINE_BIND_POINT_GRAPHICS,
                       g_terrain.pipeline->handle);
 
+    auto descriptors = array_create<VkDescriptorSet>(g_stack);
+    array_add(&descriptors, g_terrain.pipeline->descriptor_set);
+    array_add(&descriptors, g_terrain.material->descriptor_set);
+
+
     vkCmdBindDescriptorSets(command,
                             VK_PIPELINE_BIND_POINT_GRAPHICS,
                             g_terrain.pipeline->layout,
                             0,
-                            1, &g_terrain.pipeline->descriptor_set,
+                            (i32)descriptors.count,
+                            descriptors.data,
                             0, nullptr);
 
     for (i32 i = 0; i < g_terrain.chunks.count; i++) {

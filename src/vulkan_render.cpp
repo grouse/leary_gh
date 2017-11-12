@@ -687,9 +687,9 @@ VkSampler create_sampler()
     sampler_info.sType                   = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
     sampler_info.magFilter               = VK_FILTER_LINEAR;
     sampler_info.minFilter               = VK_FILTER_LINEAR;
-    sampler_info.addressModeU            = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    sampler_info.addressModeV            = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    sampler_info.addressModeW            = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    sampler_info.addressModeU            = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    sampler_info.addressModeV            = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    sampler_info.addressModeW            = VK_SAMPLER_ADDRESS_MODE_REPEAT;
     sampler_info.borderColor             = VK_BORDER_COLOR_INT_OPAQUE_WHITE;
     sampler_info.unnormalizedCoordinates = VK_FALSE;
     sampler_info.compareEnable           = VK_FALSE;
@@ -877,6 +877,7 @@ VulkanPipeline create_pipeline(PipelineID id)
     case Pipeline_font:
     case Pipeline_basic2d:
     case Pipeline_mesh:
+    case Pipeline_terrain:
         pipeline.sampler_count = 1;
         pipeline.samplers = g_persistent->alloc_array<VkSampler>(pipeline.sampler_count);
         pipeline.samplers[0] = create_sampler();
@@ -887,6 +888,7 @@ VulkanPipeline create_pipeline(PipelineID id)
     auto layouts = array_create<VkDescriptorSetLayout>(g_frame);
 
     switch (id) {
+    case Pipeline_basic2d:
     case Pipeline_font: {
         // material
         auto binds = array_create<VkDescriptorSetLayoutBinding>(g_stack);
@@ -910,29 +912,7 @@ VulkanPipeline create_pipeline(PipelineID id)
         assert(result == VK_SUCCESS);
         array_add(&layouts, pipeline.descriptor_layout_material);
     } break;
-    case Pipeline_basic2d: {
-        // material
-        auto binds = array_create<VkDescriptorSetLayoutBinding>(g_stack);
-        array_add(&binds, {
-            0,
-            VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-            1,
-            VK_SHADER_STAGE_FRAGMENT_BIT,
-            nullptr
-        });
-
-        VkDescriptorSetLayoutCreateInfo descriptor_layout_info = {};
-        descriptor_layout_info.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-        descriptor_layout_info.bindingCount = (i32)binds.count;
-        descriptor_layout_info.pBindings    = binds.data;
-
-        result = vkCreateDescriptorSetLayout(g_vulkan->handle,
-                                             &descriptor_layout_info,
-                                             nullptr,
-                                             &pipeline.descriptor_layout_material);
-        assert(result == VK_SUCCESS);
-        array_add(&layouts, pipeline.descriptor_layout_material);
-    } break;
+    case Pipeline_terrain:
     case Pipeline_mesh: {
         { // pipeline
             auto binds = array_create<VkDescriptorSetLayoutBinding>(g_stack);
@@ -982,31 +962,6 @@ VulkanPipeline create_pipeline(PipelineID id)
             array_add(&layouts, pipeline.descriptor_layout_material);
         }
     } break;
-    case Pipeline_terrain: {
-        { // pipeline
-            auto binds = array_create<VkDescriptorSetLayoutBinding>(g_stack);
-            array_add(&binds, {
-                0,
-                VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-                1,
-                VK_SHADER_STAGE_VERTEX_BIT,
-                nullptr
-            });
-
-            VkDescriptorSetLayoutCreateInfo layout_info = {};
-            layout_info.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-            layout_info.bindingCount = (u32)binds.count;
-            layout_info.pBindings    = binds.data;
-
-            result = vkCreateDescriptorSetLayout(g_vulkan->handle,
-                                                 &layout_info,
-                                                 nullptr,
-                                                 &pipeline.descriptor_layout_pipeline);
-            assert(result == VK_SUCCESS);
-
-            array_add(&layouts, pipeline.descriptor_layout_pipeline);
-        }
-    } break;
     }
 
     // NOTE(jesper): create a pool size descriptor for each type of
@@ -1020,6 +975,7 @@ VulkanPipeline create_pipeline(PipelineID id)
     dai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
 
     switch (id) {
+    case Pipeline_terrain:
     case Pipeline_mesh: {
         array_add(&psizes, { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         1 });
         //array_add(&pool_sizes, { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1 });
@@ -1030,16 +986,6 @@ VulkanPipeline create_pipeline(PipelineID id)
 
         dai.descriptorSetCount = 1;
         dai.pSetLayouts        = &layouts[0];
-    } break;
-    case Pipeline_terrain: {
-        array_add(&psizes, { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1 });
-
-        pool_info.poolSizeCount = (u32)psizes.count;
-        pool_info.pPoolSizes    = psizes.data;
-        pool_info.maxSets       = 1;
-
-        dai.descriptorSetCount = 1;
-        dai.pSetLayouts        = &pipeline.descriptor_layout_pipeline;
     } break;
     default: break;
     }
@@ -1099,12 +1045,6 @@ VulkanPipeline create_pipeline(PipelineID id)
         array_add(&vdescs, { 1, 0, VK_FORMAT_R32G32_SFLOAT, sizeof(f32) * 2 });
         break;
     case Pipeline_mesh:
-        array_add(&vbinds, { 0, sizeof(f32) * 8, VK_VERTEX_INPUT_RATE_VERTEX });
-
-        array_add(&vdescs, { 0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0 });
-        array_add(&vdescs, { 1, 0, VK_FORMAT_R32G32B32_SFLOAT, sizeof(f32) * 3 });
-        array_add(&vdescs, { 2, 0, VK_FORMAT_R32G32_SFLOAT,    sizeof(f32) * 6 });
-        break;
     case Pipeline_terrain:
         array_add(&vbinds, { 0, sizeof(f32) * 8, VK_VERTEX_INPUT_RATE_VERTEX });
 
@@ -1655,7 +1595,7 @@ void init_vulkan()
         app_info.pApplicationName   = "leary";
         app_info.applicationVersion = 1;
         app_info.pEngineName        = "leary";
-        app_info.apiVersion         = VK_MAKE_VERSION(1, 0, 37);
+        app_info.apiVersion         = VK_MAKE_VERSION(1, 0, 61);
 
         VkInstanceCreateInfo create_info = {};
         create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
@@ -2005,10 +1945,11 @@ void init_vulkan()
 
     // create materials
     {
-        g_game->materials.font      = create_material(&g_game->pipelines.font, Material_basic2d);
+        g_game->materials.terrain   = create_material(&g_game->pipelines.terrain, Material_phong);
+        g_game->materials.font      = create_material(&g_game->pipelines.font,    Material_basic2d);
         g_game->materials.heightmap = create_material(&g_game->pipelines.basic2d, Material_basic2d);
-        g_game->materials.phong     = create_material(&g_game->pipelines.mesh, Material_phong);
-        g_game->materials.player    = create_material(&g_game->pipelines.mesh, Material_phong);
+        g_game->materials.phong     = create_material(&g_game->pipelines.mesh,    Material_phong);
+        g_game->materials.player    = create_material(&g_game->pipelines.mesh,    Material_phong);
     }
 }
 
