@@ -411,7 +411,7 @@ void parse_struct_type_info(Lexer lexer, PreprocessorOutput *output)
         tinfo.name = string_duplicate(token.str, token.length);
         tinfo.type = type;
 
-        isize i = array_add(&struct_info.members, tinfo);
+        i32 i = array_add(&struct_info.members, tinfo);
 
         Token next = peek_next_token(lexer);
         if (next.type == Token::open_paren) {

@@ -18,7 +18,7 @@ Array<T> array_create(Allocator *allocator)
 }
 
 template<typename T>
-Array<T> array_create(Allocator *allocator, isize capacity)
+Array<T> array_create(Allocator *allocator, i32 capacity)
 {
     Array<T> a;
     a.allocator = allocator;
@@ -56,7 +56,7 @@ void array_destroy(Array<T> *a)
 }
 
 template<typename T>
-void array_resize(Array<T> *a, isize count)
+void array_resize(Array<T> *a, i32 count)
 {
     assert(a->count    == 0);
     assert(a->capacity == 0);
@@ -68,12 +68,12 @@ void array_resize(Array<T> *a, isize count)
 }
 
 template<typename T>
-isize array_add(Array<T> *a, T e)
+i32 array_add(Array<T> *a, T e)
 {
     assert(a->allocator != nullptr);
 
     if (a->count >= a->capacity) {
-        isize capacity = a->capacity == 0 ? 1 : a->capacity * 2;
+        i32 capacity = a->capacity == 0 ? 1 : a->capacity * 2;
         a->data        = a->allocator->realloc_array(a->data, capacity);
         a->capacity    = capacity;
     }
@@ -83,7 +83,7 @@ isize array_add(Array<T> *a, T e)
 }
 
 template<typename T>
-isize array_remove(Array<T> *a, isize i)
+i32 array_remove(Array<T> *a, i32 i)
 {
     if ((a->count - 1) == i) {
         return --a->count;
@@ -94,7 +94,7 @@ isize array_remove(Array<T> *a, isize i)
 }
 
 template<typename T>
-isize array_remove_ordered(Array<T> *a, isize i)
+i32 array_remove_ordered(Array<T> *a, i32 i)
 {
     if ((a->count - 1) == i) {
         return --a->count;
@@ -110,7 +110,7 @@ isize array_remove_ordered(Array<T> *a, isize i)
 
 
 template<typename T>
-StaticArray<T> array_create_static(void *data, isize capacity)
+StaticArray<T> array_create_static(void *data, i32 capacity)
 {
     StaticArray<T> a;
     a.data      = (T*)data;
@@ -120,7 +120,7 @@ StaticArray<T> array_create_static(void *data, isize capacity)
 }
 
 template<typename T>
-StaticArray<T> array_create_static(void* ptr, isize offset, isize capacity)
+StaticArray<T> array_create_static(void* ptr, i32 offset, i32 capacity)
 {
     StaticArray<T> a;
     a.data      = (T*)((u8*)ptr + offset);
@@ -137,7 +137,7 @@ void array_destroy(StaticArray<T> *a)
 }
 
 template<typename T>
-isize array_add(StaticArray<T> *a, T e)
+i32 array_add(StaticArray<T> *a, T e)
 {
     assert(a->count <= a->capacity);
 
@@ -146,7 +146,7 @@ isize array_add(StaticArray<T> *a, T e)
 }
 
 template<typename T>
-isize array_remove(StaticArray<T> *a, isize i)
+i32 array_remove(StaticArray<T> *a, i32 i)
 {
     if ((a->count - 1) == i) {
         return --a->count;

@@ -19,13 +19,13 @@
 
 template<typename T>
 struct Array {
-    T* data        = nullptr;
-    isize count    = 0;
-    isize capacity = 0;
+    T* data      = nullptr;
+    i32 count    = 0;
+    i32 capacity = 0;
 
     Allocator *allocator = nullptr;
 
-    T& operator[] (isize i)
+    T& operator[] (i32 i)
     {
         assert(i < count);
         return data[i];
@@ -44,11 +44,11 @@ struct Array {
 
 template<typename T>
 struct StaticArray {
-    T* data        = nullptr;
-    isize count    = 0;
-    isize capacity = 0;
+    T* data      = nullptr;
+    i32 count    = 0;
+    i32 capacity = 0;
 
-    T& operator[] (isize i)
+    T& operator[] (i32 i)
     {
         assert(i < count);
         return data[i];
@@ -110,7 +110,7 @@ Path create_path(const char *str);
 i32 string_length(const char *str);
 
 template<typename T>
-isize array_add(Array<T> *a, T e);
+i32 array_add(Array<T> *a, T e);
 
 #endif /* LEARY_CORE_H */
 

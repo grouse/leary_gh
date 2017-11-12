@@ -35,7 +35,7 @@ V* table_add(HashTable<K, V> *table, K key, V value)
     }
 
     Pair<K, V> pair = { key, value };
-    isize i = array_add(&table->table[index], pair);
+    i32 i = array_add(&table->table[index], pair);
     return &table->table[index][i].value;
 }
 
@@ -57,7 +57,7 @@ V* table_add(HashTable<const char*, V> *table, const char *key, V value)
     }
 
     Pair<const char*, V> pair = { key, value };
-    isize i = array_add(&table->table[index], pair);
+    i32 i = array_add(&table->table[index], pair);
     return &table->table[index][i].value;
 }
 
@@ -79,7 +79,7 @@ V* table_add(HashTable<char*, V> *table, char *key, V value)
     }
 
     Pair<char*, V> pair = { key, value };
-    isize i = array_add(&table->table[index], pair);
+    i32 i = array_add(&table->table[index], pair);
     return &table->table[index][i].value;
 }
 
@@ -101,7 +101,7 @@ V* table_add(HashTable<char*, V> *table, const char *key, V value)
     }
 
     Pair<char*, V> pair = { (char*)key, value };
-    isize i = array_add(&table->table[index], pair);
+    i32 i = array_add(&table->table[index], pair);
     return &table->table[index][i].value;
 }
 
