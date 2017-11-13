@@ -9,7 +9,7 @@
 #include "core.h"
 
 template<typename T>
-Array<T> array_create(Allocator *allocator)
+Array<T> create_array(Allocator *allocator)
 {
     Array<T> a  = {};
     a.allocator = allocator;
@@ -18,7 +18,7 @@ Array<T> array_create(Allocator *allocator)
 }
 
 template<typename T>
-Array<T> array_create(Allocator *allocator, i32 capacity)
+Array<T> create_array(Allocator *allocator, i32 capacity)
 {
     Array<T> a;
     a.allocator = allocator;
@@ -51,6 +51,7 @@ template<typename T>
 void array_destroy(Array<T> *a)
 {
     a->allocator->dealloc(a->data);
+    a->data     = nullptr;
     a->capacity = 0;
     a->count    = 0;
 }
@@ -110,7 +111,7 @@ i32 array_remove_ordered(Array<T> *a, i32 i)
 
 
 template<typename T>
-StaticArray<T> array_create_static(void *data, i32 capacity)
+StaticArray<T> create_static_array(void *data, i32 capacity)
 {
     StaticArray<T> a;
     a.data      = (T*)data;
@@ -120,7 +121,7 @@ StaticArray<T> array_create_static(void *data, i32 capacity)
 }
 
 template<typename T>
-StaticArray<T> array_create_static(void* ptr, i32 offset, i32 capacity)
+StaticArray<T> create_static_array(void* ptr, i32 offset, i32 capacity)
 {
     StaticArray<T> a;
     a.data      = (T*)((u8*)ptr + offset);
@@ -132,6 +133,7 @@ StaticArray<T> array_create_static(void* ptr, i32 offset, i32 capacity)
 template<typename T>
 void array_destroy(StaticArray<T> *a)
 {
+    a->data     = nullptr;
     a->capacity = 0;
     a->count    = 0;
 }

@@ -281,7 +281,7 @@ void parse_array_function(Lexer lexer,
     Token t, rettype;
 
     ArrayFunction f = {};
-    f.params = array_create<Parameter>(allocator);
+    f.params = create_array<Parameter>(allocator);
 
     rettype = next_token(&lexer);
     if (is_identifier(rettype, "ARRAY")) {
@@ -364,7 +364,7 @@ void parse_struct_type_info(Lexer lexer, PreprocessorOutput *output)
     do token = next_token(&lexer);
     while (token.type != Token::open_curly_brace);
 
-    struct_info.members = array_create<TypeInfo>(output->structs.allocator);
+    struct_info.members = create_array<TypeInfo>(output->structs.allocator);
 
     do {
         Lexer line_start = lexer;
@@ -550,11 +550,11 @@ int main(int argc, char **argv)
     };
 
     PreprocessorOutput output = {};
-    output.structs  = array_create<StructInfo>(&allocator);
-    output.arrays   = array_create<char*>(&allocator);
-    output.sarrays  = array_create<char*>(&allocator);
-    output.afuncs   = array_create<ArrayFunction>(&allocator);
-    output.astructs = array_create<ArrayStruct>(&allocator);
+    output.structs  = create_array<StructInfo>(&allocator);
+    output.arrays   = create_array<char*>(&allocator);
+    output.sarrays  = create_array<char*>(&allocator);
+    output.afuncs   = create_array<ArrayFunction>(&allocator);
+    output.astructs = create_array<ArrayStruct>(&allocator);
 
 
     i32 num_files = ARRAY_SIZE(files);

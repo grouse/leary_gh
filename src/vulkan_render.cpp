@@ -885,13 +885,13 @@ VulkanPipeline create_pipeline(PipelineID id)
     default: break;
     }
 
-    auto layouts = array_create<VkDescriptorSetLayout>(g_frame);
+    auto layouts = create_array<VkDescriptorSetLayout>(g_frame);
 
     switch (id) {
     case Pipeline_basic2d:
     case Pipeline_font: {
         // material
-        auto binds = array_create<VkDescriptorSetLayoutBinding>(g_stack);
+        auto binds = create_array<VkDescriptorSetLayoutBinding>(g_stack);
         array_add(&binds, {
             0,
             VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
@@ -915,7 +915,7 @@ VulkanPipeline create_pipeline(PipelineID id)
     case Pipeline_terrain:
     case Pipeline_mesh: {
         { // pipeline
-            auto binds = array_create<VkDescriptorSetLayoutBinding>(g_stack);
+            auto binds = create_array<VkDescriptorSetLayoutBinding>(g_stack);
             array_add(&binds, {
                 0,
                 VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
@@ -939,7 +939,7 @@ VulkanPipeline create_pipeline(PipelineID id)
         }
 
         { // material
-            auto binds = array_create<VkDescriptorSetLayoutBinding>(g_stack);
+            auto binds = create_array<VkDescriptorSetLayoutBinding>(g_stack);
             array_add(&binds, {
                 0,
                 VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
@@ -966,7 +966,7 @@ VulkanPipeline create_pipeline(PipelineID id)
 
     // NOTE(jesper): create a pool size descriptor for each type of
     // descriptor this shader program uses
-    auto psizes = array_create<VkDescriptorPoolSize>(g_stack);
+    auto psizes = create_array<VkDescriptorPoolSize>(g_stack);
 
     VkDescriptorPoolCreateInfo pool_info = {};
     pool_info.sType  = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -1028,8 +1028,8 @@ VulkanPipeline create_pipeline(PipelineID id)
                                     &pipeline.layout);
     assert(result == VK_SUCCESS);
 
-    auto vbinds = array_create<VkVertexInputBindingDescription>(g_stack);
-    auto vdescs = array_create<VkVertexInputAttributeDescription>(g_stack);
+    auto vbinds = create_array<VkVertexInputBindingDescription>(g_stack);
+    auto vdescs = create_array<VkVertexInputAttributeDescription>(g_stack);
 
     switch (id) {
     case Pipeline_font:
@@ -1137,7 +1137,7 @@ VulkanPipeline create_pipeline(PipelineID id)
 
     // NOTE(jesper): it seems like it'd be worth creating and caching this
     // inside the VulkanShader objects
-    auto stages = array_create<VkPipelineShaderStageCreateInfo>(g_stack);
+    auto stages = create_array<VkPipelineShaderStageCreateInfo>(g_stack);
     array_add(&stages, {
         VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
         nullptr, 0,
@@ -1800,14 +1800,14 @@ void init_vulkan()
                                      &g_vulkan->command_pool);
         assert(result == VK_SUCCESS);
 
-        g_vulkan->commands_queued               = array_create<VkCommandBuffer>(g_heap);
+        g_vulkan->commands_queued               = create_array<VkCommandBuffer>(g_heap);
 
-        g_vulkan->semaphores_submit_wait        = array_create<VkSemaphore>(g_heap);
-        g_vulkan->semaphores_submit_wait_stages = array_create<VkPipelineStageFlags>(g_heap);
+        g_vulkan->semaphores_submit_wait        = create_array<VkSemaphore>(g_heap);
+        g_vulkan->semaphores_submit_wait_stages = create_array<VkPipelineStageFlags>(g_heap);
 
-        g_vulkan->semaphores_submit_signal      = array_create<VkSemaphore>(g_heap);
+        g_vulkan->semaphores_submit_signal      = create_array<VkSemaphore>(g_heap);
 
-        g_vulkan->present_semaphores = array_create<VkSemaphore>(g_heap);
+        g_vulkan->present_semaphores = create_array<VkSemaphore>(g_heap);
     }
 
 
@@ -1824,7 +1824,7 @@ void init_vulkan()
      * Create vkRenderPass
      *************************************************************************/
     {
-        auto descs = array_create<VkAttachmentDescription>(g_stack);
+        auto descs = create_array<VkAttachmentDescription>(g_stack);
         array_add(&descs, {
              0,
              g_vulkan->swapchain.format,
@@ -1849,7 +1849,7 @@ void init_vulkan()
             VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
         });
 
-        auto color = array_create<VkAttachmentReference>(g_stack);
+        auto color = create_array<VkAttachmentReference>(g_stack);
         array_add(&color, { 0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL });
 
         VkAttachmentReference depth = {
@@ -1884,7 +1884,7 @@ void init_vulkan()
      *************************************************************************/
     {
         auto buffer = g_persistent->alloc_array<VkFramebuffer>(g_vulkan->swapchain.images_count);
-        g_vulkan->framebuffers = array_create_static<VkFramebuffer>(buffer, g_vulkan->swapchain.images_count);
+        g_vulkan->framebuffers = create_static_array<VkFramebuffer>(buffer, g_vulkan->swapchain.images_count);
 
         VkFramebufferCreateInfo create_info = {};
         create_info.sType           = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
@@ -2193,7 +2193,7 @@ Material create_material(VulkanPipeline *pipeline, MaterialID id)
     mat.id       = id;
     mat.pipeline = pipeline;
 
-    auto pool_sizes = array_create<VkDescriptorPoolSize>(g_frame);
+    auto pool_sizes = create_array<VkDescriptorPoolSize>(g_frame);
 
     switch (id) {
     case Material_phong: {

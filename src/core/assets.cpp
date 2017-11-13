@@ -202,9 +202,9 @@ Mesh load_mesh_obj(const char *filename)
 
     i32 num_faces   = 0;
 
-    auto vectors = array_create<Vector3>(g_heap);
-    auto normals = array_create<Vector3>(g_frame);
-    auto uvs     = array_create<Vector2>(g_frame);
+    auto vectors = create_array<Vector3>(g_heap);
+    auto normals = create_array<Vector3>(g_frame);
+    auto uvs     = create_array<Vector2>(g_frame);
 
     char *ptr = file;
     while (ptr < end) {
@@ -264,7 +264,7 @@ Mesh load_mesh_obj(const char *filename)
     LOG("-- uvs     : %d", uvs.count);
     LOG("-- faces   : %d", num_faces);
 
-    auto vertices = array_create<Vertex>(g_frame);
+    auto vertices = create_array<Vertex>(g_frame);
 
     ptr = file;
     while (ptr < end) {
@@ -311,8 +311,8 @@ Mesh load_mesh_obj(const char *filename)
         while (ptr < end && is_newline(ptr[0]));
     }
 
-    mesh.vertices = array_create<Vertex>(g_persistent);
-    mesh.indices  = array_create<u32>(g_persistent);
+    mesh.vertices = create_array<Vertex>(g_persistent);
+    mesh.indices  = create_array<u32>(g_persistent);
 
     i32 j = 0;
     for (i32 i = 0; i < vertices.count; i++) {

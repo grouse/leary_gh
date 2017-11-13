@@ -110,7 +110,7 @@ void debug_add_texture(const char *name,
     item.u.ritem.vbo = create_vbo(vertices, sizeof(vertices) * sizeof(f32));
     item.u.ritem.vertex_count = 6;
 
-    item.u.ritem.descriptors = array_create<VkDescriptorSet>(g_heap, 1);
+    item.u.ritem.descriptors = create_array<VkDescriptorSet>(g_heap, 1);
     array_add(&item.u.ritem.descriptors, material.descriptor_set);
     array_add(&overlay->items, item);
 }
@@ -146,7 +146,7 @@ void init_terrain()
     };
 
     u32  vc       = hm->height * hm->width;
-    auto vertices = array_create<Vertex>(g_persistent, vc);
+    auto vertices = create_array<Vertex>(g_persistent, vc);
 
     // TODO(jesper): move to settings/asset info/something
     Vector3 w = { 50.0f, 50.0f, 5.0f };
@@ -210,13 +210,13 @@ void init_terrain()
     }
 
     Terrain t = {};
-    t.chunks = array_create<Terrain::Chunk>(g_heap, 4);
+    t.chunks = create_array<Terrain::Chunk>(g_heap, 4);
     t.chunks.count = 4;
 
     f32 mid_x = (min_x + max_x) / 2.0f;
     f32 mid_z = (min_z + max_z) / 2.0f;
     for (i32 i = 0; i < t.chunks.count; i++) {
-        t.chunks[i].vertices = array_create<Vertex>(g_heap);
+        t.chunks[i].vertices = create_array<Vertex>(g_heap);
     }
 
     for (i32 i = 0; i < vertices.count; i+= 3) {
@@ -273,12 +273,12 @@ void init_terrain()
 
 void init_debug_overlay()
 {
-    g_game->overlay.items        = array_create<DebugOverlayItem>(g_heap);
-    g_game->overlay.render_queue = array_create<DebugRenderItem>(g_heap);
+    g_game->overlay.items        = create_array<DebugOverlayItem>(g_heap);
+    g_game->overlay.render_queue = create_array<DebugRenderItem>(g_heap);
 
     DebugOverlayItem allocators = {};
     allocators.title    = "Allocators";
-    allocators.children = array_create<DebugOverlayItem*>(g_heap);
+    allocators.children = create_array<DebugOverlayItem*>(g_heap);
     allocators.type     = Debug_allocators;
 
     auto stack = g_heap->talloc<DebugOverlayItem>();
@@ -950,7 +950,7 @@ void render_terrain(VkCommandBuffer command)
                       VK_PIPELINE_BIND_POINT_GRAPHICS,
                       g_terrain.pipeline->handle);
 
-    auto descriptors = array_create<VkDescriptorSet>(g_stack);
+    auto descriptors = create_array<VkDescriptorSet>(g_stack);
     array_add(&descriptors, g_terrain.pipeline->descriptor_set);
     array_add(&descriptors, g_terrain.material->descriptor_set);
 
@@ -1017,7 +1017,7 @@ void game_render()
         // TODO(jesper): bind material descriptor set if bound
         // TODO(jesper): only bind pipeline descriptor set if one exists, might
         // be such a special case that we should hardcode it?
-        auto descriptors = array_create<VkDescriptorSet>(g_stack);
+        auto descriptors = create_array<VkDescriptorSet>(g_stack);
         defer { array_destroy(&descriptors); };
 
         array_add(&descriptors, object.pipeline.descriptor_set);
@@ -1057,7 +1057,7 @@ void game_render()
                       g_game->pipelines.font.handle);
 
 
-    auto descriptors = array_create<VkDescriptorSet>(g_stack);
+    auto descriptors = create_array<VkDescriptorSet>(g_stack);
     array_add(&descriptors, g_game->materials.font.descriptor_set);
 
     vkCmdBindDescriptorSets(command,
