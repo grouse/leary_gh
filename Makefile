@@ -45,9 +45,6 @@ TOOLS_FLAGS = $(FLAGS) $(WARNINGS) $(UNOPTIMIZED) $(INCLUDE_DIR)
 $(BUILD)/preprocessor: FORCE
 	$(CXX) $(TOOLS_FLAGS) $(ROOT)/tools/preprocessor.cpp -o $@
 
-$(BUILD)/benchmark: FORCE
-	$(CXX) $(TOOLS_FLAGS) -O2 $(ROOT)/tools/benchmark.cpp -o $@
-
 tools: $(BUILD)/preprocessor
 
 TESTS_FLAGS = $(FLAGS) $(WARNINGS) $(UNOPTIMIZED) $(INCLUDE_DIR)
@@ -57,7 +54,7 @@ tests: $(BUILD)/tests
 
 BENCHMARKS_FLAGS = $(FLAGS) $(WARNINGS) $(UNOPTIMIZED) $(INCLUDE_DIR)
 $(BUILD)/benchmarks: FORCE
-	$(CXX) $(TOOLS_FLAGS) $(ROOT)/benchmarks/main.cpp -o $@
+	$(CXX) $(TOOLS_FLAGS) -O2 $(ROOT)/benchmarks/main.cpp -o $@
 benchmarks: $(BUILD)/benchmarks
 
 all: shaders tools leary tests benchmarks
