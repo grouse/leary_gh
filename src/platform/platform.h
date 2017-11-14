@@ -50,6 +50,10 @@
 #endif
 
 
+#ifndef LEARY_ENABLE_LOGGING
+#define LEARY_ENABLE_LOGGING 1
+#endif
+
 // -- platform generic includes
 #include <cstring>
 

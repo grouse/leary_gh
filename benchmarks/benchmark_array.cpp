@@ -6,8 +6,94 @@
  * Copyright (c) 2017 - all rights reserved
  */
 
-#include <vector>
+BENCHMARK_FUNC(array_remove_front)
+{
+    struct s4b { i32 a[1]; };
 
+    Array<s4b> arr = {};
+    arr.allocator  = &g_allocator;
+
+    array_resize(&arr, state->max_iterations);
+    defer { array_destroy(&arr); };
+
+    while (keep_running(state)) {
+
+        start_timing(state);
+        array_remove(&arr, 0);
+        stop_timing(state);
+    }
+}
+BENCHMARK(array_remove_front);
+
+BENCHMARK_FUNC(array_remove_ordered)
+{
+    struct s4b { i32 a[1]; };
+
+    Array<s4b> arr = {};
+    arr.allocator = &g_allocator;
+
+    array_resize(&arr, state->max_iterations);
+    defer { array_destroy(&arr); };
+
+    while (keep_running(state)) {
+        start_timing(state);
+        array_remove_ordered(&arr, 0);
+        stop_timing(state);
+    }
+
+}
+BENCHMARK(array_remove_ordered);
+
+BENCHMARK_FUNC(array_remove_back)
+{
+    struct s4b { i32 a[1]; };
+
+    Array<s4b> arr = {};
+    arr.allocator = &g_allocator;
+
+    array_resize(&arr, state->max_iterations);
+    defer { array_destroy(&arr); };
+
+    while (keep_running(state)) {
+        start_timing(state);
+        array_remove(&arr, arr.count-1);
+        stop_timing(state);
+    }
+
+}
+BENCHMARK(array_remove_back);
+
+BENCHMARK_FUNC(std_vector_remove_front)
+{
+    struct s4b { i32 a[1]; };
+    std::vector<s4b> v;
+
+    while (keep_running(state)) {
+        v.resize(state->max_iterations);
+
+        start_timing(state);
+        v.erase(v.begin());
+        stop_timing(state);
+    }
+}
+BENCHMARK(std_vector_remove_front);
+
+BENCHMARK_FUNC(std_vector_remove_back)
+{
+    struct s4b { i32 a[1]; };
+    std::vector<s4b> v;
+
+    while (keep_running(state)) {
+        v.resize(state->max_iterations);
+
+        start_timing(state);
+        v.erase(v.end() - 1);
+        stop_timing(state);
+    }
+}
+BENCHMARK(std_vector_remove_back);
+
+#if 0
 void benchmark_removal_back()
 {
     SystemAllocator allocator = {};
@@ -375,4 +461,4 @@ void benchmark_array()
     benchmark_removal_back();
 }
 
-
+#endif

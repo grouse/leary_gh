@@ -7,15 +7,15 @@
  */
 
 #include <time.h>
+#include <vector>
 
-#include "leary.h"
+#define LEARY_ENABLE_LOGGING 0
+
 #include "platform/platform.h"
 
 #include "core/lexer.cpp"
 #include "core/allocator.cpp"
 #include "core/array.cpp"
-
-LinearAllocator *g_debug_frame;
 
 #if defined(_WIN32)
     #include "platform/win32_debug.cpp"
@@ -27,27 +27,31 @@ LinearAllocator *g_debug_frame;
     #error "unsupported platform"
 #endif
 
+#if defined(__clang__)
+#define DONT_OPTIMIZE(value) asm volatile("" : : "g"(value) : "memory")
+#else
+#define DONT_OPTIMIZE(value) asm volatile("" : : "i,r,m"(value) : "memory")
+#endif
 
-timespec get_time()
+#define CLOBBER_MEMORY() asm volatile("" : : : "memory")
+
+#define DIVIDER "-----------------------------------------------------------------------------------------------------------------------------------------------------"
+
+u64 get_time()
 {
-    timespec ts;
-    i32 result = clock_gettime(CLOCK_MONOTONIC, &ts);
-    (void)result;
-    return ts;
+#if defined(__x86_64__) || defined(__amd64__)
+  u64 low, high;
+  __asm__ volatile("rdtsc" : "=a"(low), "=d"(high));
+  return (high << 32) | low;
+#endif
 }
 
-i64 get_time_difference(timespec start, timespec end)
-{
-    i64 difference = (end.tv_sec - start.tv_sec) * 1000000000 +
-                     (end.tv_nsec - start.tv_nsec);
-    return difference;
-}
+#define MCOMBINE2(a, b) a ## b
+#define MCOMBINE(a, b) MCOMBINE2(a, b)
 
-#include "benchmark_array.cpp"
-
-#define BENCHMARK_FUNC(name) void benchmark_##name(Benchmark *state)
+#define BENCHMARK_FUNC(name) void MCOMBINE(benchmark_, name)(Benchmark *state)
 #define BENCHMARK(name) \
-    static Benchmark benchmark_var_##name = create_benchmark(#name, &benchmark_##name)
+    static Benchmark MCOMBINE(benchmark_var_, name) = create_benchmark(#name, &benchmark_##name)
 
 struct Benchmark;
 typedef void benchmark_t(Benchmark *);
@@ -56,11 +60,14 @@ struct Benchmark {
     const char  *name;
     benchmark_t *func;
 
-    timespec start_time;
-    timespec end_time;
-    i64 total_duration = 0;
+    u64 start_time     = 0;
+    u64 end_time       = 0;
+    u64 total_duration = 0;
+
     i32 iterations     = 0;
     i32 max_iterations = 2048;
+
+    f64 avg = 0.0f;
 };
 
 static SystemAllocator  g_allocator  = {};
@@ -90,66 +97,57 @@ void stop_timing(Benchmark *state)
 {
     state->end_time = get_time();
 
-    i64 duration = get_time_difference(state->start_time, state->end_time);
+    u64 duration = state->end_time - state->start_time;
     state->total_duration += duration;
 }
 
-BENCHMARK_FUNC(array_remove_front)
-{
-    SystemAllocator allocator = {};
-
-    struct s4b { i32 a[1]; };
-
-    Array<s4b> arr = {};
-    arr.allocator  = &allocator;
-
-    while (keep_running(state)) {
-        array_resize(&arr, state->max_iterations);
-        defer { array_destroy(&arr); };
-
-        start_timing(state);
-        array_remove(&arr, 0);
-        stop_timing(state);
-    }
-}
-BENCHMARK(array_remove_front);
-
-BENCHMARK_FUNC(std_vector_remove_front)
-{
-    struct s4b { i32 a[1]; };
-    std::vector<s4b> v;
-
-    while (keep_running(state)) {
-        v.resize(state->max_iterations);
-
-        start_timing(state);
-        v.erase(v.begin());
-        stop_timing(state);
-    }
-}
-BENCHMARK(std_vector_remove_front);
-
-void report_benchmarks()
-{
-    printf("benchmark      iterations      time\n");
-
-    for (auto &benchmark : g_benchmarks) {
-        f64 avg = benchmark.total_duration / (f64)benchmark.iterations;
-        printf("%s: %d        %fns\n",
-               benchmark.name, benchmark.iterations, avg);
-    }
-}
+#include "benchmark_array.cpp"
 
 int main()
 {
-    isize debug_frame_size = 64  * 1024 * 1024;
-    void *debug_frame_mem = malloc(debug_frame_size);
-    g_debug_frame = new LinearAllocator(debug_frame_mem, debug_frame_size);
-
     for (auto &benchmark : g_benchmarks) {
         benchmark.func(&benchmark);
     }
-    report_benchmarks();
+
+    i32 pad = 5;
+    i32 col0 = strlen("Benchmark");
+    i32 col1 = strlen("Iterations");
+    i32 col2 = strlen("Cycles");
+
+    for (auto &benchmark : g_benchmarks) {
+        if ((i32)strlen(benchmark.name) > col0) {
+            col0 = strlen(benchmark.name);
+        }
+
+        i32 iter = std::snprintf(nullptr, 0, "%d", benchmark.iterations);
+        if (iter > col1) {
+            col1 = iter;
+        }
+
+        benchmark.avg = benchmark.total_duration / (f64)benchmark.iterations;
+        i32 avg = std::snprintf(nullptr, 0, "%f", benchmark.avg);
+        if (avg > col2) {
+            col2 = avg;
+        }
+    }
+
+    col0 += pad;
+    col1 += pad;
+    col2 += pad;
+
+    printf("%.*s\n", col0 + col1 + col2, DIVIDER);
+    printf("%-*s %-*s %-*s\n",
+           col0, "Benchmark",
+           col1, "Iterations",
+           col2, "Cycles");
+    printf("%.*s\n", col0 + col1 + col2, DIVIDER);
+
+    for (auto &benchmark : g_benchmarks) {
+        printf("%-*s %-*d %-*f\n",
+               col0, benchmark.name,
+               col1, benchmark.iterations,
+               col2, benchmark.avg);
+    }
 
     return 0;
 }

@@ -43,9 +43,13 @@ Defer<F> operator+ (DeferDummy, F&& f)
 #define defer auto defer_( __LINE__ ) = DeferDummy( ) + [&]( )
 
 
-
+#if LEARY_ENABLE_LOGGING
 #define LOG(...) platform_debug_print(DEBUG_FILENAME, __LINE__, __FUNCTION__, __VA_ARGS__)
 #define LOG_UNIMPLEMENTED() LOG(Log_unimplemented, "fixme! stub");
+#else
+#define LOG(...) do {} while(0)
+#define LOG_UNIMPLEMENTED() do {} while(0)
+#endif
 
 #endif /* LEARY_MACROS_H */
 

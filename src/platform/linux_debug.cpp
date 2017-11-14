@@ -28,6 +28,7 @@
 
 #include "platform_debug.h"
 
+#if LEARY_ENABLE_LOGGING
 #define DEBUG_BUFFER_SIZE (2048)
 
 extern LinearAllocator *g_debug_frame;
@@ -88,3 +89,5 @@ void platform_debug_print(const char *file,
     assert(length < DEBUG_BUFFER_SIZE);
     write(1, buffer, length);
 }
+
+#endif // LEARY_ENABLE_LOGGING

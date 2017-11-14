@@ -8,6 +8,9 @@
 
 #include "allocator.h"
 
+#include "platform/platform.h"
+#include "leary_macros.h"
+
 // TODO(jesper): zalloc - allocate and zero memset
 // TODO(jesper): ialloc - allocate and default initialise struct
 
