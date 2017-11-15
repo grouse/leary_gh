@@ -25,6 +25,14 @@
 #ifndef LEARY_PLATFORM_MAIN_H
 #define LEARY_PLATFORM_MAIN_H
 
+#include "core/types.h"
+#if 0
+extern "C" {
+    void* malloc(size_t);
+    void  free(void*);
+    void* realloc(void*, usize);
+}
+#endif
 
 // -- platform specific includes
 #if defined(__linux__)
@@ -34,6 +42,15 @@
 
     #define VK_USE_PLATFORM_XLIB_KHR
     #include <vulkan/vulkan.h>
+
+#include <math.h>
+
+extern "C" {
+    #define EXIT_SUCCESS 0
+    void exit(i32);
+    char* getenv(const char*);
+    char* realpath(const char *path, char *resolved_path);
+}
 #elif defined(_WIN32)
     #include <Windows.h>
     #undef near

@@ -84,7 +84,7 @@ inline Matrix4 operator * (Matrix4 lhs, Matrix4 rhs);
  ******************************************************************************/
 inline f32 length(Vector3 vec)
 {
-    return sqrtf(vec.x * vec.x + vec.y * vec.y + vec.z * vec.z);
+    return sqrt(vec.x * vec.x + vec.y * vec.y + vec.z * vec.z);
 }
 
 inline f32 dot(Vector3 lhs, Vector3 rhs)
@@ -166,8 +166,8 @@ inline Matrix4 rotate(Matrix4 m, f32 theta, Vector3 axis)
 {
     PROFILE_BLOCK("Matrix4 rotate");
 
-    f32 c = cosf(theta);
-    f32 s = sinf(theta);
+    f32 c = cos(theta);
+    f32 s = sin(theta);
 
     Vector3 tmp = (1.0f - c) * axis;
 
@@ -196,8 +196,8 @@ inline Matrix4 rotate_x(Matrix4 m, f32 theta)
 {
     PROFILE_BLOCK("Matrix4 rotate_x");
 
-    f32 c = cosf(theta);
-    f32 s = sinf(theta);
+    f32 c = cos(theta);
+    f32 s = sin(theta);
 
     Matrix4 r;
     r[0].x = 1;
@@ -224,8 +224,8 @@ inline Matrix4 rotate_y(Matrix4 m, f32 theta)
 {
     PROFILE_BLOCK("Matrix4 rotate_y");
 
-    f32 c = cosf(theta);
-    f32 s = sinf(theta);
+    f32 c = cos(theta);
+    f32 s = sin(theta);
 
     Matrix4 r;
     r[0].x = c;
@@ -252,8 +252,8 @@ inline Matrix4 rotate_z(Matrix4 m, f32 theta)
 {
     PROFILE_BLOCK("Matrix4 rotate_z");
 
-    f32 c = cosf(theta);
-    f32 s = sinf(theta);
+    f32 c = cos(theta);
+    f32 s = sin(theta);
 
     Matrix4 r;
     r[0].x = c;
@@ -589,7 +589,7 @@ inline Vector4& operator *= (Vector4 &lhs, f32 rhs)
 inline f32 length(Quaternion q)
 {
     PROFILE_BLOCK("Quaternion length");
-    return sqrtf(q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w);
+    return sqrt(q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w);
 }
 
 inline Quaternion normalise(Quaternion q)
@@ -632,3 +632,41 @@ inline Vector3 rotate(Vector3 v, Quaternion p)
     r = { rq.x, rq.y, rq.z };
     return r;
 }
+
+#if 0
+f32 cos(f32 f)
+{
+    return f;
+}
+
+f32 sin(f32 f)
+{
+    return f;
+}
+
+f32 tan(f32 f)
+{
+    return f;
+}
+
+f32 ceil(f32 f)
+{
+    return f;
+}
+
+f32 floor(f32 f)
+{
+    return f;
+}
+
+f32 sqrt(f32 f)
+{
+    return f;
+}
+
+f32 abs(f32 f)
+{
+    return f;
+}
+#endif
+

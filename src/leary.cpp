@@ -9,6 +9,12 @@
 #include "leary.h"
 
 #define STB_TRUETYPE_IMPLEMENTATION
+#define STBTT_ifloor(x) ((int)floor(x))
+#define STBTT_iceil(x)  ((int)ceil(x))
+#define STBTT_sqrt(x)   sqrt(x)
+#define STBTT_fabs(x)   abs(x)
+#define STBTT_malloc(x, u) ((void)(u), malloc(x))
+#define STBTT_free(x, u)   ((void)(u), free(x))
 #include "external/stb/stb_truetype.h"
 
 #include "platform/platform.h"

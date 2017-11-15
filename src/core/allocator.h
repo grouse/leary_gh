@@ -9,6 +9,7 @@
 #ifndef ALLOCATOR_H
 #define ALLOCATOR_H
 
+#include "core/types.h"
 
 struct Allocator {
     void  *mem;

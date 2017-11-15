@@ -10,7 +10,6 @@
 #define PLATFORM_DEBUG_H
 
 #if defined(__linux__)
-    #include <x86intrin.h>
 #elif defined(_WIN32)
     #include <intrin.h>
 #else

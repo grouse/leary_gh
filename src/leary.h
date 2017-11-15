@@ -13,7 +13,6 @@
 #define INTROSPECT
 #endif
 
-#include <math.h>
 #include <assert.h>
 #include <utility>
 
@@ -21,7 +20,6 @@
 
 #include "leary_macros.h"
 
-#include "core/types.h"
 #include "core/allocator.h"
 #include "core/maths.h"
 

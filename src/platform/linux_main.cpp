@@ -23,7 +23,6 @@
 
 #include <cstdio>
 #include <cstdint>
-#include <cstdlib>
 
 #include <linux/limits.h>
 

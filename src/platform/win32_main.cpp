@@ -25,7 +25,6 @@
 #include <cstdio>
 #include <cstdint>
 #include <cinttypes>
-#include <cstdlib>
 
 #include "platform.h"
 
