@@ -13,10 +13,6 @@
 
 #include "platform/platform.h"
 
-#include "core/lexer.cpp"
-#include "core/allocator.cpp"
-#include "core/array.cpp"
-
 #if defined(_WIN32)
     #include "platform/win32_debug.cpp"
     #include "platform/win32_file.cpp"
@@ -26,6 +22,14 @@
 #else
     #error "unsupported platform"
 #endif
+
+#include "core/lexer.cpp"
+#include "core/string.cpp"
+#include "core/random.cpp"
+#include "core/hash.cpp"
+#include "core/hash_table.cpp"
+#include "core/allocator.cpp"
+#include "core/array.cpp"
 
 #if defined(__clang__)
 #define DONT_OPTIMIZE(value) asm volatile("" : : "g"(value) : "memory")
@@ -102,6 +106,7 @@ void stop_timing(Benchmark *state)
 }
 
 #include "benchmark_array.cpp"
+#include "benchmark_hashtable.cpp"
 
 int main()
 {

@@ -6,6 +6,9 @@
  * Copyright (c) 2017 - all rights reserved
  */
 
+#include "core.h"
+#include "string.h"
+
 #define MURMUR_SEED (0xdeadbeef)
 u32 hash32(void *key, i32 length)
 {
@@ -49,3 +52,7 @@ u32 hash32(const char *str)
     return hash32((u8*)str, string_length(str));
 }
 
+u32 hash32(u32 i)
+{
+    return i;
+}

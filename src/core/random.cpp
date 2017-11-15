@@ -36,7 +36,7 @@ f32 next_f32(Random *r)
 	return (f32)next_u32(r) / 0x7FFFFFFF;
 }
 
-Random random_create(u32 seed)
+Random create_random(u32 seed)
 {
 	Random rand;
 	rand.state = seed;

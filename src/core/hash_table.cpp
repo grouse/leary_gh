@@ -18,6 +18,26 @@ void init_table(HashTable<K, V> *table, Allocator *a)
 }
 
 template <typename K, typename V>
+HashTable<K, V> create_hashtable(Allocator *a)
+{
+    HashTable<K, V> table = {};
+    for (i32 i = 0; i < TABLE_SIZE; i++) {
+        table.table[i].allocator = a;
+    }
+    return table;
+}
+
+template <typename K, typename V>
+void destroy_hashtable(HashTable<K, V> *table)
+{
+    for (i32 i = 0; i < TABLE_SIZE; i++) {
+        destroy_array(&table->table[i]);
+    }
+}
+
+
+
+template <typename K, typename V>
 V* table_add(HashTable<K, V> *table, K key, V value)
 {
     u64 hash  = hash32((void*)&key, sizeof(K));

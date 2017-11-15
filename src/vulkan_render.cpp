@@ -2015,7 +2015,7 @@ void destroy_vulkan()
     for (i32 i = 0; i < g_vulkan->framebuffers.count; ++i) {
         vkDestroyFramebuffer(g_vulkan->handle, g_vulkan->framebuffers[i], nullptr);
     }
-    array_destroy(&g_vulkan->framebuffers);
+    destroy_array(&g_vulkan->framebuffers);
 
     vkDestroyRenderPass(g_vulkan->handle, g_vulkan->renderpass, nullptr);
 

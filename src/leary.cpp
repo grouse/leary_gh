@@ -263,7 +263,7 @@ void init_terrain()
     }
 
     g_terrain = t;
-    array_destroy(&vertices);
+    destroy_array(&vertices);
 #if 0
     RenderObject ro = {};
     ro.pipeline       = g_game->pipelines.terrain;
@@ -1024,7 +1024,7 @@ void game_render()
         // TODO(jesper): only bind pipeline descriptor set if one exists, might
         // be such a special case that we should hardcode it?
         auto descriptors = create_array<VkDescriptorSet>(g_stack);
-        defer { array_destroy(&descriptors); };
+        defer { destroy_array(&descriptors); };
 
         array_add(&descriptors, object.pipeline.descriptor_set);
 

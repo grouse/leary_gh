@@ -48,7 +48,7 @@ void init_array(Array<T> *arr, Allocator *a, i32 capacity)
 }
 
 template<typename T>
-void array_destroy(Array<T> *a)
+void destroy_array(Array<T> *a)
 {
     a->allocator->dealloc(a->data);
     a->data     = nullptr;
@@ -131,7 +131,7 @@ StaticArray<T> create_static_array(void* ptr, i32 offset, i32 capacity)
 }
 
 template<typename T>
-void array_destroy(StaticArray<T> *a)
+void destroy_array(StaticArray<T> *a)
 {
     a->data     = nullptr;
     a->capacity = 0;
