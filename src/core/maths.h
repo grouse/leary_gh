@@ -9,28 +9,19 @@
 #ifndef MATH_H
 #define MATH_H
 
+namespace lry {
+    f32 cos(f32 x);
+    f32 sin(f32 x);
+    f32 tan(f32 x);
+    f32 sqrt(f32 x);
+    f32 ceil(f32 x);
+    f32 floor(f32 x);
+    f32 abs(f32 x);
+}
+
 // TODO(jesper): better pi(e)
 #define PI 3.1415942f
 #define F32_MAX 3.402823466e+38F
-
-#if 0
-f32 cos(f32 f);
-f32 sin(f32 f);
-f32 tan(f32 f);
-f32 ceil(f32 f);
-f32 floor(f32 f);
-f32 sqrt(f32 f);
-f32 abs(f32 f);
-#else
-#include <math.h>
-#define cos(f) cosf(f)
-#define sin(f) sinf(f)
-#define tan(f) tanf(f)
-#define ceil(f) ceilf(f)
-#define floor(f) floorf(f)
-#define sqrt(f) sqrtf(f)
-#define abs(f) fabs(f)
-#endif
 
 INTROSPECT struct Vector2 {
 	f32 x, y;
@@ -62,8 +53,8 @@ struct Quaternion {
 		Quaternion q;
 
 		f32 ht  = theta / 2.0f;
-		f32 sht = sin(ht);
-		f32 cht = cos(ht);
+		f32 sht = lry::sin(ht);
+		f32 cht = lry::cos(ht);
 
 		q.x = a.x * sht;
 		q.y = a.y * sht;
@@ -120,7 +111,7 @@ INTROSPECT struct Matrix4 {
 	{
 		Matrix4 result = {};
 
-		f32 tan_hvfov = tan(vfov / 2.0f);
+		f32 tan_hvfov = lry::tan(vfov / 2.0f);
 		result[0].x = 1.0f / (aspect * tan_hvfov);
 		result[1].y = 1.0f / (tan_hvfov);
 		result[2].w = -1.0f;

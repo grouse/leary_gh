@@ -9,6 +9,8 @@
 #ifndef LEARY_H
 #define LEARY_H
 
+#include "build_config.h"
+
 #ifndef INTROSPECT
 #define INTROSPECT
 #endif

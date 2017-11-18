@@ -37,7 +37,7 @@
 #define DONT_OPTIMIZE(value) asm volatile("" : : "i,r,m"(value) : "memory")
 #endif
 
-#define CLOBBER_MEMORY() asm volatile("" : : : "memory")
+#define MEMORY_BARRIER() asm volatile("" : : : "memory")
 
 #define DIVIDER "-----------------------------------------------------------------------------------------------------------------------------------------------------"
 

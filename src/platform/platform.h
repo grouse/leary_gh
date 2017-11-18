@@ -25,14 +25,8 @@
 #ifndef LEARY_PLATFORM_MAIN_H
 #define LEARY_PLATFORM_MAIN_H
 
+#include "build_config.h"
 #include "core/types.h"
-#if 0
-extern "C" {
-    void* malloc(size_t);
-    void  free(void*);
-    void* realloc(void*, usize);
-}
-#endif
 
 // -- platform specific includes
 #if defined(__linux__)
@@ -43,13 +37,14 @@ extern "C" {
     #define VK_USE_PLATFORM_XLIB_KHR
     #include <vulkan/vulkan.h>
 
-#include <math.h>
-
 extern "C" {
     #define EXIT_SUCCESS 0
     void exit(i32);
     char* getenv(const char*);
     char* realpath(const char *path, char *resolved_path);
+    void* malloc(size_t);
+    void free(void*);
+    void* realloc(void*, size_t);
 }
 #elif defined(_WIN32)
     #include <Windows.h>
@@ -66,11 +61,6 @@ extern "C" {
     #error "unsupported platform"
 #endif
 
-
-#ifndef LEARY_ENABLE_LOGGING
-#define LEARY_ENABLE_LOGGING 1
-#endif
-
 // -- platform generic includes
 #include <cstring>
 
@@ -79,23 +69,14 @@ extern "C" {
 #include "platform_debug.h"
 #include "platform_input.h"
 
-
-
 // -- platform generic defines
 #ifndef INTROSPECT
 #define INTROSPECT
 #endif
 
-
-#ifndef LEARY_DYNAMIC
-#define LEARY_DYNAMIC 0
-#endif
-
 #define PLATFORM_PRE_RELOAD_FUNC(fname) void  fname(PlatformState *platform)
 #define PLATFORM_RELOAD_FUNC(fname)     void  fname(PlatformState *platform)
 #define PLATFORM_UPDATE_FUNC(fname)     void  fname(PlatformState *platform, f32 dt)
-
-
 
 // -- platform specific defines
 #if defined(__linux__)

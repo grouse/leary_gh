@@ -134,11 +134,13 @@ V* table_find(HashTable<K, V> *table, K key)
     u64 hash  = hash32((void*)&key, sizeof(K));
     u64 index = hash % TABLE_SIZE;
 
-    for (i32 i = 0; i < table->table[index].count; i++) {
+    auto ltable = *table;
+
+    for (i32 i = 0, count = ltable.table[index].count; i < count; i++) {
         // TODO(jesper): add a comparator template argument? only allow keys
         // with defined operator==? hmmm
-        if (table->table[index][i].key == key) {
-            return &table->table[index][i].value;
+        if (ltable.table[index][i].key == key) {
+            return &ltable.table[index][i].value;
         }
     }
 

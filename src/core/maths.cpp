@@ -84,7 +84,7 @@ inline Matrix4 operator * (Matrix4 lhs, Matrix4 rhs);
  ******************************************************************************/
 inline f32 length(Vector3 vec)
 {
-    return sqrt(vec.x * vec.x + vec.y * vec.y + vec.z * vec.z);
+    return lry::sqrt(vec.x * vec.x + vec.y * vec.y + vec.z * vec.z);
 }
 
 inline f32 dot(Vector3 lhs, Vector3 rhs)
@@ -166,8 +166,8 @@ inline Matrix4 rotate(Matrix4 m, f32 theta, Vector3 axis)
 {
     PROFILE_BLOCK("Matrix4 rotate");
 
-    f32 c = cos(theta);
-    f32 s = sin(theta);
+    f32 c = lry::cos(theta);
+    f32 s = lry::cos(theta);
 
     Vector3 tmp = (1.0f - c) * axis;
 
@@ -196,8 +196,8 @@ inline Matrix4 rotate_x(Matrix4 m, f32 theta)
 {
     PROFILE_BLOCK("Matrix4 rotate_x");
 
-    f32 c = cos(theta);
-    f32 s = sin(theta);
+    f32 c = lry::cos(theta);
+    f32 s = lry::cos(theta);
 
     Matrix4 r;
     r[0].x = 1;
@@ -224,8 +224,8 @@ inline Matrix4 rotate_y(Matrix4 m, f32 theta)
 {
     PROFILE_BLOCK("Matrix4 rotate_y");
 
-    f32 c = cos(theta);
-    f32 s = sin(theta);
+    f32 c = lry::cos(theta);
+    f32 s = lry::cos(theta);
 
     Matrix4 r;
     r[0].x = c;
@@ -252,8 +252,8 @@ inline Matrix4 rotate_z(Matrix4 m, f32 theta)
 {
     PROFILE_BLOCK("Matrix4 rotate_z");
 
-    f32 c = cos(theta);
-    f32 s = sin(theta);
+    f32 c = lry::cos(theta);
+    f32 s = lry::cos(theta);
 
     Matrix4 r;
     r[0].x = c;
@@ -589,7 +589,7 @@ inline Vector4& operator *= (Vector4 &lhs, f32 rhs)
 inline f32 length(Quaternion q)
 {
     PROFILE_BLOCK("Quaternion length");
-    return sqrt(q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w);
+    return lry::sqrt(q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w);
 }
 
 inline Quaternion normalise(Quaternion q)
@@ -633,40 +633,99 @@ inline Vector3 rotate(Vector3 v, Quaternion p)
     return r;
 }
 
-#if 0
-f32 cos(f32 f)
+i32 factorial(i32 x)
 {
-    return f;
+    i32 result = 1;
+    for (i32 i = 2; i <= x; i++) {
+        result *= i;
+    }
+    return result;
 }
 
-f32 sin(f32 f)
-{
-    return f;
-}
+#if LEARY_ENABLE_SSE2
+#include <emmintrin.h>
+namespace lry {
+    f32 cos(f32 x)
+    {
+        // TODO(jesper): faster aproximation with sse2
+        f32 result;
 
-f32 tan(f32 f)
-{
-    return f;
-}
+        f32 x2 = x*x;
+        f32 x4 = x2*x2;
+        f32 x6 = x4*x2;
+        f32 x8 = x6*x2;
+        f32 x10 = x8*x2;
+        f32 x12 = x10*x2;
+        f32 x14 = x12*x2;
 
-f32 ceil(f32 f)
-{
-    return f;
-}
+        i32 fac2 = factorial(2);
+        i32 fac4 = factorial(4);
+        i32 fac6 = factorial(6);
+        i32 fac8 = factorial(8);
+        i32 fac10 = factorial(10);
+        i32 fac12 = factorial(12);
+        i32 fac14 = factorial(14);
 
-f32 floor(f32 f)
-{
-    return f;
-}
+        result = 1 - x2/fac2 + x4/fac4 - x6/fac6 + x8/fac8 - x10/fac10 + x12/fac12 - x14/fac14;
+        return result;
+    }
 
-f32 sqrt(f32 f)
-{
-    return f;
-}
+    f32 sin(f32 x)
+    {
+        // TODO(jesper): faster aproximation with sse2
+        f32 result;
 
-f32 abs(f32 f)
-{
-    return f;
-}
+        f32 x2 = x*x;
+        f32 x3 = x2*x;
+        f32 x5 = x3*x2;
+        f32 x7 = x5*x2;
+        f32 x9 = x7*x2;
+        f32 x11 = x9*x2;
+        f32 x13 = x11*x2;
+        f32 x15 = x13*x2;
+
+        i32 fac3 = factorial(3);
+        i32 fac5 = factorial(5);
+        i32 fac7 = factorial(7);
+        i32 fac9 = factorial(9);
+        i32 fac11 = factorial(11);
+        i32 fac13 = factorial(13);
+        i32 fac15 = factorial(15);
+
+        result = x - x3/fac3 + x5/fac5 - x7/fac7 + x9/fac9 - x11/fac11 + x13/fac13 - x15/fac15;
+        return result;
+    }
+
+    f32 tan(f32 x)
+    {
+        // TODO(jesper): division by zero
+        // TODO(jesper): faster aproximation with sse2
+        return lry::cos(x) / lry::cos(x);
+    }
+
+    f32 ceil(f32 f)
+    {
+        return (f32)(i32)(f + 0.5f);
+    }
+
+    f32 floor(f32 f)
+    {
+        return (f32)(i32)f;
+    }
+
+    f32 sqrt(f32 f)
+    {
+        __m128 val = _mm_set1_ps(f);
+        __m128 res = _mm_sqrt_ps(val);
+        f32 resf   = _mm_cvtss_f32(res);
+        return resf;
+    }
+
+    f32 abs(f32 f)
+    {
+        return lry::sqrt(f*f);
+    }
+} // namespace lry
+
 #endif
 

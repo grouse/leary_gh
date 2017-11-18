@@ -19,7 +19,7 @@ $(SPV_DST)/%.frag.spv: $(SPV_SRC)/%.glsl
 
 shaders: | $(SPV_DST) $(SPV_VERT) $(SPV_FRAG)
 
-FLAGS = -std=c++14 -g
+FLAGS = -std=c++14 -g -fno-exceptions
 
 NOWARNINGS = -Wno-int-to-void-pointer-cast -Wno-nested-anon-types -Wno-unused-function
 WARNINGS   = -Wall -Wextra -Wpedantic $(NOWARNINGS)
