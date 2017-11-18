@@ -24,7 +24,7 @@ BENCHMARK_FUNC(cos)
 }
 BENCHMARK(cos);
 
-BENCHMARK_FUNC(sin)
+BENCHMARK_FUNC(sin_taylor)
 {
     Random r = create_random(0xdeadbeef);
 
@@ -33,11 +33,26 @@ BENCHMARK_FUNC(sin)
         MEMORY_BARRIER();
 
         start_timing(state);
-        DONT_OPTIMIZE(lry::sin(f));
+        DONT_OPTIMIZE(lry::sin_taylor(f));
         stop_timing(state);
     }
 }
-BENCHMARK(sin);
+BENCHMARK(sin_taylor);
+
+BENCHMARK_FUNC(sin_cephes)
+{
+    Random r = create_random(0xdeadbeef);
+
+    while (keep_running(state)) {
+        f32 f = next_f32(&r);
+        MEMORY_BARRIER();
+
+        start_timing(state);
+        DONT_OPTIMIZE(lry::sin_cephes(f));
+        stop_timing(state);
+    }
+}
+BENCHMARK(sin_cephes);
 
 BENCHMARK_FUNC(tan)
 {

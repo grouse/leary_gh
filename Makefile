@@ -54,7 +54,7 @@ tests: $(BUILD)/tests
 
 BENCHMARKS_FLAGS = $(FLAGS) $(WARNINGS) $(UNOPTIMIZED) $(INCLUDE_DIR)
 $(BUILD)/benchmarks: FORCE
-	$(CXX) $(TOOLS_FLAGS) -O2 $(ROOT)/benchmarks/main.cpp -o $@
+	$(CXX) $(TOOLS_FLAGS) -O3 $(ROOT)/benchmarks/main.cpp -o $@
 benchmarks: $(BUILD)/benchmarks
 
 all: shaders tools leary tests benchmarks

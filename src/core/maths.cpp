@@ -645,6 +645,45 @@ i32 factorial(i32 x)
 
 #if LEARY_ENABLE_SSE2
 #include <emmintrin.h>
+
+#if defined(_MSC_VER)
+#define ALIGN16_BEG _declspec(align(16))
+#define ALGIN16_END
+#else
+#define ALIGN16_BEG
+#define ALIGN16_END __atribute__((aligned(16)))
+#endif
+
+#define PS_CONST(name, val) \
+    f32 name[4] = { val, val, val, val }
+#define PI32_CONST(name, val) \
+    i32 name[4] = { val, val, val, val }
+#define PS_CONST_TYPE(name, type, val) \
+    type name[4] = { val, val, val, val }
+
+PS_CONST(ps_1,   1.0f);
+PS_CONST(ps_0p5, 0.5f);
+
+PS_CONST_TYPE(ps_sign_mask,     i32, (i32) 0x80000000);
+PS_CONST_TYPE(ps_inv_sign_mask, i32, (i32)~0x80000000);
+
+PI32_CONST(pi32_1,     1);
+PI32_CONST(pi32_inv1, ~1);
+PI32_CONST(pi32_2,     2);
+PI32_CONST(pi32_4,     4);
+PI32_CONST(pi32_0x7f,  0x7f);
+
+PS_CONST(ps_minus_cephes_DP1, -0.78515625);
+PS_CONST(ps_minus_cephes_DP2, -2.4187564849853515625e-4);
+PS_CONST(ps_minus_cephes_DP3, -3.77489497744594108e-8);
+PS_CONST(ps_sincof_p0,        -1.9515295891E-4);
+PS_CONST(ps_sincof_p1,        8.3321608736E-3);
+PS_CONST(ps_sincof_p2,        -1.6666654611E-1);
+PS_CONST(ps_coscof_p0,        2.443315711809948E-005);
+PS_CONST(ps_coscof_p1,        -1.388731625493765E-003);
+PS_CONST(ps_coscof_p2,        4.166664568298827E-002);
+PS_CONST(ps_cephes_FOPI,      1.27323954473516);
+
 namespace lry {
     f32 cos(f32 x)
     {
@@ -671,7 +710,7 @@ namespace lry {
         return result;
     }
 
-    f32 sin(f32 x)
+    f32 sin_taylor(f32 x)
     {
         // TODO(jesper): faster aproximation with sse2
         f32 result;
@@ -695,6 +734,82 @@ namespace lry {
 
         result = x - x3/fac3 + x5/fac5 - x7/fac7 + x9/fac9 - x11/fac11 + x13/fac13 - x15/fac15;
         return result;
+    }
+
+    f32 sin_cephes(f32 x)
+    {
+        __m128  xmm0, xmm1, xmm2, xmm3, sign_bit, y;
+        __m128i emm0, emm1;
+
+        xmm0 = _mm_set1_ps(x);
+        xmm2 = _mm_setzero_ps();
+
+        sign_bit = xmm0;
+        xmm0 = _mm_and_ps(xmm0, *(__m128*)ps_inv_sign_mask);
+        sign_bit = _mm_and_ps(sign_bit, *(__m128*)ps_sign_mask);
+
+        y = _mm_mul_ps(xmm0, *(__m128*)ps_cephes_FOPI);
+        emm1 = _mm_cvttps_epi32(y);
+        emm1 = _mm_add_epi32(emm1, *(__m128i*)pi32_1);
+        emm1 = _mm_and_si128(emm1, *(__m128i*)pi32_inv1);
+        y = _mm_cvtepi32_ps(emm1);
+
+        emm0 = _mm_and_si128(emm1, *(__m128i*)pi32_4);
+        emm0 = _mm_slli_epi32(emm0, 29);
+
+        emm1 = _mm_and_si128(emm1, *(__m128i*)pi32_2);
+        emm1 = _mm_cmpeq_epi32(emm1, _mm_setzero_si128());
+
+        __m128 swap_sign_bit = _mm_castsi128_ps(emm0);
+        __m128 poly_mask     = _mm_castsi128_ps(emm1);
+        sign_bit = _mm_xor_ps(sign_bit, swap_sign_bit);
+
+        xmm1 = *(__m128*)ps_minus_cephes_DP1;
+        xmm2 = *(__m128*)ps_minus_cephes_DP2;
+        xmm3 = *(__m128*)ps_minus_cephes_DP3;
+
+        xmm1 = _mm_mul_ps(y, xmm1);
+        xmm2 = _mm_mul_ps(y, xmm2);
+        xmm3 = _mm_mul_ps(y, xmm3);
+
+        xmm0 = _mm_add_ps(xmm0, xmm1);
+        xmm0 = _mm_add_ps(xmm0, xmm2);
+        xmm0 = _mm_add_ps(xmm0, xmm3);
+
+        y = *(__m128*)ps_coscof_p0;
+        __m128 z = _mm_mul_ps(xmm0, xmm0);
+
+        y = _mm_mul_ps(y, z);
+        y = _mm_add_ps(y, *(__m128*)ps_coscof_p1);
+        y = _mm_mul_ps(y, z);
+        y = _mm_add_ps(y, *(__m128*)ps_coscof_p2);
+        y = _mm_mul_ps(y, z);
+        y = _mm_mul_ps(y, z);
+        __m128 tmp = _mm_mul_ps(z, *(__m128*)ps_0p5);
+        y = _mm_sub_ps(y, tmp);
+        y = _mm_add_ps(y, *(__m128*)ps_1);
+
+        __m128 y2 = *(__m128*)ps_sincof_p0;
+        y2 = _mm_mul_ps(y2, z);
+        y2 = _mm_add_ps(y2, *(__m128*)ps_sincof_p1);
+        y2 = _mm_mul_ps(y2, z);
+        y2 = _mm_add_ps(y2, *(__m128*)ps_sincof_p2);
+        y2 = _mm_mul_ps(y2, z);
+        y2 = _mm_mul_ps(y2, xmm0);
+        y2 = _mm_mul_ps(y2, xmm0);
+
+        xmm3 = poly_mask;
+        y2 = _mm_and_ps(xmm3, y2);
+        y  = _mm_andnot_ps(xmm3, y);
+        y  = _mm_add_ps(y, y2);
+        y  = _mm_xor_ps(y, sign_bit);
+
+        return _mm_cvtss_f32(y);
+    }
+
+    f32 sin(f32 x)
+    {
+        return sin_cephes(x);
     }
 
     f32 tan(f32 x)
