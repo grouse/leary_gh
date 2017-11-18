@@ -11,6 +11,8 @@
 #include "platform/platform.h"
 #include "leary_macros.h"
 
+#include <stdlib.h>
+
 // TODO(jesper): zalloc - allocate and zero memset
 // TODO(jesper): ialloc - allocate and default initialise struct
 

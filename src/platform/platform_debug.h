@@ -19,13 +19,9 @@
 #if defined(__linux__)
     #define DEBUG_BREAK()   asm("int $3")
     #define DEBUG_FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
-
-    #define rdtsc() __rdtsc()
 #elif defined(_WIN32)
     #define DEBUG_BREAK()       __debugbreak()
     #define DEBUG_FILENAME (strrchr(__FILE__, '\\') ? strrchr(__FILE__, '\\') + 1 : __FILE__)
-
-    #define rdtsc() __rdtsc()
 #else
     #error "unsupported error"
 #endif

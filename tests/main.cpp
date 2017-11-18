@@ -6,8 +6,8 @@
  * Copyright (c) 2017 - all rights reserved
  */
 
-#include "leary.h"
 #include "platform/platform.h"
+#include "leary.h"
 
 #include "core/types.h"
 

@@ -22,6 +22,7 @@
 
 #include "leary_macros.h"
 
+#include "core/profiling.h"
 #include "core/allocator.h"
 #include "core/maths.h"
 

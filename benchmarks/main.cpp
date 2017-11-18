@@ -10,6 +10,7 @@
 #include <vector>
 
 #define LEARY_ENABLE_LOGGING 0
+#define LEARY_ENABLE_PROFILING 0
 
 #include "platform/platform.h"
 
@@ -23,6 +24,7 @@
     #error "unsupported platform"
 #endif
 
+#include "core/profiling.cpp"
 #include "core/lexer.cpp"
 #include "core/string.cpp"
 #include "core/random.cpp"
@@ -30,6 +32,7 @@
 #include "core/hash_table.cpp"
 #include "core/allocator.cpp"
 #include "core/array.cpp"
+#include "core/maths.cpp"
 
 #if defined(__clang__)
 #define DONT_OPTIMIZE(value) asm volatile("" : : "g"(value) : "memory")
@@ -107,6 +110,7 @@ void stop_timing(Benchmark *state)
 
 #include "benchmark_array.cpp"
 #include "benchmark_hashtable.cpp"
+#include "benchmark_maths.cpp"
 
 int main()
 {

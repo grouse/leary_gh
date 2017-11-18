@@ -13,8 +13,8 @@
 
 #define PROFILE_TIMERS_ENABLE 0
 
-#include "leary.h"
 #include "platform/platform.h"
+#include "leary.h"
 
 #include "core/lexer.cpp"
 #include "core/allocator.cpp"

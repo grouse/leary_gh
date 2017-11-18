@@ -6,12 +6,11 @@
  * Copyright (c) 2017 - all rights reserved
  */
 
-#ifndef PROFILING_H
-#define PROFILING_H
+#ifndef LEARY_PROFILING_H
+#define LEARY_PROFILING_H
 
-#ifndef PROFILE_TIMERS_ENABLE
-#define PROFILE_TIMERS_ENABLE 1
-#endif
+#include "build_config.h"
+#include "core/types.h"
 
 struct ProfileTimer {
     const char *name;
@@ -32,7 +31,25 @@ struct ProfileTimers {
 extern ProfileTimers g_profile_timers;
 extern ProfileTimers g_profile_timers_prev;
 
-#if PROFILE_TIMERS_ENABLE
+#if LEARY_ENABLE_PROFILING
+
+i32 profile_start_timer(const char *name);
+void profile_end_timer(i32 index, i64 cycles);
+
+struct ProfileBlock {
+    i32 id;
+    u64 start_cycles;
+
+    ProfileBlock(const char *name) {
+        this->id = profile_start_timer(name);
+        this->start_cycles = rdtsc();
+    }
+
+    ~ProfileBlock() {
+        u64 end_cycles = rdtsc();
+        profile_end_timer(this->id, end_cycles - start_cycles);
+    }
+};
 
 #define NUM_PROFILE_TIMERS (256)
 
@@ -50,13 +67,12 @@ extern ProfileTimers g_profile_timers_prev;
 
 #else
 
-#define PROFILE_START(...)
-#define PROFILE_END(...)
+#define PROFILE_START(...)    do {} while(0)
+#define PROFILE_END(...)      do {} while(0)
+#define PROFILE_BLOCK(...)    do {} while(0)
+#define PROFILE_FUNCTION(...) do {} while(0)
 
-#define PROFILE_BLOCK(...)
-#define PROFILE_FUNCTION(...)
+#endif // LEARY_ENABLE_PROFILING
 
-#endif
-
-#endif /* PROFILING_H */
+#endif /* LEARY_PROFILING_H */
 

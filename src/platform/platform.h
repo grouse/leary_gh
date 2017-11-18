@@ -44,8 +44,9 @@ extern "C" {
     char* realpath(const char *path, char *resolved_path);
     void* malloc(size_t);
     void free(void*);
-    void* realloc(void*, size_t);
+
 }
+    #define rdtsc() __rdtsc()
 #elif defined(_WIN32)
     #include <Windows.h>
     #undef near
@@ -57,6 +58,7 @@ extern "C" {
 
     #define VK_USE_PLATFORM_WIN32_KHR
     #include <vulkan/vulkan.h>
+    #define rdtsc() __rdtsc()
 #else
     #error "unsupported platform"
 #endif

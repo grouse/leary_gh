@@ -8,7 +8,7 @@
 
 #include "profiling.h"
 
-#if PROFILE_TIMERS_ENABLE
+#if LEARY_ENABLE_PROFILING
 
 ProfileTimers g_profile_timers;
 ProfileTimers g_profile_timers_prev;
@@ -74,21 +74,6 @@ void profile_end_timer(i32 index, i64 cycles)
     }
 }
 
-struct ProfileBlock {
-    i32 id;
-    u64 start_cycles;
-
-    ProfileBlock(const char *name) {
-        this->id = profile_start_timer(name);
-        this->start_cycles = rdtsc();
-    }
-
-    ~ProfileBlock() {
-        u64 end_cycles = rdtsc();
-        profile_end_timer(this->id, end_cycles - start_cycles);
-    }
-};
-
 void profile_start_frame()
 {
 }
@@ -127,7 +112,7 @@ void profile_end_frame()
 }
 
 
-#else // PROFILE_TIMERS_ENABLE
+#else // LEARY_ENABLE_PROFILING
 
 #define profile_end_timer(...)
 #define profile_end_frame()

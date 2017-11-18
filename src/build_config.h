@@ -18,6 +18,10 @@
 #define LEARY_ENABLE_LOGGING 1
 #endif
 
+#ifndef LEARY_ENABLE_PROFILING
+#define LEARY_ENABLE_PROFILING 1
+#endif
+
 #ifndef LEARY_DYNAMIC
 #define LEARY_DYNAMIC 0
 #endif
