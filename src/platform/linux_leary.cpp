@@ -245,11 +245,11 @@ PLATFORM_INIT_FUNC(platform_init)
     void *heap_mem        = malloc(heap_size);
     void *stack_mem       = malloc(stack_size);
 
-    g_heap        = new HeapAllocator  (heap_mem,        heap_size);
-    g_frame       = new LinearAllocator(frame_mem,       frame_size);
+    g_heap        = new HeapAllocator(heap_mem, heap_size);
+    g_frame       = new LinearAllocator(frame_mem, frame_size);
     g_debug_frame = new LinearAllocator(debug_frame_mem, debug_frame_size);
-    g_persistent  = new LinearAllocator(persistent_mem,  persistent_size);
-    g_stack       = new StackAllocator (stack_mem,       stack_size);
+    g_persistent  = new LinearAllocator(persistent_mem, persistent_size);
+    g_stack       = new StackAllocator(stack_mem, stack_size);
 
     init_paths(g_persistent);
 

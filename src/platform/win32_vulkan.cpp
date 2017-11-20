@@ -28,13 +28,12 @@ VkResult
 platform_vulkan_create_surface(VkInstance instance,
                                VkSurfaceKHR *surface)
 {
-    Win32State *native = (Win32State*)g_platform->native;
     VkWin32SurfaceCreateInfoKHR create_info = {
         VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
         nullptr,
         0,
-        native->hinstance,
-        native->hwnd
+        g_platform->native.hinstance,
+        g_platform->native.hwnd
     };
 
     return vkCreateWin32SurfaceKHR(instance, &create_info, nullptr, surface);

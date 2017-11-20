@@ -655,7 +655,7 @@ i32 factorial(i32 x)
 #endif
 
 #define PS_CONST(name, val) \
-    f32 name[4] = { val, val, val, val }
+    f32 name[4] = { (f32)val, (f32)val, (f32)val, (f32)val }
 #define PI32_CONST(name, val) \
     i32 name[4] = { val, val, val, val }
 #define PS_CONST_TYPE(name, type, val) \

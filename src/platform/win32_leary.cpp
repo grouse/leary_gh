@@ -8,8 +8,8 @@
 
 #include <stdio.h>
 
-#include "core/types.h"
 #include "platform.h"
+#include "leary.h"
 
 #include "win32_debug.cpp"
 #include "win32_file.cpp"
@@ -22,11 +22,6 @@ LinearAllocator *g_frame;
 LinearAllocator *g_debug_frame;
 LinearAllocator *g_persistent;
 StackAllocator  *g_stack;
-
-struct Win32State {
-    HINSTANCE hinstance;
-    HWND      hwnd;
-};
 
 #include "win32_vulkan.cpp"
 #include "leary.cpp"
@@ -61,7 +56,7 @@ struct MouseState {
 
 void platform_quit()
 {
-    char *settings_path = platform_resolve_path(GamePath_preferences, "settings.conf");
+    char *settings_path = resolve_path(GamePath_preferences, "settings.conf", g_stack);
     serialize_save_conf(settings_path, Settings_members,
                         ARRAY_SIZE(Settings_members), &g_settings);
 
@@ -71,7 +66,7 @@ void platform_quit()
 void platform_toggle_raw_mouse()
 {
     g_platform->raw_mouse = !g_platform->raw_mouse;
-    DEBUG_LOG("toggle raw mouse: %d", g_platform->raw_mouse);
+    LOG("toggle raw mouse: %d", g_platform->raw_mouse);
 
     if (g_platform->raw_mouse) {
         RAWINPUTDEVICE rid[1];
@@ -81,7 +76,7 @@ void platform_toggle_raw_mouse()
         rid[0].hwndTarget = 0;
 
         if (RegisterRawInputDevices(rid, 1, sizeof(rid[0])) == false) {
-            DEBUG_ASSERT(false);
+            assert(false);
         }
 
         while(ShowCursor(false) > 0) {}
@@ -93,7 +88,7 @@ void platform_toggle_raw_mouse()
         rid[0].hwndTarget = 0;
 
         if (RegisterRawInputDevices(rid, 1, sizeof(rid[0])) == false) {
-            DEBUG_ASSERT(false);
+            assert(false);
         }
 
         while(ShowCursor(true) > 0) {}
@@ -195,8 +190,8 @@ window_proc(HWND   hwnd,
                 mouse_state.x  = (f32)raw->data.mouse.lLastX;
                 mouse_state.y  = (f32)raw->data.mouse.lLastY;
             } else {
-                DEBUG_LOG(Log_error, "unsupported flags");
-                DEBUG_ASSERT(false);
+                LOG(Log_error, "unsupported flags");
+                assert(false);
             }
 
             InputEvent event;
@@ -209,7 +204,7 @@ window_proc(HWND   hwnd,
             game_input(event);
         } break;
         default:
-            DEBUG_LOG("unhandled raw input device type: %d",
+            LOG("unhandled raw input device type: %d",
                       raw->header.dwType);
             break;
         }
@@ -229,30 +224,34 @@ PLATFORM_INIT_FUNC(platform_init)
     g_platform = platform;
     g_settings = {};
 
-    char *settings_path = platform_resolve_path(GamePath_preferences, "settings.conf");
-    serialize_load_conf(settings_path, Settings_members,
-                        ARRAY_SIZE(Settings_members), &g_settings);
+    auto native = &g_platform->native;
+    native->hinstance = instance;
 
-    isize frame_size      = 64  * 1024 * 1024;
-    isize persistent_size = 256 * 1024 * 1024;
-    isize heap_size       = 256 * 1024 * 1024;
-    isize stack_size      = 16  * 1024 * 1024;
+
+    isize frame_size       = 64  * 1024 * 1024;
+    isize debug_frame_size = 64  * 1024 * 1024;
+    isize persistent_size  = 256 * 1024 * 1024;
+    isize heap_size        = 256 * 1024 * 1024;
+    isize stack_size       = 16  * 1024 * 1024;
 
     // TODO(jesper): allocate these using appropriate syscalls
-    void *frame_mem      = malloc(frame_size);
-    void *persistent_mem = malloc(persistent_size);
-    void *heap_mem       = malloc(heap_size);
-    void *stack_mem      = malloc(stack_size);
+    void *frame_mem       = malloc(frame_size);
+    void *debug_frame_mem = malloc(debug_frame_size);
+    void *persistent_mem  = malloc(persistent_size);
+    void *heap_mem        = malloc(heap_size);
+    void *stack_mem       = malloc(stack_size);
 
-    g_heap       = new HeapAllocator  (heap_mem,       heap_size);
-    g_frame      = new LinearAllocator(frame_mem,      frame_size);
-    g_persistent = new LinearAllocator(persistent_mem, persistent_size);
-    g_stack      = new StackAllocator (stack_mem,      stack_size);
+    g_heap        = new HeapAllocator(heap_mem, heap_size);
+    g_debug_frame = new LinearAllocator(debug_frame_mem, debug_frame_size);
+    g_frame       = new LinearAllocator(frame_mem, frame_size);
+    g_persistent  = new LinearAllocator(persistent_mem, persistent_size);
+    g_stack       = new StackAllocator(stack_mem, stack_size);
 
-    Win32State *native = g_persistent->talloc<Win32State>();
-    g_platform->native = native;
+    init_paths(g_persistent);
 
-    native->hinstance = instance;
+    char *settings_path = resolve_path(GamePath_preferences, "settings.conf", g_frame);
+    serialize_load_conf(settings_path, Settings_members,
+                        ARRAY_SIZE(Settings_members), &g_settings);
 
     WNDCLASS wc = {};
     wc.lpfnWndProc   = window_proc;
@@ -261,17 +260,12 @@ PLATFORM_INIT_FUNC(platform_init)
 
     RegisterClass(&wc);
 
-    native->hwnd = CreateWindow("leary",
-                                "leary",
+    native->hwnd = CreateWindow("leary", "leary",
                                 WS_TILED | WS_VISIBLE,
-                                0,
-                                0,
+                                0, 0,
                                 g_settings.video.resolution.width,
                                 g_settings.video.resolution.height,
-                                nullptr,
-                                nullptr,
-                                instance,
-                                nullptr);
+                                nullptr, nullptr, native->hinstance, nullptr);
 
     if (native->hwnd == nullptr) {
         platform_quit();
@@ -283,24 +277,27 @@ PLATFORM_INIT_FUNC(platform_init)
 DL_EXPORT
 PLATFORM_PRE_RELOAD_FUNC(platform_pre_reload)
 {
-    platform->game_reload_state = game_pre_reload();
+    platform->reload_state.game = game_pre_reload();
 
-    platform->frame      = g_frame;
-    platform->heap       = g_heap;
-    platform->persistent = g_persistent;
-    platform->stack      = g_stack;
+    platform->reload_state.frame       = g_frame;
+    platform->reload_state.debug_frame = g_debug_frame;
+    platform->reload_state.stack       = g_stack;
+    platform->reload_state.heap        = g_heap;
+    platform->reload_state.persistent  = g_persistent;
+    platform->reload_state.stack       = g_stack;
 }
 
 DL_EXPORT
 PLATFORM_RELOAD_FUNC(platform_reload)
 {
-    g_frame      = platform->frame;
-    g_heap       = platform->heap;
-    g_persistent = platform->persistent;
-    g_stack      = platform->stack;
-    g_platform   = platform;
+    g_frame       = platform->reload_state.frame;
+    g_debug_frame = platform->reload_state.debug_frame;
+    g_heap        = platform->reload_state.heap;
+    g_persistent  = platform->reload_state.persistent;
+    g_stack       = platform->reload_state.stack;
+    g_platform    = platform;
 
-    game_reload(platform->game_reload_state);
+    game_reload(platform->reload_state.game);
 }
 
 DL_EXPORT
@@ -320,8 +317,6 @@ PLATFORM_UPDATE_FUNC(platform_update)
         game_quit();
     }
     PROFILE_END(win32_input);
-
-    //Win32State *native = (Win32State*)platform->native;
 
     game_update_and_render(dt);
     profile_end_frame();

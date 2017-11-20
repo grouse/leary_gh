@@ -110,7 +110,7 @@ void init_paths(Allocator *a)
 
 
     // --- shaders dir
-    length = g_paths.exe.length + strlen("data/sahders/");
+    length = g_paths.exe.length + strlen("data/shaders/");
     g_paths.shaders = { length, (char*)a->alloc(length + 1) };
     p = strcpy(g_paths.shaders.bytes, g_paths.exe.bytes);
     strcat(p, "data/shaders/");
@@ -189,7 +189,11 @@ Array<Path> list_files(const char *folder, Allocator *allocator)
 
 char* resolve_relative(const char *path)
 {
-    return realpath(path, nullptr);
+    char buffer[MAX_PATH];
+    char *resolved = realpath(path, buffer);
+
+    // TODO(jesper): currently leaking memory
+    return strdup(resolved);
 }
 
 char* resolve_path(GamePath rp, const char *path, Allocator *a)
@@ -238,8 +242,6 @@ char* resolve_path(GamePath rp, const char *path, Allocator *a)
     return resolved;
 }
 
-
-
 bool file_exists(const char *path)
 {
     struct stat st;
@@ -258,8 +260,6 @@ bool create_file(const char *path)
 
     return fd >= 0;
 }
-
-
 
 void* open_file(const char *path, FileAccess access)
 {
@@ -295,8 +295,6 @@ void close_file(void *file_handle)
 
     close(fd);
 }
-
-
 
 void write_file(void *file_handle, void *buffer, usize bytes)
 {

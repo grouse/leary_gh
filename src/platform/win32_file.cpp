@@ -22,298 +22,83 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-#include "platform_file.h"
+#include "platform.h"
+#include "leary_macros.h"
 
-char *platform_path(GamePath root)
+struct PlatformPaths {
+    String preferences;
+    String data;
+    String exe;
+    String shaders;
+    String textures;
+    String models;
+};
+
+PlatformPaths g_paths;
+
+void init_paths(Allocator *a)
 {
-    char *path = nullptr;
+    g_paths = {};
 
-    switch (root) {
-    case GamePath_data: {
-        TCHAR buffer[MAX_PATH];
-        DWORD env_length = GetEnvironmentVariable("LEARY_GAME_DATA",
-                                                  buffer,
-                                                  MAX_PATH);
+    HRESULT result;
+    TCHAR buffer[MAX_PATH];
+    isize length;
+    char *p;
 
-        if (env_length != 0) {
-            path = (char*)malloc(env_length + 1);
-            strcpy(path, buffer);
-            path[env_length-1] = '\0';
-        } else {
-            DWORD module_length = GetModuleFileName(NULL, buffer, MAX_PATH);
+    // --- exe dir
+    // NOTE(jesper): other paths depend on this being resolved early
+    DWORD module_length = GetModuleFileName(NULL, buffer, MAX_PATH);
 
-            if (module_length != 0) {
-                if (PathRemoveFileSpec(buffer) == TRUE)
-                    module_length = (DWORD) strlen(buffer);
+    if (module_length != 0) {
+        if (PathRemoveFileSpec(buffer) == TRUE)
+            module_length = (DWORD) strlen(buffer);
 
-                i64 length = module_length + strlen("\\..\\assets\\") + 1;
-                path = (char*)malloc(length);
-                strcpy(path, buffer);
-                strcat(path, "\\..\\assets\\");
-                path[length-1] = '\0';
-            }
-        }
-    } break;
-    case GamePath_binary: {
-        TCHAR buffer[MAX_PATH];
-        DWORD module_length = GetModuleFileName(NULL, buffer, MAX_PATH);
-
-        if (module_length != 0) {
-            if (PathRemoveFileSpec(buffer) == TRUE)
-                module_length = (DWORD) strlen(buffer);
-
-            i64 length = module_length + strlen("\\") + 1;
-            path = (char*)malloc(length);
-            strcpy(path, buffer);
-            strcat(path, "\\");
-            path[length-1] = '\0';
-        }
-    } break;
-    case GamePath_shaders: {
-        char *bin_path = platform_path(GamePath_binary);
-        i64 length = strlen(bin_path) + strlen("data\\shaders\\") + 1;
-        path = (char*)malloc(length);
-        strcpy(path, bin_path);
-        strcat(path, "data\\shaders\\");
-        path[length-1] = '\0';
-    } break;
-    case GamePath_models: {
-        char *data_path = platform_path(GamePath_data);
-        u64 length = strlen(data_path) + strlen("models/") + 1;
-        path = (char*)malloc(length);
-        strcpy(path, data_path);
-        strcat(path, "models/");
-    } break;
-    case GamePath_preferences: {
-        TCHAR buffer[MAX_PATH];
-        HRESULT result = SHGetFolderPath(NULL,
-                                         CSIDL_LOCAL_APPDATA,
-                                         NULL,
-                                         SHGFP_TYPE_CURRENT,
-                                         buffer);
-        if (result == S_OK) {
-            i64 length = strlen(buffer) + strlen("\\leary\\") + 1;
-            path = (char*)malloc(length);
-            strcpy(path, buffer);
-            strcat(path, "\\leary\\");
-            path[length-1] = '\0';
-        }
-    } break;
-    case GamePath_textures: {
-        char *data_path = platform_path(GamePath_data);
-        u64 length = strlen(data_path) + strlen("textures\\") + 1;
-        path = (char*)malloc(length);
-        strcpy(path, data_path);
-        strcat(path, "textures\\");
-    } break;
-    default:
-        DEBUG_ASSERT(false);
-        return nullptr;
+        length = module_length + 1;
+        g_paths.exe = { length, (char*)a->alloc(length + 1) };
+        p = strncpy(g_paths.exe.bytes, buffer, length);
+        strcat(p, "\\");
     }
 
-    return path;
-}
+    // --- app data dir
+    // NOTE(jesper): other paths depend on this being resolved early
+    DWORD env_length = GetEnvironmentVariable("LEARY_DATA_ROOT", buffer, MAX_PATH);
 
-char *platform_resolve_path(const char *path)
-{
-    DWORD result;
-
-    char buffer[MAX_PATH];
-    result = GetFullPathName(path, MAX_PATH, buffer, nullptr);
-    DEBUG_ASSERT(result > 0);
-    return strdup(buffer);
-}
-
-char *platform_resolve_path(GamePath root, const char *path)
-{
-    char *resolved = nullptr;
-
-    // TODO(jesper): stick these in platform state or something, if we reload
-    // the code these will be leaked and it's not pretty
-    static const char *data_path        = platform_path(GamePath_data);
-    static const char *binary_path      = platform_path(GamePath_binary);
-    static const char *models_path      = platform_path(GamePath_models);
-    static const char *shaders_path     = platform_path(GamePath_shaders);
-    static const char *preferences_path = platform_path(GamePath_preferences);
-    static const char *textures_path    = platform_path(GamePath_textures);
-
-    static const u64 data_path_length        = strlen(data_path);
-    static const u64 binary_path_length      = strlen(binary_path);
-    static const u64 models_path_length      = strlen(models_path);
-    static const u64 shaders_path_length     = strlen(shaders_path);
-    static const u64 preferences_path_length = strlen(preferences_path);
-    static const u64 textures_path_length    = strlen(textures_path);
-
-    switch (root) {
-    case GamePath_data:
-        resolved = (char*)malloc(data_path_length + strlen(path));
-        strcpy(resolved, data_path);
-        strcat(resolved, path);
-        break;
-    case GamePath_binary: {
-        usize length = binary_path_length + strlen(path) + 1;
-        resolved = (char*)malloc(length);
-        strcpy(resolved, binary_path);
-        strcat(resolved, path);
-    } break;
-    case GamePath_shaders:
-        resolved = (char*)malloc(shaders_path_length + strlen(path));
-        strcpy(resolved, shaders_path);
-        strcat(resolved, path);
-        break;
-    case GamePath_models: {
-        usize length = models_path_length + strlen(path) + 1;
-        resolved = (char*)malloc(length);
-        strcpy(resolved, models_path);
-        strcat(resolved, path);
-    } break;
-    case GamePath_textures: {
-        usize length = textures_path_length + strlen(path) + 1;
-        resolved = (char*)malloc(length);
-        strcpy(resolved, textures_path);
-        strcat(resolved, path);
-    } break;
-    case GamePath_preferences:
-        resolved = (char*)malloc(preferences_path_length + strlen(path));
-        strcpy(resolved, preferences_path);
-        strcat(resolved, path);
-        break;
-    default:
-        DEBUG_ASSERT(false);
-        break;
+    if (env_length != 0) {
+        g_paths.data = { env_length, (char*)a->alloc(env_length + 1) };
+        strncpy(g_paths.data.bytes, buffer, env_length);
+    } else {
+        length = g_paths.exe.length + strlen("..\\assets\\");
+        g_paths.data = { length, (char*)a->alloc(length + 1) };
+        p = strcpy(g_paths.data.bytes, g_paths.exe.bytes);
+        strcpy(p, "..\\assets\\");
     }
 
-    return resolved;
-}
-
-
-
-bool platform_file_exists(const char *path)
-{
-    return PathFileExists(path) == TRUE;
-}
-
-bool platform_file_create(const char *path)
-{
-    HANDLE file_handle = CreateFile(path,
-                                    0,
-                                    0,
-                                    NULL,
-                                    CREATE_NEW,
-                                    FILE_ATTRIBUTE_NORMAL,
-                                    NULL);
-
-    if (file_handle == INVALID_HANDLE_VALUE) {
-        return false;
+    // --- app preferences dir
+    result = SHGetFolderPath(NULL, CSIDL_LOCAL_APPDATA, NULL, SHGFP_TYPE_CURRENT, buffer);
+    if (result == S_OK) {
+        length = strlen(buffer) + strlen("\\leary\\");
+        g_paths.preferences = { length, (char*)a->alloc(length) + 1 };
+        p = strcpy(g_paths.preferences.bytes, buffer);
+        strcat(p, "\\leary\\");
     }
 
-    CloseHandle(file_handle);
-    return true;
-}
+    // --- shaders dir
+    length = g_paths.exe.length + strlen("data\\shaders\\");
+    g_paths.shaders = { length, (char*)a->alloc(length + 1) };
+    p = strcpy(g_paths.shaders.bytes, g_paths.exe.bytes);
+    strcat(p, "data/shaders/");
 
-void* platform_file_open(const char *path, FileAccess access)
-{
-    DWORD flags;
-    DWORD share_mode;
+    // -- textures dir
+    length = g_paths.data.length + strlen("textures\\");
+    g_paths.textures = { length, (char*)a->alloc(length + 1) };
+    p = strcpy(g_paths.textures.bytes, g_paths.data.bytes);
+    strcat(p, "textures/");
 
-    switch (access) {
-    case FileAccess_read:
-        flags      = GENERIC_READ;
-        share_mode = FILE_SHARE_READ;
-        break;
-    case FileAccess_write:
-        flags      = GENERIC_WRITE;
-        share_mode = 0;
-        break;
-    case FileAccess_read_write:
-        flags      = GENERIC_READ | GENERIC_WRITE;
-        share_mode = 0;
-        break;
-    default:
-        DEBUG_ASSERT(false);
-        return nullptr;
-    }
-
-    HANDLE file_handle = CreateFile(path,
-                                    flags,
-                                    share_mode,
-                                    NULL,
-                                    OPEN_EXISTING,
-                                    FILE_ATTRIBUTE_NORMAL,
-                                    NULL);
-
-    if (file_handle == INVALID_HANDLE_VALUE) {
-        return nullptr;
-    }
-
-    return (void*)file_handle;
-}
-
-void platform_file_close(void *file_handle)
-{
-    CloseHandle((HANDLE)file_handle);
-}
-
-char* platform_file_read(const char *filename, usize *size)
-{
-    char *buffer = nullptr;
-
-    HANDLE file = CreateFile(filename,
-                             GENERIC_READ,
-                             FILE_SHARE_READ,
-                             NULL,
-                             OPEN_EXISTING,
-                             FILE_ATTRIBUTE_NORMAL,
-                             NULL);
-
-    LARGE_INTEGER file_size;
-    if (GetFileSizeEx(file, &file_size)) {
-        // NOTE(jesper): ReadFile only works on 32 bit sizes
-        DEBUG_ASSERT(file_size.QuadPart <= 0xFFFFFFFF);
-        *size = (usize) file_size.QuadPart;
-
-
-        buffer = (char*)malloc((usize)file_size.QuadPart);
-
-        DWORD bytes_read;
-        if (!ReadFile(file, buffer, (u32)file_size.QuadPart, &bytes_read, 0)) {
-            free(buffer);
-            buffer = nullptr;
-        }
-
-        CloseHandle(file);
-    }
-
-    return buffer;
-}
-
-void platform_file_write(void *file_handle, void *buffer, usize bytes)
-{
-    BOOL result;
-
-    // NOTE(jesper): WriteFile takes 32 bit number of bytes to write
-    DEBUG_ASSERT(bytes <= 0xFFFFFFFF);
-
-    DWORD bytes_written;
-    result = WriteFile((HANDLE) file_handle,
-                            buffer,
-                            (DWORD) bytes,
-                            &bytes_written,
-                            NULL);
-
-
-    DEBUG_ASSERT(bytes  == bytes_written);
-    DEBUG_ASSERT(result == TRUE);
-}
-
-char *platform_resolve_relative(const char *path)
-{
-    DWORD result;
-
-    char buffer[MAX_PATH];
-    result = GetFullPathName(path, MAX_PATH, buffer, nullptr);
-    DEBUG_ASSERT(result > 0);
-    return strdup(buffer);
+    // -- models dir
+    length = g_paths.data.length + strlen("models\\");
+    g_paths.models = { length, (char*)a->alloc(length + 1) };
+    p = strcpy(g_paths.models.bytes, g_paths.data.bytes);
+    strcat(p, "models/");
 }
 
 Array<Path> list_files(const char *folder, Allocator *allocator)
@@ -332,7 +117,7 @@ Array<Path> list_files(const char *folder, Allocator *allocator)
     WIN32_FIND_DATA fd;
     h = FindFirstFile(path, &fd);
     if (h == INVALID_HANDLE_VALUE) {
-        DEBUG_LOG(Log_error, "could not find file in folder: %s", folder);
+        LOG(Log_error, "could not find file in folder: %s", folder);
         return {};
     }
 
@@ -342,7 +127,7 @@ Array<Path> list_files(const char *folder, Allocator *allocator)
         }
         if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
             // TODO(jesper): handle sub-folders
-            DEBUG_LOG(Log_warning, "sub-folders are unimplemented");
+            LOG(Log_warning, "sub-folders are unimplemented");
         } else {
             isize flen = strlen(fd.cFileName);
 
@@ -375,7 +160,7 @@ Array<Path> list_files(const char *folder, Allocator *allocator)
             }
             p.extension = { flen - ext, p.filename.bytes + ext + 1 };
 
-            DEBUG_LOG("adding file: %s", p.absolute.bytes);
+            LOG("adding file: %s", p.absolute.bytes);
             array_add(&files, p);
         }
     } while (FindNextFile(h, &fd));
@@ -383,3 +168,169 @@ Array<Path> list_files(const char *folder, Allocator *allocator)
     FindClose(h);
     return files;
 }
+
+char* resolve_relative(const char *path)
+{
+    DWORD result;
+
+    char buffer[MAX_PATH];
+    result = GetFullPathName(path, MAX_PATH, buffer, nullptr);
+    assert(result > 0);
+
+    // TODO(jesper): currently leaking memory
+    return strdup(buffer);
+}
+
+char* resolve_path(GamePath rp, const char *path, Allocator *a)
+{
+    usize length, plength;
+    char *resolved;
+    char *p, *root;
+
+    plength = strlen(path);
+
+    switch (rp) {
+    case GamePath_data: {
+        length = g_paths.data.length + plength;
+        root   = g_paths.data.bytes;
+    } break;
+    case GamePath_exe: {
+        length = g_paths.exe.length + plength;
+        root   = g_paths.exe.bytes;
+    } break;
+    case GamePath_shaders: {
+        length = g_paths.shaders.length + plength;
+        root   = g_paths.shaders.bytes;
+    } break;
+    case GamePath_textures: {
+        length = g_paths.textures.length + plength;
+        root   = g_paths.textures.bytes;
+    } break;
+    case GamePath_models: {
+        length = g_paths.models.length + plength;
+        root   = g_paths.models.bytes;
+    } break;
+    case GamePath_preferences: {
+        length = g_paths.preferences.length + plength;
+        root   = g_paths.preferences.bytes;
+    } break;
+    default:
+        LOG(Log_error, "unknown path root: %d", rp);
+        assert(false);
+        return nullptr;
+    }
+
+    resolved = (char*)a->alloc(length + 1);
+    p        = strcpy(resolved, root);
+    strcat(p, path);
+
+    return resolved;
+}
+
+bool file_exists(const char *path)
+{
+    return PathFileExists(path) == TRUE;
+}
+
+bool create_file(const char *path)
+{
+    HANDLE file_handle = CreateFile(path, 0, 0, NULL, CREATE_NEW,
+                                    FILE_ATTRIBUTE_NORMAL, NULL);
+
+    if (file_handle == INVALID_HANDLE_VALUE) {
+        return false;
+    }
+
+    CloseHandle(file_handle);
+    return true;
+}
+
+void* open_file(const char *path, FileAccess access)
+{
+    DWORD flags;
+    DWORD share_mode;
+
+    switch (access) {
+    case FileAccess_read:
+        flags      = GENERIC_READ;
+        share_mode = FILE_SHARE_READ;
+        break;
+    case FileAccess_write:
+        flags      = GENERIC_WRITE;
+        share_mode = 0;
+        break;
+    case FileAccess_read_write:
+        flags      = GENERIC_READ | GENERIC_WRITE;
+        share_mode = 0;
+        break;
+    default:
+        assert(false);
+        return nullptr;
+    }
+
+    HANDLE file_handle = CreateFile(path, flags, share_mode, NULL,
+                                    OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+
+    if (file_handle == INVALID_HANDLE_VALUE) {
+        return nullptr;
+    }
+
+    return (void*)file_handle;
+}
+
+void close_file(void *file_handle)
+{
+    CloseHandle((HANDLE)file_handle);
+}
+
+char* read_file(const char *filename, usize *o_size, Allocator *a)
+{
+    char *buffer = nullptr;
+
+    HANDLE file = CreateFile(filename,
+                             GENERIC_READ,
+                             FILE_SHARE_READ,
+                             NULL,
+                             OPEN_EXISTING,
+                             FILE_ATTRIBUTE_NORMAL,
+                             NULL);
+
+    LARGE_INTEGER file_size;
+    if (GetFileSizeEx(file, &file_size)) {
+        // NOTE(jesper): ReadFile only works on 32 bit sizes
+        assert(file_size.QuadPart <= 0xFFFFFFFF);
+        *o_size = (usize) file_size.QuadPart;
+
+        buffer = (char*)a->alloc((usize)file_size.QuadPart);
+
+        DWORD bytes_read;
+        if (!ReadFile(file, buffer, (u32)file_size.QuadPart, &bytes_read, 0)) {
+            a->dealloc(buffer);
+            buffer = nullptr;
+        }
+
+        CloseHandle(file);
+    }
+
+    return buffer;
+}
+
+void write_file(void *file_handle, void *buffer, usize bytes)
+{
+    BOOL result;
+
+    // NOTE(jesper): WriteFile takes 32 bit number of bytes to write
+    assert(bytes <= 0xFFFFFFFF);
+
+    DWORD bytes_written;
+    result = WriteFile((HANDLE) file_handle,
+                            buffer,
+                            (DWORD) bytes,
+                            &bytes_written,
+                            NULL);
+
+
+    assert(bytes  == bytes_written);
+    assert(result == TRUE);
+}
+

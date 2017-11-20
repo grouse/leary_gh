@@ -684,9 +684,8 @@ void init_catalog_system()
 
     for (i32 i = 0; i < g_catalog.folders.count; i++) {
         Array<Path> files = list_files(g_catalog.folders[i], g_heap);
-        for (i32 i = 0; i < files.count; i++) {
-            Path &p = files[i];
 
+        for (auto &p : files) {
             catalog_process_t **func = table_find(&g_catalog.processes,
                                                   p.extension.bytes);
 

@@ -28,6 +28,7 @@
 #include "build_config.h"
 #include "core/types.h"
 
+
 // -- platform specific includes
 #if defined(__linux__)
     #include <X11/Xlib.h>
@@ -35,7 +36,6 @@
     #include <X11/extensions/XInput2.h>
 
     #define VK_USE_PLATFORM_XLIB_KHR
-    #include <vulkan/vulkan.h>
 
 extern "C" {
     #define EXIT_SUCCESS 0
@@ -49,15 +49,14 @@ extern "C" {
     #define rdtsc() __rdtsc()
 #elif defined(_WIN32)
     #include <Windows.h>
-    #undef near
-    #undef far
 
     #include <Shlobj.h>
     #include <Shlwapi.h>
 
+    #undef near
+    #undef far
 
     #define VK_USE_PLATFORM_WIN32_KHR
-    #include <vulkan/vulkan.h>
     #define rdtsc() __rdtsc()
 #else
     #error "unsupported platform"
@@ -65,6 +64,7 @@ extern "C" {
 
 // -- platform generic includes
 #include <cstring>
+#include <vulkan/vulkan.h>
 
 #include "core/core.h"
 

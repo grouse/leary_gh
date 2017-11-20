@@ -24,6 +24,9 @@
 
 #include "platform_debug.h"
 
+#if LEARY_ENABLE_LOGGING
+#define DEBUG_BUFFER_SIZE (2048)
+
 const char *log_channel_string(LogChannel channel)
 {
 	switch (channel) {
@@ -51,11 +54,11 @@ void platform_debug_print(const char *file,
 	va_start(args, fmt);
 	i32 length = vsnprintf(message, DEBUG_BUFFER_SIZE, fmt, args);
 	va_end(args);
-	DEBUG_ASSERT(length < DEBUG_BUFFER_SIZE);
+	assert(length < DEBUG_BUFFER_SIZE);
 
 	length = snprintf(buffer, DEBUG_BUFFER_SIZE, "%s:%d: %s: [%s] %s\n",
 	                  file, line, channel_str, function, message);
-	DEBUG_ASSERT(length < DEBUG_BUFFER_SIZE);
+	assert(length < DEBUG_BUFFER_SIZE);
 	OutputDebugString(buffer);
 }
 
@@ -73,10 +76,12 @@ void platform_debug_print(const char *file,
 	va_start(args, fmt);
 	i32 length = vsnprintf(message, DEBUG_BUFFER_SIZE, fmt, args);
 	va_end(args);
-	DEBUG_ASSERT(length < DEBUG_BUFFER_SIZE);
+	assert(length < DEBUG_BUFFER_SIZE);
 
 	length = snprintf(buffer, DEBUG_BUFFER_SIZE, "%s:%d: %s: [%s] %s\n",
 	                  file, line, channel_str, function, message);
-	DEBUG_ASSERT(length < DEBUG_BUFFER_SIZE);
+	assert(length < DEBUG_BUFFER_SIZE);
 	OutputDebugString(buffer);
 }
+
+#endif // LEARY_ENABLE_LOGGING
