@@ -23,20 +23,96 @@ namespace lry {
 #define PI 3.1415942f
 #define F32_MAX 3.402823466e+38F
 
-INTROSPECT struct Vector2 {
-	f32 x, y;
+#define MCOMBINE2(a, b) a ## b
+#define MCOMBINE(a, b) MCOMBINE2(a, b)
+#define DUMMY_VAR MCOMBINE(dummy_, __LINE__)
+
+union Vector2 {
+    f32 data[2];
+    struct {
+        f32 x, y;
+    };
+    struct {
+        f32 r, g;
+    };
 };
 
-INTROSPECT struct Vector3 {
-	f32 x, y, z;
+union Vector3 {
+    f32 data[3];
+    struct {
+        f32 x, y, z;
+    };
+    struct {
+        f32 r, g, b;
+    };
+
+    struct {
+        Vector2 xy;
+        f32 DUMMY_VAR;
+    };
+    struct {
+        Vector2 rg;
+        f32 DUMMY_VAR;
+    };
+
+    struct {
+        f32 DUMMY_VAR;
+        Vector2 yz;
+    };
+    struct {
+        f32 DUMMY_VAR;
+        Vector2 gb;
+    };
 };
 
-INTROSPECT struct Vector4 {
-	f32 x, y, z, w;
+union Vector4 {
+    f32 data[4];
+    struct {
+        f32 x, y, z, w;
+    };
+    struct {
+        f32 r, g, b, a;
+    };
 
-	void foo() {
-	}
+    struct {
+        Vector3 xyz;
+        f32 DUMMY_VAR;
+    };
+    struct {
+        Vector3 rgb;
+        f32 DUMMY_VAR;
+    };
+
+    struct {
+        f32 DUMMY_VAR;
+        Vector3 yzw;
+    };
+    struct {
+        f32 DUMMY_VAR;
+        Vector3 gba;
+    };
+
+    struct {
+        Vector2 xy;
+        Vector2 zw;
+    };
+    struct {
+        Vector2 rg;
+        Vector2 ba;
+    };
+
+    struct {
+        f32 DUMMY_VAR;
+        Vector2 yz;
+        f32 DUMMY_VAR;
+    };
+    struct {
+        f32 DUMMY_VAR;
+        Vector2 gb;
+        f32 DUMMY_VAR;
+    };
 };
+
 
 struct Quaternion {
 	f32 x, y, z, w;
