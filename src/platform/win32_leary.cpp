@@ -16,9 +16,10 @@
 #include "win32_input.cpp"
 
 PlatformState   *g_platform;
-Settings        g_settings;
+Settings         g_settings;
 HeapAllocator   *g_heap;
 LinearAllocator *g_frame;
+LinearAllocator *g_debug_frame;
 LinearAllocator *g_persistent;
 StackAllocator  *g_stack;
 
@@ -28,10 +29,12 @@ struct Win32State {
 };
 
 #include "win32_vulkan.cpp"
+#include "leary.cpp"
+#include "generated/type_info.h"
 
-void create_catalog_thread(const char *folder, catalog_callback_t *callback)
+void create_catalog_thread(Array<char*> folders, catalog_callback_t *callback)
 {
-    (void)folder;
+    (void)folders;
     (void)callback;
 }
 
@@ -50,9 +53,6 @@ void unlock_mutex(Mutex *m)
 {
     ReleaseMutex(m->native);
 }
-
-
-#include "leary.cpp"
 
 struct MouseState {
     f32 x, y;
