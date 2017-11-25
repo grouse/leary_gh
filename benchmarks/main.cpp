@@ -36,21 +36,31 @@
 
 #if defined(__clang__)
 #define DONT_OPTIMIZE(value) asm volatile("" : : "g"(value) : "memory")
+#define MEMORY_BARRIER() asm volatile("" : : : "memory")
+#elif defined(_MSC_VER)
+template<typename T>
+void DONT_OPTIMIZE(T const &value)
+{
+    volatile char const &cptr = (volatile char const&)value;
+    (void)cptr;
+    _ReadWriteBarrier();
+}
+
+void MEMORY_BARRIER()
+{
+    _ReadWriteBarrier();
+}
 #else
 #define DONT_OPTIMIZE(value) asm volatile("" : : "i,r,m"(value) : "memory")
 #endif
 
-#define MEMORY_BARRIER() asm volatile("" : : : "memory")
+
 
 #define DIVIDER "-----------------------------------------------------------------------------------------------------------------------------------------------------"
 
 u64 get_time()
 {
-#if defined(__x86_64__) || defined(__amd64__)
-  u64 low, high;
-  __asm__ volatile("rdtsc" : "=a"(low), "=d"(high));
-  return (high << 32) | low;
-#endif
+    return __rdtsc();
 }
 
 #define MCOMBINE2(a, b) a ## b
@@ -109,6 +119,7 @@ void stop_timing(Benchmark *state)
 }
 
 #include "benchmark_array.cpp"
+#include "benchmark_random.cpp"
 #include "benchmark_hashtable.cpp"
 #include "benchmark_maths.cpp"
 
@@ -119,13 +130,13 @@ int main()
     }
 
     i32 pad = 5;
-    i32 col0 = strlen("Benchmark");
-    i32 col1 = strlen("Iterations");
-    i32 col2 = strlen("Cycles");
+    i32 col0 = (i32)strlen("Benchmark");
+    i32 col1 = (i32)strlen("Iterations");
+    i32 col2 = (i32)strlen("Cycles");
 
     for (auto &benchmark : g_benchmarks) {
         if ((i32)strlen(benchmark.name) > col0) {
-            col0 = strlen(benchmark.name);
+            col0 = (i32)strlen(benchmark.name);
         }
 
         i32 iter = std::snprintf(nullptr, 0, "%d", benchmark.iterations);
