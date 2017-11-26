@@ -25,14 +25,17 @@ enum ShaderID {
     ShaderID_basic2d_frag,
     ShaderID_font_frag,
     ShaderID_terrain_vert,
-    ShaderID_terrain_frag
+    ShaderID_terrain_frag,
+    ShaderID_wireframe_vert,
+    ShaderID_wireframe_frag
 };
 
 enum PipelineID {
     Pipeline_font,
     Pipeline_mesh,
     Pipeline_terrain,
-    Pipeline_basic2d
+    Pipeline_basic2d,
+    Pipeline_wireframe
 };
 
 struct VulkanBuffer {

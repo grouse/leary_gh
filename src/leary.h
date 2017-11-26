@@ -123,6 +123,7 @@ struct GameState {
         VulkanPipeline font;
         VulkanPipeline mesh;
         VulkanPipeline terrain;
+        VulkanPipeline wireframe;
     } pipelines;
 
     struct {

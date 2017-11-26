@@ -66,6 +66,21 @@ extern Settings      g_settings;
 extern PlatformState *g_platform;
 extern Catalog       g_catalog;
 
+bool g_render_collidables = true;
+
+struct Collidable {
+    struct {
+        Matrix4 transform;
+        Vector3 color;
+    } tc;
+    PushConstants pc;
+    VulkanBuffer           vbo;
+    i32                    vertex_count = 0;
+};
+
+Collidable g_test_collidable = {};
+
+
 Terrain        g_terrain;
 Array<Entity>  g_entities;
 Physics        g_physics;
@@ -421,6 +436,7 @@ void game_init()
         // the asset loading system
         set_ubo(&g_game->pipelines.mesh, ResourceSlot_mvp, &g_game->fp_camera.ubo);
         set_ubo(&g_game->pipelines.terrain, ResourceSlot_mvp, &g_game->fp_camera.ubo);
+        set_ubo(&g_game->pipelines.wireframe, ResourceSlot_mvp, &g_game->fp_camera.ubo);
 
         Texture *greybox = find_texture("greybox.bmp");
         Texture *font   = find_texture("font-regular");
@@ -430,6 +446,72 @@ void game_init()
         set_texture(&g_game->materials.font,    ResourceSlot_diffuse, font);
         set_texture(&g_game->materials.phong,   ResourceSlot_diffuse, greybox);
         set_texture(&g_game->materials.player,  ResourceSlot_diffuse, player);
+    }
+
+    {
+        g_test_collidable.tc.transform = translate(Matrix4::identity(), { 0.0f, 0.0f, 0.0f });
+        g_test_collidable.tc.color = { 1.0f, 0.0f, 0.0f };
+        g_test_collidable.pc = create_push_constants(Pipeline_wireframe);
+        set_push_constant(&g_test_collidable.pc, g_test_collidable.tc);
+
+        f32 vertices[] = {
+            // front-face
+            0.0f, 0.0f, 0.0f,
+            1.0f, 0.0f, 0.0f,
+            1.0f, 1.0f, 0.0f,
+
+            1.0f, 1.0f, 0.0f,
+            1.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f,
+
+            // back-face
+            0.0f, 0.0f, 1.0f,
+            1.0f, 0.0f, 1.0f,
+            1.0f, 1.0f, 1.0f,
+
+            1.0f, 1.0f, 1.0f,
+            1.0f, 0.0f, 1.0f,
+            0.0f, 0.0f, 1.0f,
+
+            // top-face
+            0.0f, 0.0f, 0.0f,
+            1.0f, 0.0f, 0.0f,
+            1.0f, 0.0f, 1.0f,
+
+            1.0f, 0.0f, 1.0f,
+            0.0f, 0.0f, 1.0f,
+            0.0f, 0.0f, 0.0f,
+
+            // bottom-face
+            0.0f, 1.0f, 0.0f,
+            1.0f, 1.0f, 0.0f,
+            1.0f, 1.0f, 1.0f,
+
+            1.0f, 1.0f, 1.0f,
+            0.0f, 1.0f, 1.0f,
+            0.0f, 1.0f, 0.0f,
+
+            // right-face
+            1.0f, 0.0f, 0.0f,
+            1.0f, 1.0f, 1.0f,
+            1.0f, 1.0f, 0.0f,
+
+            1.0f, 0.0f, 0.0f,
+            1.0f, 0.0f, 1.0f,
+            1.0f, 1.0f, 1.0f,
+
+            // left-face
+            0.0f, 0.0f, 0.0f,
+            0.0f, 1.0f, 1.0f,
+            0.0f, 1.0f, 0.0f,
+
+            0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 1.0f,
+            0.0f, 1.0f, 1.0f
+        };
+
+        g_test_collidable.vbo = create_vbo(vertices, sizeof(vertices) * sizeof(f32));
+        g_test_collidable.vertex_count = 36;
     }
 
     init_terrain();
@@ -445,6 +527,8 @@ void game_quit()
     platform_set_raw_mouse(false);
 
     vkQueueWaitIdle(g_vulkan->queue);
+
+    buffer_destroy(g_test_collidable.vbo);
 
     for (auto &it : g_terrain.chunks) {
         buffer_destroy(it.vbo);
@@ -473,6 +557,7 @@ void game_quit()
     destroy_pipeline(g_game->pipelines.font);
     destroy_pipeline(g_game->pipelines.mesh);
     destroy_pipeline(g_game->pipelines.terrain);
+    destroy_pipeline(g_game->pipelines.wireframe);
 
     for (auto &it : g_game->render_objects) {
         buffer_destroy(it.vbo);
@@ -1052,23 +1137,50 @@ void game_render()
     }
 
 
-    vkCmdBindPipeline(command,
-                      VK_PIPELINE_BIND_POINT_GRAPHICS,
-                      g_game->pipelines.font.handle);
+    // collidables
+    if (g_render_collidables) {
+        vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                          g_game->pipelines.wireframe.handle);
+
+        auto descriptors = create_array<VkDescriptorSet>(g_stack);
+        array_add(&descriptors, g_game->pipelines.wireframe.descriptor_set);
+
+        vkCmdBindDescriptorSets(command,
+                                VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                g_game->pipelines.wireframe.layout,
+                                0,
+                                descriptors.count, descriptors.data,
+                                0, nullptr);
+
+        vkCmdBindVertexBuffers(command, 0, 1, &g_test_collidable.vbo.handle, offsets);
+        vkCmdPushConstants(command, g_game->pipelines.wireframe.layout,
+                           VK_SHADER_STAGE_VERTEX_BIT,
+                           0,
+                           sizeof(g_test_collidable.tc),
+                           &g_test_collidable.tc);
+        vkCmdDraw(command, g_test_collidable.vertex_count, 1, 0, 0);
+
+    }
 
 
-    auto descriptors = create_array<VkDescriptorSet>(g_stack);
-    array_add(&descriptors, g_game->materials.font.descriptor_set);
 
-    vkCmdBindDescriptorSets(command,
-                            VK_PIPELINE_BIND_POINT_GRAPHICS,
-                            g_game->pipelines.font.layout,
-                            0,
-                            (i32)descriptors.count, descriptors.data,
-                            0, nullptr);
-
-
+    // debug overlay text
     if (g_game->overlay.vertex_count > 0) {
+        vkCmdBindPipeline(command,
+                          VK_PIPELINE_BIND_POINT_GRAPHICS,
+                          g_game->pipelines.font.handle);
+
+
+        auto descriptors = create_array<VkDescriptorSet>(g_stack);
+        array_add(&descriptors, g_game->materials.font.descriptor_set);
+
+        vkCmdBindDescriptorSets(command,
+                                VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                g_game->pipelines.font.layout,
+                                0,
+                                (i32)descriptors.count, descriptors.data,
+                                0, nullptr);
+
         Matrix4 t = Matrix4::identity();
         vkCmdPushConstants(command, g_game->pipelines.font.layout,
                            VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(t), &t);
@@ -1079,6 +1191,7 @@ void game_render()
     }
 
 
+    // debug overlay items
     for (auto &item : g_game->overlay.render_queue) {
         vkCmdBindPipeline(command,
                           VK_PIPELINE_BIND_POINT_GRAPHICS,

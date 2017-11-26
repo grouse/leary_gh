@@ -39,6 +39,8 @@ glslangValidator -V %ROOT%\src\shaders\mesh.glsl -DVERTEX_SHADER -S vert -g -o %
 glslangValidator -V %ROOT%\src\shaders\mesh.glsl -DFRAGMENT_SHADER -S frag -g -o %BUILD_DIR%\data\shaders\mesh.frag.spv
 glslangValidator -V %ROOT%\src\shaders\terrain.glsl -DVERTEX_SHADER -S vert -g -o %BUILD_DIR%\data\shaders\terrain.vert.spv
 glslangValidator -V %ROOT%\src\shaders\terrain.glsl -DFRAGMENT_SHADER -S frag -g -o %BUILD_DIR%\data\shaders\terrain.frag.spv
+glslangValidator -V %ROOT%\src\shaders\wireframe.glsl -DVERTEX_SHADER -S vert -g -o %BUILD_DIR%\data\shaders\wireframe.vert.spv
+glslangValidator -V %ROOT%\src\shaders\wireframe.glsl -DFRAGMENT_SHADER -S frag -g -o %BUILD_DIR%\data\shaders\wireframe.frag.spv
 
 REM cl %FLAGS% %UNOPTIMIZED% %INCLUDE_DIR% %ROOT%\src\platform\win32_leary.cpp /link %LIBS% /DLL /OUT:game.dll
 cl %FLAGS% %UNOPTIMIZED% %INCLUDE_DIR% /Feleary.exe %ROOT%\src\platform/win32_main.cpp /SUBSYSTEM:WINDOWS /link %LIBS%

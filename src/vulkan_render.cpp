@@ -750,6 +750,40 @@ VulkanShader create_shader(ShaderID id)
                                                nullptr, &shader.module);
         assert(result == VK_SUCCESS);
     } break;
+    case ShaderID_wireframe_vert: {
+        char *path = resolve_path(GamePath_shaders, "wireframe.vert.spv", g_stack);
+
+        usize size;
+        u32 *source = (u32*)read_file(path, &size, g_frame);
+        assert(source != nullptr);
+
+        shader.name   = "main";
+        shader.stage  = VK_SHADER_STAGE_VERTEX_BIT;
+
+        info.codeSize = size;
+        info.pCode    = source;
+
+        VkResult result = vkCreateShaderModule(g_vulkan->handle, &info,
+                                               nullptr, &shader.module);
+        assert(result == VK_SUCCESS);
+    } break;
+    case ShaderID_wireframe_frag: {
+        char *path = resolve_path(GamePath_shaders, "wireframe.frag.spv", g_stack);
+
+        usize size;
+        u32 *source = (u32*)read_file(path, &size, g_frame);
+        assert(source != nullptr);
+
+        shader.name   = "main";
+        shader.stage  = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+        info.codeSize = size;
+        info.pCode    = source;
+
+        VkResult result = vkCreateShaderModule(g_vulkan->handle, &info,
+                                               nullptr, &shader.module);
+        assert(result == VK_SUCCESS);
+    } break;
     case ShaderID_mesh_vert: {
         char *path = resolve_path(GamePath_shaders, "mesh.vert.spv", g_stack);
 
@@ -870,6 +904,10 @@ VulkanPipeline create_pipeline(PipelineID id)
         pipeline.shaders[ShaderStage_vertex]   = create_shader(ShaderID_mesh_vert);
         pipeline.shaders[ShaderStage_fragment] = create_shader(ShaderID_mesh_frag);
         break;
+    case Pipeline_wireframe:
+        pipeline.shaders[ShaderStage_vertex]   = create_shader(ShaderID_wireframe_vert);
+        pipeline.shaders[ShaderStage_fragment] = create_shader(ShaderID_wireframe_frag);
+        break;
     default: break;
     }
 
@@ -962,6 +1000,31 @@ VulkanPipeline create_pipeline(PipelineID id)
             array_add(&layouts, pipeline.descriptor_layout_material);
         }
     } break;
+    case Pipeline_wireframe: {
+        { // pipeline
+            auto binds = create_array<VkDescriptorSetLayoutBinding>(g_stack);
+            array_add(&binds, {
+                0,
+                VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                1,
+                VK_SHADER_STAGE_VERTEX_BIT,
+                nullptr
+            });
+
+            VkDescriptorSetLayoutCreateInfo layout_info = {};
+            layout_info.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+            layout_info.bindingCount = (u32)binds.count;
+            layout_info.pBindings    = binds.data;
+
+            result = vkCreateDescriptorSetLayout(g_vulkan->handle,
+                                                 &layout_info,
+                                                 nullptr,
+                                                 &pipeline.descriptor_layout_pipeline);
+            assert(result == VK_SUCCESS);
+
+            array_add(&layouts, pipeline.descriptor_layout_pipeline);
+        }
+    } break;
     }
 
     // NOTE(jesper): create a pool size descriptor for each type of
@@ -976,6 +1039,7 @@ VulkanPipeline create_pipeline(PipelineID id)
 
     switch (id) {
     case Pipeline_terrain:
+    case Pipeline_wireframe:
     case Pipeline_mesh: {
         array_add(&psizes, { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         1 });
         //array_add(&pool_sizes, { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1 });
@@ -1009,20 +1073,31 @@ VulkanPipeline create_pipeline(PipelineID id)
     layout_info.setLayoutCount = (i32)layouts.count;
     layout_info.pSetLayouts    = layouts.data;
 
+    auto push_constants = create_array<VkPushConstantRange>(g_stack);
+
     switch (id) {
     case Pipeline_font:
     case Pipeline_basic2d:
     case Pipeline_mesh:
     case Pipeline_terrain: {
-        VkPushConstantRange push_constants = {};
-        push_constants.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-        push_constants.offset = 0;
-        push_constants.size = sizeof(Matrix4);
+        VkPushConstantRange pc = {};
+        pc.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+        pc.offset = 0;
+        pc.size = sizeof(Matrix4);
 
-        layout_info.pushConstantRangeCount = 1;
-        layout_info.pPushConstantRanges    = &push_constants;
+        array_add(&push_constants, pc);
+    } break;
+    case Pipeline_wireframe: {
+        VkPushConstantRange pc = {};
+        pc.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+        pc.offset = 0;
+        pc.size   = sizeof(Matrix4) + sizeof(Vector3);
+        array_add(&push_constants, pc);
     } break;
     }
+
+    layout_info.pushConstantRangeCount = push_constants.count;
+    layout_info.pPushConstantRanges    = push_constants.data;
 
     result = vkCreatePipelineLayout(g_vulkan->handle, &layout_info, nullptr,
                                     &pipeline.layout);
@@ -1051,6 +1126,10 @@ VulkanPipeline create_pipeline(PipelineID id)
         array_add(&vdescs, { 0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0 });
         array_add(&vdescs, { 1, 0, VK_FORMAT_R32G32B32_SFLOAT, sizeof(f32) * 3 });
         array_add(&vdescs, { 2, 0, VK_FORMAT_R32G32_SFLOAT,    sizeof(f32) * 6 });
+        break;
+    case Pipeline_wireframe:
+        array_add(&vbinds, { 0, sizeof(f32) * 3, VK_VERTEX_INPUT_RATE_VERTEX });
+        array_add(&vdescs, { 0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0 });
         break;
     }
 
@@ -1089,11 +1168,21 @@ VulkanPipeline create_pipeline(PipelineID id)
     raster.sType                   = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
     raster.depthClampEnable        = VK_FALSE;
     raster.rasterizerDiscardEnable = VK_FALSE;
-    raster.polygonMode             = VK_POLYGON_MODE_FILL;
     raster.frontFace               = VK_FRONT_FACE_CLOCKWISE;
-    raster.cullMode                = VK_CULL_MODE_BACK_BIT;
     raster.depthBiasEnable         = VK_FALSE;
-    raster.lineWidth               = 1.0;
+
+    switch (id) {
+    case Pipeline_wireframe:
+        raster.polygonMode = VK_POLYGON_MODE_LINE;
+        raster.lineWidth   = 1.0f;
+        raster.cullMode    = VK_CULL_MODE_NONE;
+        break;
+    default:
+        raster.polygonMode = VK_POLYGON_MODE_FILL;
+        raster.lineWidth   = 1.0f;
+        raster.cullMode    = VK_CULL_MODE_BACK_BIT;
+        break;
+    }
 
     VkPipelineColorBlendAttachmentState cba = {};
     switch (id) {
@@ -1931,10 +2020,11 @@ void init_vulkan()
     assert(result == VK_SUCCESS);
 
     { // create pipelines
-        g_game->pipelines.mesh    = create_pipeline(Pipeline_mesh);
-        g_game->pipelines.basic2d = create_pipeline(Pipeline_basic2d);
-        g_game->pipelines.font    = create_pipeline(Pipeline_font);
-        g_game->pipelines.terrain = create_pipeline(Pipeline_terrain);
+        g_game->pipelines.mesh      = create_pipeline(Pipeline_mesh);
+        g_game->pipelines.basic2d   = create_pipeline(Pipeline_basic2d);
+        g_game->pipelines.font      = create_pipeline(Pipeline_font);
+        g_game->pipelines.terrain   = create_pipeline(Pipeline_terrain);
+        g_game->pipelines.wireframe = create_pipeline(Pipeline_wireframe);
     }
 
     { // create ubos
@@ -2318,12 +2408,17 @@ PushConstants create_push_constants(PipelineID pipeline)
     case Pipeline_font: {
         c.offset = 0;
         c.size   = sizeof(Matrix4);
-        c.data   = g_heap->alloc(sizeof(Matrix4));
+        c.data   = g_heap->alloc(c.size);
+    } break;
+    case Pipeline_wireframe: {
+        c.offset = 0;
+        c.size   = sizeof(Matrix4) + sizeof(Vector3);
+        c.data   = g_heap->alloc(c.size);
     } break;
     case Pipeline_basic2d: {
         c.offset = 0;
         c.size   = sizeof(Matrix4);
-        c.data   = g_heap->alloc(sizeof(Matrix4));
+        c.data   = g_heap->alloc(c.size);
     } break;
     default:
         // TODO(jesper): error handling
@@ -2338,5 +2433,6 @@ template<typename T>
 void set_push_constant(PushConstants *c, T t)
 {
     // TODO(jesper): handle multiple push constants
+    assert(c->size == sizeof(T));
     memcpy(c->data, &t, sizeof(T));
 }
