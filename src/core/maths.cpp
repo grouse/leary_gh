@@ -155,6 +155,15 @@ inline Matrix4 translate(Matrix4 m, Vector3 v)
     return result;
 }
 
+inline Matrix4 scale(Matrix4 m, Vector3 s)
+{
+    Matrix4 result = m;
+    result[0].x = result[0].x * s.x;
+    result[1].y = result[1].y * s.y;
+    result[2].z = result[2].z * s.z;
+    return result;
+}
+
 inline Matrix4 translate(Matrix4 m, Vector2 v)
 {
     PROFILE_BLOCK("Matrix4 translate");
