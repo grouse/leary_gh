@@ -214,6 +214,7 @@ Mesh load_mesh_obj(const char *filename)
 
             Vector2 uv;
             sscanf(ptr, "%f %f", &uv.x, &uv.y);
+            uv *= 2.0f;
             array_add(&uvs, uv);
         // normals
         } else if (ptr[0] == 'v' && ptr[1] == 'n') {

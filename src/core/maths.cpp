@@ -335,6 +335,13 @@ inline Vector2 operator * (Matrix4 lhs, Vector2 rhs)
     return result;
 }
 
+inline Vector2& operator *=(Vector2 &lhs, f32 rhs)
+{
+    lhs.x *= rhs;
+    lhs.y *= rhs;
+    return lhs;
+}
+
 inline Vector2 operator+ (Vector2 lhs, Vector2 rhs)
 {
     PROFILE_BLOCK("Vector2 + Vector2");

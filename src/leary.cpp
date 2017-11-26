@@ -246,7 +246,7 @@ void init_terrain()
     to_world[2].z = yy / (f32)hm->height;
     to_world[3].z = -w.y;
 
-    Vector2 uv_scale = { 0.5f, 0.5f };
+    Vector2 uv_scale = { 1.0f, 1.0f };
 
     for (u32 i = 0; i < hm->height-1; i++) {
         for (u32 j = 0; j < hm->width-1; j++) {
