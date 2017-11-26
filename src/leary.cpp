@@ -458,60 +458,46 @@ void game_init()
             // front-face
             0.0f, 0.0f, 0.0f,
             1.0f, 0.0f, 0.0f,
+
+            1.0f, 0.0f, 0.0f,
             1.0f, 1.0f, 0.0f,
 
             1.0f, 1.0f, 0.0f,
-            1.0f, 0.0f, 0.0f,
+            0.0f, 1.0f, 0.0f,
+
+            0.0f, 1.0f, 0.0f,
             0.0f, 0.0f, 0.0f,
 
             // back-face
             0.0f, 0.0f, 1.0f,
             1.0f, 0.0f, 1.0f,
+
+            1.0f, 0.0f, 1.0f,
             1.0f, 1.0f, 1.0f,
 
             1.0f, 1.0f, 1.0f,
-            1.0f, 0.0f, 1.0f,
+            0.0f, 1.0f, 1.0f,
+
+            0.0f, 1.0f, 1.0f,
             0.0f, 0.0f, 1.0f,
 
             // top-face
             0.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 1.0f,
+
             1.0f, 0.0f, 0.0f,
             1.0f, 0.0f, 1.0f,
-
-            1.0f, 0.0f, 1.0f,
-            0.0f, 0.0f, 1.0f,
-            0.0f, 0.0f, 0.0f,
 
             // bottom-face
             0.0f, 1.0f, 0.0f,
+            0.0f, 1.0f, 1.0f,
+
             1.0f, 1.0f, 0.0f,
             1.0f, 1.0f, 1.0f,
-
-            1.0f, 1.0f, 1.0f,
-            0.0f, 1.0f, 1.0f,
-            0.0f, 1.0f, 0.0f,
-
-            // right-face
-            1.0f, 0.0f, 0.0f,
-            1.0f, 1.0f, 1.0f,
-            1.0f, 1.0f, 0.0f,
-
-            1.0f, 0.0f, 0.0f,
-            1.0f, 0.0f, 1.0f,
-            1.0f, 1.0f, 1.0f,
-
-            // left-face
-            0.0f, 0.0f, 0.0f,
-            0.0f, 1.0f, 1.0f,
-            0.0f, 1.0f, 0.0f,
-
-            0.0f, 0.0f, 0.0f,
-            0.0f, 0.0f, 1.0f,
-            0.0f, 1.0f, 1.0f
         };
 
         g_test_collidable.vbo = create_vbo(vertices, sizeof(vertices) * sizeof(f32));
-        g_test_collidable.vertex_count = 36;
+        g_test_collidable.vertex_count = 24;
     }
 
     init_terrain();

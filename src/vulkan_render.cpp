@@ -1142,8 +1142,16 @@ VulkanPipeline create_pipeline(PipelineID id)
 
     VkPipelineInputAssemblyStateCreateInfo iai = {};
     iai.sType                  = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-    iai.topology               = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
     iai.primitiveRestartEnable = VK_FALSE;
+
+    switch (id) {
+    case Pipeline_wireframe:
+        iai.topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
+        break;
+    default:
+        iai.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+        break;
+    }
 
     VkViewport viewport = {};
     viewport.x        = 0.0f;
@@ -2195,7 +2203,9 @@ VulkanBuffer create_vbo(void *data, usize size)
                                      VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
                                      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
     void *mapped;
-    vkMapMemory(g_vulkan->handle, vbo.memory, 0, size, 0, &mapped);
+    VkResult result = vkMapMemory(g_vulkan->handle, vbo.memory, 0, size, 0, &mapped);
+    assert(result == VK_SUCCESS);
+
     memcpy(mapped, data, size);
     vkUnmapMemory(g_vulkan->handle, vbo.memory);
 
