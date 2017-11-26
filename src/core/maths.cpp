@@ -713,7 +713,7 @@ namespace lry {
     }
     f32 cos(f32 x)
     {
-        return std::cos(x);
+        return cos_taylor(x);
     }
 
     f32 sin_taylor(f32 x)
@@ -815,7 +815,7 @@ namespace lry {
 
     f32 sin(f32 x)
     {
-        return std::sin(x);
+        return sin_taylor(x);
     }
 
     f32 tan(f32 x)
