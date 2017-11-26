@@ -248,9 +248,11 @@ bool file_exists(const char *path)
     return (stat(path, &st) == 0);
 }
 
-bool create_file(const char *path)
+bool create_file(const char *path, bool create_folders = false)
 {
     // TODO(jesper): create folders if needed
+    (void)create_folders;
+
     i32 access = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
     i32 fd = open(path, O_CREAT, access);
 

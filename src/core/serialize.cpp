@@ -122,34 +122,6 @@ member_to_string(StructMemberInfo &member,
     return bytes;
 }
 
-void serialize_save_conf(char *path,
-                         StructMemberInfo *members,
-                         i32 num_members,
-                         void *ptr)
-{
-    if (!file_exists(path) && !create_file(path)) {
-        LOG(Log_warning, "path does not exist or can't be created: %s",
-                  path);
-        assert(false);
-        return;
-    }
-
-    void *file_handle = open_file(path, FileAccess_write);
-
-    // TODO(jesper): rewrite this so that we do fewer file_write, potentially
-    // so that we only open file and write into it after we've got an entire
-    // buffer to write into it
-    char buffer[2048];
-
-    for (i32 i = 0; i < (i32)num_members; i++) {
-        StructMemberInfo &member = members[i];
-        i32 bytes = member_to_string(member, ptr, buffer, sizeof(buffer));
-
-        write_file(file_handle, buffer, (usize)bytes);
-    }
-
-    close_file(file_handle);
-}
 
 StructMemberInfo *
 find_member(char *name,
@@ -244,10 +216,8 @@ member_from_string(char **ptr,
     *ptr = lexer.at;
 }
 
-void serialize_load_conf(char *path,
-                         StructMemberInfo *members,
-                         i32 num_members,
-                         void *out)
+void
+serialize_load_conf(char *path, StructMemberInfo *members, i32 num_members, void *out)
 {
     if (!file_exists(path)) {
         LOG(Log_warning, "path does not exist: %s", path);
@@ -260,3 +230,29 @@ void serialize_load_conf(char *path,
     member_from_string(&ptr, size, members, num_members, out);
 }
 
+void
+serialize_save_conf(char *path, StructMemberInfo *members, i32 num_members, void *ptr)
+{
+    if (!file_exists(path) && !create_file(path, true)) {
+        LOG(Log_warning, "path does not exist or can't be created: %s",
+                  path);
+        assert(false);
+        return;
+    }
+
+    void *file_handle = open_file(path, FileAccess_write);
+
+    // TODO(jesper): rewrite this so that we do fewer file_write, potentially
+    // so that we only open file and write into it after we've got an entire
+    // buffer to write into it
+    char buffer[2048];
+
+    for (i32 i = 0; i < (i32)num_members; i++) {
+        StructMemberInfo &member = members[i];
+        i32 bytes = member_to_string(member, ptr, buffer, sizeof(buffer));
+
+        write_file(file_handle, buffer, (usize)bytes);
+    }
+
+    close_file(file_handle);
+}

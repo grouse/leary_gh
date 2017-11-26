@@ -232,8 +232,30 @@ bool file_exists(const char *path)
     return PathFileExists(path) == TRUE;
 }
 
-bool create_file(const char *path)
+bool folder_exists(const char *path)
 {
+    DWORD r = GetFileAttributes(path);
+    return (r != INVALID_FILE_ATTRIBUTES && (r & FILE_ATTRIBUTE_DIRECTORY));
+}
+
+bool create_file(const char *path, bool create_folders = false)
+{
+    if (create_folders) {
+        Path p = create_path(path);
+
+        char folder[MAX_PATH];
+        strncpy(folder, p.absolute.bytes, p.absolute.length - p.filename.length - 1);
+
+        if (!folder_exists(folder)) {
+            int result = SHCreateDirectoryEx(NULL, folder, NULL);
+            if (result != ERROR_SUCCESS) {
+                LOG(Log_error, "couldn't create folders: %s", folder);
+                return false;
+            }
+        }
+    }
+
+
     HANDLE file_handle = CreateFile(path, 0, 0, NULL, CREATE_NEW,
                                     FILE_ATTRIBUTE_NORMAL, NULL);
 

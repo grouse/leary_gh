@@ -1,4 +1,4 @@
-/**
+/**te
  * file:    string.cpp
  * created: 2017-08-17
  * authors: Jesper Stefansson (jesper.stefansson@gmail.com)
@@ -16,7 +16,7 @@ Path create_path(const char *str)
     p.absolute = { (isize)strlen(str), (char*)ptr };
 
     while (*ptr) {
-        if (*ptr == '/' && *(ptr + 1)) {
+        if ((*ptr == '/' || *ptr == '\\') && *(ptr + 1)) {
             p.filename.bytes = ptr+1;
         }
         ptr++;
