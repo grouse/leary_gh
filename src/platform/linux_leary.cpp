@@ -500,8 +500,7 @@ PLATFORM_UPDATE_FUNC(platform_update)
                     game_input(event);
                 } break;
                 default:
-                    LOG("unhandled xinput2 event: %d",
-                              xevent.xcookie.evtype);
+                    LOG("unhandled xinput2 event: %d", xevent.xcookie.evtype);
                     break;
                 }
             } else {

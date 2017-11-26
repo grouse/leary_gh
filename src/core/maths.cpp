@@ -9,6 +9,8 @@
 #include "maths.h"
 #include "profiling.h"
 
+#include <cmath>
+
 inline constexpr f32 radians(f32 degrees)
 {
     return degrees * PI / 180;
@@ -685,7 +687,7 @@ PS_CONST(ps_coscof_p2,        4.166664568298827E-002);
 PS_CONST(ps_cephes_FOPI,      1.27323954473516);
 
 namespace lry {
-    f32 cos(f32 x)
+    f32 cos_taylor(f32 x)
     {
         // TODO(jesper): faster aproximation with sse2
         f32 result;
@@ -708,6 +710,10 @@ namespace lry {
 
         result = 1 - x2/fac2 + x4/fac4 - x6/fac6 + x8/fac8 - x10/fac10 + x12/fac12 - x14/fac14;
         return result;
+    }
+    f32 cos(f32 x)
+    {
+        return std::cos(x);
     }
 
     f32 sin_taylor(f32 x)
@@ -809,7 +815,7 @@ namespace lry {
 
     f32 sin(f32 x)
     {
-        return sin_cephes(x);
+        return std::sin(x);
     }
 
     f32 tan(f32 x)

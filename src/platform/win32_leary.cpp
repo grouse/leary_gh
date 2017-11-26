@@ -52,6 +52,7 @@ void unlock_mutex(Mutex *m)
 struct MouseState {
     f32 x, y;
     f32 dx, dy;
+    bool in_window = false;
 };
 
 void platform_quit()
@@ -72,8 +73,8 @@ void platform_toggle_raw_mouse()
         RAWINPUTDEVICE rid[1];
         rid[0].usUsagePage = 0x01;
         rid[0].usUsage = 0x02;
-        rid[0].dwFlags = RIDEV_NOLEGACY;
-        rid[0].hwndTarget = 0;
+        rid[0].dwFlags = RIDEV_INPUTSINK | RIDEV_CAPTUREMOUSE | RIDEV_NOLEGACY;
+        rid[0].hwndTarget = g_platform->native.hwnd;
 
         if (RegisterRawInputDevices(rid, 1, sizeof(rid[0])) == false) {
             assert(false);
@@ -148,6 +149,15 @@ window_proc(HWND   hwnd,
         i32 x = lparam & 0xffff;
         i32 y = (lparam >> 16) & 0xffff;
 
+        if (!mouse_state.in_window) {
+            mouse_state.in_window = false;
+            mouse_state.dx = 0.0f;
+            mouse_state.dy = 0.0f;
+            mouse_state.x = (f32)x;
+            mouse_state.y = (f32)y;
+            break;
+        }
+
         mouse_state.dx = (f32)(x - mouse_state.x);
         mouse_state.dy = (f32)(y - mouse_state.y);
         mouse_state.x  = (f32)x;
@@ -162,14 +172,28 @@ window_proc(HWND   hwnd,
 
         game_input( event);
     } break;
+    case WM_MOUSELEAVE: {
+        mouse_state.in_window = false;
+    } break;
     case WM_INPUT: {
         u32 size;
         GetRawInputData((HRAWINPUT)lparam, RID_INPUT, NULL,
                         &size, sizeof(RAWINPUTHEADER));
 
         u8 *data = new u8[size];
-        GetRawInputData((HRAWINPUT)lparam, RID_INPUT, data,
-                        &size, sizeof(RAWINPUTHEADER));
+        if (data == nullptr) {
+            assert(false);
+            break;
+        }
+        defer { delete[] data; };
+
+        UINT result = GetRawInputData((HRAWINPUT)lparam, RID_INPUT, data,
+                                      &size, sizeof(RAWINPUTHEADER));
+        if (result != size) {
+            LOG(Log_error,
+                "incorrect size from GetRawInputData. Expected: %u, received %u",
+                size, result);
+        }
 
         RAWINPUT *raw = (RAWINPUT*)data;
 
@@ -194,6 +218,8 @@ window_proc(HWND   hwnd,
                 assert(false);
             }
 
+            LOG("raw mouse delta %f, %f", mouse_state.dx, mouse_state.dy);
+
             InputEvent event;
             event.type = InputType_mouse_move;
             event.mouse.dx = mouse_state.dx;
@@ -202,6 +228,8 @@ window_proc(HWND   hwnd,
             event.mouse.y  = mouse_state.y;
 
             game_input(event);
+
+            DefWindowProc(hwnd, message, wparam, lparam);
         } break;
         default:
             LOG("unhandled raw input device type: %d",
