@@ -8,7 +8,7 @@
 
 Key win32_keycode(WPARAM code)
 {
-    switch (code)         {
+    switch (code) {
     case   VK_ESCAPE:     return Key_escape;
     case   VK_F1:         return Key_F1;
     case   VK_F2:         return Key_F2;

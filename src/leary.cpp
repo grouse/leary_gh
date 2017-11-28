@@ -26,6 +26,7 @@
 #include "core/assets.cpp"
 #include "core/string.cpp"
 #include "core/font.cpp"
+#include "core/collision.cpp"
 
 #include "vulkan_render.cpp"
 
@@ -65,30 +66,6 @@ Matrix4 g_screen_to_view; // [0, w] -> [-1  , 1]
 extern Settings      g_settings;
 extern PlatformState *g_platform;
 extern Catalog       g_catalog;
-
-struct DebugCollision {
-    bool render_collidables = true;
-
-    PushConstants pc_normal;
-    PushConstants pc_collide;
-
-    struct {
-        VulkanBuffer vbo;
-        i32 vertex_count = 0;
-    } cube;
-};
-
-struct CollidableAABB {
-    Vector3 position;
-    Vector3 scale;
-};
-
-struct Collision {
-    Array<CollidableAABB> aabbs;
-};
-
-DebugCollision g_debug_collision = {};
-Collision g_collision = {};
 
 Terrain        g_terrain;
 Array<Entity>  g_entities;
@@ -160,63 +137,6 @@ void init_entity_system()
     init_array(&g_physics.entities,   g_heap);
 }
 
-void init_collision()
-{
-    init_array(&g_collision.aabbs, g_heap);
-
-    // debug cube wireframe
-    {
-        f32 vertices[] = {
-            // front-face
-            0.0f, 0.0f, 0.0f,
-            1.0f, 0.0f, 0.0f,
-
-            1.0f, 0.0f, 0.0f,
-            1.0f, 1.0f, 0.0f,
-
-            1.0f, 1.0f, 0.0f,
-            0.0f, 1.0f, 0.0f,
-
-            0.0f, 1.0f, 0.0f,
-            0.0f, 0.0f, 0.0f,
-
-            // back-face
-            0.0f, 0.0f, 1.0f,
-            1.0f, 0.0f, 1.0f,
-
-            1.0f, 0.0f, 1.0f,
-            1.0f, 1.0f, 1.0f,
-
-            1.0f, 1.0f, 1.0f,
-            0.0f, 1.0f, 1.0f,
-
-            0.0f, 1.0f, 1.0f,
-            0.0f, 0.0f, 1.0f,
-
-            // top-face
-            0.0f, 0.0f, 0.0f,
-            0.0f, 0.0f, 1.0f,
-
-            1.0f, 0.0f, 0.0f,
-            1.0f, 0.0f, 1.0f,
-
-            // bottom-face
-            0.0f, 1.0f, 0.0f,
-            0.0f, 1.0f, 1.0f,
-
-            1.0f, 1.0f, 0.0f,
-            1.0f, 1.0f, 1.0f,
-        };
-
-        g_debug_collision.cube.vbo = create_vbo(vertices, sizeof(vertices) * sizeof(f32));
-        g_debug_collision.cube.vertex_count = 24;
-    }
-
-    CollidableAABB test = {};
-    test.position  = { 0.0f, 0.0f, 0.0f };
-    test.scale     = { 1.0f, 1.0f, 1.0f };
-    array_add(&g_collision.aabbs, test);
-}
 
 void init_terrain()
 {
@@ -1003,8 +923,21 @@ void game_update(f32 dt)
         player.rotation = player.rotation * r;
     }
 
+    if (g_game->key_state[Key_J] == InputType_key_press)
+        g_collision.aabbs[0].position.x += 1.0f * dt;
+
+    if (g_game->key_state[Key_L] == InputType_key_press)
+        g_collision.aabbs[0].position.x -= 1.0f * dt;
+
+    if (g_game->key_state[Key_K] == InputType_key_press)
+        g_collision.aabbs[0].position.z += 1.0f * dt;
+
+    if (g_game->key_state[Key_I] == InputType_key_press)
+        g_collision.aabbs[0].position.z -= 1.0f * dt;
+
 
     process_physics(dt);
+    process_collision();
 
     {
         Vector3 &pos  = g_game->fp_camera.position;
@@ -1166,7 +1099,12 @@ void game_render()
         for (auto &c : g_collision.aabbs) {
             pc.transform = translate(Matrix4::identity(), c.position);
             pc.transform = scale(pc.transform, c.scale);
-            pc.color = { 1.0f, 0.0f, 0.0f };
+
+            if (c.colliding ) {
+                pc.color = { 1.0f, 0.0f, 0.0f };
+            } else {
+                pc.color = { 0.0f, 1.0f, 0.0f };
+            }
 
             vkCmdPushConstants(command, g_game->pipelines.wireframe.layout,
                                VK_SHADER_STAGE_VERTEX_BIT,

@@ -326,6 +326,15 @@ inline Vector3 operator * (Matrix4 lhs, Vector3 rhs)
     return result;
 }
 
+inline Vector3 operator/(Vector3 lhs, f32 rhs)
+{
+    Vector3 v;
+    v.x = lhs.x / rhs;
+    v.y = lhs.y / rhs;
+    v.z = lhs.z / rhs;
+    return v;
+}
+
 inline Vector2 operator * (Matrix4 lhs, Vector2 rhs)
 {
     PROFILE_BLOCK("Matrix4 * Vector2");
