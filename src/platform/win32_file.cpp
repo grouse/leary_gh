@@ -70,7 +70,7 @@ void init_paths(Allocator *a)
         length = g_paths.exe.length + strlen("..\\assets\\");
         g_paths.data = { length, (char*)a->alloc(length + 1) };
         p = strcpy(g_paths.data.bytes, g_paths.exe.bytes);
-        strcpy(p, "..\\assets\\");
+        strcat(p, "..\\assets\\");
     }
 
     // --- app preferences dir
@@ -223,6 +223,12 @@ char* resolve_path(GamePath rp, const char *path, Allocator *a)
     resolved = (char*)a->alloc(length + 1);
     p        = strcpy(resolved, root);
     strcat(p, path);
+
+    for (i32 i = 0; i < length; i++) {
+        if (resolved[i] == '/') {
+            resolved[i] = '\\';
+        }
+    }
 
     return resolved;
 }
