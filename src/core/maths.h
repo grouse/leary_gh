@@ -35,6 +35,12 @@ union Vector2 {
     struct {
         f32 r, g;
     };
+    struct {
+        f32 u, v;
+    };
+    struct {
+        f32 min, max;
+    };
 };
 
 union Vector3 {

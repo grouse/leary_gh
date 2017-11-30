@@ -90,6 +90,11 @@ inline f32 length(Vector3 vec)
     return lry::sqrt(vec.x * vec.x + vec.y * vec.y + vec.z * vec.z);
 }
 
+inline f32 length_sq(Vector3 vec)
+{
+    return vec.x * vec.x + vec.y * vec.y + vec.z * vec.z;
+}
+
 inline f32 dot(Vector3 lhs, Vector3 rhs)
 {
     return lhs.x * rhs.x + lhs.y * rhs.y + lhs.z * lhs.z;
