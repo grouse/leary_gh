@@ -93,26 +93,6 @@ void init_collision()
     array_add(&g_collision.aabbs, test);
 }
 
-void aabb_penetration(Vector3 axis, Vector2 a, Vector2 b, f32 *mtv_lsq, Vector3 *mtv)
-{
-    f32 d0 = b.max - a.min;
-    f32 d1 = a.max - b.min;
-
-    if (d0 <= 0.0f || d1 <= 0.0f) {
-        return;
-    }
-
-    f32 overlap = (d0 < d1) ? d0 : -d1;
-
-    Vector3 v = axis * overlap;
-    f32 vlsq = length_sq(v);
-
-    if (vlsq < *mtv_lsq) {
-        *mtv_lsq = vlsq;
-        *mtv = v;
-    }
-}
-
 void process_collision()
 {
     for (auto &c : g_collision.aabbs) {
@@ -151,20 +131,48 @@ void process_collision()
                 Vector3 mtv = {};
                 f32 mtv_lsq = F32_MAX;
 
-                aabb_penetration({ 1.0f, 0.0f, 0.0f },
-                                 { left1, right1},
-                                 { left2, right2 },
-                                 &mtv_lsq, &mtv);
+                if (left1 < right2 && left2 < right1) {
+                    f32 d0 = right2 - left1;
+                    f32 d1 = right1 - left2;
 
-                aabb_penetration({ 0.0f, 1.0f, 0.0f },
-                                 { top1, bot1},
-                                 { top2, bot2 },
-                                 &mtv_lsq, &mtv);
+                    f32 overlap = (d0 < d1) ? d0 : -d1;
+                    Vector3 v   = { overlap, 0.0f, 0.0f };
+                    f32 vlsq    = length_sq(v);
 
-                aabb_penetration({ 0.0f, 0.0f, 1.0f },
-                                 { back1, front1},
-                                 { back2, front2 },
-                                 &mtv_lsq, &mtv);
+                    if (vlsq < mtv_lsq) {
+                        mtv_lsq = vlsq;
+                        mtv     = v;
+                    }
+                }
+
+                if (top1 < bot2 && top2 < bot1) {
+                    f32 d0 = bot2 - top1;
+                    f32 d1 = bot1 - top2;
+
+                    f32 overlap = (d0 < d1) ? d0 : -d1;
+                    Vector3 v   = { 0.0f, overlap, 0.0f };
+                    f32 vlsq    = length_sq(v);
+
+                    if (vlsq < mtv_lsq) {
+                        mtv_lsq = vlsq;
+                        mtv     = v;
+                    }
+                }
+
+                if (back1 < front2 && back2 < front1) {
+                    f32 d0 = front2 - back1;
+                    f32 d1 = front1 - back2;
+
+                    f32 overlap = (d0 < d1) ? d0 : -d1;
+                    Vector3 v   = { 0.0f, 0.0f, overlap };
+                    f32 vlsq    = length_sq(v);
+
+                    if (vlsq < mtv_lsq) {
+                        mtv_lsq = vlsq;
+                        mtv     = v;
+                    }
+                }
+
 
                 c1.position += normalise(mtv) * lry::sqrt(mtv_lsq);
             }
