@@ -12,8 +12,15 @@ struct CollidableAABB {
     bool colliding = false;
 };
 
+struct CollidableSphere {
+    Vector3 position;
+    f32 radius;
+    bool colliding = false;
+};
+
 struct Collision {
-    Array<CollidableAABB> aabbs;
+    Array<CollidableAABB>   aabbs;
+    Array<CollidableSphere> spheres;
 };
 
 struct DebugCollision {
@@ -26,6 +33,11 @@ struct DebugCollision {
         VulkanBuffer vbo;
         i32 vertex_count = 0;
     } cube;
+
+    struct {
+        VulkanBuffer vbo;
+        i32 vertex_count = 0;
+    } sphere;
 };
 
 Collision g_collision = {};
@@ -34,6 +46,7 @@ DebugCollision g_debug_collision = {};
 void init_collision()
 {
     init_array(&g_collision.aabbs, g_heap);
+    init_array(&g_collision.spheres, g_heap);
 
     // debug cube wireframe
     {
@@ -83,6 +96,66 @@ void init_collision()
         g_debug_collision.cube.vertex_count = 24;
     }
 
+    // debug sphere wireframe
+    {
+        f32 vertices[] = {
+            // right -> top
+            lry::cos(0.0f), lry::sin(0.0f), 0.0f,
+            lry::cos(PI * 1.0f / 8.0f), lry::sin(PI * 1.0f / 8.0f), 0.0f,
+
+            lry::cos(PI * 1.0f / 8.0f), lry::sin(PI * 1.0f / 8.0f), 0.0f,
+            lry::cos(PI * 2.0f / 8.0f), lry::sin(PI * 2.0f / 8.0f), 0.0f,
+
+            lry::cos(PI * 2.0f / 8.0f), lry::sin(PI * 2.0f / 8.0f), 0.0f,
+            lry::cos(PI * 3.0f / 8.0f), lry::sin(PI * 3.0f / 8.0f), 0.0f,
+
+            lry::cos(PI * 3.0f / 8.0f), lry::sin(PI * 3.0f / 8.0f), 0.0f,
+            lry::cos(PI * 4.0f / 8.0f), lry::sin(PI * 4.0f / 8.0f), 0.0f,
+
+            // top -> left
+            lry::cos(PI * 4.0f / 8.0f), lry::sin(PI * 4.0f / 8.0f), 0.0f,
+            lry::cos(PI * 5.0f / 8.0f), lry::sin(PI * 5.0f / 8.0f), 0.0f,
+
+            lry::cos(PI * 5.0f / 8.0f), lry::sin(PI * 5.0f / 8.0f), 0.0f,
+            lry::cos(PI * 6.0f / 8.0f), lry::sin(PI * 6.0f / 8.0f), 0.0f,
+
+            lry::cos(PI * 6.0f / 8.0f), lry::sin(PI * 6.0f / 8.0f), 0.0f,
+            lry::cos(PI * 7.0f / 8.0f), lry::sin(PI * 7.0f / 8.0f), 0.0f,
+
+            lry::cos(PI * 7.0f / 8.0f), lry::sin(PI * 7.0f / 8.0f), 0.0f,
+            lry::cos(PI * 8.0f / 8.0f), lry::sin(PI * 8.0f / 8.0f), 0.0f,
+
+            // left -> bottom
+            lry::cos(PI * 4.0f / 8.0f), -lry::sin(PI * 4.0f / 8.0f), 0.0f,
+            lry::cos(PI * 5.0f / 8.0f), -lry::sin(PI * 5.0f / 8.0f), 0.0f,
+
+            lry::cos(PI * 5.0f / 8.0f), -lry::sin(PI * 5.0f / 8.0f), 0.0f,
+            lry::cos(PI * 6.0f / 8.0f), -lry::sin(PI * 6.0f / 8.0f), 0.0f,
+
+            lry::cos(PI * 6.0f / 8.0f), -lry::sin(PI * 6.0f / 8.0f), 0.0f,
+            lry::cos(PI * 7.0f / 8.0f), -lry::sin(PI * 7.0f / 8.0f), 0.0f,
+
+            lry::cos(PI * 7.0f / 8.0f), -lry::sin(PI * 7.0f / 8.0f), 0.0f,
+            lry::cos(PI), -lry::sin(PI), 0.0f,
+
+            // bottom -> right
+            lry::cos(0.0f), -lry::sin(0.0f), 0.0f,
+            lry::cos(PI * 1.0f / 8.0f), -lry::sin(PI * 1.0f / 8.0f), 0.0f,
+
+            lry::cos(PI * 1.0f / 8.0f), -lry::sin(PI * 1.0f / 8.0f), 0.0f,
+            lry::cos(PI * 2.0f / 8.0f), -lry::sin(PI * 2.0f / 8.0f), 0.0f,
+
+            lry::cos(PI * 2.0f / 8.0f), -lry::sin(PI * 2.0f / 8.0f), 0.0f,
+            lry::cos(PI * 3.0f / 8.0f), -lry::sin(PI * 3.0f / 8.0f), 0.0f,
+
+            lry::cos(PI * 3.0f / 8.0f), -lry::sin(PI * 3.0f / 8.0f), 0.0f,
+            lry::cos(PI * 4.0f / 8.0f), -lry::sin(PI * 4.0f / 8.0f), 0.0f,
+        };
+
+        g_debug_collision.sphere.vbo = create_vbo(vertices, sizeof(vertices) * sizeof(f32));
+        g_debug_collision.sphere.vertex_count = 32;
+    }
+
     CollidableAABB test = {};
     test.position  = { 0.0f, 0.0f, 0.0f };
     test.scale     = { 1.0f, 1.0f, 1.0f };
@@ -91,6 +164,11 @@ void init_collision()
     test.position  = { 1.0f, 0.0f, 0.0f };
     test.scale     = { 1.0f, 1.0f, 1.0f };
     array_add(&g_collision.aabbs, test);
+
+    CollidableSphere stest = {};
+    stest.position = { 1.0f, -2.0f, 0.0f };
+    stest.radius = 1.0f;
+    array_add(&g_collision.spheres, stest);
 }
 
 void process_collision()

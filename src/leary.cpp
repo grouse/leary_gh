@@ -454,6 +454,7 @@ void game_quit()
     vkQueueWaitIdle(g_vulkan->queue);
 
     buffer_destroy(g_debug_collision.cube.vbo);
+    buffer_destroy(g_debug_collision.sphere.vbo);
 
     for (auto &it : g_terrain.chunks) {
         buffer_destroy(it.vbo);
@@ -1090,12 +1091,12 @@ void game_render()
                                 descriptors.count, descriptors.data,
                                 0, nullptr);
 
-        vkCmdBindVertexBuffers(command, 0, 1, &g_debug_collision.cube.vbo.handle, offsets);
         struct {
             Matrix4 transform;
             Vector3 color;
         } pc;
 
+        vkCmdBindVertexBuffers(command, 0, 1, &g_debug_collision.cube.vbo.handle, offsets);
         for (auto &c : g_collision.aabbs) {
             pc.transform = translate(Matrix4::identity(), c.position);
             pc.transform = scale(pc.transform, c.scale);
@@ -1110,6 +1111,23 @@ void game_render()
                                VK_SHADER_STAGE_VERTEX_BIT,
                                0, sizeof(pc), &pc);
             vkCmdDraw(command, g_debug_collision.cube.vertex_count, 1, 0, 0);
+        }
+
+        vkCmdBindVertexBuffers(command, 0, 1, &g_debug_collision.sphere.vbo.handle, offsets);
+        for (auto &c : g_collision.spheres) {
+            pc.transform = translate(Matrix4::identity(), c.position);
+            pc.transform = scale(pc.transform, c.radius / 2.0f);
+
+            if (c.colliding ) {
+                pc.color = { 1.0f, 0.0f, 0.0f };
+            } else {
+                pc.color = { 0.0f, 1.0f, 0.0f };
+            }
+
+            vkCmdPushConstants(command, g_game->pipelines.wireframe.layout,
+                               VK_SHADER_STAGE_VERTEX_BIT,
+                               0, sizeof(pc), &pc);
+            vkCmdDraw(command, g_debug_collision.sphere.vertex_count, 1, 0, 0);
         }
 
     }
