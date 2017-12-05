@@ -2203,7 +2203,7 @@ VulkanBuffer create_vbo(void *data, usize size)
                                      VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
                                      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
     void *mapped;
-    VkResult result = vkMapMemory(g_vulkan->handle, vbo.memory, 0, size, 0, &mapped);
+    VkResult result = vkMapMemory(g_vulkan->handle, vbo.memory, 0, VK_WHOLE_SIZE, 0, &mapped);
     assert(result == VK_SUCCESS);
 
     memcpy(mapped, data, size);

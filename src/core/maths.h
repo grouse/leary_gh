@@ -237,5 +237,23 @@ INTROSPECT struct Matrix4 {
 	}
 };
 
+
+f32
+clamp(f32 val, f32 min, f32 max)
+{
+    val = val > max ? max : val;
+    val = val < min ? min : val;
+    return val;
+}
+
+Vector3
+clamp(Vector3 val, Vector3 min, Vector3 max)
+{
+    val.x = clamp(val.x, min.x, max.x);
+    val.y = clamp(val.y, min.y, max.y);
+    val.z = clamp(val.z, min.z, max.z);
+    return val;
+}
+
 #endif /* MATH_H */
 

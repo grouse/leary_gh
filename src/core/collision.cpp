@@ -98,6 +98,7 @@ void init_collision()
 
     // debug sphere wireframe
     {
+#if 0
         f32 vertices[] = {
             // right -> top
             lry::cos(0.0f), lry::sin(0.0f), 0.0f,
@@ -150,10 +151,162 @@ void init_collision()
 
             lry::cos(PI * 3.0f / 8.0f), -lry::sin(PI * 3.0f / 8.0f), 0.0f,
             lry::cos(PI * 4.0f / 8.0f), -lry::sin(PI * 4.0f / 8.0f), 0.0f,
+
+
+            // right -> top
+            0.0f, lry::cos(0.0f), lry::sin(0.0f),
+            0.0f, lry::cos(PI * 1.0f / 8.0f), lry::sin(PI * 1.0f / 8.0f),
+
+            0.0f, lry::cos(PI * 1.0f / 8.0f), lry::sin(PI * 1.0f / 8.0f),
+            0.0f, lry::cos(PI * 2.0f / 8.0f), lry::sin(PI * 2.0f / 8.0f),
+
+            0.0f, lry::cos(PI * 2.0f / 8.0f), lry::sin(PI * 2.0f / 8.0f),
+            0.0f, lry::cos(PI * 3.0f / 8.0f), lry::sin(PI * 3.0f / 8.0f),
+
+            0.0f, lry::cos(PI * 3.0f / 8.0f), lry::sin(PI * 3.0f / 8.0f),
+            0.0f, lry::cos(PI * 4.0f / 8.0f), lry::sin(PI * 4.0f / 8.0f),
+
+            // top -> left
+            0.0f, lry::cos(PI * 4.0f / 8.0f), lry::sin(PI * 4.0f / 8.0f),
+            0.0f, lry::cos(PI * 5.0f / 8.0f), lry::sin(PI * 5.0f / 8.0f),
+
+            0.0f, lry::cos(PI * 5.0f / 8.0f), lry::sin(PI * 5.0f / 8.0f),
+            0.0f, lry::cos(PI * 6.0f / 8.0f), lry::sin(PI * 6.0f / 8.0f),
+
+            0.0f, lry::cos(PI * 6.0f / 8.0f), lry::sin(PI * 6.0f / 8.0f),
+            0.0f, lry::cos(PI * 7.0f / 8.0f), lry::sin(PI * 7.0f / 8.0f),
+
+            0.0f, lry::cos(PI * 7.0f / 8.0f), lry::sin(PI * 7.0f / 8.0f),
+            0.0f, lry::cos(PI * 8.0f / 8.0f), lry::sin(PI * 8.0f / 8.0f),
+
+            // left -> bottom
+            0.0f, lry::cos(PI * 4.0f / 8.0f), -lry::sin(PI * 4.0f / 8.0f),
+            0.0f, lry::cos(PI * 5.0f / 8.0f), -lry::sin(PI * 5.0f / 8.0f),
+
+            0.0f, lry::cos(PI * 5.0f / 8.0f), -lry::sin(PI * 5.0f / 8.0f),
+            0.0f, lry::cos(PI * 6.0f / 8.0f), -lry::sin(PI * 6.0f / 8.0f),
+
+            0.0f, lry::cos(PI * 6.0f / 8.0f), -lry::sin(PI * 6.0f / 8.0f),
+            0.0f, lry::cos(PI * 7.0f / 8.0f), -lry::sin(PI * 7.0f / 8.0f),
+
+            0.0f, lry::cos(PI * 7.0f / 8.0f), -lry::sin(PI * 7.0f / 8.0f),
+            0.0f, lry::cos(PI), -lry::sin(PI),
+
+            // bottom -> right
+            0.0f, lry::cos(0.0f), -lry::sin(0.0f),
+            0.0f, lry::cos(PI * 1.0f / 8.0f), -lry::sin(PI * 1.0f / 8.0f),
+
+            0.0f, lry::cos(PI * 1.0f / 8.0f), -lry::sin(PI * 1.0f / 8.0f),
+            0.0f, lry::cos(PI * 2.0f / 8.0f), -lry::sin(PI * 2.0f / 8.0f),
+
+            0.0f, lry::cos(PI * 2.0f / 8.0f), -lry::sin(PI * 2.0f / 8.0f),
+            0.0f, lry::cos(PI * 3.0f / 8.0f), -lry::sin(PI * 3.0f / 8.0f),
+
+            0.0f, lry::cos(PI * 3.0f / 8.0f), -lry::sin(PI * 3.0f / 8.0f),
+            0.0f, lry::cos(PI * 4.0f / 8.0f), -lry::sin(PI * 4.0f / 8.0f),
+
+
+            // right -> top
+            lry::sin(0.0f),0.0f, lry::cos(0.0f),
+            lry::sin(PI * 1.0f / 8.0f),0.0f, lry::cos(PI * 1.0f / 8.0f),
+
+            lry::sin(PI * 1.0f / 8.0f),0.0f, lry::cos(PI * 1.0f / 8.0f),
+            lry::sin(PI * 2.0f / 8.0f),0.0f, lry::cos(PI * 2.0f / 8.0f),
+
+            lry::sin(PI * 2.0f / 8.0f),0.0f, lry::cos(PI * 2.0f / 8.0f),
+            lry::sin(PI * 3.0f / 8.0f),0.0f, lry::cos(PI * 3.0f / 8.0f),
+
+            lry::sin(PI * 3.0f / 8.0f),0.0f, lry::cos(PI * 3.0f / 8.0f),
+            lry::sin(PI * 4.0f / 8.0f),0.0f, lry::cos(PI * 4.0f / 8.0f),
+
+            // top -> left
+            lry::sin(PI * 4.0f / 8.0f),0.0f, lry::cos(PI * 4.0f / 8.0f),
+            lry::sin(PI * 5.0f / 8.0f),0.0f, lry::cos(PI * 5.0f / 8.0f),
+
+            lry::sin(PI * 5.0f / 8.0f),0.0f, lry::cos(PI * 5.0f / 8.0f),
+            lry::sin(PI * 6.0f / 8.0f),0.0f, lry::cos(PI * 6.0f / 8.0f),
+
+            lry::sin(PI * 6.0f / 8.0f),0.0f, lry::cos(PI * 6.0f / 8.0f),
+            lry::sin(PI * 7.0f / 8.0f),0.0f, lry::cos(PI * 7.0f / 8.0f),
+
+            lry::sin(PI * 7.0f / 8.0f),0.0f, lry::cos(PI * 7.0f / 8.0f),
+            lry::sin(PI * 8.0f / 8.0f),0.0f, lry::cos(PI * 8.0f / 8.0f),
+
+            // left -> bottom
+            -lry::sin(PI * 4.0f / 8.0f),0.0f, lry::cos(PI * 4.0f / 8.0f),
+            -lry::sin(PI * 5.0f / 8.0f),0.0f, lry::cos(PI * 5.0f / 8.0f),
+
+            -lry::sin(PI * 5.0f / 8.0f),0.0f, lry::cos(PI * 5.0f / 8.0f),
+            -lry::sin(PI * 6.0f / 8.0f),0.0f, lry::cos(PI * 6.0f / 8.0f),
+
+            -lry::sin(PI * 6.0f / 8.0f),0.0f, lry::cos(PI * 6.0f / 8.0f),
+            -lry::sin(PI * 7.0f / 8.0f),0.0f, lry::cos(PI * 7.0f / 8.0f),
+
+            -lry::sin(PI * 7.0f / 8.0f),0.0f, lry::cos(PI * 7.0f / 8.0f),
+            -lry::sin(PI),0.0f, lry::cos(PI),
+
+            // bottom -> right
+            -lry::sin(0.0f),0.0f, lry::cos(0.0f),
+            -lry::sin(PI * 1.0f / 8.0f),0.0f, lry::cos(PI * 1.0f / 8.0f),
+
+            -lry::sin(PI * 1.0f / 8.0f),0.0f, lry::cos(PI * 1.0f / 8.0f),
+            -lry::sin(PI * 2.0f / 8.0f),0.0f, lry::cos(PI * 2.0f / 8.0f),
+
+            -lry::sin(PI * 2.0f / 8.0f),0.0f, lry::cos(PI * 2.0f / 8.0f),
+            -lry::sin(PI * 3.0f / 8.0f),0.0f, lry::cos(PI * 3.0f / 8.0f),
+
+            -lry::sin(PI * 3.0f / 8.0f),0.0f, lry::cos(PI * 3.0f / 8.0f),
+            -lry::sin(PI * 4.0f / 8.0f),0.0f, lry::cos(PI * 4.0f / 8.0f),
         };
 
-        g_debug_collision.sphere.vbo = create_vbo(vertices, sizeof(vertices) * sizeof(f32));
-        g_debug_collision.sphere.vertex_count = 32;
+        g_debug_collision.sphere.vbo = create_vbo(vertices, sizeof(vertices));
+        g_debug_collision.sphere.vertex_count = 96;
+#else
+        f32 vertices[] = {
+            // front-face
+            -1.0f, -1.0f, -1.0f,
+            1.0f, -1.0f, -1.0f,
+
+            1.0f, -1.0f, -1.0f,
+            1.0f, 1.0f, -1.0f,
+
+            1.0f, 1.0f, -1.0f,
+            -1.0f, 1.0f, -1.0f,
+
+            -1.0f, 1.0f, -1.0f,
+            -1.0f, -1.0f, -1.0f,
+
+            // back-face
+            -1.0f, -1.0f, 1.0f,
+            1.0f, -1.0f, 1.0f,
+
+            1.0f, -1.0f, 1.0f,
+            1.0f, 1.0f, 1.0f,
+
+            1.0f, 1.0f, 1.0f,
+            -1.0f, 1.0f, 1.0f,
+
+            -1.0f, 1.0f, 1.0f,
+            -1.0f, -1.0f, 1.0f,
+
+            // top-face
+            -1.0f, -1.0f, -1.0f,
+            -1.0f, -1.0f, 1.0f,
+
+            1.0f, -1.0f, -1.0f,
+            1.0f, -1.0f, 1.0f,
+
+            // bottom-face
+            -1.0f, 1.0f, -1.0f,
+            -1.0f, 1.0f, 1.0f,
+
+            1.0f, 1.0f, -1.0f,
+            1.0f, 1.0f, 1.0f,
+        };
+
+        g_debug_collision.sphere.vbo = create_vbo(vertices, sizeof(vertices));
+        g_debug_collision.sphere.vertex_count = 24;
+#endif
     }
 
     CollidableAABB test = {};
@@ -161,12 +314,12 @@ void init_collision()
     test.scale     = { 1.0f, 1.0f, 1.0f };
     array_add(&g_collision.aabbs, test);
 
-    test.position  = { 1.0f, 0.0f, 0.0f };
+    test.position  = { 1.0f, 3.0f, 0.0f };
     test.scale     = { 1.0f, 1.0f, 1.0f };
     array_add(&g_collision.aabbs, test);
 
     CollidableSphere stest = {};
-    stest.position = { 1.0f, -2.0f, 0.0f };
+    stest.position = { 3.0f, 0.0f, 0.0f };
     stest.radius = 1.0f;
     array_add(&g_collision.spheres, stest);
 }
@@ -176,6 +329,11 @@ void process_collision()
     for (auto &c : g_collision.aabbs) {
         c.colliding = false;
     }
+
+    for (auto &c : g_collision.spheres) {
+        c.colliding = false;
+    }
+
 
     for (i32 i = 0; i < g_collision.aabbs.count - 1; i++) {
         auto &c1 = g_collision.aabbs[i];
@@ -252,9 +410,38 @@ void process_collision()
                 }
 
 
-                c1.position += normalise(mtv) * lry::sqrt(mtv_lsq);
+                c1.position += mtv;
             }
         }
     }
+
+    for (i32 i = 0; i < g_collision.aabbs.count; i++) {
+        auto &aabb = g_collision.aabbs[i];
+        Vector3 hs1 = aabb.scale / 2.0f;
+
+        f32 left  = aabb.position.x - hs1.x;
+        f32 top   = aabb.position.y - hs1.y;
+        f32 back  = aabb.position.z - hs1.z;
+
+        f32 right = aabb.position.x + hs1.x;
+        f32 bot   = aabb.position.y + hs1.y;
+        f32 front = aabb.position.z + hs1.z;
+
+        for (i32 j = 0; j < g_collision.spheres.count; j++) {
+            auto &sphere = g_collision.spheres[j];
+
+            f32 rsq = sphere.radius * sphere.radius;
+
+            Vector3 bts = aabb.position - sphere.position;
+            Vector3 closest = clamp(bts, { left, top, back }, { right, bot, front });
+
+            Vector3 diff = closest - sphere.position;
+            if (length_sq(diff) < rsq) {
+                aabb.colliding = true;
+                sphere.colliding = true;
+            }
+        }
+    }
+
 }
 

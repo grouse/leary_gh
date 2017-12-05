@@ -1116,7 +1116,7 @@ void game_render()
         vkCmdBindVertexBuffers(command, 0, 1, &g_debug_collision.sphere.vbo.handle, offsets);
         for (auto &c : g_collision.spheres) {
             pc.transform = translate(Matrix4::identity(), c.position);
-            pc.transform = scale(pc.transform, c.radius / 2.0f);
+            pc.transform = scale(pc.transform, c.radius);
 
             if (c.colliding ) {
                 pc.color = { 1.0f, 0.0f, 0.0f };
