@@ -175,7 +175,7 @@ char* resolve_relative(const char *path)
 
     char buffer[MAX_PATH];
     result = GetFullPathName(path, MAX_PATH, buffer, nullptr);
-    assert(result > 0);
+    ASSERT(result > 0);
 
     // TODO(jesper): currently leaking memory
     return strdup(buffer);
@@ -216,7 +216,7 @@ char* resolve_path(GamePath rp, const char *path, Allocator *a)
     } break;
     default:
         LOG(Log_error, "unknown path root: %d", rp);
-        assert(false);
+        ASSERT(false);
         return nullptr;
     }
 
@@ -292,7 +292,7 @@ void* open_file(const char *path, FileAccess access)
         share_mode = 0;
         break;
     default:
-        assert(false);
+        ASSERT(false);
         return nullptr;
     }
 
@@ -326,7 +326,7 @@ char* read_file(const char *filename, usize *o_size, Allocator *a)
     LARGE_INTEGER file_size;
     if (GetFileSizeEx(file, &file_size)) {
         // NOTE(jesper): ReadFile only works on 32 bit sizes
-        assert(file_size.QuadPart <= 0xFFFFFFFF);
+        ASSERT(file_size.QuadPart <= 0xFFFFFFFF);
         *o_size = (usize) file_size.QuadPart;
 
         buffer = (char*)a->alloc((usize)file_size.QuadPart);
@@ -348,7 +348,7 @@ void write_file(void *file_handle, void *buffer, usize bytes)
     BOOL result;
 
     // NOTE(jesper): WriteFile takes 32 bit number of bytes to write
-    assert(bytes <= 0xFFFFFFFF);
+    ASSERT(bytes <= 0xFFFFFFFF);
 
     DWORD bytes_written;
     result = WriteFile((HANDLE) file_handle,
@@ -358,7 +358,7 @@ void write_file(void *file_handle, void *buffer, usize bytes)
                             NULL);
 
 
-    assert(bytes  == bytes_written);
-    assert(result == TRUE);
+    ASSERT(bytes  == bytes_written);
+    ASSERT(result == TRUE);
 }
 

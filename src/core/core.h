@@ -9,12 +9,9 @@
 #ifndef LEARY_CORE_H
 #define LEARY_CORE_H
 
-#include <assert.h>
-
 #include "types.h"
 #include "allocator.h"
 #include "string.h"
-
 
 #define TABLE_SIZE 128
 
@@ -28,7 +25,7 @@ struct Array {
 
     T& operator[] (i32 i)
     {
-        assert(i < count);
+        ASSERT(i < count);
         return data[i];
     }
 
@@ -51,7 +48,7 @@ struct StaticArray {
 
     T& operator[] (i32 i)
     {
-        assert(i < count);
+        ASSERT(i < count);
         return data[i];
     }
 

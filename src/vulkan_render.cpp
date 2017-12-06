@@ -159,7 +159,7 @@ debug_callback_func(VkFlags flags,
 
     LOG(channel, "[Vulkan:%s] [%s:%d] - %s",
         layer, object_str, message_code, message);
-    assert(channel != Log_error);
+    ASSERT(channel != Log_error);
     return VK_FALSE;
 }
 
@@ -231,14 +231,14 @@ VkCommandBuffer begin_cmd_buffer()
 
     VkCommandBuffer buffer;
     VkResult result = vkAllocateCommandBuffers(g_vulkan->handle, &allocate_info, &buffer);
-    assert(result == VK_SUCCESS);
+    ASSERT(result == VK_SUCCESS);
 
     VkCommandBufferBeginInfo begin_info = {};
     begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 
     result = vkBeginCommandBuffer(buffer, &begin_info);
-    assert(result == VK_SUCCESS);
+    ASSERT(result == VK_SUCCESS);
 
     return buffer;
 }
@@ -259,7 +259,7 @@ void present_frame(u32 image)
     info.pImageIndices      = &image;
 
     VkResult result = vkQueuePresentKHR(g_vulkan->queue, &info);
-    assert(result == VK_SUCCESS);
+    ASSERT(result == VK_SUCCESS);
 
     g_vulkan->present_semaphores.count = 0;
 }
@@ -340,7 +340,7 @@ void end_cmd_buffer(VkCommandBuffer buffer,
                         bool submit = true)
 {
     VkResult result = vkEndCommandBuffer(buffer);
-    assert(result == VK_SUCCESS);
+    ASSERT(result == VK_SUCCESS);
 
     array_add(&g_vulkan->commands_queued, buffer);
 
@@ -400,7 +400,7 @@ void transition_image(VkCommandBuffer command,
         break;
     default:
         // TODO(jesper): unimplemented transfer
-        assert(false);
+        ASSERT(false);
         barrier.srcAccessMask = 0;
         break;
     }
@@ -420,7 +420,7 @@ void transition_image(VkCommandBuffer command,
         break;
     default:
         // TODO(jesper): unimplemented transfer
-        assert(false);
+        ASSERT(false);
         barrier.dstAccessMask = 0;
         break;
     }
@@ -469,7 +469,7 @@ VkImage image_create(VkFormat format,
     info.sharingMode       = VK_SHARING_MODE_EXCLUSIVE;
 
     VkResult result = vkCreateImage(g_vulkan->handle, &info, nullptr, &image);
-    assert(result == VK_SUCCESS);
+    ASSERT(result == VK_SUCCESS);
 
     VkMemoryRequirements mem_requirements;
     vkGetImageMemoryRequirements(g_vulkan->handle, image, &mem_requirements);
@@ -478,7 +478,7 @@ VkImage image_create(VkFormat format,
     u32 memory_type = find_memory_type(g_vulkan->physical_device,
                                        mem_requirements.memoryTypeBits,
                                        properties);
-    assert(memory_type != UINT32_MAX);
+    ASSERT(memory_type != UINT32_MAX);
 
     VkMemoryAllocateInfo alloc_info = {};
     alloc_info.sType                = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
@@ -486,7 +486,7 @@ VkImage image_create(VkFormat format,
     alloc_info.memoryTypeIndex      = memory_type;
 
     result = vkAllocateMemory(g_vulkan->handle, &alloc_info, nullptr, memory);
-    assert(result == VK_SUCCESS);
+    ASSERT(result == VK_SUCCESS);
 
     vkBindImageMemory(g_vulkan->handle, image, *memory, 0);
 
@@ -507,14 +507,14 @@ VulkanSwapchain swapchain_create(VulkanPhysicalDevice *physical_device,
                                                   swapchain.surface,
                                                   &formats_count,
                                                   nullptr);
-    assert(result == VK_SUCCESS);
+    ASSERT(result == VK_SUCCESS);
 
     auto formats = g_frame->alloc_array<VkSurfaceFormatKHR>(formats_count);
     result = vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device->handle,
                                                   swapchain.surface,
                                                   &formats_count,
                                                   formats);
-    assert(result == VK_SUCCESS);
+    ASSERT(result == VK_SUCCESS);
 
     // NOTE: if impl. reports only 1 surface format and that is undefined
     // it has no preferred format, so we choose BGRA8_UNORM
@@ -531,7 +531,7 @@ VulkanSwapchain swapchain_create(VulkanPhysicalDevice *physical_device,
     result = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device->handle,
                                                        swapchain.surface,
                                                        &surface_capabilities);
-    assert(result == VK_SUCCESS);
+    ASSERT(result == VK_SUCCESS);
 
     // figure out the present mode for the swapchain
     u32 present_modes_count;
@@ -539,14 +539,14 @@ VulkanSwapchain swapchain_create(VulkanPhysicalDevice *physical_device,
                                                        swapchain.surface,
                                                        &present_modes_count,
                                                        nullptr);
-    assert(result == VK_SUCCESS);
+    ASSERT(result == VK_SUCCESS);
 
     auto present_modes = g_frame->alloc_array<VkPresentModeKHR>(present_modes_count);
     result = vkGetPhysicalDeviceSurfacePresentModesKHR(physical_device->handle,
                                                        swapchain.surface,
                                                        &present_modes_count,
                                                        present_modes);
-    assert(result == VK_SUCCESS);
+    ASSERT(result == VK_SUCCESS);
 
     VkPresentModeKHR surface_present_mode = VK_PRESENT_MODE_FIFO_KHR;
     for (u32 i = 0; i < present_modes_count; ++i) {
@@ -566,8 +566,8 @@ VulkanSwapchain swapchain_create(VulkanPhysicalDevice *physical_device,
     swapchain.extent = surface_capabilities.currentExtent;
     if (swapchain.extent.width == (u32) (-1)) {
         // TODO(grouse): clean up usage of window dimensions
-        assert(g_settings.video.resolution.width  >= 0);
-        assert(g_settings.video.resolution.height >= 0);
+        ASSERT(g_settings.video.resolution.width  >= 0);
+        ASSERT(g_settings.video.resolution.height >= 0);
 
         swapchain.extent.width  = (u32)g_settings.video.resolution.width;
         swapchain.extent.height = (u32)g_settings.video.resolution.height;
@@ -604,13 +604,13 @@ VulkanSwapchain swapchain_create(VulkanPhysicalDevice *physical_device,
                                   nullptr,
                                   &swapchain.handle);
 
-    assert(result == VK_SUCCESS);
+    ASSERT(result == VK_SUCCESS);
 
     result = vkGetSwapchainImagesKHR(g_vulkan->handle,
                                      swapchain.handle,
                                      &swapchain.images_count,
                                      nullptr);
-    assert(result == VK_SUCCESS);
+    ASSERT(result == VK_SUCCESS);
 
     swapchain.images = g_frame->alloc_array<VkImage>(swapchain.images_count);
 
@@ -618,7 +618,7 @@ VulkanSwapchain swapchain_create(VulkanPhysicalDevice *physical_device,
                                      swapchain.handle,
                                      &swapchain.images_count,
                                      swapchain.images);
-    assert(result == VK_SUCCESS);
+    ASSERT(result == VK_SUCCESS);
 
     swapchain.imageviews = g_persistent->alloc_array<VkImageView>(swapchain.images_count);
 
@@ -641,11 +641,11 @@ VulkanSwapchain swapchain_create(VulkanPhysicalDevice *physical_device,
 
         result = vkCreateImageView(g_vulkan->handle, &imageview_create_info, nullptr,
                                    &swapchain.imageviews[i]);
-        assert(result == VK_SUCCESS);
+        ASSERT(result == VK_SUCCESS);
     }
 
     swapchain.depth.format = find_depth_format(physical_device);
-    assert(swapchain.depth.format != VK_FORMAT_UNDEFINED);
+    ASSERT(swapchain.depth.format != VK_FORMAT_UNDEFINED);
 
     swapchain.depth.image = image_create(swapchain.depth.format,
                                          swapchain.extent.width,
@@ -668,7 +668,7 @@ VulkanSwapchain swapchain_create(VulkanPhysicalDevice *physical_device,
 
     result = vkCreateImageView(g_vulkan->handle, &view_info, nullptr,
                                &swapchain.depth.imageview);
-    assert(result == VK_SUCCESS);
+    ASSERT(result == VK_SUCCESS);
 
     im_transition_image(swapchain.depth.image, swapchain.depth.format,
                         VK_IMAGE_LAYOUT_UNDEFINED,
@@ -700,7 +700,7 @@ VkSampler create_sampler()
                                       &sampler_info,
                                       nullptr,
                                       &sampler);
-    assert(result == VK_SUCCESS);
+    ASSERT(result == VK_SUCCESS);
 
     return sampler;
 }
@@ -721,7 +721,7 @@ VulkanShader create_shader(ShaderID id)
 
         usize size;
         u32 *source = (u32*)read_file(path, &size, g_frame);
-        assert(source != nullptr);
+        ASSERT(source != nullptr);
 
         shader.name   = "main";
         shader.stage  = VK_SHADER_STAGE_VERTEX_BIT;
@@ -731,14 +731,14 @@ VulkanShader create_shader(ShaderID id)
 
         VkResult result = vkCreateShaderModule(g_vulkan->handle, &info,
                                                nullptr, &shader.module);
-        assert(result == VK_SUCCESS);
+        ASSERT(result == VK_SUCCESS);
     } break;
     case ShaderID_terrain_frag: {
         char *path = resolve_path(GamePath_shaders, "terrain.frag.spv", g_stack);
 
         usize size;
         u32 *source = (u32*)read_file(path, &size, g_frame);
-        assert(source != nullptr);
+        ASSERT(source != nullptr);
 
         shader.name   = "main";
         shader.stage  = VK_SHADER_STAGE_FRAGMENT_BIT;
@@ -748,14 +748,14 @@ VulkanShader create_shader(ShaderID id)
 
         VkResult result = vkCreateShaderModule(g_vulkan->handle, &info,
                                                nullptr, &shader.module);
-        assert(result == VK_SUCCESS);
+        ASSERT(result == VK_SUCCESS);
     } break;
     case ShaderID_wireframe_vert: {
         char *path = resolve_path(GamePath_shaders, "wireframe.vert.spv", g_stack);
 
         usize size;
         u32 *source = (u32*)read_file(path, &size, g_frame);
-        assert(source != nullptr);
+        ASSERT(source != nullptr);
 
         shader.name   = "main";
         shader.stage  = VK_SHADER_STAGE_VERTEX_BIT;
@@ -765,14 +765,14 @@ VulkanShader create_shader(ShaderID id)
 
         VkResult result = vkCreateShaderModule(g_vulkan->handle, &info,
                                                nullptr, &shader.module);
-        assert(result == VK_SUCCESS);
+        ASSERT(result == VK_SUCCESS);
     } break;
     case ShaderID_wireframe_frag: {
         char *path = resolve_path(GamePath_shaders, "wireframe.frag.spv", g_stack);
 
         usize size;
         u32 *source = (u32*)read_file(path, &size, g_frame);
-        assert(source != nullptr);
+        ASSERT(source != nullptr);
 
         shader.name   = "main";
         shader.stage  = VK_SHADER_STAGE_FRAGMENT_BIT;
@@ -782,14 +782,14 @@ VulkanShader create_shader(ShaderID id)
 
         VkResult result = vkCreateShaderModule(g_vulkan->handle, &info,
                                                nullptr, &shader.module);
-        assert(result == VK_SUCCESS);
+        ASSERT(result == VK_SUCCESS);
     } break;
     case ShaderID_mesh_vert: {
         char *path = resolve_path(GamePath_shaders, "mesh.vert.spv", g_stack);
 
         usize size;
         u32 *source = (u32*)read_file(path, &size, g_frame);
-        assert(source != nullptr);
+        ASSERT(source != nullptr);
 
         shader.name   = "main";
         shader.stage  = VK_SHADER_STAGE_VERTEX_BIT;
@@ -799,14 +799,14 @@ VulkanShader create_shader(ShaderID id)
 
         VkResult result = vkCreateShaderModule(g_vulkan->handle, &info,
                                                nullptr, &shader.module);
-        assert(result == VK_SUCCESS);
+        ASSERT(result == VK_SUCCESS);
     } break;
     case ShaderID_mesh_frag: {
         char *path = resolve_path(GamePath_shaders, "mesh.frag.spv", g_stack);
 
         usize size;
         u32 *source = (u32*)read_file(path, &size, g_frame);
-        assert(source != nullptr);
+        ASSERT(source != nullptr);
 
         shader.name   = "main";
         shader.stage  = VK_SHADER_STAGE_FRAGMENT_BIT;
@@ -816,14 +816,14 @@ VulkanShader create_shader(ShaderID id)
 
         VkResult result = vkCreateShaderModule(g_vulkan->handle, &info,
                                                nullptr, &shader.module);
-        assert(result == VK_SUCCESS);
+        ASSERT(result == VK_SUCCESS);
     } break;
     case ShaderID_basic2d_vert: {
         char *path = resolve_path(GamePath_shaders, "basic2d.vert.spv", g_stack);
 
         usize size;
         u32 *source = (u32*)read_file(path, &size, g_frame);
-        assert(source != nullptr);
+        ASSERT(source != nullptr);
 
         shader.name   = "main";
         shader.stage  = VK_SHADER_STAGE_VERTEX_BIT;
@@ -833,14 +833,14 @@ VulkanShader create_shader(ShaderID id)
 
         VkResult result = vkCreateShaderModule(g_vulkan->handle, &info,
                                                nullptr, &shader.module);
-        assert(result == VK_SUCCESS);
+        ASSERT(result == VK_SUCCESS);
     } break;
     case ShaderID_basic2d_frag: {
         char *path = resolve_path(GamePath_shaders, "basic2d.frag.spv", g_stack);
 
         usize size;
         u32 *source = (u32*)read_file(path, &size, g_frame);
-        assert(source != nullptr);
+        ASSERT(source != nullptr);
 
         shader.name   = "main";
         shader.stage  = VK_SHADER_STAGE_FRAGMENT_BIT;
@@ -850,14 +850,14 @@ VulkanShader create_shader(ShaderID id)
 
         VkResult result = vkCreateShaderModule(g_vulkan->handle, &info,
                                                nullptr, &shader.module);
-        assert(result == VK_SUCCESS);
+        ASSERT(result == VK_SUCCESS);
     } break;
     case ShaderID_font_frag: {
         char *path = resolve_path(GamePath_shaders, "font.frag.spv", g_stack);
 
         usize size;
         u32 *source = (u32*)read_file(path, &size, g_frame);
-        assert(source != nullptr);
+        ASSERT(source != nullptr);
 
         shader.name   = "main";
         shader.stage  = VK_SHADER_STAGE_FRAGMENT_BIT;
@@ -867,11 +867,11 @@ VulkanShader create_shader(ShaderID id)
 
         VkResult result = vkCreateShaderModule(g_vulkan->handle, &info,
                                                nullptr, &shader.module);
-        assert(result == VK_SUCCESS);
+        ASSERT(result == VK_SUCCESS);
     } break;
     default:
         LOG("unknown shader id: %d", id);
-        assert(false);
+        ASSERT(false);
         break;
     }
 
@@ -948,7 +948,7 @@ VulkanPipeline create_pipeline(PipelineID id)
                                              &descriptor_layout_info,
                                              nullptr,
                                              &pipeline.descriptor_layout_material);
-        assert(result == VK_SUCCESS);
+        ASSERT(result == VK_SUCCESS);
         array_add(&layouts, pipeline.descriptor_layout_material);
     } break;
     case Pipeline_terrain:
@@ -972,7 +972,7 @@ VulkanPipeline create_pipeline(PipelineID id)
                                                  &layout_info,
                                                  nullptr,
                                                  &pipeline.descriptor_layout_pipeline);
-            assert(result == VK_SUCCESS);
+            ASSERT(result == VK_SUCCESS);
 
             array_add(&layouts, pipeline.descriptor_layout_pipeline);
         }
@@ -996,7 +996,7 @@ VulkanPipeline create_pipeline(PipelineID id)
                                                  &layout_info,
                                                  nullptr,
                                                  &pipeline.descriptor_layout_material);
-            assert(result == VK_SUCCESS);
+            ASSERT(result == VK_SUCCESS);
 
             array_add(&layouts, pipeline.descriptor_layout_material);
         }
@@ -1022,7 +1022,7 @@ VulkanPipeline create_pipeline(PipelineID id)
                                                  &layout_info,
                                                  nullptr,
                                                  &pipeline.descriptor_layout_pipeline);
-            assert(result == VK_SUCCESS);
+            ASSERT(result == VK_SUCCESS);
 
             array_add(&layouts, pipeline.descriptor_layout_pipeline);
         }
@@ -1060,7 +1060,7 @@ VulkanPipeline create_pipeline(PipelineID id)
     if (pool_info.poolSizeCount > 0) {
         result = vkCreateDescriptorPool(g_vulkan->handle, &pool_info, nullptr,
                                         &pipeline.descriptor_pool);
-        assert(result == VK_SUCCESS);
+        ASSERT(result == VK_SUCCESS);
 
         dai.descriptorPool     = pipeline.descriptor_pool;
     }
@@ -1068,7 +1068,7 @@ VulkanPipeline create_pipeline(PipelineID id)
     if (dai.descriptorSetCount > 0) {
         result = vkAllocateDescriptorSets(g_vulkan->handle, &dai,
                                           &pipeline.descriptor_set);
-        assert(result == VK_SUCCESS);
+        ASSERT(result == VK_SUCCESS);
     }
 
     VkPipelineLayoutCreateInfo layout_info = {};
@@ -1105,7 +1105,7 @@ VulkanPipeline create_pipeline(PipelineID id)
 
     result = vkCreatePipelineLayout(g_vulkan->handle, &layout_info, nullptr,
                                     &pipeline.layout);
-    assert(result == VK_SUCCESS);
+    ASSERT(result == VK_SUCCESS);
 
     auto vbinds = create_array<VkVertexInputBindingDescription>(g_stack);
     auto vdescs = create_array<VkVertexInputAttributeDescription>(g_stack);
@@ -1297,7 +1297,7 @@ VulkanPipeline create_pipeline(PipelineID id)
                                        &pinfo,
                                        nullptr,
                                        &pipeline.handle);
-    assert(result == VK_SUCCESS);
+    ASSERT(result == VK_SUCCESS);
     return pipeline;
 }
 
@@ -1398,7 +1398,7 @@ void update_vk_texture(Texture *texture, Texture ntexture)
         bytes_per_channel = 2;
         break;
     default:
-        assert(false);
+        ASSERT(false);
         num_channels      = 1;
         bytes_per_channel = 2;
         break;
@@ -1509,7 +1509,7 @@ void init_vk_texture(Texture *texture, VkComponentMapping components)
         bytes_per_channel = 2;
         break;
     default:
-        assert(false);
+        ASSERT(false);
         num_channels      = 1;
         bytes_per_channel = 2;
         break;
@@ -1574,7 +1574,7 @@ void init_vk_texture(Texture *texture, VkComponentMapping components)
 
     result = vkCreateImageView(g_vulkan->handle, &view_info, nullptr,
                                &texture->image_view);
-    assert(result == VK_SUCCESS);
+    ASSERT(result == VK_SUCCESS);
 
     vkFreeMemory(g_vulkan->handle, staging_memory, nullptr);
     vkDestroyImage(g_vulkan->handle, staging_image, nullptr);
@@ -1596,7 +1596,7 @@ void vkdebug_create()
                                                    &create_info,
                                                    nullptr,
                                                    &g_vulkan->debug_callback);
-    assert(result == VK_SUCCESS);
+    ASSERT(result == VK_SUCCESS);
 }
 
 void vkdebug_destroy()
@@ -1617,19 +1617,19 @@ void init_vulkan()
      * Create VkInstance
      *************************************************************************/
     {
-        // NOTE(jesper): currently we don't assert about missing required
+        // NOTE(jesper): currently we don't ASSERT about missing required
         // extensions or layers, and we don't store any internal state about
         // which ones we've enabled.
         u32 supported_layers_count = 0;
         result = vkEnumerateInstanceLayerProperties(&supported_layers_count,
                                                     nullptr);
-        assert(result == VK_SUCCESS);
+        ASSERT(result == VK_SUCCESS);
 
         auto supported_layers = g_frame->alloc_array<VkLayerProperties>(supported_layers_count);
 
         result = vkEnumerateInstanceLayerProperties(&supported_layers_count,
                                                     supported_layers);
-        assert(result == VK_SUCCESS);
+        ASSERT(result == VK_SUCCESS);
 
         for (u32 i = 0; i < supported_layers_count; i++) {
             LOG("VkLayerProperties[%u]", i);
@@ -1649,13 +1649,13 @@ void init_vulkan()
         result = vkEnumerateInstanceExtensionProperties(nullptr,
                                                         &supported_extensions_count,
                                                         nullptr);
-        assert(result == VK_SUCCESS);
+        ASSERT(result == VK_SUCCESS);
 
         auto supported_extensions = g_frame->alloc_array<VkExtensionProperties>(supported_extensions_count);
         result = vkEnumerateInstanceExtensionProperties(nullptr,
                                                         &supported_extensions_count,
                                                         supported_extensions);
-        assert(result == VK_SUCCESS);
+        ASSERT(result == VK_SUCCESS);
 
         for (u32 i = 0; i < supported_extensions_count; i++) {
             LOG("vkExtensionProperties[%u]", i);
@@ -1710,7 +1710,7 @@ void init_vulkan()
         create_info.ppEnabledExtensionNames = enabled_extensions;
 
         result = vkCreateInstance(&create_info, nullptr, &g_vulkan->instance);
-        assert(result == VK_SUCCESS);
+        ASSERT(result == VK_SUCCESS);
     }
 
     /**************************************************************************
@@ -1727,12 +1727,12 @@ void init_vulkan()
     {
         u32 count = 0;
         result = vkEnumeratePhysicalDevices(g_vulkan->instance, &count, nullptr);
-        assert(result == VK_SUCCESS);
+        ASSERT(result == VK_SUCCESS);
 
         auto physical_devices = g_frame->alloc_array<VkPhysicalDevice>(count);
         result = vkEnumeratePhysicalDevices(g_vulkan->instance,
                                             &count, physical_devices);
-        assert(result == VK_SUCCESS);
+        ASSERT(result == VK_SUCCESS);
 
         bool found_device = false;
         for (u32 i = 0; i < count; i++) {
@@ -1793,7 +1793,7 @@ void init_vulkan()
     // device we need the surface
     VkSurfaceKHR surface;
     result = platform_vulkan_create_surface(g_vulkan->instance, &surface);
-    assert(result == VK_SUCCESS);
+    ASSERT(result == VK_SUCCESS);
 
 
     /**************************************************************************
@@ -1820,7 +1820,7 @@ void init_vulkan()
                                                           g_vulkan->queue_family_index,
                                                           surface,
                                                           &supports_present);
-            assert(result == VK_SUCCESS);
+            ASSERT(result == VK_SUCCESS);
 
 
             LOG("VkQueueFamilyProperties[%u]", i);
@@ -1878,7 +1878,7 @@ void init_vulkan()
                                 &device_info,
                                 nullptr,
                                 &g_vulkan->handle);
-        assert(result == VK_SUCCESS);
+        ASSERT(result == VK_SUCCESS);
 
         // NOTE: does it matter which queue we choose?
         u32 queue_index = 0;
@@ -1901,7 +1901,7 @@ void init_vulkan()
                                      &create_info,
                                      nullptr,
                                      &g_vulkan->command_pool);
-        assert(result == VK_SUCCESS);
+        ASSERT(result == VK_SUCCESS);
 
         g_vulkan->commands_queued               = create_array<VkCommandBuffer>(g_heap);
 
@@ -1979,7 +1979,7 @@ void init_vulkan()
                                     &create_info,
                                     nullptr,
                                     &g_vulkan->renderpass);
-        assert(result == VK_SUCCESS);
+        ASSERT(result == VK_SUCCESS);
     }
 
     /**************************************************************************
@@ -2012,7 +2012,7 @@ void init_vulkan()
                                          &create_info,
                                          nullptr,
                                          &framebuffer);
-            assert(result == VK_SUCCESS);
+            ASSERT(result == VK_SUCCESS);
 
             array_add(&g_vulkan->framebuffers, framebuffer);
         }
@@ -2025,13 +2025,13 @@ void init_vulkan()
                                &semaphore_info,
                                nullptr,
                                &g_vulkan->swapchain.available);
-    assert(result == VK_SUCCESS);
+    ASSERT(result == VK_SUCCESS);
 
     result = vkCreateSemaphore(g_vulkan->handle,
                                &semaphore_info,
                                nullptr,
                                &g_vulkan->render_completed);
-    assert(result == VK_SUCCESS);
+    ASSERT(result == VK_SUCCESS);
 
     { // create pipelines
         g_game->pipelines.mesh      = create_pipeline(Pipeline_mesh);
@@ -2163,7 +2163,7 @@ VulkanBuffer create_buffer(usize size,
                                      &create_info,
                                      nullptr,
                                      &buffer.handle);
-    assert(result == VK_SUCCESS);
+    ASSERT(result == VK_SUCCESS);
 
     // TODO: allocate buffers from large memory pool in VulkanDevice
     VkMemoryRequirements memory_requirements;
@@ -2172,7 +2172,7 @@ VulkanBuffer create_buffer(usize size,
     u32 index = find_memory_type(g_vulkan->physical_device,
                                  memory_requirements.memoryTypeBits,
                                  memory_flags);
-    assert(index != UINT32_MAX);
+    ASSERT(index != UINT32_MAX);
 
     VkMemoryAllocateInfo allocate_info = {};
     allocate_info.sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
@@ -2183,10 +2183,10 @@ VulkanBuffer create_buffer(usize size,
                               &allocate_info,
                               nullptr,
                               &buffer.memory);
-    assert(result == VK_SUCCESS);
+    ASSERT(result == VK_SUCCESS);
 
     result = vkBindBufferMemory(g_vulkan->handle, buffer.handle, buffer.memory, 0);
-    assert(result == VK_SUCCESS);
+    ASSERT(result == VK_SUCCESS);
     return buffer;
 }
 
@@ -2211,7 +2211,7 @@ VulkanBuffer create_vbo(void *data, usize size)
                                      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
     void *mapped;
     VkResult result = vkMapMemory(g_vulkan->handle, vbo.memory, 0, VK_WHOLE_SIZE, 0, &mapped);
-    assert(result == VK_SUCCESS);
+    ASSERT(result == VK_SUCCESS);
 
     memcpy(mapped, data, size);
     vkUnmapMemory(g_vulkan->handle, vbo.memory);
@@ -2290,7 +2290,7 @@ u32 acquire_swapchain()
                                    g_vulkan->swapchain.available,
                                    VK_NULL_HANDLE,
                                    &image_index);
-    assert(result == VK_SUCCESS);
+    ASSERT(result == VK_SUCCESS);
     return image_index;
 }
 
@@ -2315,7 +2315,7 @@ Material create_material(VulkanPipeline *pipeline, MaterialID id)
     } break;
     default:
         LOG("unknown material");
-        assert(false);
+        ASSERT(false);
         break;
     }
 
@@ -2329,7 +2329,7 @@ Material create_material(VulkanPipeline *pipeline, MaterialID id)
                                              &pool_info,
                                              nullptr,
                                              &mat.descriptor_pool);
-    assert(result == VK_SUCCESS);
+    ASSERT(result == VK_SUCCESS);
 
     VkDescriptorSetAllocateInfo dai = {};
     dai.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -2340,7 +2340,7 @@ Material create_material(VulkanPipeline *pipeline, MaterialID id)
     result = vkAllocateDescriptorSets(g_vulkan->handle,
                                       &dai,
                                       &mat.descriptor_set);
-    assert(result == VK_SUCCESS);
+    ASSERT(result == VK_SUCCESS);
 
     return mat;
 }
@@ -2379,7 +2379,7 @@ void set_texture(Material *material, ResourceSlot slot, Texture *texture)
         break;
     default:
         LOG("unknown resource slot");
-        assert(false);
+        ASSERT(false);
         break;
     }
 
@@ -2440,7 +2440,7 @@ PushConstants create_push_constants(PipelineID pipeline)
     } break;
     default:
         // TODO(jesper): error handling
-        assert(false);
+        ASSERT(false);
         break;
     }
 
@@ -2451,6 +2451,6 @@ template<typename T>
 void set_push_constant(PushConstants *c, T t)
 {
     // TODO(jesper): handle multiple push constants
-    assert(c->size == sizeof(T));
+    ASSERT(c->size == sizeof(T));
     memcpy(c->data, &t, sizeof(T));
 }

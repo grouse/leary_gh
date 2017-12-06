@@ -9,6 +9,8 @@
 #ifndef LEARY_STRING_H
 #define LEARY_STRING_H
 
+#include "leary_macros.h"
+
 // NOTE: IMPORTANT: this will likely _never_ have a constructor or + operator or
 // copy constructors or anything on those lines. This struct is _only_ intended
 // to be a _slightly_ more powerful extension to c-strings with which I can have
@@ -23,7 +25,7 @@ struct String {
 
     char& operator[] (isize i)
     {
-        assert(i < length);
+        ASSERT(i < length);
         return bytes[i];
     }
 };

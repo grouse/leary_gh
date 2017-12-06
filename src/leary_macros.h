@@ -11,6 +11,8 @@
 
 #include <utility>
 
+#include "platform/platform_debug.h"
+
 #define ARRAY_SIZE(a) (isize)(sizeof((a)) / sizeof((a)[0]))
 
 #define MIN(a, b) (a) < (b) ? (a) : (b)
@@ -48,6 +50,14 @@ Defer<F> operator+ (DeferDummy, F&& f)
 #define LOG(...) do {} while(0)
 #define LOG_UNIMPLEMENTED() do {} while(0)
 #endif
+
+#define ASSERT(condition) \
+    do { \
+        if (!(condition)) { \
+                LOG("assert failed: " # condition); \
+                DEBUG_BREAK(); \
+        } \
+    } while(0)
 
 #endif /* LEARY_MACROS_H */
 

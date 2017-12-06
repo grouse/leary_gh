@@ -9,6 +9,7 @@
 #include "leary.h"
 
 #define STB_TRUETYPE_IMPLEMENTATION
+#define STBTT_ASSERT ASSERT
 #include "external/stb/stb_truetype.h"
 
 #include "platform/platform.h"
@@ -141,7 +142,7 @@ void init_entity_system()
 void init_terrain()
 {
     Texture *hm = find_texture("terrain.bmp");
-    assert(hm != nullptr);
+    ASSERT(hm != nullptr);
 
     struct Texel {
         u8 r, g, b, a;
@@ -334,7 +335,7 @@ Entity* entity_find(i32 id)
         }
     }
 
-    assert(false);
+    ASSERT(false);
     return nullptr;
 }
 
@@ -372,7 +373,7 @@ i32 physics_id(i32 entity_id)
         }
     }
 
-    assert(id != -1);
+    ASSERT(id != -1);
     return id;
 }
 
@@ -1223,7 +1224,7 @@ void game_render()
 
     PROFILE_START(vulkan_swap);
     result = vkQueueWaitIdle(g_vulkan->queue);
-    assert(result == VK_SUCCESS);
+    ASSERT(result == VK_SUCCESS);
     PROFILE_END(vulkan_swap);
 }
 

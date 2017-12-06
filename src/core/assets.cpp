@@ -70,7 +70,7 @@ Texture load_texture_bmp(const char *path)
     LOG("-- file size: %llu bytes", size);
 
 
-    assert(file[0] == 'B' && file[1] == 'M');
+    ASSERT(file[0] == 'B' && file[1] == 'M');
 
     char *ptr = file;
     BitmapFileHeader *fh = (BitmapFileHeader*)ptr;
@@ -95,7 +95,7 @@ Texture load_texture_bmp(const char *path)
         LOG("-- version 3");
     }
 
-    assert(h->header_size == 40);
+    ASSERT(h->header_size == 40);
     ptr += sizeof(BitmapHeader);
 
     if (h->compression != 0) {
@@ -249,7 +249,7 @@ Mesh load_mesh_obj(const char *filename)
 
 
             // NOTE(jesper): only supporting triangulated meshes
-            assert(num_dividers == expected);
+            ASSERT(num_dividers == expected);
             num_faces++;
         }
 
@@ -260,8 +260,8 @@ Mesh load_mesh_obj(const char *filename)
         while (ptr < end && is_newline(ptr[0]));
     }
 
-    assert(vectors.count > 0);
-    assert(num_faces> 0);
+    ASSERT(vectors.count > 0);
+    ASSERT(num_faces> 0);
 
     LOG("-- vectors : %d", vectors.count);
     LOG("-- normals : %d", normals.count);
@@ -544,7 +544,7 @@ EntityData parse_entity_data(Path p)
     }
 
     i64 version = read_i64(t);
-    assert(version == 1);
+    ASSERT(version == 1);
 
     t = next_token(&l);
     if (t.type != Token::identifier) {

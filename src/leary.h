@@ -15,11 +15,11 @@
 #define INTROSPECT
 #endif
 
-#include <assert.h>
 #include <utility>
 
 #include "external/stb/stb_truetype.h"
 
+#include "platform/platform_debug.h"
 #include "leary_macros.h"
 
 #include "core/profiling.h"

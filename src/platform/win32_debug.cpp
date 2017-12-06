@@ -33,7 +33,7 @@ const char *log_channel_string(LogChannel channel)
 	case Log_info:          return "info";
 	case Log_error:         return "error";
 	case Log_warning:       return "warning";
-	case Log_assert:        return "assert";
+	case Log_assert:        return "ASSERT";
 	case Log_unimplemented: return "unimplemented";
 	default:                return "";
 	}
@@ -54,11 +54,11 @@ void platform_debug_print(const char *file,
 	va_start(args, fmt);
 	i32 length = vsnprintf(message, DEBUG_BUFFER_SIZE, fmt, args);
 	va_end(args);
-	assert(length < DEBUG_BUFFER_SIZE);
+	ASSERT(length < DEBUG_BUFFER_SIZE);
 
 	length = snprintf(buffer, DEBUG_BUFFER_SIZE, "%s:%d: %s: [%s] %s\n",
 	                  file, line, channel_str, function, message);
-	assert(length < DEBUG_BUFFER_SIZE);
+	ASSERT(length < DEBUG_BUFFER_SIZE);
 	OutputDebugString(buffer);
 }
 
@@ -76,11 +76,11 @@ void platform_debug_print(const char *file,
 	va_start(args, fmt);
 	i32 length = vsnprintf(message, DEBUG_BUFFER_SIZE, fmt, args);
 	va_end(args);
-	assert(length < DEBUG_BUFFER_SIZE);
+	ASSERT(length < DEBUG_BUFFER_SIZE);
 
 	length = snprintf(buffer, DEBUG_BUFFER_SIZE, "%s:%d: %s: [%s] %s\n",
 	                  file, line, channel_str, function, message);
-	assert(length < DEBUG_BUFFER_SIZE);
+	ASSERT(length < DEBUG_BUFFER_SIZE);
 	OutputDebugString(buffer);
 }
 

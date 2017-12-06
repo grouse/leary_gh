@@ -46,7 +46,7 @@ i32 profile_start_timer(const char *name)
     // NOTE(jesper): using a static array here for memory performance reasons,
     // so if we run out it's tough shit and you better increase
     // NUM_PROFILE_TIMERS
-    assert(g_profile_timers.count < g_profile_timers.capacity);
+    ASSERT(g_profile_timers.count < g_profile_timers.capacity);
 
     // NOTE(jesper): assume the passed in string won't be deallocated, I don't
     // see a use case for these functions where name isn't a pointer to a string
