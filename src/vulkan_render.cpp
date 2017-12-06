@@ -905,6 +905,7 @@ VulkanPipeline create_pipeline(PipelineID id)
         pipeline.shaders[ShaderStage_fragment] = create_shader(ShaderID_mesh_frag);
         break;
     case Pipeline_wireframe:
+    case Pipeline_wireframe_lines:
         pipeline.shaders[ShaderStage_vertex]   = create_shader(ShaderID_wireframe_vert);
         pipeline.shaders[ShaderStage_fragment] = create_shader(ShaderID_wireframe_frag);
         break;
@@ -1000,7 +1001,8 @@ VulkanPipeline create_pipeline(PipelineID id)
             array_add(&layouts, pipeline.descriptor_layout_material);
         }
     } break;
-    case Pipeline_wireframe: {
+    case Pipeline_wireframe:
+    case Pipeline_wireframe_lines: {
         { // pipeline
             auto binds = create_array<VkDescriptorSetLayoutBinding>(g_stack);
             array_add(&binds, {
@@ -1040,6 +1042,7 @@ VulkanPipeline create_pipeline(PipelineID id)
     switch (id) {
     case Pipeline_terrain:
     case Pipeline_wireframe:
+    case Pipeline_wireframe_lines:
     case Pipeline_mesh: {
         array_add(&psizes, { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         1 });
         //array_add(&pool_sizes, { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1 });
@@ -1087,7 +1090,8 @@ VulkanPipeline create_pipeline(PipelineID id)
 
         array_add(&push_constants, pc);
     } break;
-    case Pipeline_wireframe: {
+    case Pipeline_wireframe:
+    case Pipeline_wireframe_lines: {
         VkPushConstantRange pc = {};
         pc.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
         pc.offset = 0;
@@ -1128,6 +1132,7 @@ VulkanPipeline create_pipeline(PipelineID id)
         array_add(&vdescs, { 2, 0, VK_FORMAT_R32G32_SFLOAT,    sizeof(f32) * 6 });
         break;
     case Pipeline_wireframe:
+    case Pipeline_wireframe_lines:
         array_add(&vbinds, { 0, sizeof(f32) * 3, VK_VERTEX_INPUT_RATE_VERTEX });
         array_add(&vdescs, { 0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0 });
         break;
@@ -1145,7 +1150,7 @@ VulkanPipeline create_pipeline(PipelineID id)
     iai.primitiveRestartEnable = VK_FALSE;
 
     switch (id) {
-    case Pipeline_wireframe:
+    case Pipeline_wireframe_lines:
         iai.topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
         break;
     default:
@@ -1181,6 +1186,7 @@ VulkanPipeline create_pipeline(PipelineID id)
 
     switch (id) {
     case Pipeline_wireframe:
+    case Pipeline_wireframe_lines:
         raster.polygonMode = VK_POLYGON_MODE_LINE;
         raster.lineWidth   = 1.0f;
         raster.cullMode    = VK_CULL_MODE_NONE;
@@ -2032,6 +2038,7 @@ void init_vulkan()
         g_game->pipelines.basic2d   = create_pipeline(Pipeline_basic2d);
         g_game->pipelines.font      = create_pipeline(Pipeline_font);
         g_game->pipelines.terrain   = create_pipeline(Pipeline_terrain);
+        g_game->pipelines.wireframe_lines = create_pipeline(Pipeline_wireframe_lines);
         g_game->pipelines.wireframe = create_pipeline(Pipeline_wireframe);
     }
 
@@ -2420,7 +2427,8 @@ PushConstants create_push_constants(PipelineID pipeline)
         c.size   = sizeof(Matrix4);
         c.data   = g_heap->alloc(c.size);
     } break;
-    case Pipeline_wireframe: {
+    case Pipeline_wireframe:
+    case Pipeline_wireframe_lines: {
         c.offset = 0;
         c.size   = sizeof(Matrix4) + sizeof(Vector3);
         c.data   = g_heap->alloc(c.size);

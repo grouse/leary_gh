@@ -36,7 +36,8 @@ struct DebugCollision {
 
     struct {
         VulkanBuffer vbo;
-        i32 vertex_count = 0;
+        VulkanBuffer ibo;
+        i32 index_count = 0;
     } sphere;
 };
 
@@ -261,7 +262,7 @@ void init_collision()
 
         g_debug_collision.sphere.vbo = create_vbo(vertices, sizeof(vertices));
         g_debug_collision.sphere.vertex_count = 96;
-#else
+#elif 0
         f32 vertices[] = {
             // front-face
             -1.0f, -1.0f, -1.0f,
@@ -306,6 +307,11 @@ void init_collision()
 
         g_debug_collision.sphere.vbo = create_vbo(vertices, sizeof(vertices));
         g_debug_collision.sphere.vertex_count = 24;
+#else
+        Mesh sphere = load_mesh_obj("unit_sphere.obj");
+        g_debug_collision.sphere.index_count = sphere.indices.count;
+        g_debug_collision.sphere.vbo = create_vbo(sphere.vertices.data, sphere.vertices.count * sizeof sphere.vertices[0]);
+        g_debug_collision.sphere.ibo = create_ibo(sphere.indices.data, sphere.indices.count * sizeof sphere.indices[0]);
 #endif
     }
 
@@ -432,11 +438,12 @@ void process_collision()
 
             f32 rsq = sphere.radius * sphere.radius;
 
-            Vector3 bts = aabb.position - sphere.position;
-            Vector3 closest = clamp(bts, { left, top, back }, { right, bot, front });
+            Vector3 bts = sphere.position - aabb.position;
+            Vector3 c = clamp(bts, { left, top, back }, { right, bot, front });
+            Vector3 sc = c - sphere.position;
+            f32 d = length_sq(sc) - rsq;
 
-            Vector3 diff = closest - sphere.position;
-            if (length_sq(diff) < rsq) {
+            if (d < 0.0f) {
                 aabb.colliding = true;
                 sphere.colliding = true;
             }

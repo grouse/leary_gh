@@ -9,6 +9,9 @@
 #ifndef MATH_H
 #define MATH_H
 
+#define _USE_MATH_DEFINES
+#include "math.h"
+
 namespace lry {
     f32 cos(f32 x);
     f32 sin(f32 x);
@@ -19,8 +22,7 @@ namespace lry {
     f32 abs(f32 x);
 }
 
-// TODO(jesper): better pi(e)
-#define PI 3.1415942f
+#define PI (f32)M_PI
 #define F32_MAX 3.402823466e+38F
 
 #define MCOMBINE2(a, b) a ## b

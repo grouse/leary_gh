@@ -484,6 +484,7 @@ void game_quit()
     destroy_pipeline(g_game->pipelines.mesh);
     destroy_pipeline(g_game->pipelines.terrain);
     destroy_pipeline(g_game->pipelines.wireframe);
+    destroy_pipeline(g_game->pipelines.wireframe_lines);
 
     for (auto &it : g_game->render_objects) {
         buffer_destroy(it.vbo);
@@ -1079,14 +1080,14 @@ void game_render()
     // collidables
     if (g_debug_collision.render_collidables) {
         vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                          g_game->pipelines.wireframe.handle);
+                          g_game->pipelines.wireframe_lines.handle);
 
         auto descriptors = create_array<VkDescriptorSet>(g_stack);
-        array_add(&descriptors, g_game->pipelines.wireframe.descriptor_set);
+        array_add(&descriptors, g_game->pipelines.wireframe_lines.descriptor_set);
 
         vkCmdBindDescriptorSets(command,
                                 VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                g_game->pipelines.wireframe.layout,
+                                g_game->pipelines.wireframe_lines.layout,
                                 0,
                                 descriptors.count, descriptors.data,
                                 0, nullptr);
@@ -1107,13 +1108,30 @@ void game_render()
                 pc.color = { 0.0f, 1.0f, 0.0f };
             }
 
-            vkCmdPushConstants(command, g_game->pipelines.wireframe.layout,
+            vkCmdPushConstants(command, g_game->pipelines.wireframe_lines.layout,
                                VK_SHADER_STAGE_VERTEX_BIT,
                                0, sizeof(pc), &pc);
             vkCmdDraw(command, g_debug_collision.cube.vertex_count, 1, 0, 0);
         }
 
+
+        vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                          g_game->pipelines.wireframe.handle);
+
+        descriptors.count = 0;
+        array_add(&descriptors, g_game->pipelines.wireframe.descriptor_set);
+
+        vkCmdBindDescriptorSets(command,
+                                VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                g_game->pipelines.wireframe.layout,
+                                0,
+                                descriptors.count, descriptors.data,
+                                0, nullptr);
+
         vkCmdBindVertexBuffers(command, 0, 1, &g_debug_collision.sphere.vbo.handle, offsets);
+        vkCmdBindIndexBuffer(command, g_debug_collision.sphere.ibo.handle, 0, VK_INDEX_TYPE_UINT32);
+
+#if 0
         for (auto &c : g_collision.spheres) {
             pc.transform = translate(Matrix4::identity(), c.position);
             pc.transform = scale(pc.transform, c.radius);
@@ -1127,8 +1145,9 @@ void game_render()
             vkCmdPushConstants(command, g_game->pipelines.wireframe.layout,
                                VK_SHADER_STAGE_VERTEX_BIT,
                                0, sizeof(pc), &pc);
-            vkCmdDraw(command, g_debug_collision.sphere.vertex_count, 1, 0, 0);
+            vkCmdDrawIndexed(command, g_debug_collision.sphere.index_count, 1, 0, 0, 0);
         }
+#endif
 
     }
 

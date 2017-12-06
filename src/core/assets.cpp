@@ -243,8 +243,13 @@ Mesh load_mesh_obj(const char *filename)
                 }
             } while (face < end && face[0] != '\n' && face[0] != '\r');
 
+            int expected = 0;
+            if (normals.count > 0) expected += 3;
+            if (uvs.count     > 0) expected += 3;
+
+
             // NOTE(jesper): only supporting triangulated meshes
-            assert(num_dividers == 6);
+            assert(num_dividers == expected);
             num_faces++;
         }
 
@@ -256,8 +261,6 @@ Mesh load_mesh_obj(const char *filename)
     }
 
     assert(vectors.count > 0);
-    assert(normals.count > 0);
-    assert(uvs.count> 0);
     assert(num_faces> 0);
 
     LOG("-- vectors : %d", vectors.count);
@@ -268,48 +271,83 @@ Mesh load_mesh_obj(const char *filename)
     auto vertices = create_array<Vertex>(g_frame);
 
     ptr = file;
-    while (ptr < end) {
-        if (ptr[0] == 'f') {
+
+    if (normals.count > 0 && uvs.count > 0) {
+        while (ptr < end) {
+            if (ptr[0] == 'f') {
+                do ptr++;
+                while (ptr[0] == ' ');
+
+                u32 iv0, iv1, iv2;
+                u32 it0, it1, it2;
+                u32 in0, in1, in2;
+
+                sscanf(ptr, "%u/%u/%u %u/%u/%u %u/%u/%u",
+                       &iv0, &it0, &in0, &iv1, &it1, &in1, &iv2, &it2, &in2);
+
+                // NOTE(jesper): objs are 1 indexed
+                iv0--; iv1--; iv2--;
+                it0--; it1--; it2--;
+                in0--; in1--; in2--;
+
+                Vertex v0;
+                v0.p  = vectors[iv0];
+                v0.n  = normals[in0];
+                v0.uv = uvs[it0];
+
+                Vertex v1;
+                v1.p  = vectors[iv1];
+                v1.n  = normals[in1];
+                v1.uv = uvs[it1];
+
+                Vertex v2;
+                v2.p  = vectors[iv2];
+                v2.n  = normals[in2];
+                v2.uv = uvs[it2];
+
+                array_add(&vertices, v0);
+                array_add(&vertices, v1);
+                array_add(&vertices, v2);
+            }
+
             do ptr++;
-            while (ptr[0] == ' ');
+            while (ptr < end && !is_newline(ptr[0]));
 
-            u32 iv0, iv1, iv2;
-            u32 it0, it1, it2;
-            u32 in0, in1, in2;
-
-            sscanf(ptr, "%u/%u/%u %u/%u/%u %u/%u/%u",
-                   &iv0, &it0, &in0, &iv1, &it1, &in1, &iv2, &it2, &in2);
-
-            // NOTE(jesper): objs are 1 indexed
-            iv0--; iv1--; iv2--;
-            it0--; it1--; it2--;
-            in0--; in1--; in2--;
-
-            Vertex v0;
-            v0.p  = vectors[iv0];
-            v0.n  = normals[in0];
-            v0.uv = uvs[it0];
-
-            Vertex v1;
-            v1.p  = vectors[iv1];
-            v1.n  = normals[in1];
-            v1.uv = uvs[it1];
-
-            Vertex v2;
-            v2.p  = vectors[iv2];
-            v2.n  = normals[in2];
-            v2.uv = uvs[it2];
-
-            array_add(&vertices, v0);
-            array_add(&vertices, v1);
-            array_add(&vertices, v2);
+            do ptr++;
+            while (ptr < end && is_newline(ptr[0]));
         }
+    } else {
+        while (ptr < end) {
+            if (ptr[0] == 'f') {
+                do ptr++;
+                while (ptr[0] == ' ');
 
-        do ptr++;
-        while (ptr < end && !is_newline(ptr[0]));
+                u32 iv0, iv1, iv2;
+                sscanf(ptr, "%u %u %u", &iv0, &iv1, &iv2);
 
-        do ptr++;
-        while (ptr < end && is_newline(ptr[0]));
+                // NOTE(jesper): objs are 1 indexed
+                iv0--; iv1--; iv2--;
+
+                Vertex v0 = {};
+                v0.p  = vectors[iv0];
+
+                Vertex v1 = {};
+                v1.p  = vectors[iv1];
+
+                Vertex v2 = {};
+                v2.p  = vectors[iv2];
+
+                array_add(&vertices, v0);
+                array_add(&vertices, v1);
+                array_add(&vertices, v2);
+            }
+
+            do ptr++;
+            while (ptr < end && !is_newline(ptr[0]));
+
+            do ptr++;
+            while (ptr < end && is_newline(ptr[0]));
+        }
     }
 
     mesh.vertices = create_array<Vertex>(g_persistent);

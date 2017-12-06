@@ -35,7 +35,8 @@ enum PipelineID {
     Pipeline_mesh,
     Pipeline_terrain,
     Pipeline_basic2d,
-    Pipeline_wireframe
+    Pipeline_wireframe,
+    Pipeline_wireframe_lines
 };
 
 struct VulkanBuffer {

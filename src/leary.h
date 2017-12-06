@@ -124,6 +124,7 @@ struct GameState {
         VulkanPipeline mesh;
         VulkanPipeline terrain;
         VulkanPipeline wireframe;
+        VulkanPipeline wireframe_lines;
     } pipelines;
 
     struct {
