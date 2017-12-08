@@ -58,11 +58,6 @@ void MEMORY_BARRIER()
 
 #define DIVIDER "-----------------------------------------------------------------------------------------------------------------------------------------------------"
 
-u64 get_time()
-{
-    return __rdtsc();
-}
-
 #define MCOMBINE2(a, b) a ## b
 #define MCOMBINE(a, b) MCOMBINE2(a, b)
 
@@ -107,12 +102,12 @@ bool keep_running(Benchmark *state)
 
 void start_timing(Benchmark *state)
 {
-    state->start_time = get_time();
+    state->start_time = rdtsc();
 }
 
 void stop_timing(Benchmark *state)
 {
-    state->end_time = get_time();
+    state->end_time = rdtsc();
 
     u64 duration = state->end_time - state->start_time;
     state->total_duration += duration;

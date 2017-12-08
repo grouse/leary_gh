@@ -46,7 +46,6 @@ extern "C" {
     void free(void*);
 
 }
-    #define rdtsc() __rdtsc()
 #elif defined(_WIN32)
     #include <Windows.h>
 
@@ -57,7 +56,6 @@ extern "C" {
     #undef far
 
     #define VK_USE_PLATFORM_WIN32_KHR
-    #define rdtsc() __rdtsc()
 #else
     #error "unsupported platform"
 #endif

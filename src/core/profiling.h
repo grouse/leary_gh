@@ -31,6 +31,18 @@ struct ProfileTimers {
 extern ProfileTimers g_profile_timers;
 extern ProfileTimers g_profile_timers_prev;
 
+u64 rdtsc()
+{
+#if defined(_WIN32)
+    int registers[4];
+    __cpuid(registers, 0);
+    return __rdtsc();
+#else
+    return __rdtsc();
+#endif
+}
+
+
 #if LEARY_ENABLE_PROFILING
 
 i32 profile_start_timer(const char *name);
