@@ -290,9 +290,19 @@ void submit_frame()
     info.signalSemaphoreCount = (u32)g_vulkan->semaphores_submit_signal.count;
     info.pSignalSemaphores    = g_vulkan->semaphores_submit_signal.data;
 
+    VkFenceCreateInfo fence_info = {};
+    fence_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
 
-    vkQueueSubmit(g_vulkan->queue, 1, &info, VK_NULL_HANDLE);
+    VkFence submit_fence;
+    VkResult result = vkCreateFence(g_vulkan->handle, &fence_info, nullptr, &submit_fence);
+    ASSERT(result == VK_SUCCESS);
+
+    vkQueueSubmit(g_vulkan->queue, 1, &info, submit_fence);
     vkQueueWaitIdle(g_vulkan->queue);
+
+    do {
+        result = vkWaitForFences(g_vulkan->handle, 1, &submit_fence, VK_TRUE, 500);
+    } while (result == VK_TIMEOUT);
 
     // TODO(jesper): move the command buffers into a free list instead of
     // actually freeing them, to be reset and reused with
@@ -337,7 +347,7 @@ void begin_renderpass(VkCommandBuffer cmd, u32 image)
 }
 
 void end_cmd_buffer(VkCommandBuffer buffer,
-                        bool submit = true)
+                    bool submit = true)
 {
     VkResult result = vkEndCommandBuffer(buffer);
     ASSERT(result == VK_SUCCESS);

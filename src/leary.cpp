@@ -109,7 +109,7 @@ void debug_add_texture(const char *name,
         0.0f,  0.0f,  0.0f, 0.0f,
     };
 
-    item.u.ritem.vbo = create_vbo(vertices, sizeof(vertices) * sizeof(f32));
+    item.u.ritem.vbo = create_vbo(vertices, sizeof(vertices));
     item.u.ritem.vertex_count = 6;
 
     item.u.ritem.descriptors = create_array<VkDescriptorSet>(g_heap, 1);
@@ -256,7 +256,7 @@ void init_terrain()
         Terrain::Chunk &c = t.chunks[i];
 
         usize vertex_size = c.vertices.count * sizeof(c.vertices[0]);
-        c.vbo      = create_vbo(c.vertices.data, vertex_size);
+        c.vbo = create_vbo(c.vertices.data, vertex_size);
     }
 
     g_terrain = t;
@@ -1116,6 +1116,7 @@ void game_render()
         }
 
 
+#if 0
         vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS,
                           g_game->pipelines.wireframe.handle);
 
@@ -1132,7 +1133,6 @@ void game_render()
         vkCmdBindVertexBuffers(command, 0, 1, &g_debug_collision.sphere.vbo.handle, offsets);
         vkCmdBindIndexBuffer(command, g_debug_collision.sphere.ibo.handle, 0, VK_INDEX_TYPE_UINT32);
 
-#if 0
         for (auto &c : g_collision.spheres) {
             pc.transform = translate(Matrix4::identity(), c.position);
             pc.transform = scale(pc.transform, c.radius);
@@ -1221,11 +1221,8 @@ void game_render()
     present_semaphore(g_vulkan->render_completed);
     present_frame(image_index);
 
-
-    PROFILE_START(vulkan_swap);
     result = vkQueueWaitIdle(g_vulkan->queue);
     ASSERT(result == VK_SUCCESS);
-    PROFILE_END(vulkan_swap);
 }
 
 void game_update_and_render(f32 dt)

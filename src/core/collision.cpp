@@ -93,7 +93,7 @@ void init_collision()
             1.0f, 1.0f, 1.0f,
         };
 
-        g_debug_collision.cube.vbo = create_vbo(vertices, sizeof(vertices) * sizeof(f32));
+        g_debug_collision.cube.vbo = create_vbo(vertices, sizeof(vertices));
         g_debug_collision.cube.vertex_count = 24;
     }
 
@@ -308,10 +308,12 @@ void init_collision()
         g_debug_collision.sphere.vbo = create_vbo(vertices, sizeof(vertices));
         g_debug_collision.sphere.vertex_count = 24;
 #else
+#if 0
         Mesh sphere = load_mesh_obj("unit_sphere.obj");
         g_debug_collision.sphere.index_count = sphere.indices.count;
         g_debug_collision.sphere.vbo = create_vbo(sphere.vertices.data, sphere.vertices.count * sizeof sphere.vertices[0]);
         g_debug_collision.sphere.ibo = create_ibo(sphere.indices.data, sphere.indices.count * sizeof sphere.indices[0]);
+#endif
 #endif
     }
 
