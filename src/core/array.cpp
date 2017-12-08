@@ -59,9 +59,9 @@ void destroy_array(Array<T> *a)
 template<typename T>
 void array_resize(Array<T> *a, i32 count)
 {
-    assert(a->count    == 0);
-    assert(a->capacity == 0);
-    assert(a->data == nullptr);
+    ASSERT(a->count    == 0);
+    ASSERT(a->capacity == 0);
+    ASSERT(a->data == nullptr);
 
     a->count    = count;
     a->capacity = count;
@@ -71,7 +71,7 @@ void array_resize(Array<T> *a, i32 count)
 template<typename T>
 i32 array_add(Array<T> *a, T e)
 {
-    assert(a->allocator != nullptr);
+    ASSERT(a->allocator != nullptr);
 
     if (a->count >= a->capacity) {
         i32 capacity = a->capacity == 0 ? 1 : a->capacity * 2;
@@ -141,7 +141,7 @@ void destroy_array(StaticArray<T> *a)
 template<typename T>
 i32 array_add(StaticArray<T> *a, T e)
 {
-    assert(a->count <= a->capacity);
+    ASSERT(a->count <= a->capacity);
 
     a->data[a->count] = e;
     return a->count++;

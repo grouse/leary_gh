@@ -49,7 +49,7 @@ V* table_add(HashTable<K, V> *table, K key, V value)
         if (table->table[index][i].key == key) {
             // TODO(jesper): to_string key
             LOG("key already exists in hash table");
-            assert(false);
+            ASSERT(false);
             return nullptr;
         }
     }
@@ -71,7 +71,7 @@ V* table_add(HashTable<const char*, V> *table, const char *key, V value)
         if (strcmp(table->table[index][i].key, key) == 0) {
             // TODO(jesper): to_string key
             LOG("key already exists in hash table");
-            assert(false);
+            ASSERT(false);
             return nullptr;
         }
     }
@@ -93,7 +93,7 @@ V* table_add(HashTable<char*, V> *table, char *key, V value)
         if (strcmp(table->table[index][i].key, key) == 0) {
             // TODO(jesper): to_string key
             LOG("key already exists in hash table");
-            assert(false);
+            ASSERT(false);
             return nullptr;
         }
     }
@@ -115,7 +115,7 @@ V* table_add(HashTable<char*, V> *table, const char *key, V value)
         if (strcmp(table->table[index][i].key, key) == 0) {
             // TODO(jesper): to_string key
             LOG("key already exists in hash table");
-            assert(false);
+            ASSERT(false);
             return nullptr;
         }
     }
