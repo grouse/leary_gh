@@ -20,6 +20,12 @@ typedef i32 AssetID;
 typedef i32 TextureID;
 typedef i32 EntityID;
 
+struct Mesh {
+    Array<f32> vertices;
+    Array<u32> indices;
+};
+
+
 struct Texture {
     AssetID asset_id = ASSET_INVALID_ID;
     u32   width;

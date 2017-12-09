@@ -20,11 +20,6 @@ bool operator == (Vertex &lhs, Vertex &rhs)
     return memcmp(&lhs, &rhs, sizeof(Vertex)) == 0;
 }
 
-struct Mesh {
-    Array<Vertex> vertices;
-    Array<u32>    indices;
-};
-
 extern Array<Entity> g_entities;
 
 Array<Texture> g_textures;
@@ -179,6 +174,27 @@ Texture load_texture_bmp(const char *path)
     return texture;
 }
 
+void add_vertex(Array<f32> *vertices, Vector3 p, Vector3 n, Vector2 uv)
+{
+    array_add(vertices, p.x);
+    array_add(vertices, p.y);
+    array_add(vertices, p.z);
+
+    array_add(vertices, n.x);
+    array_add(vertices, n.y);
+    array_add(vertices, n.z);
+
+    array_add(vertices, uv.x);
+    array_add(vertices, uv.y);
+}
+
+void add_vertex(Array<f32> *vertices, Vector3 p)
+{
+    array_add(vertices, p.x);
+    array_add(vertices, p.y);
+    array_add(vertices, p.z);
+}
+
 Mesh load_mesh_obj(const char *filename)
 {
     Mesh mesh = {};
@@ -268,11 +284,14 @@ Mesh load_mesh_obj(const char *filename)
     LOG("-- uvs     : %d", uvs.count);
     LOG("-- faces   : %d", num_faces);
 
-    auto vertices = create_array<Vertex>(g_frame);
+    bool has_normals = normals.count > 0;
+    bool has_uvs     = uvs.count > 0;
+
+    auto vertices = create_array<f32>(g_frame);
 
     ptr = file;
 
-    if (normals.count > 0 && uvs.count > 0) {
+    if (has_normals && has_uvs) {
         while (ptr < end) {
             if (ptr[0] == 'f') {
                 do ptr++;
@@ -290,24 +309,9 @@ Mesh load_mesh_obj(const char *filename)
                 it0--; it1--; it2--;
                 in0--; in1--; in2--;
 
-                Vertex v0;
-                v0.p  = vectors[iv0];
-                v0.n  = normals[in0];
-                v0.uv = uvs[it0];
-
-                Vertex v1;
-                v1.p  = vectors[iv1];
-                v1.n  = normals[in1];
-                v1.uv = uvs[it1];
-
-                Vertex v2;
-                v2.p  = vectors[iv2];
-                v2.n  = normals[in2];
-                v2.uv = uvs[it2];
-
-                array_add(&vertices, v0);
-                array_add(&vertices, v1);
-                array_add(&vertices, v2);
+                add_vertex(&vertices, vectors[iv0], normals[in0], uvs[it0]);
+                add_vertex(&vertices, vectors[iv1], normals[in1], uvs[it1]);
+                add_vertex(&vertices, vectors[iv2], normals[in2], uvs[it2]);
             }
 
             do ptr++;
@@ -328,18 +332,9 @@ Mesh load_mesh_obj(const char *filename)
                 // NOTE(jesper): objs are 1 indexed
                 iv0--; iv1--; iv2--;
 
-                Vertex v0 = {};
-                v0.p  = vectors[iv0];
-
-                Vertex v1 = {};
-                v1.p  = vectors[iv1];
-
-                Vertex v2 = {};
-                v2.p  = vectors[iv2];
-
-                array_add(&vertices, v0);
-                array_add(&vertices, v1);
-                array_add(&vertices, v2);
+                add_vertex(&vertices, vectors[iv0]);
+                add_vertex(&vertices, vectors[iv1]);
+                add_vertex(&vertices, vectors[iv2]);
             }
 
             do ptr++;
@@ -350,51 +345,75 @@ Mesh load_mesh_obj(const char *filename)
         }
     }
 
-    mesh.vertices = create_array<Vertex>(g_persistent);
+    mesh.vertices = create_array<f32>(g_persistent);
     mesh.indices  = create_array<u32>(g_persistent);
 
-    i32 j = 0;
-    for (i32 i = 0; i < vertices.count; i++) {
-        bool unique = true;
-        for (j = 0; j < mesh.vertices.count; j++) {
-            if (vertices[i] == mesh.vertices[j]) {
-                unique = false;
-                break;
+    if (has_normals && has_uvs) {
+        u32 index = 0;
+        for (i32 i = 0; i < vertices.count; i += 8) {
+            bool unique = true;
+
+            i32 j = 0;
+            for (j = 0; j < mesh.vertices.count; j += 8) {
+
+                if (vertices[i] == mesh.vertices[j] &&
+                    vertices[i+1] == mesh.vertices[j+1] &&
+                    vertices[i+2] == mesh.vertices[j+2] &&
+                    vertices[i+3] == mesh.vertices[j+3] &&
+                    vertices[i+4] == mesh.vertices[j+4] &&
+                    vertices[i+5] == mesh.vertices[j+5] &&
+                    vertices[i+6] == mesh.vertices[j+6] &&
+                    vertices[i+7] == mesh.vertices[j+7])
+                {
+                    unique = false;
+                    break;
+                }
+            }
+
+            if (unique) {
+                array_add(&mesh.indices, index++);
+
+                array_add(&mesh.vertices, vertices[i]);
+                array_add(&mesh.vertices, vertices[i+1]);
+                array_add(&mesh.vertices, vertices[i+2]);
+                array_add(&mesh.vertices, vertices[i+3]);
+                array_add(&mesh.vertices, vertices[i+4]);
+                array_add(&mesh.vertices, vertices[i+5]);
+                array_add(&mesh.vertices, vertices[i+6]);
+                array_add(&mesh.vertices, vertices[i+7]);
+            } else {
+                array_add(&mesh.indices, (u32)(j) / 8);
             }
         }
+    } else {
+        u32 index = 0;
+        for (i32 i = 0; i < vertices.count; i += 3) {
+            bool unique = true;
 
-        if (unique) {
-            u32 index = (u32)array_add(&mesh.vertices, vertices[i]);
-            array_add(&mesh.indices, index);
-        } else {
-            u32 index = (u32)j;
-            array_add(&mesh.indices, index);
+            i32 j = 0;
+            for (j = 0; j < mesh.vertices.count; j += 3) {
+
+                if (vertices[i] == mesh.vertices[j] &&
+                    vertices[i+1] == mesh.vertices[j+1] &&
+                    vertices[i+2] == mesh.vertices[j+2])
+                {
+                    unique = false;
+                    break;
+                }
+            }
+
+            if (unique) {
+                array_add(&mesh.indices, index++);
+
+                array_add(&mesh.vertices, vertices[i]);
+                array_add(&mesh.vertices, vertices[i+1]);
+                array_add(&mesh.vertices, vertices[i+2]);
+            } else {
+                array_add(&mesh.indices, (u32)(j) / 3);
+            }
         }
     }
 
-#if 0
-    for (i32 i = 0; i < mesh.vertices.count; i++) {
-        LOG("vertex[%d]", i);
-        LOG("vector = { %f, %f, %f }",
-                  mesh.vertices[i].vector.x,
-                  mesh.vertices[i].vector.y,
-                  mesh.vertices[i].vector.z);
-        LOG("normal = { %f, %f, %f }",
-                  mesh.vertices[i].normal.x,
-                  mesh.vertices[i].normal.y,
-                  mesh.vertices[i].normal.z);
-        LOG("uv = { %f, %f }",
-                  mesh.vertices[i].uv.x,
-                  mesh.vertices[i].uv.y);
-    }
-
-    for (i32 i = 0; i < mesh.indices.count; i += 3) {
-        LOG("triangle: %u, %u, %u",
-                  mesh.indices[i+0],
-                  mesh.indices[i+1],
-                  mesh.indices[i+2]);
-    }
-#endif
 
     return mesh;
 }
@@ -605,7 +624,7 @@ i32 add_entity(Path p)
 
     obj.entity_id   = e.id;
     obj.pipeline    = Pipeline_mesh;
-    obj.index_count = (i32)cube.indices.count;
+    obj.index_count = cube.indices.count;
     obj.vbo         = create_vbo(cube.vertices.data, vertex_size);
     obj.ibo         = create_ibo(cube.indices.data, index_size);
 

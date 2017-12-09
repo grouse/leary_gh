@@ -218,8 +218,6 @@ window_proc(HWND   hwnd,
                 assert(false);
             }
 
-            LOG("raw mouse delta %f, %f", mouse_state.dx, mouse_state.dy);
-
             InputEvent event;
             event.type = InputType_mouse_move;
             event.mouse.dx = mouse_state.dx;
@@ -232,8 +230,7 @@ window_proc(HWND   hwnd,
             DefWindowProc(hwnd, message, wparam, lparam);
         } break;
         default:
-            LOG("unhandled raw input device type: %d",
-                      raw->header.dwType);
+            LOG("unhandled raw input device type: %d", raw->header.dwType);
             break;
         }
     } break;
