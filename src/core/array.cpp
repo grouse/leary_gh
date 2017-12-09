@@ -101,10 +101,7 @@ i32 array_remove_ordered(Array<T> *a, i32 i)
         return --a->count;
     }
 
-    for (; i < a->count-1; i++) {
-        a->data[i] = a->data[i+1];
-    }
-
+    std::memmove(&a->data[i], &a->data[i+1], (a->count-i-1) * sizeof(T));
     return --a->count;
 }
 
