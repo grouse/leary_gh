@@ -1119,7 +1119,6 @@ void game_render()
         }
 
 
-#if 0
         pipeline = g_vulkan->pipelines[Pipeline_wireframe];
         vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS,
                           pipeline.handle);
@@ -1152,7 +1151,6 @@ void game_render()
                                0, sizeof(pc), &pc);
             vkCmdDrawIndexed(command, g_debug_collision.sphere.index_count, 1, 0, 0, 0);
         }
-#endif
 
     }
 
