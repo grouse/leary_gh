@@ -23,7 +23,6 @@ namespace lry {
 }
 
 #define PI (f32)M_PI
-#define F32_MAX 3.402823466e+38F
 
 #define MCOMBINE2(a, b) a ## b
 #define MCOMBINE(a, b) MCOMBINE2(a, b)
@@ -255,6 +254,18 @@ clamp(Vector3 val, Vector3 min, Vector3 max)
     val.y = clamp(val.y, min.y, max.y);
     val.z = clamp(val.z, min.z, max.z);
     return val;
+}
+
+template<typename T>
+T min(T a, T b)
+{
+    return a < b ? a : b;
+}
+
+template<typename T>
+T max(T a, T b)
+{
+    return a > b ? a : b;
 }
 
 #endif /* MATH_H */

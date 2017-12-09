@@ -76,6 +76,11 @@ struct Benchmark {
     u64 end_time       = 0;
     u64 total_duration = 0;
 
+    u64 min_duration = U64_MAX;
+    u64 max_duration = 0;
+
+    Array<u64> samples;
+
     i32 iterations     = 0;
     i32 max_iterations = 2048;
 
@@ -90,6 +95,7 @@ Benchmark create_benchmark(const char *name, benchmark_t *func)
     Benchmark bm = {};
     bm.name = name;
     bm.func = func;
+    init_array(&bm.samples, &g_allocator);
 
     array_add(&g_benchmarks, bm);
     return bm;
@@ -110,6 +116,12 @@ void stop_timing(Benchmark *state)
     state->end_time = rdtsc();
 
     u64 duration = state->end_time - state->start_time;
+
+    state->min_duration = min(state->min_duration, duration);
+    state->max_duration = max(state->max_duration, duration);
+
+    array_add(&state->samples, duration);
+
     state->total_duration += duration;
 }
 
@@ -127,7 +139,9 @@ int main()
     i32 pad = 5;
     i32 col0 = (i32)strlen("Benchmark");
     i32 col1 = (i32)strlen("Iterations");
-    i32 col2 = (i32)strlen("Cycles");
+    i32 col2 = (i32)strlen("avg");
+    i32 col3 = (i32)strlen("min");
+    i32 col4 = (i32)strlen("max");
 
     for (auto &benchmark : g_benchmarks) {
         if ((i32)strlen(benchmark.name) > col0) {
@@ -144,24 +158,40 @@ int main()
         if (avg > col2) {
             col2 = avg;
         }
+
+        i32 min = std::snprintf(nullptr, 0, "%llu", benchmark.min_duration);
+        if (min > col3) {
+            col3 = min;
+        }
+
+        i32 max = std::snprintf(nullptr, 0, "%llu", benchmark.max_duration);
+        if (max > col4) {
+            col4 = max;
+        }
     }
 
     col0 += pad;
     col1 += pad;
     col2 += pad;
+    col3 += pad;
+    col4 += pad;
 
-    printf("%.*s\n", col0 + col1 + col2, DIVIDER);
-    printf("%-*s %-*s %-*s\n",
+    printf("%.*s\n", col0 + col1 + col2 + col3 + col4, DIVIDER);
+    printf("%-*s %-*s %-*s %-*s %-*s\n",
            col0, "Benchmark",
            col1, "Iterations",
-           col2, "Cycles");
-    printf("%.*s\n", col0 + col1 + col2, DIVIDER);
+           col2, "avg",
+           col3, "min",
+           col4, "max");
+    printf("%.*s\n", col0 + col1 + col2 + col3 + col4, DIVIDER);
 
     for (auto &benchmark : g_benchmarks) {
-        printf("%-*s %-*d %-*f\n",
+        printf("%-*s %-*d %-*f %-*llu %-*llu\n",
                col0, benchmark.name,
                col1, benchmark.iterations,
-               col2, benchmark.avg);
+               col2, benchmark.avg,
+               col3, benchmark.min_duration,
+               col4, benchmark.max_duration);
     }
 
     return 0;

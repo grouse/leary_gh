@@ -17,7 +17,6 @@ BENCHMARK_FUNC(array_remove_front)
     defer { destroy_array(&arr); };
 
     while (keep_running(state)) {
-
         start_timing(state);
         array_remove(&arr, 0);
         stop_timing(state);

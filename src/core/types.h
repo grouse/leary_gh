@@ -31,6 +31,11 @@ typedef iptr     isize;
 typedef float    f32;
 typedef double   f64;
 
+#define F32_MAX 3.402823466e+38F
+
+#define U64_MAX UINT64_MAX
+#define I64_MAX INT64_MAX
+
 
 #endif /* TYPES_H */
 
