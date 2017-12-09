@@ -1139,7 +1139,8 @@ void game_render()
 
         for (auto &c : g_collision.spheres) {
             pc.transform = translate(Matrix4::identity(), c.position);
-            pc.transform = scale(pc.transform, c.radius);
+            pc.transform = translate(Matrix4::identity(), c.radius * 0.5f );
+            pc.transform = scale(pc.transform, c.radius * 0.5f);
 
             if (c.colliding ) {
                 pc.color = { 1.0f, 0.0f, 0.0f };

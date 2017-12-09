@@ -115,7 +115,7 @@ void init_collision()
     array_add(&g_collision.aabbs, test);
 
     CollidableSphere stest = {};
-    stest.position = { 3.0f, 0.0f, 0.0f };
+    stest.position = { 0.0f, 0.0f, 0.0f };
     stest.radius = 1.0f;
     array_add(&g_collision.spheres, stest);
 }
@@ -228,7 +228,7 @@ void process_collision()
 
             f32 rsq = sphere.radius * sphere.radius;
 
-            Vector3 bts = sphere.position - aabb.position;
+            Vector3 bts = aabb.position - sphere.position;
             Vector3 c = clamp(bts, { left, top, back }, { right, bot, front });
             Vector3 sc = c - sphere.position;
             f32 d = length_sq(sc) - rsq;
