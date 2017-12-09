@@ -426,6 +426,7 @@ void game_init()
         set_ubo(&g_game->pipelines.mesh, ResourceSlot_mvp, &g_game->fp_camera.ubo);
         set_ubo(&g_game->pipelines.terrain, ResourceSlot_mvp, &g_game->fp_camera.ubo);
         set_ubo(&g_game->pipelines.wireframe, ResourceSlot_mvp, &g_game->fp_camera.ubo);
+        set_ubo(&g_game->pipelines.wireframe_lines, ResourceSlot_mvp, &g_game->fp_camera.ubo);
 
         Texture *greybox = find_texture("greybox.bmp");
         Texture *font   = find_texture("font-regular");
