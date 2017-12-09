@@ -927,6 +927,12 @@ void game_update(f32 dt)
     if (g_game->key_state[Key_L] == InputType_key_press)
         g_collision.aabbs[0].position.x -= 1.0f * dt;
 
+    if (g_game->key_state[Key_U] == InputType_key_press)
+        g_collision.aabbs[0].position.y += 1.0f * dt;
+
+    if (g_game->key_state[Key_O] == InputType_key_press)
+        g_collision.aabbs[0].position.y -= 1.0f * dt;
+
     if (g_game->key_state[Key_K] == InputType_key_press)
         g_collision.aabbs[0].position.z += 1.0f * dt;
 
@@ -1140,7 +1146,7 @@ void game_render()
         for (auto &c : g_collision.spheres) {
             pc.transform = translate(Matrix4::identity(), c.position);
             pc.transform = translate(Matrix4::identity(), c.radius * 0.5f );
-            pc.transform = scale(pc.transform, c.radius * 0.5f);
+            pc.transform = scale(pc.transform, c.radius);
 
             if (c.colliding ) {
                 pc.color = { 1.0f, 0.0f, 0.0f };
