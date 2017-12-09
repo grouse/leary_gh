@@ -40,7 +40,7 @@ struct Terrain {
     };
     Array<Chunk> chunks;
 
-    VulkanPipeline *pipeline;
+    PipelineID     pipeline;
     Material       *material;
 };
 
@@ -78,7 +78,7 @@ GameState    *g_game;
 void debug_add_texture(const char *name,
                        AssetID tid,
                        Material material,
-                       VulkanPipeline *pipeline,
+                       PipelineID pipeline,
                        DebugOverlay *overlay)
 {
     Texture *texture = find_texture(tid);
@@ -90,7 +90,7 @@ void debug_add_texture(const char *name,
     item.title            = name;
     item.type             = Debug_render_item;
     item.u.ritem.pipeline   = pipeline;
-    item.u.ritem.constants  = create_push_constants(pipeline->id);
+    item.u.ritem.constants  = create_push_constants(pipeline);
 
     Matrix4 t = Matrix4::identity();
     t[0].x =  g_screen_to_view[0].x;
@@ -250,7 +250,7 @@ void init_terrain()
         }
     }
 
-    t.pipeline = &g_game->pipelines.terrain;
+    t.pipeline = Pipeline_terrain;
     t.material = &g_game->materials.terrain;
     for (i32 i = 0; i < t.chunks.count; i++) {
         Terrain::Chunk &c = t.chunks[i];
@@ -324,7 +324,7 @@ void init_debug_overlay()
 
     AssetID hmt = find_asset_id("terrain.bmp");
     debug_add_texture("Terrain", hmt, g_game->materials.heightmap,
-                      &g_game->pipelines.basic2d, &g_game->overlay);
+                      Pipeline_basic2d, &g_game->overlay);
 }
 
 Entity* entity_find(i32 id)
@@ -423,10 +423,10 @@ void game_init()
     { // update descriptor sets
         // TODO(jesper): figure out a way for this to be done automatically by
         // the asset loading system
-        set_ubo(&g_game->pipelines.mesh, ResourceSlot_mvp, &g_game->fp_camera.ubo);
-        set_ubo(&g_game->pipelines.terrain, ResourceSlot_mvp, &g_game->fp_camera.ubo);
-        set_ubo(&g_game->pipelines.wireframe, ResourceSlot_mvp, &g_game->fp_camera.ubo);
-        set_ubo(&g_game->pipelines.wireframe_lines, ResourceSlot_mvp, &g_game->fp_camera.ubo);
+        set_ubo(Pipeline_mesh,            ResourceSlot_mvp, &g_game->fp_camera.ubo);
+        set_ubo(Pipeline_terrain,         ResourceSlot_mvp, &g_game->fp_camera.ubo);
+        set_ubo(Pipeline_wireframe,       ResourceSlot_mvp, &g_game->fp_camera.ubo);
+        set_ubo(Pipeline_wireframe_lines, ResourceSlot_mvp, &g_game->fp_camera.ubo);
 
         Texture *greybox = find_texture("greybox.bmp");
         Texture *font   = find_texture("font-regular");
@@ -480,13 +480,6 @@ void game_quit()
     destroy_material(g_game->materials.heightmap);
     destroy_material(g_game->materials.phong);
     destroy_material(g_game->materials.player);
-
-    destroy_pipeline(g_game->pipelines.basic2d);
-    destroy_pipeline(g_game->pipelines.font);
-    destroy_pipeline(g_game->pipelines.mesh);
-    destroy_pipeline(g_game->pipelines.terrain);
-    destroy_pipeline(g_game->pipelines.wireframe);
-    destroy_pipeline(g_game->pipelines.wireframe_lines);
 
     for (auto &it : g_game->render_objects) {
         buffer_destroy(it.vbo);
@@ -973,18 +966,21 @@ void game_update(f32 dt)
 void render_terrain(VkCommandBuffer command)
 {
     VkDeviceSize offsets[] = { 0 };
+
+    VulkanPipeline &pipeline = g_vulkan->pipelines[g_terrain.pipeline];
+
     vkCmdBindPipeline(command,
                       VK_PIPELINE_BIND_POINT_GRAPHICS,
-                      g_terrain.pipeline->handle);
+                      pipeline.handle);
 
     auto descriptors = create_array<VkDescriptorSet>(g_stack);
-    array_add(&descriptors, g_terrain.pipeline->descriptor_set);
+    array_add(&descriptors, pipeline.descriptor_set);
     array_add(&descriptors, g_terrain.material->descriptor_set);
 
 
     vkCmdBindDescriptorSets(command,
                             VK_PIPELINE_BIND_POINT_GRAPHICS,
-                            g_terrain.pipeline->layout,
+                            pipeline.layout,
                             0,
                             (i32)descriptors.count,
                             descriptors.data,
@@ -1014,32 +1010,36 @@ void game_render()
     render_terrain(command);
 
     for (auto &object : g_game->render_objects) {
+        VulkanPipeline &pipeline = g_vulkan->pipelines[object.pipeline];
+
         vkCmdBindPipeline(command,
                           VK_PIPELINE_BIND_POINT_GRAPHICS,
-                          object.pipeline.handle);
+                          pipeline.handle);
 
         // TODO(jesper): bind material descriptor set if bound
         // TODO(jesper): only bind pipeline descriptor set if one exists, might
         // be such a special case that we should hardcode it?
         vkCmdBindDescriptorSets(command,
                                 VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                object.pipeline.layout,
+                                pipeline.layout,
                                 0,
-                                1, &object.pipeline.descriptor_set,
+                                1, &pipeline.descriptor_set,
                                 0, nullptr);
 
         vkCmdBindVertexBuffers(command, 0, 1, &object.vbo.handle, offsets);
 
-        vkCmdPushConstants(command, object.pipeline.layout, VK_SHADER_STAGE_VERTEX_BIT,
+        vkCmdPushConstants(command, pipeline.layout, VK_SHADER_STAGE_VERTEX_BIT,
                            0, sizeof(object.transform), &object.transform);
 
         vkCmdDraw(command, object.vertex_count, 1, 0, 0);
     }
 
     for (auto &object : g_game->index_render_objects) {
+        VulkanPipeline &pipeline = g_vulkan->pipelines[object.pipeline];
+
         vkCmdBindPipeline(command,
                           VK_PIPELINE_BIND_POINT_GRAPHICS,
-                          object.pipeline.handle);
+                          pipeline.handle);
 
         // TODO(jesper): bind material descriptor set if bound
         // TODO(jesper): only bind pipeline descriptor set if one exists, might
@@ -1047,7 +1047,7 @@ void game_render()
         auto descriptors = create_array<VkDescriptorSet>(g_stack);
         defer { destroy_array(&descriptors); };
 
-        array_add(&descriptors, object.pipeline.descriptor_set);
+        array_add(&descriptors, pipeline.descriptor_set);
 
 
         if (object.material) {
@@ -1056,7 +1056,7 @@ void game_render()
 
         vkCmdBindDescriptorSets(command,
                                 VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                object.pipeline.layout,
+                                pipeline.layout,
                                 0,
                                 (i32)descriptors.count, descriptors.data,
                                 0, nullptr);
@@ -1072,7 +1072,7 @@ void game_render()
         Matrix4 r = Matrix4::make(e->rotation);
         t = t * r;
 
-        vkCmdPushConstants(command, object.pipeline.layout,
+        vkCmdPushConstants(command, pipeline.layout,
                            VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(t), &t);
 
         vkCmdDrawIndexed(command, object.index_count, 1, 0, 0, 0);
@@ -1081,15 +1081,17 @@ void game_render()
 
     // collidables
     if (g_debug_collision.render_collidables) {
+        VulkanPipeline &pipeline = g_vulkan->pipelines[Pipeline_wireframe_lines];
+
         vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                          g_game->pipelines.wireframe_lines.handle);
+                          pipeline.handle);
 
         auto descriptors = create_array<VkDescriptorSet>(g_stack);
-        array_add(&descriptors, g_game->pipelines.wireframe_lines.descriptor_set);
+        array_add(&descriptors, pipeline.descriptor_set);
 
         vkCmdBindDescriptorSets(command,
                                 VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                g_game->pipelines.wireframe_lines.layout,
+                                pipeline.layout,
                                 0,
                                 descriptors.count, descriptors.data,
                                 0, nullptr);
@@ -1110,7 +1112,7 @@ void game_render()
                 pc.color = { 0.0f, 1.0f, 0.0f };
             }
 
-            vkCmdPushConstants(command, g_game->pipelines.wireframe_lines.layout,
+            vkCmdPushConstants(command, pipeline.layout,
                                VK_SHADER_STAGE_VERTEX_BIT,
                                0, sizeof(pc), &pc);
             vkCmdDraw(command, g_debug_collision.cube.vertex_count, 1, 0, 0);
@@ -1118,15 +1120,16 @@ void game_render()
 
 
 #if 0
+        pipeline = g_vulkan->pipelines[Pipeline_wireframe];
         vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                          g_game->pipelines.wireframe.handle);
+                          pipeline.handle);
 
         descriptors.count = 0;
-        array_add(&descriptors, g_game->pipelines.wireframe.descriptor_set);
+        array_add(&descriptors, pipeline.descriptor_set);
 
         vkCmdBindDescriptorSets(command,
                                 VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                g_game->pipelines.wireframe.layout,
+                                pipeline.layout,
                                 0,
                                 descriptors.count, descriptors.data,
                                 0, nullptr);
@@ -1144,7 +1147,7 @@ void game_render()
                 pc.color = { 0.0f, 1.0f, 0.0f };
             }
 
-            vkCmdPushConstants(command, g_game->pipelines.wireframe.layout,
+            vkCmdPushConstants(command, pipeline.layout,
                                VK_SHADER_STAGE_VERTEX_BIT,
                                0, sizeof(pc), &pc);
             vkCmdDrawIndexed(command, g_debug_collision.sphere.index_count, 1, 0, 0, 0);
@@ -1157,9 +1160,11 @@ void game_render()
 
     // debug overlay text
     if (g_game->overlay.vertex_count > 0) {
+        VulkanPipeline &pipeline = g_vulkan->pipelines[Pipeline_font];
+
         vkCmdBindPipeline(command,
                           VK_PIPELINE_BIND_POINT_GRAPHICS,
-                          g_game->pipelines.font.handle);
+                          pipeline.handle);
 
 
         auto descriptors = create_array<VkDescriptorSet>(g_stack);
@@ -1167,13 +1172,13 @@ void game_render()
 
         vkCmdBindDescriptorSets(command,
                                 VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                g_game->pipelines.font.layout,
+                                pipeline.layout,
                                 0,
                                 (i32)descriptors.count, descriptors.data,
                                 0, nullptr);
 
         Matrix4 t = Matrix4::identity();
-        vkCmdPushConstants(command, g_game->pipelines.font.layout,
+        vkCmdPushConstants(command, pipeline.layout,
                            VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(t), &t);
 
         vkCmdBindVertexBuffers(command, 0, 1,
@@ -1184,26 +1189,28 @@ void game_render()
 
     // debug overlay items
     for (auto &item : g_game->overlay.render_queue) {
+        VulkanPipeline &pipeline = g_vulkan->pipelines[item.pipeline];
+
         vkCmdBindPipeline(command,
                           VK_PIPELINE_BIND_POINT_GRAPHICS,
-                          item.pipeline->handle);
+                          pipeline.handle);
 
         vkCmdBindDescriptorSets(command,
                                 VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                item.pipeline->layout,
+                                pipeline.layout,
                                 0,
                                 (u32)item.descriptors.count,
                                 item.descriptors.data,
                                 0, nullptr);
 
-        vkCmdPushConstants(command, item.pipeline->layout,
+        vkCmdPushConstants(command, pipeline.layout,
                            VK_SHADER_STAGE_VERTEX_BIT,
                            item.constants.offset,
                            (u32)item.constants.size,
                            item.constants.data);
 
         Matrix4 t = translate(Matrix4::identity(), item.position);
-        vkCmdPushConstants(command, item.pipeline->layout,
+        vkCmdPushConstants(command, pipeline.layout,
                            VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(t), &t);
 
         vkCmdBindVertexBuffers(command, 0, 1, &item.vbo.handle, offsets);

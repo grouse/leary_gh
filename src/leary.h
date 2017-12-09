@@ -38,7 +38,7 @@ enum DebugOverlayItemType {
 
 struct DebugRenderItem {
     Vector2                position;
-    VulkanPipeline         *pipeline    = nullptr;
+    PipelineID             pipeline;
     Array<VkDescriptorSet> descriptors  = {};
     VulkanBuffer           vbo;
     i32                    vertex_count = 0;
@@ -83,7 +83,7 @@ struct Entity {
 
 struct IndexRenderObject {
     i32            entity_id;
-    VulkanPipeline pipeline;
+    PipelineID     pipeline;
     VulkanBuffer   vbo;
     VulkanBuffer   ibo;
     i32            index_count;
@@ -94,7 +94,7 @@ struct IndexRenderObject {
 // TODO(jesper): stick these in the pipeline so that we reduce the number of
 // pipeline binds
 struct RenderObject {
-    VulkanPipeline pipeline;
+    PipelineID     pipeline;
     VulkanBuffer   vbo;
     i32            vertex_count;
     Matrix4        transform;
@@ -118,15 +118,6 @@ struct Camera {
 };
 
 struct GameState {
-    struct {
-        VulkanPipeline basic2d;
-        VulkanPipeline font;
-        VulkanPipeline mesh;
-        VulkanPipeline terrain;
-        VulkanPipeline wireframe;
-        VulkanPipeline wireframe_lines;
-    } pipelines;
-
     struct {
         Material terrain;
         Material font;

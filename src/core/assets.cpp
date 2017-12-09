@@ -604,7 +604,7 @@ i32 add_entity(Path p)
     usize index_size  = cube.indices.count  * sizeof(cube.indices[0]);
 
     obj.entity_id   = e.id;
-    obj.pipeline    = g_game->pipelines.mesh;
+    obj.pipeline    = Pipeline_mesh;
     obj.index_count = (i32)cube.indices.count;
     obj.vbo         = create_vbo(cube.vertices.data, vertex_size);
     obj.ibo         = create_ibo(cube.indices.data, index_size);

@@ -36,7 +36,9 @@ enum PipelineID {
     Pipeline_terrain,
     Pipeline_basic2d,
     Pipeline_wireframe,
-    Pipeline_wireframe_lines
+    Pipeline_wireframe_lines,
+
+    Pipeline_count
 };
 
 struct VulkanBuffer {
@@ -124,6 +126,8 @@ struct VulkanDevice {
     VkCommandPool            command_pool;
     VkRenderPass             renderpass;
 
+    VulkanPipeline pipelines[Pipeline_count];
+
     Array<VkCommandBuffer>      commands_queued;
     Array<VkSemaphore>          semaphores_submit_wait;
     Array<VkPipelineStageFlags> semaphores_submit_wait_stages;
@@ -149,7 +153,7 @@ struct Material {
     // NOTE(jesper): does this make sense? we need to use the pipeline when
     // creating the material for its descriptor layout, but maybe the dependency
     // makes more sense if it goes the other way around?
-    VulkanPipeline   *pipeline;
+    PipelineID       pipeline;
     VkDescriptorPool descriptor_pool;
     VkDescriptorSet  descriptor_set;
 };
@@ -172,7 +176,7 @@ VulkanUniformBuffer create_ubo(usize size);
 
 void buffer_data(VulkanUniformBuffer ubo, void *data, usize offset, usize size);
 
-Material create_material(VulkanPipeline *pipeline, MaterialID id);
+Material create_material(PipelineID pipeline_id, MaterialID id);
 
 void set_ubo(VulkanPipeline *pipeline, ResourceSlot slot, VulkanUniformBuffer *ubo);
 void set_texture(Material *material, ResourceSlot slot, Texture *texture);

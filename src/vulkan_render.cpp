@@ -2032,13 +2032,8 @@ void init_vulkan()
                                &g_vulkan->render_completed);
     ASSERT(result == VK_SUCCESS);
 
-    { // create pipelines
-        g_game->pipelines.mesh      = create_pipeline(Pipeline_mesh);
-        g_game->pipelines.basic2d   = create_pipeline(Pipeline_basic2d);
-        g_game->pipelines.font      = create_pipeline(Pipeline_font);
-        g_game->pipelines.terrain   = create_pipeline(Pipeline_terrain);
-        g_game->pipelines.wireframe_lines = create_pipeline(Pipeline_wireframe_lines);
-        g_game->pipelines.wireframe = create_pipeline(Pipeline_wireframe);
+    for (i32 i = 0; i < (i32)Pipeline_count; i++) {
+        g_vulkan->pipelines[i] = create_pipeline((PipelineID)i);
     }
 
     { // create ubos
@@ -2050,11 +2045,11 @@ void init_vulkan()
 
     // create materials
     {
-        g_game->materials.terrain   = create_material(&g_game->pipelines.terrain, Material_phong);
-        g_game->materials.font      = create_material(&g_game->pipelines.font,    Material_basic2d);
-        g_game->materials.heightmap = create_material(&g_game->pipelines.basic2d, Material_basic2d);
-        g_game->materials.phong     = create_material(&g_game->pipelines.mesh,    Material_phong);
-        g_game->materials.player    = create_material(&g_game->pipelines.mesh,    Material_phong);
+        g_game->materials.terrain   = create_material(Pipeline_terrain, Material_phong);
+        g_game->materials.font      = create_material(Pipeline_font,    Material_basic2d);
+        g_game->materials.heightmap = create_material(Pipeline_basic2d, Material_basic2d);
+        g_game->materials.phong     = create_material(Pipeline_mesh,    Material_phong);
+        g_game->materials.player    = create_material(Pipeline_mesh,    Material_phong);
     }
 }
 
@@ -2119,6 +2114,11 @@ void destroy_vulkan()
     for (i32 i = 0; i < g_vulkan->framebuffers.count; ++i) {
         vkDestroyFramebuffer(g_vulkan->handle, g_vulkan->framebuffers[i], nullptr);
     }
+
+    for (i32 i = 0; i < (i32)Pipeline_count; i++) {
+        destroy_pipeline(g_vulkan->pipelines[i]);
+    }
+
     destroy_array(&g_vulkan->framebuffers);
 
     vkDestroyRenderPass(g_vulkan->handle, g_vulkan->renderpass, nullptr);
@@ -2293,11 +2293,11 @@ u32 acquire_swapchain()
     return image_index;
 }
 
-Material create_material(VulkanPipeline *pipeline, MaterialID id)
+Material create_material(PipelineID pipeline_id, MaterialID id)
 {
     Material mat = {};
     mat.id       = id;
-    mat.pipeline = pipeline;
+    mat.pipeline = pipeline_id;
 
     auto pool_sizes = create_array<VkDescriptorPoolSize>(g_frame);
 
@@ -2330,11 +2330,13 @@ Material create_material(VulkanPipeline *pipeline, MaterialID id)
                                              &mat.descriptor_pool);
     ASSERT(result == VK_SUCCESS);
 
+    VulkanPipeline &pipeline = g_vulkan->pipelines[pipeline_id];
+
     VkDescriptorSetAllocateInfo dai = {};
     dai.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
     dai.descriptorPool     = mat.descriptor_pool;
     dai.descriptorSetCount = 1;
-    dai.pSetLayouts        = &pipeline->descriptor_layout_material;
+    dai.pSetLayouts        = &pipeline.descriptor_layout_material;
 
     result = vkAllocateDescriptorSets(g_vulkan->handle,
                                       &dai,
@@ -2365,7 +2367,7 @@ void set_texture(Material *material, ResourceSlot slot, Texture *texture)
     // NOTE(jesper): there might be some merit to sticking the sampler inside
     // the material, as this'd allow us to use different image samplers with
     // different materials? would make sense I think
-    image_info.sampler     = material->pipeline->samplers[0];
+    image_info.sampler     = g_vulkan->pipelines[material->pipeline].samplers[0];
 
     VkWriteDescriptorSet writes = {};
     writes.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -2390,12 +2392,14 @@ void set_texture(Material *material, ResourceSlot slot, Texture *texture)
     vkUpdateDescriptorSets(g_vulkan->handle, 1, &writes, 0, nullptr);
 }
 
-void set_ubo(VulkanPipeline *pipeline,
+void set_ubo(PipelineID pipeline_id,
              ResourceSlot slot,
              VulkanUniformBuffer *ubo)
 {
     // TODO(jesper): use this to figure out the dstBinding to use
     (void)slot;
+
+    VulkanPipeline &pipeline = g_vulkan->pipelines[pipeline_id];
 
     VkDescriptorBufferInfo buffer_info = {};
     buffer_info.buffer = ubo->buffer.handle;
@@ -2405,7 +2409,7 @@ void set_ubo(VulkanPipeline *pipeline,
 
     VkWriteDescriptorSet writes = {};
     writes.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    writes.dstSet          = pipeline->descriptor_set;
+    writes.dstSet          = pipeline.descriptor_set;
     // TODO(jesper): set this based on ResourceSlot
     writes.dstBinding      = 0;
     writes.dstArrayElement = 0;
