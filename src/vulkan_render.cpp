@@ -2097,16 +2097,16 @@ void destroy_texture(Texture *texture)
     vkFreeMemory(g_vulkan->handle, texture->memory, nullptr);
 }
 
-void buffer_destroy(VulkanBuffer buffer)
+void destroy_buffer(VulkanBuffer buffer)
 {
     vkFreeMemory(g_vulkan->handle, buffer.memory, nullptr);
     vkDestroyBuffer(g_vulkan->handle, buffer.handle, nullptr);
 }
 
-void buffer_destroy_ubo(VulkanUniformBuffer ubo)
+void destroy_buffer_ubo(VulkanUniformBuffer ubo)
 {
-    buffer_destroy(ubo.staging);
-    buffer_destroy(ubo.buffer);
+    destroy_buffer(ubo.staging);
+    destroy_buffer(ubo.buffer);
 }
 
 void destroy_vulkan()
@@ -2244,7 +2244,7 @@ VulkanBuffer create_ibo(u32 *indices, usize size)
                                     VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
     buffer_copy(staging.handle, ib.handle, size);
 
-    buffer_destroy(staging);
+    destroy_buffer(staging);
 
     return ib;
 }

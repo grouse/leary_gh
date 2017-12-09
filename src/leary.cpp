@@ -455,16 +455,17 @@ void game_quit()
 
     vkQueueWaitIdle(g_vulkan->queue);
 
-    buffer_destroy(g_debug_collision.cube.vbo);
-    buffer_destroy(g_debug_collision.sphere.vbo);
+    destroy_buffer(g_debug_collision.cube.vbo);
+    destroy_buffer(g_debug_collision.sphere.vbo);
+    destroy_buffer(g_debug_collision.sphere.ibo);
 
     for (auto &it : g_terrain.chunks) {
-        buffer_destroy(it.vbo);
+        destroy_buffer(it.vbo);
     }
 
     for (auto &item : g_game->overlay.items) {
         if (item.type == Debug_render_item) {
-            buffer_destroy(item.u.ritem.vbo);
+            destroy_buffer(item.u.ritem.vbo);
         }
     }
 
@@ -472,8 +473,8 @@ void game_quit()
         destroy_texture(&it);
     }
 
-    buffer_destroy(g_game->overlay.vbo);
-    buffer_destroy(g_game->overlay.texture.vbo);
+    destroy_buffer(g_game->overlay.vbo);
+    destroy_buffer(g_game->overlay.texture.vbo);
 
     destroy_material(g_game->materials.terrain);
     destroy_material(g_game->materials.font);
@@ -482,15 +483,15 @@ void game_quit()
     destroy_material(g_game->materials.player);
 
     for (auto &it : g_game->render_objects) {
-        buffer_destroy(it.vbo);
+        destroy_buffer(it.vbo);
     }
 
     for (auto &it : g_game->index_render_objects) {
-        buffer_destroy(it.vbo);
-        buffer_destroy(it.ibo);
+        destroy_buffer(it.vbo);
+        destroy_buffer(it.ibo);
     }
 
-    buffer_destroy_ubo(g_game->fp_camera.ubo);
+    destroy_buffer_ubo(g_game->fp_camera.ubo);
     destroy_vulkan();
 
     platform_quit();
@@ -1081,7 +1082,7 @@ void game_render()
 
     // collidables
     if (g_debug_collision.render_collidables) {
-        VulkanPipeline &pipeline = g_vulkan->pipelines[Pipeline_wireframe_lines];
+        VulkanPipeline pipeline = g_vulkan->pipelines[Pipeline_wireframe_lines];
 
         vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS,
                           pipeline.handle);
