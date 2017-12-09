@@ -2,7 +2,7 @@
  * @file:   linux_main.cpp @author: Jesper Stefansson (grouse)
  * @email:  jesper.stefansson@gmail.com
  *
- * Copyright (c) 2015-2016 Jesper Stefansson
+ * Copyright (c) 2015-2017 Jesper Stefansson
  *
  * This software is provided 'as-is', without any express or implied
  * warranty. In no event will the authors be held liable for any damages
