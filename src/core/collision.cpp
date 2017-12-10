@@ -15,6 +15,7 @@ struct CollidableAABB {
 struct CollidableSphere {
     Vector3 position;
     f32 radius;
+    f32 radius_sq;
     bool colliding = false;
 };
 
@@ -116,7 +117,8 @@ void init_collision()
 
     CollidableSphere stest = {};
     stest.position = { 3.0f, 0.0f, 0.0f };
-    stest.radius = 1.0f;
+    stest.radius    = 1.0f;
+    stest.radius_sq = stest.radius * stest.radius;
     array_add(&g_collision.spheres, stest);
 }
 
@@ -226,11 +228,9 @@ void process_collision()
         for (i32 j = 0; j < g_collision.spheres.count; j++) {
             auto &sphere = g_collision.spheres[j];
 
-            f32 rsq = sphere.radius * sphere.radius;
-
             Vector3 c = clamp(sphere.position, { left, top, back }, { right, bot, front });
             Vector3 sc = c - sphere.position;
-            f32 d = length_sq(sc) - rsq;
+            f32 d = length_sq(sc) - sphere.radius_sq;
 
             if (d < 0.0f) {
                 aabb.colliding = true;
