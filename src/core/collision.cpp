@@ -106,7 +106,7 @@ void init_collision()
     }
 
     CollidableAABB test = {};
-    test.position  = { 0.0f, 0.0f, 0.0f };
+    test.position  = { 3.0f, 0.0f, 0.0f };
     test.scale     = { 1.0f, 1.0f, 1.0f };
     array_add(&g_collision.aabbs, test);
 
@@ -115,7 +115,7 @@ void init_collision()
     array_add(&g_collision.aabbs, test);
 
     CollidableSphere stest = {};
-    stest.position = { 0.0f, 0.0f, 0.0f };
+    stest.position = { 3.0f, 0.0f, 0.0f };
     stest.radius = 1.0f;
     array_add(&g_collision.spheres, stest);
 }
@@ -213,24 +213,23 @@ void process_collision()
 
     for (i32 i = 0; i < g_collision.aabbs.count; i++) {
         auto &aabb = g_collision.aabbs[i];
-        Vector3 hs1 = aabb.scale / 2.0f;
+        Vector3 hs = aabb.scale / 2.0f;
 
-        f32 left  = aabb.position.x - hs1.x;
-        f32 top   = aabb.position.y - hs1.y;
-        f32 back  = aabb.position.z - hs1.z;
+        f32 left  = aabb.position.x - hs.x;
+        f32 top   = aabb.position.y - hs.y;
+        f32 back  = aabb.position.z - hs.z;
 
-        f32 right = aabb.position.x + hs1.x;
-        f32 bot   = aabb.position.y + hs1.y;
-        f32 front = aabb.position.z + hs1.z;
+        f32 right = aabb.position.x + hs.x;
+        f32 bot   = aabb.position.y + hs.y;
+        f32 front = aabb.position.z + hs.z;
 
         for (i32 j = 0; j < g_collision.spheres.count; j++) {
             auto &sphere = g_collision.spheres[j];
 
             f32 rsq = sphere.radius * sphere.radius;
 
-            Vector3 bts = sphere.position - aabb.position;
-            Vector3 c = clamp(bts, { left, top, back }, { right, bot, front });
-            Vector3 sc = sphere.position - c;
+            Vector3 c = clamp(sphere.position, { left, top, back }, { right, bot, front });
+            Vector3 sc = c - sphere.position;
             f32 d = length_sq(sc) - rsq;
 
             if (d < 0.0f) {
