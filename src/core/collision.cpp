@@ -116,7 +116,7 @@ void init_collision()
     array_add(&g_collision.aabbs, test);
 
     CollidableSphere stest = {};
-    stest.position = { 3.0f, 0.0f, 0.0f };
+    stest.position = { 0.0f, 0.0f, 0.0f };
     stest.radius    = 1.0f;
     stest.radius_sq = stest.radius * stest.radius;
     array_add(&g_collision.spheres, stest);
@@ -235,6 +235,8 @@ void process_collision()
             if (d < 0.0f) {
                 aabb.colliding = true;
                 sphere.colliding = true;
+
+                aabb.position -= sc * d;
             }
         }
     }
