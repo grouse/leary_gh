@@ -1145,7 +1145,6 @@ void game_render()
 
         for (auto &c : g_collision.spheres) {
             pc.transform = translate(Matrix4::identity(), c.position);
-            pc.transform = translate(pc.transform, c.radius * 0.5f );
             pc.transform = scale(pc.transform, c.radius);
 
             if (c.colliding ) {
