@@ -234,6 +234,8 @@ void process_collision()
             if ( dist <= rsum ) {
                 a.colliding = true;
                 b.colliding = true;
+
+                a.position -= normalise(d) * (sqrt(dist) - (a.radius + b.radius));
             }
         }
     }
