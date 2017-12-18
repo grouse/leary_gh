@@ -922,22 +922,22 @@ void game_update(f32 dt)
     }
 
     if (g_game->key_state[Key_J] == InputType_key_press)
-        g_collision.aabbs[0].position.x -= 1.0f * dt;
+        g_collision.spheres[0].position.x -= 1.0f * dt;
 
     if (g_game->key_state[Key_L] == InputType_key_press)
-        g_collision.aabbs[0].position.x += 1.0f * dt;
+        g_collision.spheres[0].position.x += 1.0f * dt;
 
     if (g_game->key_state[Key_U] == InputType_key_press)
-        g_collision.aabbs[0].position.y += 1.0f * dt;
+        g_collision.spheres[0].position.y += 1.0f * dt;
 
     if (g_game->key_state[Key_O] == InputType_key_press)
-        g_collision.aabbs[0].position.y -= 1.0f * dt;
+        g_collision.spheres[0].position.y -= 1.0f * dt;
 
     if (g_game->key_state[Key_K] == InputType_key_press)
-        g_collision.aabbs[0].position.z += 1.0f * dt;
+        g_collision.spheres[0].position.z += 1.0f * dt;
 
     if (g_game->key_state[Key_I] == InputType_key_press)
-        g_collision.aabbs[0].position.z -= 1.0f * dt;
+        g_collision.spheres[0].position.z -= 1.0f * dt;
 
 
     process_physics(dt);

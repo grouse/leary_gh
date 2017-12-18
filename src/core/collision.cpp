@@ -120,6 +120,12 @@ void init_collision()
     stest.radius    = 1.0f;
     stest.radius_sq = stest.radius * stest.radius;
     array_add(&g_collision.spheres, stest);
+
+    stest = {};
+    stest.position = { -3.0f, 0.0f, 0.0f };
+    stest.radius    = 1.0f;
+    stest.radius_sq = stest.radius * stest.radius;
+    array_add(&g_collision.spheres, stest);
 }
 
 void process_collision()
@@ -133,6 +139,7 @@ void process_collision()
     }
 
 
+    // NOTE: aabb - aabb
     for (i32 i = 0; i < g_collision.aabbs.count - 1; i++) {
         auto &c1 = g_collision.aabbs[i];
         Vector3 hs1 = c1.scale / 2.0f;
@@ -213,6 +220,25 @@ void process_collision()
         }
     }
 
+    // NOTE: sphere - sphere
+    for (i32 i = 0; i < g_collision.spheres.count - 1; i++) {
+        auto &a = g_collision.spheres[i];
+
+        for (i32 j = i+1; j < g_collision.spheres.count; j++) {
+            auto &b = g_collision.spheres[j];
+
+            Vector3 d = a.position - b.position;
+            f32 dist = length_sq(d);
+
+            f32 rsum = a.radius_sq + b.radius_sq + 2 * a.radius * b.radius;
+            if ( dist <= rsum ) {
+                a.colliding = true;
+                b.colliding = true;
+            }
+        }
+    }
+
+    // NOTE: aabb - sphere
     for (i32 i = 0; i < g_collision.aabbs.count; i++) {
         auto &aabb = g_collision.aabbs[i];
         Vector3 hs = aabb.scale / 2.0f;
