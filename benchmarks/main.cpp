@@ -32,6 +32,7 @@
 #include "core/hash_table.cpp"
 #include "core/allocator.cpp"
 #include "core/array.cpp"
+#include "core/file.cpp"
 #include "core/maths.cpp"
 
 #if defined(__clang__)
@@ -87,7 +88,9 @@ struct Benchmark {
     f64 avg = 0.0f;
 };
 
-static SystemAllocator  g_allocator  = {};
+SystemAllocator  g_allocator  = {};
+SystemAllocator *g_system_alloc = &g_allocator;
+
 static Array<Benchmark> g_benchmarks = create_array<Benchmark>(&g_allocator);
 
 Benchmark create_benchmark(const char *name, benchmark_t *func)

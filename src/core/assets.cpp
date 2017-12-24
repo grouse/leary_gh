@@ -552,13 +552,13 @@ EntityData parse_entity_data(Path p)
 
     t = next_token(&l);
     if (t.type != Token::identifier || !is_identifier(t, "version")) {
-        LOG(Log_error, "parse error in %s: expected version declaration", p);
+        LOG(Log_error, "parse error in %s: expected version declaration", p.absolute.bytes);
         return {};
     }
 
     t = next_token(&l);
     if (t.type != Token::number) {
-        LOG(Log_error, "parse error in %s: expected version number", p);
+        LOG(Log_error, "parse error in %s: expected version number", p.absolute.bytes);
         return {};
     }
 
@@ -567,7 +567,7 @@ EntityData parse_entity_data(Path p)
 
     t = next_token(&l);
     if (t.type != Token::identifier) {
-        LOG(Log_error, "parse error in %s: expected identifier", p);
+        LOG(Log_error, "parse error in %s: expected identifier", p.absolute.bytes);
         return {};
     }
 
@@ -593,7 +593,7 @@ EntityData parse_entity_data(Path p)
             while (t.type != Token::semicolon);
         } else {
             LOG(Log_error, "parse error %s:%d: unknown identifier: %.*s",
-                p, l.line_number, t.length, t.str);
+                p.absolute.bytes, l.line_number, t.length, t.str);
             return {};
         }
 
@@ -640,7 +640,7 @@ i32 add_entity(Path p)
 
 i32 add_entity(const char *p)
 {
-    return add_entity(create_path(p));
+    return add_entity(create_path(p, g_system_alloc));
 }
 
 void process_catalog_system()

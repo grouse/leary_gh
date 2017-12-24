@@ -22,8 +22,12 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
+#include "core/file.h"
+
 #include "platform.h"
 #include "leary_macros.h"
+
+extern SystemAllocator *g_system_alloc;
 
 struct PlatformPaths {
     String preferences;
@@ -42,8 +46,6 @@ void init_paths(Allocator *a)
 
     HRESULT result;
     TCHAR buffer[MAX_PATH];
-    isize length;
-    char *p;
 
     // --- exe dir
     // NOTE(jesper): other paths depend on this being resolved early
@@ -53,10 +55,8 @@ void init_paths(Allocator *a)
         if (PathRemoveFileSpec(buffer) == TRUE)
             module_length = (DWORD) strlen(buffer);
 
-        length = module_length + 1;
-        g_paths.exe = { length, (char*)a->alloc(length + 1) };
-        p = strncpy(g_paths.exe.bytes, buffer, length);
-        strcat(p, "\\");
+        StringView msv = { module_length + 1, buffer };
+        g_paths.exe = create_string(a, msv, "\\");
     }
 
     // --- app data dir
@@ -64,41 +64,20 @@ void init_paths(Allocator *a)
     DWORD env_length = GetEnvironmentVariable("LEARY_DATA_ROOT", buffer, MAX_PATH);
 
     if (env_length != 0) {
-        g_paths.data = { env_length, (char*)a->alloc(env_length + 1) };
-        strncpy(g_paths.data.bytes, buffer, env_length);
+        g_paths.data = create_string(a, StringView{ env_length, buffer });
     } else {
-        length = g_paths.exe.length + strlen("..\\assets\\");
-        g_paths.data = { length, (char*)a->alloc(length + 1) };
-        p = strcpy(g_paths.data.bytes, g_paths.exe.bytes);
-        strcat(p, "..\\assets\\");
+        g_paths.data = create_string(a, g_paths.exe, "..\\assets\\");
     }
 
     // --- app preferences dir
     result = SHGetFolderPath(NULL, CSIDL_LOCAL_APPDATA, NULL, SHGFP_TYPE_CURRENT, buffer);
     if (result == S_OK) {
-        length = strlen(buffer) + strlen("\\leary\\");
-        g_paths.preferences = { length, (char*)a->alloc(length) + 1 };
-        p = strcpy(g_paths.preferences.bytes, buffer);
-        strcat(p, "\\leary\\");
+        g_paths.preferences = create_string(a, buffer, "\\leary\\");
     }
 
-    // --- shaders dir
-    length = g_paths.exe.length + strlen("data\\shaders\\");
-    g_paths.shaders = { length, (char*)a->alloc(length + 1) };
-    p = strcpy(g_paths.shaders.bytes, g_paths.exe.bytes);
-    strcat(p, "data/shaders/");
-
-    // -- textures dir
-    length = g_paths.data.length + strlen("textures\\");
-    g_paths.textures = { length, (char*)a->alloc(length + 1) };
-    p = strcpy(g_paths.textures.bytes, g_paths.data.bytes);
-    strcat(p, "textures/");
-
-    // -- models dir
-    length = g_paths.data.length + strlen("models\\");
-    g_paths.models = { length, (char*)a->alloc(length + 1) };
-    p = strcpy(g_paths.models.bytes, g_paths.data.bytes);
-    strcat(p, "models/");
+    g_paths.shaders  = create_string(a, g_paths.exe, "data\\shaders\\");
+    g_paths.textures = create_string(a, g_paths.data, "textures\\");
+    g_paths.models   = create_string(a, g_paths.data, "models\\");
 }
 
 Array<Path> list_files(const char *folder, Allocator *allocator)
@@ -133,18 +112,10 @@ Array<Path> list_files(const char *folder, Allocator *allocator)
 
             Path p;
             if (!eslash) {
-                isize length = dlen + flen + 2;
-                p.absolute = { length, (char*)allocator->alloc(length) };
-
-                strcpy(p.absolute.bytes, folder);
-                p.absolute[dlen]   = '\\';
-                p.absolute[dlen+1] = '\0';
+                p.absolute = create_string(allocator, folder, "\\", fd.cFileName);
             } else {
-                isize length = dlen + flen + 1;
-                p.absolute = { length, (char*)allocator->alloc(length) };
-                strcpy(p.absolute.bytes, folder);
+                p.absolute = create_string(allocator, folder, fd.cFileName);
             }
-            strcat(p.absolute.bytes, fd.cFileName);
 
             if (!eslash) {
                 p.filename = { flen, p.absolute.bytes + dlen + 1 };
@@ -247,7 +218,7 @@ bool folder_exists(const char *path)
 bool create_file(const char *path, bool create_folders = false)
 {
     if (create_folders) {
-        Path p = create_path(path);
+        Path p = create_path(path, g_system_alloc);
 
         char folder[MAX_PATH];
         strncpy(folder, p.absolute.bytes, p.absolute.length - p.filename.length - 1);

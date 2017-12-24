@@ -22,6 +22,7 @@ LinearAllocator *g_frame;
 LinearAllocator *g_debug_frame;
 LinearAllocator *g_persistent;
 StackAllocator  *g_stack;
+SystemAllocator *g_system_alloc;
 
 #include "win32_vulkan.cpp"
 #include "leary.cpp"
@@ -271,6 +272,7 @@ PLATFORM_INIT_FUNC(platform_init)
     g_frame       = new LinearAllocator(frame_mem, frame_size);
     g_persistent  = new LinearAllocator(persistent_mem, persistent_size);
     g_stack       = new StackAllocator(stack_mem, stack_size);
+    g_system_alloc = new SystemAllocator();
 
     init_paths(g_persistent);
 
@@ -304,23 +306,24 @@ PLATFORM_PRE_RELOAD_FUNC(platform_pre_reload)
 {
     platform->reload_state.game = game_pre_reload();
 
-    platform->reload_state.frame       = g_frame;
-    platform->reload_state.debug_frame = g_debug_frame;
-    platform->reload_state.stack       = g_stack;
-    platform->reload_state.heap        = g_heap;
-    platform->reload_state.persistent  = g_persistent;
-    platform->reload_state.stack       = g_stack;
+    platform->reload_state.frame        = g_frame;
+    platform->reload_state.debug_frame  = g_debug_frame;
+    platform->reload_state.stack        = g_stack;
+    platform->reload_state.heap         = g_heap;
+    platform->reload_state.persistent   = g_persistent;
+    platform->reload_state.system_alloc = g_system_alloc;
 }
 
 DL_EXPORT
 PLATFORM_RELOAD_FUNC(platform_reload)
 {
-    g_frame       = platform->reload_state.frame;
-    g_debug_frame = platform->reload_state.debug_frame;
-    g_heap        = platform->reload_state.heap;
-    g_persistent  = platform->reload_state.persistent;
-    g_stack       = platform->reload_state.stack;
-    g_platform    = platform;
+    g_frame        = platform->reload_state.frame;
+    g_debug_frame  = platform->reload_state.debug_frame;
+    g_heap         = platform->reload_state.heap;
+    g_persistent   = platform->reload_state.persistent;
+    g_stack        = platform->reload_state.stack;
+    g_system_alloc = platform->reload_state.system_alloc;
+    g_platform     = platform;
 
     game_reload(platform->reload_state.game);
 }

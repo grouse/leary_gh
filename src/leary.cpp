@@ -26,6 +26,7 @@
 #include "core/random.cpp"
 #include "core/assets.cpp"
 #include "core/string.cpp"
+#include "core/file.cpp"
 #include "core/font.cpp"
 #include "core/collision.cpp"
 

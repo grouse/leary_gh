@@ -65,6 +65,7 @@ extern "C" {
 #include <vulkan/vulkan.h>
 
 #include "core/core.h"
+#include "core/file.h"
 
 #include "platform_debug.h"
 #include "platform_input.h"
@@ -160,29 +161,13 @@ struct PlatformState {
         LinearAllocator *debug_frame;
         LinearAllocator *persistent;
         StackAllocator  *stack;
+        SystemAllocator *system_alloc;
     } reload_state;
 };
 
 struct Mutex {
     NativeMutex native;
 };
-
-enum FileAccess {
-    FileAccess_read,
-    FileAccess_write,
-    FileAccess_read_write
-};
-
-enum GamePath {
-    GamePath_data,
-    GamePath_exe,
-    GamePath_models,
-    GamePath_shaders,
-    GamePath_fonts,
-    GamePath_textures,
-    GamePath_preferences
-};
-
 
 // -- functions
 void init_mutex(Mutex *m);

@@ -22,6 +22,8 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
+#include "core/file.h"
+
 #include <unistd.h>
 #include <linux/limits.h>
 #include <sys/stat.h>
