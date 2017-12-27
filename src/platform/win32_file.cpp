@@ -45,32 +45,33 @@ void init_paths(Allocator *a)
     g_paths = {};
 
     HRESULT result;
-    TCHAR buffer[MAX_PATH];
+    WCHAR buffer[MAX_PATH];
 
     // --- exe dir
     // NOTE(jesper): other paths depend on this being resolved early
-    DWORD module_length = GetModuleFileName(NULL, buffer, MAX_PATH);
+    DWORD module_length = GetModuleFileNameW(NULL, buffer, MAX_PATH);
 
     if (module_length != 0) {
-        if (PathRemoveFileSpec(buffer) == TRUE)
-            module_length = (DWORD) strlen(buffer);
+        if (PathRemoveFileSpecW(buffer) == TRUE)
+            module_length = (DWORD) wcslen(buffer);
 
-        StringView msv = { module_length + 1, buffer };
-        g_paths.exe = create_string(a, msv, "\\");
+        buffer[module_length] = '\0';
+        g_paths.exe = create_string(a, buffer, "\\");
     }
 
     // --- app data dir
     // NOTE(jesper): other paths depend on this being resolved early
-    DWORD env_length = GetEnvironmentVariable("LEARY_DATA_ROOT", buffer, MAX_PATH);
+    DWORD env_length = GetEnvironmentVariableW(L"LEARY_DATA_ROOT", buffer, MAX_PATH);
 
     if (env_length != 0) {
-        g_paths.data = create_string(a, StringView{ env_length, buffer });
+        buffer[env_length-1] = '\0';
+        g_paths.data = create_string(a, buffer);
     } else {
         g_paths.data = create_string(a, g_paths.exe, "..\\assets\\");
     }
 
     // --- app preferences dir
-    result = SHGetFolderPath(NULL, CSIDL_LOCAL_APPDATA, NULL, SHGFP_TYPE_CURRENT, buffer);
+    result = SHGetFolderPathW(NULL, CSIDL_LOCAL_APPDATA, NULL, SHGFP_TYPE_CURRENT, buffer);
     if (result == S_OK) {
         g_paths.preferences = create_string(a, buffer, "\\leary\\");
     }
@@ -110,7 +111,7 @@ Array<Path> list_files(const char *folder, Allocator *allocator)
         } else {
             isize flen = strlen(fd.cFileName);
 
-            Path p;
+            Path p = {};
             if (!eslash) {
                 p.absolute = create_string(allocator, folder, "\\", fd.cFileName);
             } else {
@@ -124,7 +125,7 @@ Array<Path> list_files(const char *folder, Allocator *allocator)
             }
 
             isize ext = 0;
-            for (i32 i = 0; i < p.filename.length; i++) {
+            for (i32 i = 0; i < p.filename.size; i++) {
                 if (p.filename[i] == '.') {
                     ext = i;
                 }
@@ -162,27 +163,27 @@ char* resolve_path(GamePath rp, const char *path, Allocator *a)
 
     switch (rp) {
     case GamePath_data: {
-        length = g_paths.data.length + plength;
+        length = g_paths.data.size + plength;
         root   = g_paths.data.bytes;
     } break;
     case GamePath_exe: {
-        length = g_paths.exe.length + plength;
+        length = g_paths.exe.size + plength;
         root   = g_paths.exe.bytes;
     } break;
     case GamePath_shaders: {
-        length = g_paths.shaders.length + plength;
+        length = g_paths.shaders.size + plength;
         root   = g_paths.shaders.bytes;
     } break;
     case GamePath_textures: {
-        length = g_paths.textures.length + plength;
+        length = g_paths.textures.size + plength;
         root   = g_paths.textures.bytes;
     } break;
     case GamePath_models: {
-        length = g_paths.models.length + plength;
+        length = g_paths.models.size + plength;
         root   = g_paths.models.bytes;
     } break;
     case GamePath_preferences: {
-        length = g_paths.preferences.length + plength;
+        length = g_paths.preferences.size + plength;
         root   = g_paths.preferences.bytes;
     } break;
     default:
@@ -221,7 +222,7 @@ bool create_file(const char *path, bool create_folders = false)
         Path p = create_path(path, g_system_alloc);
 
         char folder[MAX_PATH];
-        strncpy(folder, p.absolute.bytes, p.absolute.length - p.filename.length - 1);
+        strncpy(folder, p.absolute.bytes, p.absolute.size - p.filename.size - 1);
 
         if (!folder_exists(folder)) {
             int result = SHCreateDirectoryEx(NULL, folder, NULL);

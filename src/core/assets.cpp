@@ -658,7 +658,7 @@ void process_catalog_system()
         if (func == nullptr) {
             LOG(Log_error,
                 "could not find process function for extension: %.*s",
-                p.extension.length, p.extension.bytes);
+                p.extension.size, p.extension.bytes);
             continue;
         }
 
@@ -750,7 +750,7 @@ void init_catalog_system()
             if (func == nullptr) {
                 LOG(Log_error,
                     "could not find process function for extension: %.*s",
-                    p.extension.length, p.extension.bytes);
+                    p.extension.size, p.extension.bytes);
                 continue;
             }
 

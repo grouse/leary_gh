@@ -192,6 +192,10 @@ void LinearAllocator::dealloc(void *ptr)
 
 void StackAllocator::dealloc(void *ptr)
 {
+    if (ptr == nullptr) {
+        return;
+    }
+
     auto header     = (AllocationHeader*)((uptr)ptr - sizeof(AllocationHeader));
     this->sp        = header->unaligned;
     this->remaining = this->size - (isize)((uptr)this->sp - (uptr)this->mem);
@@ -199,6 +203,10 @@ void StackAllocator::dealloc(void *ptr)
 
 void HeapAllocator::dealloc(void *ptr)
 {
+    if (ptr == nullptr) {
+        return;
+    }
+
     auto  header = (AllocationHeader*)((uptr)ptr - sizeof(AllocationHeader));
     isize asize  = header->size;
 

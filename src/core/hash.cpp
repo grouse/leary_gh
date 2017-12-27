@@ -49,7 +49,7 @@ u32 hash32(void *key, i32 length)
 
 u32 hash32(const char *str)
 {
-    return hash32((u8*)str, string_length(str));
+    return hash32((u8*)str, utf8_size(str));
 }
 
 u32 hash32(u32 i)

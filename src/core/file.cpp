@@ -22,17 +22,17 @@ Path create_path(const char *str, Allocator *a)
     }
 
     if (p.filename.bytes != nullptr) {
-        p.filename.length = strlen(p.filename.bytes);
+        p.filename.size = strlen(p.filename.bytes);
 
         isize ext = 0;
-        for (i32 i = 0; i < p.filename.length; i++) {
+        for (i32 i = 0; i < p.filename.size; i++) {
             if (p.filename[i] == '.') {
                 ext = i;
             }
         }
 
         if (ext != 0) {
-            p.extension = { p.filename.length - ext + 1, p.filename.bytes + ext };
+            p.extension = { p.filename.size - ext + 1, p.filename.bytes + ext };
         }
     }
 
