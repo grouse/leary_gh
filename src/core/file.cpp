@@ -22,9 +22,9 @@ Path create_path(const char *str, Allocator *a)
     }
 
     if (p.filename.bytes != nullptr) {
-        p.filename.size = strlen(p.filename.bytes);
+        p.filename.size = utf8_size(p.filename.bytes);
 
-        isize ext = 0;
+        i32 ext = 0;
         for (i32 i = 0; i < p.filename.size; i++) {
             if (p.filename[i] == '.') {
                 ext = i;

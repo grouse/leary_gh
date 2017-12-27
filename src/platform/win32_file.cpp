@@ -109,7 +109,7 @@ Array<Path> list_files(const char *folder, Allocator *allocator)
             // TODO(jesper): handle sub-folders
             LOG(Log_warning, "sub-folders are unimplemented");
         } else {
-            isize flen = strlen(fd.cFileName);
+            i32 flen = utf8_size(fd.cFileName);
 
             Path p = {};
             if (!eslash) {
@@ -124,7 +124,7 @@ Array<Path> list_files(const char *folder, Allocator *allocator)
                 p.filename = { flen, p.absolute.bytes + dlen };
             }
 
-            isize ext = 0;
+            i32 ext = 0;
             for (i32 i = 0; i < p.filename.size; i++) {
                 if (p.filename[i] == '.') {
                     ext = i;

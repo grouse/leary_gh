@@ -12,10 +12,10 @@
 #include "leary_macros.h"
 
 struct String {
-    isize size     = 0;
-    isize capacity = 0;
-    char  *bytes   = nullptr;
+    char  *bytes         = nullptr;
     Allocator *allocator = nullptr;
+    i32 size             = 0;
+    i32 capacity         = 0;
 
     String() {}
 
@@ -73,7 +73,7 @@ struct String {
 
 struct StringView {
     const char *bytes = nullptr;
-    isize size = 0;
+    i32 size          = 0;
 
     StringView() {}
 
@@ -87,10 +87,10 @@ struct StringView {
     StringView(const char *str)
     {
         bytes = str;
-        size  = strlen(str);
+        size  = (i32)strlen(str);
     }
 
-    StringView(isize size, const char *str)
+    StringView(i32 size, const char *str)
     {
         bytes      = str;
         this->size = size;
@@ -186,13 +186,13 @@ i32 utf8_size(const char *str)
 template<>
 i32 utf8_size(String str)
 {
-    return (i32)str.size;
+    return str.size;
 }
 
 template<>
 i32 utf8_size(StringView str)
 {
-    return (i32)str.size;
+    return str.size;
 }
 
 template<typename T, typename... Args>
@@ -227,7 +227,7 @@ void string_concat(String *str, String other)
 template<>
 void string_concat(String *str, StringView other)
 {
-    isize size = utf8_size(other);
+    i32 size = utf8_size(other);
     ASSERT((str->size + size) <= str->capacity);
 
     char *out = str->bytes + str->size;
@@ -242,7 +242,7 @@ void string_concat(String *str, StringView other)
 template<>
 void string_concat(String *str, const char *other)
 {
-    isize size = utf8_size(other);
+    i32 size = utf8_size(other);
     ASSERT((str->size + size) <= str->capacity);
 
     char *out = str->bytes + str->size;
@@ -257,7 +257,7 @@ void string_concat(String *str, const char *other)
 template<>
 void string_concat(String *str, char *other)
 {
-    isize size = utf8_size(other);
+    i32 size = utf8_size(other);
     ASSERT((str->size + size) <= str->capacity);
 
     char *out = str->bytes + str->size;
@@ -272,7 +272,7 @@ void string_concat(String *str, char *other)
 template<>
 void string_concat(String *str, WCHAR *other)
 {
-    isize size = utf8_size(other);
+    i32 size = utf8_size(other);
     ASSERT((str->size + size) <= str->capacity);
 
     const WCHAR *ptr = other;

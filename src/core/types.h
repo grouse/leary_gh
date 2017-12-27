@@ -35,6 +35,7 @@ typedef double   f64;
 
 #define U64_MAX UINT64_MAX
 #define I64_MAX INT64_MAX
+#define I32_MAX INT32_MAX
 
 
 #endif /* TYPES_H */
