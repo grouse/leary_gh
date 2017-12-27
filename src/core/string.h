@@ -90,6 +90,12 @@ struct StringView {
         size  = (i32)strlen(str);
     }
 
+    StringView(String other)
+    {
+        bytes = other.bytes;
+        size  = other.size;
+    }
+
     StringView(i32 size, const char *str)
     {
         bytes      = str;
