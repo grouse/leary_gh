@@ -10,11 +10,14 @@
 #define ALLOCATOR_H
 
 #include "core/types.h"
+#include "platform/thread.h"
 
 struct Allocator {
     void  *mem;
     isize size;
     isize remaining;
+
+    Mutex mutex;
 
     virtual ~Allocator() {}
 

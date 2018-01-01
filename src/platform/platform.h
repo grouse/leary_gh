@@ -67,6 +67,7 @@ extern "C" {
 #include "core/core.h"
 #include "core/file.h"
 
+#include "platform/thread.h"
 #include "platform_debug.h"
 #include "platform_input.h"
 
@@ -130,17 +131,12 @@ struct NativePlatformState {
     } mouse;
 };
 
-typedef pthread_mutex_t NativeMutex;
-
 #elif defined(_WIN32)
 
 struct NativePlatformState {
     HINSTANCE hinstance;
     HWND      hwnd;
 };
-
-typedef HANDLE NativeMutex;
-
 #else
     #error "unsupported platform"
 #endif
@@ -164,15 +160,6 @@ struct PlatformState {
         SystemAllocator *system_alloc;
     } reload_state;
 };
-
-struct Mutex {
-    NativeMutex native;
-};
-
-// -- functions
-void init_mutex(Mutex *m);
-void lock_mutex(Mutex *m);
-void unlock_mutex(Mutex *m);
 
 void platform_quit();
 void platform_toggle_raw_mouse();

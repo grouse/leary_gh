@@ -14,6 +14,7 @@
 #include "win32_debug.cpp"
 #include "win32_file.cpp"
 #include "win32_input.cpp"
+#include "win32_thread.cpp"
 
 PlatformState   *g_platform;
 Settings         g_settings;
@@ -28,27 +29,107 @@ SystemAllocator *g_system_alloc;
 #include "leary.cpp"
 #include "generated/type_info.h"
 
+struct CatalogThreadData {
+    char* folder;
+    catalog_callback_t *callback;
+};
+
+extern "C"
+DWORD catalog_thread_process(void *data)
+{
+    CatalogThreadData *ctd = (CatalogThreadData*)data;
+
+    HANDLE fh = CreateFile(ctd->folder,
+                           GENERIC_READ | FILE_LIST_DIRECTORY,
+                           FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                           NULL,
+                           OPEN_EXISTING,
+                           FILE_ATTRIBUTE_NORMAL | FILE_FLAG_BACKUP_SEMANTICS,
+                           NULL);
+    //ASSERT(fh != INVALID_HANDLE_VALUE);
+    if (fh == INVALID_HANDLE_VALUE) {
+        DWORD result = GetLastError();
+        (void)result;
+        ASSERT(false);
+    }
+
+    isize flen = strlen(ctd->folder);
+    bool eslash = ctd->folder[flen-1] == '\\';
+
+    DWORD buffer[2048];
+    DWORD bytes = 0;
+
+    while (ReadDirectoryChangesW(fh,
+                                 buffer, sizeof buffer,
+                                 true, FILE_NOTIFY_CHANGE_LAST_WRITE,
+                                 &bytes, NULL, NULL) != FALSE)
+    {
+        DWORD *ptr = buffer;
+
+        FILE_NOTIFY_INFORMATION *fni;
+        do {
+            fni = (FILE_NOTIFY_INFORMATION*)ptr;
+            ptr += fni->NextEntryOffset;
+
+            if (fni->Action == FILE_ACTION_MODIFIED) {
+                ASSERT(fni->FileNameLength <= I32_MAX);
+
+                Path p = {};
+
+                if (!eslash) {
+                    // TODO(jesper): replace with thread safe allocator
+                    p.absolute = create_string(g_system_alloc,
+                                               ctd->folder,
+                                               '\\',
+                                               fni->FileName);
+                } else {
+                    p.absolute = create_string(g_system_alloc,
+                                               ctd->folder,
+                                               fni->FileName);
+                }
+
+                if (!eslash) {
+                    p.filename = { utf8_size(fni->FileName), p.absolute.bytes + flen + 1 };
+                } else {
+                    p.filename = { utf8_size(fni->FileName), p.absolute.bytes + flen };
+                }
+
+                i32 ext = 0;
+                for (i32 i = 0; i < p.filename.size; i++) {
+                    if (p.filename[i] == '.') {
+                        ext = i;
+                    }
+                }
+                if (ext != 0) {
+                    p.extension = { (i32)fni->FileNameLength - ext, p.filename.bytes + ext + 1 };
+                } else {
+                    p.extension = { 0, nullptr };
+                }
+
+                ctd->callback(p);
+            }
+        } while (fni->NextEntryOffset > 0);
+    }
+
+    CloseHandle(fh);
+    return 0;
+}
+
 void create_catalog_thread(Array<char*> folders, catalog_callback_t *callback)
 {
-    (void)folders;
-    (void)callback;
+    for (auto f : folders) {
+        auto data = g_persistent->talloc<CatalogThreadData>();
+        data->folder   = f;
+        data->callback = callback;
+
+        HANDLE th = CreateThread(NULL,
+                                 1024,
+                                 &catalog_thread_process, data,
+                                 0, NULL);
+        ASSERT(th != NULL);
+    }
 }
 
-
-void init_mutex(Mutex *m)
-{
-    m->native = CreateMutex(NULL, FALSE, NULL);
-}
-
-void lock_mutex(Mutex *m)
-{
-    WaitForSingleObject(m->native, INFINITE);
-}
-
-void unlock_mutex(Mutex *m)
-{
-    ReleaseMutex(m->native);
-}
 
 struct MouseState {
     f32 x, y;

@@ -29,6 +29,9 @@
 #include "platform.h"
 
 #if LEARY_DYNAMIC
+#include "win32_debug.cpp"
+#include "win32_thread.cpp"
+
 typedef PLATFORM_INIT_FUNC(platform_init_t);
 typedef PLATFORM_PRE_RELOAD_FUNC(platform_pre_reload_t);
 typedef PLATFORM_RELOAD_FUNC(platform_reload_t);
@@ -71,7 +74,11 @@ HMODULE reload_code(PlatformState *platform, HMODULE current)
 		FreeLibrary(current);
 	}
 
-	HMODULE lib = LoadLibrary(".\\game.dll");
+	DeleteFile(".\\game_loaded.dll");
+	BOOL result = CopyFile(".\\game.dll", ".\\game_loaded.dll", true);
+	ASSERT(result != FALSE);
+
+	HMODULE lib = LoadLibrary(".\\game_loaded.dll");
 	if (lib != NULL) {
 		platform_init       = (platform_init_t*)GetProcAddress(lib, "platform_init");
 		platform_pre_reload = (platform_pre_reload_t*)GetProcAddress(lib, "platform_pre_reload");

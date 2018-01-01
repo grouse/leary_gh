@@ -56,6 +56,8 @@ Texture load_texture_bmp(const char *path)
 
     usize size;
     char *file = read_file(path, &size, g_frame);
+    defer { g_frame->dealloc(file); };
+
     if (file == nullptr) {
         LOG("unable to read file: %s", path);
         return texture;

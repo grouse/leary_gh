@@ -119,6 +119,12 @@ i32 utf8_size(T)
 }
 
 template<>
+i32 utf8_size(char)
+{
+    return 1;
+}
+
+template<>
 i32 utf8_size(WCHAR *str)
 {
     i32 size = 0;
@@ -213,6 +219,16 @@ template<typename T>
 void string_concat(String *, T)
 {
     static_assert(false && "implement string_concat for this type!");
+}
+
+template<>
+void string_concat(String *str, char c)
+{
+    ASSERT((str->size + 1) <= str->capacity);
+    char *ptr = str->bytes + str->size;
+    *ptr++ = c;
+    *ptr = '\0';
+    str->size += 1;
 }
 
 template<>

@@ -69,6 +69,9 @@ void* StackAllocator::alloc(isize asize)
 
 void *LinearAllocator::alloc(isize asize)
 {
+    lock_mutex(&mutex);
+    defer { unlock_mutex(&mutex); };
+
     u8 header_size = sizeof(AllocationHeader);
 
     void *unaligned = this->current;
@@ -158,6 +161,8 @@ StackAllocator::StackAllocator(void *mem, isize size)
 
 LinearAllocator::LinearAllocator(void *mem, isize size)
 {
+    init_mutex(&mutex);
+
     this->mem       = mem;
     this->size      = size;
     this->remaining = size;
@@ -177,6 +182,9 @@ HeapAllocator::HeapAllocator(void *mem, isize size)
 
 void LinearAllocator::dealloc(void *ptr)
 {
+    lock_mutex(&mutex);
+    defer { unlock_mutex(&mutex); };
+
     if (ptr == nullptr) {
         return;
     }
@@ -258,6 +266,9 @@ void HeapAllocator::dealloc(void *ptr)
 
 void* LinearAllocator::realloc(void *ptr, isize asize)
 {
+    lock_mutex(&mutex);
+    defer { unlock_mutex(&mutex); };
+
     if (ptr == nullptr) {
         return alloc(asize);
     }
@@ -324,6 +335,9 @@ void* HeapAllocator::realloc(void *ptr, isize asize)
 
 void LinearAllocator::reset()
 {
+    lock_mutex(&mutex);
+    defer { unlock_mutex(&mutex); };
+
     this->current   = this->mem;
     this->remaining = this->size - (isize)((uptr)this->current - (uptr)this->mem);
 }

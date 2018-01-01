@@ -58,6 +58,13 @@ struct GameReloadState {
 
     VulkanDevice  *vulkan_device;
     GameState     *game;
+
+    Terrain        terrain;
+    Array<Entity>  entities;
+    Physics        physics;
+
+    Collision collision;
+    DebugCollision debug_collision;
 };
 
 
@@ -68,6 +75,7 @@ Matrix4 g_screen_to_view; // [0, w] -> [-1  , 1]
 extern Settings      g_settings;
 extern PlatformState *g_platform;
 extern Catalog       g_catalog;
+
 
 Terrain        g_terrain;
 Array<Entity>  g_entities;
@@ -516,6 +524,13 @@ void* game_pre_reload()
     state->vulkan_device       = g_vulkan;
     state->game                = g_game;
 
+    state->terrain = g_terrain;
+    state->entities = g_entities;
+    state->physics = g_physics;
+
+    state->collision = g_collision;
+    state->debug_collision = g_debug_collision;
+
     // NOTE(jesper): wait for the vulkan queues to be idle. Here for when I get
     // to shader and resource reloading - I don't even want to think about what
     // kind of fits graphics drivers will throw if we start recreating pipelines
@@ -530,6 +545,13 @@ void game_reload(void *s)
     // TODO(jesper): I feel like this could be quite nicely preprocessed and
     // generated. look into
     auto state = (GameReloadState*)s;
+    g_collision = state->collision;
+    g_debug_collision = state->debug_collision;
+
+    g_terrain  = state->terrain;
+    g_entities = state->entities;
+    g_physics  = state->physics;
+
     g_game                = state->game;
 
     g_profile_timers      = state->profile_timers;
