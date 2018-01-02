@@ -287,17 +287,18 @@ char* read_file(const char *filename, usize *o_size, Allocator *a)
 {
     char *buffer = nullptr;
 
-    HANDLE file = CreateFile(filename,
-                             GENERIC_READ,
-                             FILE_SHARE_READ | FILE_SHARE_WRITE,
-                             NULL,
-                             OPEN_EXISTING,
-                             FILE_ATTRIBUTE_NORMAL,
-                             NULL);
+    HANDLE file = CreateFile(
+        filename,
+        GENERIC_READ,
+        FILE_SHARE_READ | FILE_SHARE_WRITE,
+        NULL,
+        OPEN_EXISTING,
+        FILE_ATTRIBUTE_NORMAL,
+        NULL);
+
     if (file == INVALID_HANDLE_VALUE) {
-        DWORD error = GetLastError();
-        (void)error;
-        ASSERT(false);
+        char *msg = win32_system_error_message(GetLastError());
+        LOG(Log_error, "failed to open file %s - %s", filename, msg);
         return nullptr;
     }
 
@@ -309,7 +310,9 @@ char* read_file(const char *filename, usize *o_size, Allocator *a)
 
         buffer = (char*)a->alloc((usize)file_size.QuadPart);
         if (buffer == nullptr) {
-            ASSERT(false);
+            LOG(Log_error,
+                "failed to allocate %d bytes from allocator for file %s",
+                file_size.QuadPart, filename);
             return nullptr;
         }
 

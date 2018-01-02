@@ -29,14 +29,14 @@
 
 const char *log_channel_string(LogChannel channel)
 {
-	switch (channel) {
-	case Log_info:          return "info";
-	case Log_error:         return "error";
-	case Log_warning:       return "warning";
-	case Log_assert:        return "ASSERT";
-	case Log_unimplemented: return "unimplemented";
-	default:                return "";
-	}
+    switch (channel) {
+    case Log_info:          return "info";
+    case Log_error:         return "error";
+    case Log_warning:       return "warning";
+    case Log_assert:        return "ASSERT";
+    case Log_unimplemented: return "unimplemented";
+    default:                return "";
+    }
 }
 
 void platform_debug_print(const char *file,
@@ -45,21 +45,21 @@ void platform_debug_print(const char *file,
                           LogChannel channel,
                           const char *fmt, ...)
 {
-	const char *channel_str = log_channel_string(channel);
+    const char *channel_str = log_channel_string(channel);
 
-	va_list args;
-	char message[DEBUG_BUFFER_SIZE];
-	char buffer[DEBUG_BUFFER_SIZE];
+    va_list args;
+    char message[DEBUG_BUFFER_SIZE];
+    char buffer[DEBUG_BUFFER_SIZE];
 
-	va_start(args, fmt);
-	i32 length = vsnprintf(message, DEBUG_BUFFER_SIZE, fmt, args);
-	va_end(args);
-	ASSERT(length < DEBUG_BUFFER_SIZE);
+    va_start(args, fmt);
+    i32 length = vsnprintf(message, DEBUG_BUFFER_SIZE, fmt, args);
+    va_end(args);
+    ASSERT(length < DEBUG_BUFFER_SIZE);
 
-	length = snprintf(buffer, DEBUG_BUFFER_SIZE, "%s:%d: %s: [%s] %s\n",
-	                  file, line, channel_str, function, message);
-	ASSERT(length < DEBUG_BUFFER_SIZE);
-	OutputDebugString(buffer);
+    length = snprintf(buffer, DEBUG_BUFFER_SIZE, "%s:%d: %s: [%s] %s\n",
+                      file, line, channel_str, function, message);
+    ASSERT(length < DEBUG_BUFFER_SIZE);
+    OutputDebugString(buffer);
 }
 
 void platform_debug_print(const char *file,
@@ -67,21 +67,39 @@ void platform_debug_print(const char *file,
                           const char *function,
                           const char *fmt, ...)
 {
-	const char *channel_str = log_channel_string(Log_info);
+    const char *channel_str = log_channel_string(Log_info);
 
-	va_list args;
-	char message[DEBUG_BUFFER_SIZE];
-	char buffer[DEBUG_BUFFER_SIZE];
+    va_list args;
+    char message[DEBUG_BUFFER_SIZE];
+    char buffer[DEBUG_BUFFER_SIZE];
 
-	va_start(args, fmt);
-	i32 length = vsnprintf(message, DEBUG_BUFFER_SIZE, fmt, args);
-	va_end(args);
-	ASSERT(length < DEBUG_BUFFER_SIZE);
+    va_start(args, fmt);
+    i32 length = vsnprintf(message, DEBUG_BUFFER_SIZE, fmt, args);
+    va_end(args);
+    ASSERT(length < DEBUG_BUFFER_SIZE);
 
-	length = snprintf(buffer, DEBUG_BUFFER_SIZE, "%s:%d: %s: [%s] %s\n",
-	                  file, line, channel_str, function, message);
-	ASSERT(length < DEBUG_BUFFER_SIZE);
-	OutputDebugString(buffer);
+    length = snprintf(buffer, DEBUG_BUFFER_SIZE, "%s:%d: %s: [%s] %s\n",
+                      file, line, channel_str, function, message);
+    ASSERT(length < DEBUG_BUFFER_SIZE);
+    OutputDebugString(buffer);
 }
+
+
+char* win32_system_error_message(DWORD error)
+{
+    static char buffer[2048];
+    DWORD result = FormatMessage(
+        FORMAT_MESSAGE_FROM_SYSTEM,
+        NULL,
+        error,
+        0,
+        buffer,
+        sizeof buffer,
+        NULL);
+    ASSERT(result != 0);
+
+    return buffer;
+}
+
 
 #endif // LEARY_ENABLE_LOGGING
