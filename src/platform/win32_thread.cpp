@@ -1,3 +1,11 @@
+/**
+ * file:    thread.cpp
+ * created: 2018-01-02
+ * authors: Jesper Stefansson (jesper.stefansson@gmail.com)
+ *
+ * Copyright (c) 2018 - all rights reserved
+ */
+
 #include "thread.h"
 
 void init_mutex(Mutex *m)

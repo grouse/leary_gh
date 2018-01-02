@@ -294,7 +294,6 @@ char* read_file(const char *filename, usize *o_size, Allocator *a)
                              OPEN_EXISTING,
                              FILE_ATTRIBUTE_NORMAL,
                              NULL);
-
     if (file == INVALID_HANDLE_VALUE) {
         DWORD error = GetLastError();
         (void)error;

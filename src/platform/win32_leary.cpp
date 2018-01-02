@@ -3,7 +3,7 @@
  * created: 2017-03-27
  * authors: Jesper Stefansson (jesper.stefansson@gmail.com)
  *
- * Copyright (c) 2017 - all rights reserved
+ * Copyright (c) 2017-2018 - all rights reserved
  */
 
 #include <stdio.h>
@@ -39,13 +39,14 @@ DWORD catalog_thread_process(void *data)
 {
     CatalogThreadData *ctd = (CatalogThreadData*)data;
 
-    HANDLE fh = CreateFile(ctd->folder,
-                           GENERIC_READ | FILE_LIST_DIRECTORY,
-                           FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-                           NULL,
-                           OPEN_EXISTING,
-                           FILE_ATTRIBUTE_NORMAL | FILE_FLAG_BACKUP_SEMANTICS,
-                           NULL);
+    HANDLE fh = CreateFile(
+        ctd->folder,
+        GENERIC_READ | FILE_LIST_DIRECTORY,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+        NULL,
+        OPEN_EXISTING,
+        FILE_ATTRIBUTE_NORMAL | FILE_FLAG_BACKUP_SEMANTICS,
+        NULL);
     ASSERT(fh != INVALID_HANDLE_VALUE);
 
     isize flen = strlen(ctd->folder);
@@ -70,9 +71,17 @@ DWORD catalog_thread_process(void *data)
             if (fni->Action == FILE_ACTION_MODIFIED) {
                 ASSERT(fni->FileNameLength <= I32_MAX);
 
-                Path p = eslash
-                    ? create_file_path(g_system_alloc, ctd->folder, fni->FileName)
-                    : create_file_path(g_system_alloc, ctd->folder, '\\', fni->FileName);
+                Path p;
+                if (eslash) {
+                    p = create_file_path(g_system_alloc,
+                                         ctd->folder,
+                                         fni->FileName);
+                } else {
+                    p = create_file_path(g_system_alloc,
+                                         ctd->folder,
+                                         '\\',
+                                         fni->FileName);
+                }
 
                 ctd->callback(p);
             }

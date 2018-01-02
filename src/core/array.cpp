@@ -3,10 +3,10 @@
  * created: 2017-03-10
  * authors: Jesper Stefansson (jesper.stefansson@gmail.com)
  *
- * Copyright (c) 2017 - all rights reserved
+ * Copyright (c) 2017-2018 - all rights reserved
  */
 
-#include "core.h"
+#include "array.h"
 
 template<typename T>
 Array<T> create_array(Allocator *allocator)

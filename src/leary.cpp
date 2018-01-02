@@ -3,7 +3,7 @@
  * created: 2016-11-26
  * authors: Jesper Stefansson (jesper.stefansson@gmail.com)
  *
- * Copyright (c) 2016-2017 - all rights reserved
+ * Copyright (c) 2016-2018 - all rights reserved
  */
 
 #include "leary.h"
