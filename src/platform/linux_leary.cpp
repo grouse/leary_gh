@@ -148,7 +148,6 @@ void* catalog_thread_process(void *data)
             if (event->len) {
                 // TODO(jesper): supported created and deleted file events
                 if (!(event->mask & IN_ISDIR)) {
-                    Path p;
 
                     char **ret = table_find(&watches, event->wd);
                     if (ret == nullptr) {
@@ -158,43 +157,15 @@ void* catalog_thread_process(void *data)
                         continue;
                     }
 
+
                     char *folder = *ret;
 
                     isize flen  = strlen(folder);
                     bool eslash = folder[flen-1] == '/';
 
-                    if (!eslash) {
-                        isize length = flen + event->len + 2;
-                        // TODO(jesper): replace with thread safe allocator
-                        p.absolute = { length, (char*)malloc(length) };
-                        strcpy(p.absolute.bytes, folder);
-                        p.absolute[flen]   = '/';
-                        p.absolute[flen+1] = '\0';
-                    } else {
-                        isize length = flen + event->len + 1;
-                        // TODO(jesper): replace with thread safe allocator
-                        p.absolute   = { length, (char*)malloc(length) };
-                        strcpy(p.absolute.bytes, folder);
-                    }
-
-                    strcat(p.absolute.bytes, event->name);
-                    if (!eslash) {
-                        p.filename = { event->len, p.absolute.bytes + flen + 1 };
-                    } else {
-                        p.filename = { event->len, p.absolute.bytes + flen };
-                    }
-
-                    isize ext = 0;
-                    for (i32 i = 0; i < p.filename.length; i++) {
-                        if (p.filename[i] == '.') {
-                            ext = i;
-                        }
-                    }
-                    if (ext != 0) {
-                        p.extension = { event->len - ext, p.filename.bytes + ext + 1 };
-                    } else {
-                        p.extension = { 0, p.filename.bytes + event->len };
-                    }
+                    Path p = eslash
+                        ? create_file_path(g_system_alloc, folder, event->name)
+                        : create_file_path(g_system_alloc, folder, '/', event->name);
 
                     ctd->callback(p);
                 }

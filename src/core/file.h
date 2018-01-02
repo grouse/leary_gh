@@ -34,6 +34,29 @@ struct Path {
     StringView extension; // NOTE(jesper): excluding .
 };
 
-Path create_path(const char *str, Allocator *a);
+template<typename... Args>
+Path create_file_path(Allocator *a, Args... args)
+{
+    Path p = {};
+    p.absolute = create_string(a, args...);
+
+    i32 slash = 0;
+    i32 ext   = 0;
+    for (i32 i = 0; i < p.absolute.size; i++) {
+        if (p.absolute[i] == '/' || p.absolute[i] == '\\') {
+            slash = i;
+        } else if (p.absolute[i] == '.') {
+            ext = i;
+        }
+    }
+
+    p.filename = { p.absolute.size - slash, p.absolute.bytes + slash + 1 };
+
+    if (ext != 0) {
+        p.extension = { p.absolute.size - ext, p.absolute.bytes + ext + 1 };
+    }
+
+    return p;
+}
 
 #endif // LEARY_FILE_H

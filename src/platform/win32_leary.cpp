@@ -74,37 +74,9 @@ DWORD catalog_thread_process(void *data)
             if (fni->Action == FILE_ACTION_MODIFIED) {
                 ASSERT(fni->FileNameLength <= I32_MAX);
 
-                Path p = {};
-
-                if (!eslash) {
-                    // TODO(jesper): replace with thread safe allocator
-                    p.absolute = create_string(g_system_alloc,
-                                               ctd->folder,
-                                               '\\',
-                                               fni->FileName);
-                } else {
-                    p.absolute = create_string(g_system_alloc,
-                                               ctd->folder,
-                                               fni->FileName);
-                }
-
-                if (!eslash) {
-                    p.filename = { utf8_size(fni->FileName), p.absolute.bytes + flen + 1 };
-                } else {
-                    p.filename = { utf8_size(fni->FileName), p.absolute.bytes + flen };
-                }
-
-                i32 ext = 0;
-                for (i32 i = 0; i < p.filename.size; i++) {
-                    if (p.filename[i] == '.') {
-                        ext = i;
-                    }
-                }
-                if (ext != 0) {
-                    p.extension = { (i32)fni->FileNameLength - ext, p.filename.bytes + ext + 1 };
-                } else {
-                    p.extension = { 0, nullptr };
-                }
+                Path p = eslash
+                    ? create_file_path(g_system_alloc, ctd->folder, fni->FileName)
+                    : create_file_path(g_system_alloc, ctd->folder, '\\', fni->FileName);
 
                 ctd->callback(p);
             }

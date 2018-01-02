@@ -642,7 +642,7 @@ i32 add_entity(Path p)
 
 i32 add_entity(const char *p)
 {
-    return add_entity(create_path(p, g_system_alloc));
+    return add_entity(create_file_path(g_system_alloc, p));
 }
 
 void process_catalog_system()

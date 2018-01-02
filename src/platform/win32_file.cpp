@@ -219,7 +219,7 @@ bool folder_exists(const char *path)
 bool create_file(const char *path, bool create_folders = false)
 {
     if (create_folders) {
-        Path p = create_path(path, g_system_alloc);
+        Path p = create_file_path(g_system_alloc, path);
 
         char folder[MAX_PATH];
         strncpy(folder, p.absolute.bytes, p.absolute.size - p.filename.size - 1);
