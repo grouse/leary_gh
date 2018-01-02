@@ -100,7 +100,7 @@ void create_catalog_thread(Array<char*> folders, catalog_callback_t *callback)
         data->callback = callback;
 
         HANDLE th = CreateThread(NULL,
-                                 1024,
+                                 8 * 1024,
                                  &catalog_thread_process, data,
                                  0, NULL);
         ASSERT(th != NULL);
