@@ -766,10 +766,8 @@ void init_catalog_system()
             }
 
             (*func)(p);
-
         }
     }
 
-    // TODO(jesper): we can use 1 thread for all folders with inotify
     create_catalog_thread(g_catalog.folders, &catalog_thread_proc);
 }

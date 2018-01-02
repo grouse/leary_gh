@@ -46,12 +46,7 @@ DWORD catalog_thread_process(void *data)
                            OPEN_EXISTING,
                            FILE_ATTRIBUTE_NORMAL | FILE_FLAG_BACKUP_SEMANTICS,
                            NULL);
-    //ASSERT(fh != INVALID_HANDLE_VALUE);
-    if (fh == INVALID_HANDLE_VALUE) {
-        DWORD result = GetLastError();
-        (void)result;
-        ASSERT(false);
-    }
+    ASSERT(fh != INVALID_HANDLE_VALUE);
 
     isize flen = strlen(ctd->folder);
     bool eslash = ctd->folder[flen-1] == '\\';
@@ -59,10 +54,11 @@ DWORD catalog_thread_process(void *data)
     DWORD buffer[2048];
     DWORD bytes = 0;
 
-    while (ReadDirectoryChangesW(fh,
-                                 buffer, sizeof buffer,
-                                 true, FILE_NOTIFY_CHANGE_LAST_WRITE,
-                                 &bytes, NULL, NULL) != FALSE)
+    while (ReadDirectoryChangesW(
+               fh,
+               buffer, sizeof buffer,
+               true, FILE_NOTIFY_CHANGE_LAST_WRITE,
+               &bytes, NULL, NULL) != FALSE)
     {
         DWORD *ptr = buffer;
 
