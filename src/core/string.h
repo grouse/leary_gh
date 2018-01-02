@@ -111,6 +111,31 @@ struct StringView {
     }
 };
 
+bool operator==(String lhs, String rhs);
+bool operator==(StringView lhs, StringView rhs);
+
+template<i32 N>
+bool operator==(String lhs, const char (&str)[N])
+{
+    if (lhs.bytes == str && lhs.size == N) {
+        return true;
+    }
+
+    return strncmp(lhs.bytes, str, N) == 0;
+}
+
+template<i32 N>
+bool operator==(StringView lhs, const char (&str)[N])
+{
+    if (lhs.bytes == str && lhs.size == N) {
+        return true;
+    }
+
+    return strncmp(lhs.bytes, str, N) == 0;
+}
+
+
+
 template<typename T>
 i32 utf8_size(T)
 {

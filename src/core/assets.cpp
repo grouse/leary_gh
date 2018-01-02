@@ -681,8 +681,15 @@ CATALOG_CALLBACK(catalog_thread_proc)
     }
 
     lock_mutex(&g_catalog.mutex);
+    defer { unlock_mutex(&g_catalog.mutex); };
+
+    for (auto p : g_catalog.process_queue) {
+        if (p == path) {
+            return;
+        }
+    }
+
     array_add(&g_catalog.process_queue, path);
-    unlock_mutex(&g_catalog.mutex);
 }
 
 CATALOG_PROCESS_FUNC(catalog_process_bmp)

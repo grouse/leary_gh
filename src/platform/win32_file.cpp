@@ -289,11 +289,18 @@ char* read_file(const char *filename, usize *o_size, Allocator *a)
 
     HANDLE file = CreateFile(filename,
                              GENERIC_READ,
-                             FILE_SHARE_READ,
+                             FILE_SHARE_READ | FILE_SHARE_WRITE,
                              NULL,
                              OPEN_EXISTING,
                              FILE_ATTRIBUTE_NORMAL,
                              NULL);
+
+    if (file == INVALID_HANDLE_VALUE) {
+        DWORD error = GetLastError();
+        (void)error;
+        ASSERT(false);
+        return nullptr;
+    }
 
     LARGE_INTEGER file_size;
     if (GetFileSizeEx(file, &file_size)) {
@@ -302,6 +309,10 @@ char* read_file(const char *filename, usize *o_size, Allocator *a)
         *o_size = (usize) file_size.QuadPart;
 
         buffer = (char*)a->alloc((usize)file_size.QuadPart);
+        if (buffer == nullptr) {
+            ASSERT(false);
+            return nullptr;
+        }
 
         DWORD bytes_read;
         if (!ReadFile(file, buffer, (u32)file_size.QuadPart, &bytes_read, 0)) {

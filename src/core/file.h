@@ -32,7 +32,41 @@ struct Path {
     String absolute;
     StringView filename;  // NOTE(jesper): includes extension
     StringView extension; // NOTE(jesper): excluding .
+
+    Path() {}
+
+    Path(Path &other)
+    {
+        *this = other;
+    }
+
+    Path(Path &&other)
+    {
+        absolute  = std::move(other.absolute);
+        filename  = other.filename;
+        extension = other.extension;
+    }
+
+    Path& operator=(const Path &other)
+    {
+        absolute = other.absolute;
+        filename = {
+            other.filename.size,
+            absolute.bytes + (other.filename.bytes - other.absolute.bytes)
+        };
+
+        extension = {
+            other.extension.size,
+            absolute.bytes + (other.extension.bytes - other.absolute.bytes)
+        };
+
+        return *this;
+    }
+
+
 };
+
+bool operator==(Path lhs, Path rhs);
 
 template<typename... Args>
 Path create_file_path(Allocator *a, Args... args)
@@ -50,10 +84,16 @@ Path create_file_path(Allocator *a, Args... args)
         }
     }
 
-    p.filename = { p.absolute.size - slash, p.absolute.bytes + slash + 1 };
+    p.filename = {
+        p.absolute.size - slash - 1,
+        p.absolute.bytes + slash + 1
+    };
 
     if (ext != 0) {
-        p.extension = { p.absolute.size - ext, p.absolute.bytes + ext + 1 };
+        p.extension = {
+            p.absolute.size - ext - 1,
+            p.absolute.bytes + ext + 1
+        };
     }
 
     return p;

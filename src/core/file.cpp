@@ -7,3 +7,8 @@
  */
 
 #include "file.h"
+
+bool operator==(Path lhs, Path rhs)
+{
+    return lhs.absolute == rhs.absolute;
+}
