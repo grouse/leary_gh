@@ -49,6 +49,24 @@ struct String {
         return *this;
     }
 
+    String& operator=(String &&other)
+    {
+        if (this == &other) {
+            return *this;
+        }
+
+        size      = other.size;
+        capacity  = other.capacity;
+        allocator = other.allocator;
+        bytes     = other.bytes;
+
+        other.bytes    = nullptr;
+        other.size     = 0;
+        other.capacity = 0;
+
+        return *this;
+    }
+
     ~String()
     {
         ASSERT(allocator != nullptr || bytes == nullptr);
@@ -86,20 +104,26 @@ struct StringView {
 
     StringView(const char *str)
     {
-        bytes = str;
         size  = (i32)strlen(str);
+        bytes = str;
     }
 
     StringView(String other)
     {
-        bytes = other.bytes;
         size  = other.size;
+        bytes = other.bytes;
     }
 
     StringView(i32 size, const char *str)
     {
-        bytes      = str;
         this->size = size;
+        bytes      = str;
+    }
+
+    ~StringView()
+    {
+        size  = 0;
+        bytes = nullptr;
     }
 
     const char& operator[] (i32 i)

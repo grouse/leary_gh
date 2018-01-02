@@ -667,6 +667,8 @@ void process_catalog_system()
         (*func)(p);
     }
 
+    array_clear(&g_catalog.process_queue);
+
     g_catalog.process_queue.count = 0;
     unlock_mutex(&g_catalog.mutex);
 }

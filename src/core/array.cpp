@@ -155,3 +155,12 @@ i32 array_remove(StaticArray<T> *a, i32 i)
     return a->count;
 }
 
+
+template<typename T>
+void array_clear(Array<T> *a)
+{
+    for (i32 i = 0; i < a->count; i++) {
+        a->data[i].~T();
+    }
+    a->count = 0;
+}

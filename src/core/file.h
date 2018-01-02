@@ -29,9 +29,9 @@ enum GamePath {
 };
 
 struct Path {
-    String absolute;
-    StringView filename;  // NOTE(jesper): includes extension
-    StringView extension; // NOTE(jesper): excluding .
+    String     absolute  = {};
+    StringView filename  = {}; // NOTE(jesper): includes extension
+    StringView extension = {}; // NOTE(jesper): excluding .
 
     Path() {}
 
@@ -43,8 +43,8 @@ struct Path {
     Path(Path &&other)
     {
         absolute  = std::move(other.absolute);
-        filename  = other.filename;
-        extension = other.extension;
+        filename  = std::move(other.filename);
+        extension = std::move(other.extension);
     }
 
     Path& operator=(const Path &other)
@@ -60,6 +60,18 @@ struct Path {
             absolute.bytes + (other.extension.bytes - other.absolute.bytes)
         };
 
+        return *this;
+    }
+
+    Path& operator=(Path &&other)
+    {
+        if (this == &other) {
+            return *this;
+        }
+
+        absolute  = std::move(other.absolute);
+        filename  = std::move(other.filename);
+        extension = std::move(other.extension);
         return *this;
     }
 
