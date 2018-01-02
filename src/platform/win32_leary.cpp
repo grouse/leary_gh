@@ -34,6 +34,12 @@ struct CatalogThreadData {
     catalog_callback_t *callback;
 };
 
+struct MouseState {
+    f32 x, y;
+    f32 dx, dy;
+    bool in_window = false;
+};
+
 extern "C"
 DWORD catalog_thread_process(void *data)
 {
@@ -55,11 +61,10 @@ DWORD catalog_thread_process(void *data)
     DWORD buffer[2048];
     DWORD bytes = 0;
 
-    while (ReadDirectoryChangesW(
-               fh,
-               buffer, sizeof buffer,
-               true, FILE_NOTIFY_CHANGE_LAST_WRITE,
-               &bytes, NULL, NULL) != FALSE)
+    while (ReadDirectoryChangesW(fh,
+                                 buffer, sizeof buffer,
+                                 true, FILE_NOTIFY_CHANGE_LAST_WRITE,
+                                 &bytes, NULL, NULL) != FALSE)
     {
         DWORD *ptr = buffer;
 
@@ -107,13 +112,6 @@ void create_catalog_thread(Array<char*> folders, catalog_callback_t *callback)
     }
 }
 
-
-struct MouseState {
-    f32 x, y;
-    f32 dx, dy;
-    bool in_window = false;
-};
-
 void platform_quit()
 {
     char *settings_path = resolve_path(GamePath_preferences, "settings.conf", g_stack);
@@ -135,9 +133,9 @@ void platform_toggle_raw_mouse()
         rid[0].dwFlags = RIDEV_INPUTSINK | RIDEV_CAPTUREMOUSE | RIDEV_NOLEGACY;
         rid[0].hwndTarget = g_platform->native.hwnd;
 
-        if (RegisterRawInputDevices(rid, 1, sizeof(rid[0])) == false) {
-            assert(false);
-        }
+        bool result = RegisterRawInputDevices(rid, 1, sizeof rid[0]);
+        ASSERT(result != false);
+        (void)result;
 
         while(ShowCursor(false) > 0) {}
     } else {
@@ -147,9 +145,9 @@ void platform_toggle_raw_mouse()
         rid[0].dwFlags = RIDEV_REMOVE;
         rid[0].hwndTarget = 0;
 
-        if (RegisterRawInputDevices(rid, 1, sizeof(rid[0])) == false) {
-            assert(false);
-        }
+        bool result = RegisterRawInputDevices(rid, 1, sizeof rid[0]);
+        ASSERT(result != false);
+        (void)result;
 
         while(ShowCursor(true) > 0) {}
     }
@@ -173,9 +171,13 @@ window_proc(HWND   hwnd,
     static MouseState mouse_state = {};
 
     switch (message) {
+    case WM_CLOSE:
+    case WM_QUIT:
+        game_quit();
+        break;
     case WM_DESTROY:
         PostQuitMessage(0);
-        return 0;
+        break;
     case WM_PAINT: {
         PAINTSTRUCT ps;
         HDC hdc = BeginPaint(hwnd, &ps);
@@ -231,20 +233,18 @@ window_proc(HWND   hwnd,
 
         game_input( event);
     } break;
-    case WM_MOUSELEAVE: {
+    case WM_MOUSELEAVE:
         mouse_state.in_window = false;
-    } break;
+        break;
     case WM_INPUT: {
         u32 size;
         GetRawInputData((HRAWINPUT)lparam, RID_INPUT, NULL,
                         &size, sizeof(RAWINPUTHEADER));
 
         u8 *data = new u8[size];
-        if (data == nullptr) {
-            assert(false);
-            break;
-        }
         defer { delete[] data; };
+
+        ASSERT(data != nullptr);
 
         UINT result = GetRawInputData((HRAWINPUT)lparam, RID_INPUT, data,
                                       &size, sizeof(RAWINPUTHEADER));
@@ -252,6 +252,8 @@ window_proc(HWND   hwnd,
             LOG(Log_error,
                 "incorrect size from GetRawInputData. Expected: %u, received %u",
                 size, result);
+            ASSERT(false);
+            break;
         }
 
         RAWINPUT *raw = (RAWINPUT*)data;
@@ -274,7 +276,7 @@ window_proc(HWND   hwnd,
                 mouse_state.y  = (f32)raw->data.mouse.lLastY;
             } else {
                 LOG(Log_error, "unsupported flags");
-                assert(false);
+                ASSERT(false);
             }
 
             InputEvent event;
@@ -294,9 +296,8 @@ window_proc(HWND   hwnd,
         }
     } break;
     default:
-        std::printf("unhandled event: %d\n", message);
+        LOG(Log_info, "unhandled event: %d", message);
         return DefWindowProc(hwnd, message, wparam, lparam);
-
     }
 
     return 0;
@@ -310,7 +311,6 @@ PLATFORM_INIT_FUNC(platform_init)
 
     auto native = &g_platform->native;
     native->hinstance = instance;
-
 
     isize frame_size       = 64  * 1024 * 1024;
     isize debug_frame_size = 64  * 1024 * 1024;
@@ -345,15 +345,18 @@ PLATFORM_INIT_FUNC(platform_init)
 
     RegisterClass(&wc);
 
-    native->hwnd = CreateWindow("leary", "leary",
-                                WS_TILED | WS_VISIBLE,
-                                0, 0,
-                                g_settings.video.resolution.width,
-                                g_settings.video.resolution.height,
-                                nullptr, nullptr, native->hinstance, nullptr);
+    native->hwnd = CreateWindow(
+        "leary", "leary",
+        WS_TILED | WS_VISIBLE | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_SYSMENU,
+        0, 0,
+        g_settings.video.resolution.width,
+        g_settings.video.resolution.height,
+        nullptr, nullptr, native->hinstance, nullptr);
 
-    if (native->hwnd == nullptr) {
-        platform_quit();
+    if (native->hwnd == NULL) {
+        char* msg = win32_system_error_message(GetLastError());
+        LOG(Log_error, "failed to create window: %s", msg);
+        game_quit();
     }
 
     game_init();
@@ -399,9 +402,7 @@ PLATFORM_UPDATE_FUNC(platform_update)
         DispatchMessage(&msg);
     }
 
-    if (msg.message == WM_QUIT) {
-        game_quit();
-    }
+
     PROFILE_END(win32_input);
 
     game_update_and_render(dt);
