@@ -13,22 +13,7 @@
 #include "allocator.h"
 #include "string.h"
 #include "array.h"
-
-#define TABLE_SIZE 128
-
-template <typename K, typename V>
-struct Pair {
-    K key;
-    V value;
-};
-
-template <typename K, typename V>
-struct HashTable {
-
-    // TODO(jesper): replace this with custom array implementation, I don't want
-    // to use the generalised array implementation here.
-    Array<Pair<K, V>> table[TABLE_SIZE];
-};
+#include "hash_table.h"
 
 #endif /* LEARY_CORE_H */
 

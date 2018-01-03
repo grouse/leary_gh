@@ -3,10 +3,10 @@
  * created: 2017-08-15
  * authors: Jesper Stefansson (jesper.stefansson@gmail.com)
  *
- * Copyright (c) 2017 - all rights reserved
+ * Copyright (c) 2017-2018 - all rights reserved
  */
 
-#include "core.h"
+#include "hash_table.h"
 
 template <typename K, typename V>
 void init_table(HashTable<K, V> *table, Allocator *a)
@@ -196,4 +196,96 @@ V* table_find(HashTable<char*, V> *table, const char *key)
     }
 
     return nullptr;
+}
+
+
+template<typename K, typename V>
+void init_map(RHHashMap<K, V> *map,
+              Allocator *a,
+              i32 initial_size = RH_INITIAL_SIZE)
+{
+    using Entry = typename RHHashMap<K, V>::Entry;
+
+    map->allocator = a;
+    map->capacity = initial_size;
+    map->mask     = map->capacity - 1;
+    map->entries  = a->ialloc_array<Entry>(map->capacity);
+    map->resize_threshold = (map->capacity * RH_LOAD_FACTOR) / 100;
+
+}
+
+template<typename K, typename V>
+void destroy_map(RHHashMap<K, V> *map)
+{
+    for (i32 i = 0; i < map->count; i++) {
+        map->entries[i].value.~V();
+    }
+
+    map->allocator->dealloc(map->entries);
+    *map = {};
+}
+
+template<typename K, typename V>
+void map_add(RHHashMap<K, V> *map, K key, V value)
+{
+    using Entry = typename RHHashMap<K, V>::Entry;
+
+    if (++map->count >= map->resize_threshold) {
+        auto a = map->allocator;
+
+        i32 capacity = map->capacity * 2;
+        Entry *entries = a->ialloc_array<Entry>(capacity);
+        std::memcpy(entries, map->entries, map->capacity);
+        a->dealloc(map->entries);
+
+        map->capacity = capacity;
+        map->mask     = map->capacity - 1;
+        map->entries  = entries;
+        map->resize_threshold = (map->capacity * RH_LOAD_FACTOR) / 100;
+    }
+
+    u32 hash = hash32(key);
+    u32 index = hash & map->mask;
+
+    Entry e = {
+        std::move(key),
+        std::move(value),
+        0
+    };
+
+    for (i32 i = (i32)index; ; i = (i + 1) & map->mask) {
+        if (map->entries[i].distance == -1) {
+            map->entries[i] = std::move(e);
+            return;
+        }
+
+        if (map->entries[i].distance < e.distance) {
+            std::swap(e, map->entries[i]);
+        }
+
+        e.distance++;
+    }
+}
+
+template<typename K, typename V>
+V* map_find(RHHashMap<K, V> *map, K key)
+{
+    u32 hash = hash32(key);
+    u32 index = hash & map->mask;
+    i32 distance = 0;
+
+    for (;;) {
+        if (map->entries[index].distance == -1 ||
+            map->entries[index].distance <= distance)
+        {
+            return nullptr;
+        }
+
+        if (map->entries[index].key == key) {
+            return &map->entries[index].value;
+        }
+
+        index = (index+1) & map->mask;
+        distance++;
+    }
 }

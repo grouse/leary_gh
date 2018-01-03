@@ -26,6 +26,10 @@
     #error "unsupported error"
 #endif
 
+#if defined(_WIN32)
+char* win32_system_error_message(DWORD error);
+#endif
+
 enum LogChannel {
     Log_error,
     Log_warning,

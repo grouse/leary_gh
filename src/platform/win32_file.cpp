@@ -297,8 +297,9 @@ char* read_file(const char *filename, usize *o_size, Allocator *a)
         NULL);
 
     if (file == INVALID_HANDLE_VALUE) {
-        char *msg = win32_system_error_message(GetLastError());
-        LOG(Log_error, "failed to open file %s - %s", filename, msg);
+        LOG(Log_error,
+            "failed to open file %s - %s",
+            filename, win32_system_error_message(GetLastError()));
         return nullptr;
     }
 

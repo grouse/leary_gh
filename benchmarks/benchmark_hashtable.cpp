@@ -8,6 +8,62 @@
 
 #include <unordered_map>
 
+#define HASHMAP_FIND_LOAD (128)
+
+BENCHMARK_FUNC(rh_hashmap_add)
+{
+    auto r  = create_random(0xDEADBEEF);
+
+    RHHashMap<u32, u32> map;
+    init_map(&map, &g_allocator);
+    defer { destroy_map(&map); };
+
+    while (keep_running(state)) {
+        u32 k = next_u32(&r);
+        u32 v = next_u32(&r);
+
+        start_timing(state);
+        map_add(&map, k, v);
+        stop_timing(state);
+    }
+}
+BENCHMARK(rh_hashmap_add);
+
+BENCHMARK_FUNC(rh_hashmap_find)
+{
+    auto r  = create_random(0xDEADBEEF);
+
+    RHHashMap<u32, u32> map;
+    init_map(&map, &g_allocator);
+    defer { destroy_map(&map); };
+
+    for (i32 i = 0; i < HASHMAP_FIND_LOAD; i++) {
+        u32 k = next_u32(&r);
+        u32 v = next_u32(&r);
+        map_add(&map, k, v);
+    }
+
+    u32 fk = next_u32(&r);
+    u32 fv = next_u32(&r);
+    map_add(&map, fk, fv);
+
+    for (i32 i = 0; i < HASHMAP_FIND_LOAD; i++) {
+        u32 k = next_u32(&r);
+        u32 v = next_u32(&r);
+        map_add(&map, k, v);
+    }
+
+    MEMORY_BARRIER();
+
+    while (keep_running(state)) {
+        start_timing(state);
+        DONT_OPTIMIZE(map_find(&map, fk));
+        stop_timing(state);
+    }
+}
+BENCHMARK(rh_hashmap_find);
+
+
 BENCHMARK_FUNC(hashtable_add)
 {
     auto r  = create_random(0xDEADBEEF);
@@ -31,7 +87,7 @@ BENCHMARK_FUNC(hashtable_find)
     auto ht = create_hashtable<u32, u32>(&g_allocator);
     defer { destroy_hashtable(&ht); };
 
-    for (i32 i = 0; i < 2048; i++) {
+    for (i32 i = 0; i < HASHMAP_FIND_LOAD; i++) {
         u32 k = next_u32(&r);
         u32 v = next_u32(&r);
         table_add(&ht, k, v);
@@ -41,7 +97,7 @@ BENCHMARK_FUNC(hashtable_find)
     u32 fv = next_u32(&r);
     table_add(&ht, fk, fv);
 
-    for (i32 i = 0; i < 2048; i++) {
+    for (i32 i = 0; i < HASHMAP_FIND_LOAD; i++) {
         u32 k = next_u32(&r);
         u32 v = next_u32(&r);
         table_add(&ht, k, v);
@@ -79,7 +135,7 @@ BENCHMARK_FUNC(std_unordered_map_find)
     auto r  = create_random(0xDEADBEEF);
     std::unordered_map<u32, u32> ht;
 
-    for (i32 i = 0; i < 2048; i++) {
+    for (i32 i = 0; i < HASHMAP_FIND_LOAD; i++) {
         u32 k = next_u32(&r);
         u32 v = next_u32(&r);
         ht[k] = v;
@@ -89,7 +145,7 @@ BENCHMARK_FUNC(std_unordered_map_find)
     u32 fv = next_u32(&r);
     ht[fk] = fv;
 
-    for (i32 i = 0; i < 2048; i++) {
+    for (i32 i = 0; i < HASHMAP_FIND_LOAD; i++) {
         u32 k = next_u32(&r);
         u32 v = next_u32(&r);
         ht[k] = v;
