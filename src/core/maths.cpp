@@ -151,8 +151,6 @@ Vector3 surface_normal(Vector3 v0, Vector3 v1, Vector3 v2)
 
 inline Matrix4 translate(Matrix4 m, Vector3 v)
 {
-    PROFILE_BLOCK("Matrix4 translate");
-
     Matrix4 result = m;
     result[3].x += v.x;
     result[3].y += v.y;
@@ -162,8 +160,6 @@ inline Matrix4 translate(Matrix4 m, Vector3 v)
 
 inline Matrix4 translate(Matrix4 m, f32 s)
 {
-    PROFILE_BLOCK("Matrix4 translate");
-
     Matrix4 result = m;
     result[3].x += s;
     result[3].y += s;
@@ -191,8 +187,6 @@ inline Matrix4 scale(Matrix4 m, f32 s)
 
 inline Matrix4 translate(Matrix4 m, Vector2 v)
 {
-    PROFILE_BLOCK("Matrix4 translate");
-
     Matrix4 result = m;
     result[3].x += v.x;
     result[3].y += v.y;
@@ -201,8 +195,6 @@ inline Matrix4 translate(Matrix4 m, Vector2 v)
 
 inline Matrix4 rotate(Matrix4 m, f32 theta, Vector3 axis)
 {
-    PROFILE_BLOCK("Matrix4 rotate");
-
     f32 c = lry::cos(theta);
     f32 s = lry::cos(theta);
 
@@ -231,8 +223,6 @@ inline Matrix4 rotate(Matrix4 m, f32 theta, Vector3 axis)
 
 inline Matrix4 rotate_x(Matrix4 m, f32 theta)
 {
-    PROFILE_BLOCK("Matrix4 rotate_x");
-
     f32 c = lry::cos(theta);
     f32 s = lry::cos(theta);
 
@@ -259,8 +249,6 @@ inline Matrix4 rotate_x(Matrix4 m, f32 theta)
 
 inline Matrix4 rotate_y(Matrix4 m, f32 theta)
 {
-    PROFILE_BLOCK("Matrix4 rotate_y");
-
     f32 c = lry::cos(theta);
     f32 s = lry::cos(theta);
 
@@ -287,8 +275,6 @@ inline Matrix4 rotate_y(Matrix4 m, f32 theta)
 
 inline Matrix4 rotate_z(Matrix4 m, f32 theta)
 {
-    PROFILE_BLOCK("Matrix4 rotate_z");
-
     f32 c = lry::cos(theta);
     f32 s = lry::cos(theta);
 
@@ -316,8 +302,6 @@ inline Matrix4 rotate_z(Matrix4 m, f32 theta)
 
 inline Matrix4 look_at(Vector3 eye, Vector3 origin, Vector3 up)
 {
-    PROFILE_BLOCK("Matrix4 look_at");
-
     Vector3 f = normalise(origin - eye);
     Vector3 s = normalise(cross(f, up));
     Vector3 u = cross(s, f);
@@ -343,7 +327,6 @@ inline Matrix4 look_at(Vector3 eye, Vector3 origin, Vector3 up)
  ******************************************************************************/
 inline Vector3 operator * (Matrix4 lhs, Vector3 rhs)
 {
-    PROFILE_BLOCK("Matrix4 * Vector3");
     Vector3 result = {};
     result.x = lhs[0].x * rhs.x + lhs[0].y * rhs.y + lhs[0].z * rhs.z + lhs[3].x;
     result.y = lhs[1].x * rhs.x + lhs[1].y * rhs.y + lhs[1].z * rhs.z + lhs[3].y;
@@ -362,7 +345,6 @@ inline Vector3 operator/(Vector3 lhs, f32 rhs)
 
 inline Vector2 operator * (Matrix4 lhs, Vector2 rhs)
 {
-    PROFILE_BLOCK("Matrix4 * Vector2");
     Vector2 result = {};
     result.x = lhs[0].x * rhs.x + lhs[0].y * rhs.y + lhs[3].x;
     result.y = lhs[1].x * rhs.x + lhs[1].y * rhs.y + lhs[3].y;
@@ -378,7 +360,6 @@ inline Vector2& operator *=(Vector2 &lhs, f32 rhs)
 
 inline Vector2 operator+ (Vector2 lhs, Vector2 rhs)
 {
-    PROFILE_BLOCK("Vector2 + Vector2");
     Vector2 result = {};
     result.x = lhs.x + rhs.x;
     result.y = lhs.y + rhs.y;
@@ -387,7 +368,6 @@ inline Vector2 operator+ (Vector2 lhs, Vector2 rhs)
 
 inline Matrix4 operator * (Matrix4 lhs, Matrix4 rhs)
 {
-    PROFILE_BLOCK("Matrix4 * Matrix4");
     Matrix4 result = {};
     result[0].x = lhs[0].x * rhs[0].x + lhs[1].x * rhs[0].y + lhs[2].x * rhs[0].z + lhs[3].x * rhs[0].w;
     result[0].y = lhs[0].y * rhs[0].x + lhs[1].y * rhs[0].y + lhs[2].y * rhs[0].z + lhs[3].y * rhs[0].w;
@@ -417,13 +397,11 @@ inline Matrix4 operator * (Matrix4 lhs, Matrix4 rhs)
  ******************************************************************************/
 inline Vector3  operator - (Vector3 v)
 {
-    PROFILE_BLOCK("-Vector3");
     return { -v.x, -v.y, -v.z };
 }
 
 inline Vector3 operator + (Vector3 lhs, Vector3 rhs)
 {
-    PROFILE_BLOCK("Vector3 + Vector3");
     Vector3 vec;
     vec.x = lhs.x + rhs.x;
     vec.y = lhs.y + rhs.y;
@@ -433,7 +411,6 @@ inline Vector3 operator + (Vector3 lhs, Vector3 rhs)
 
 inline Vector3 operator + (Vector3 lhs, f32 rhs)
 {
-    PROFILE_BLOCK("Vector3 + f32");
     Vector3 vec;
     vec.x = lhs.x + rhs;
     vec.y = lhs.y + rhs;
@@ -443,13 +420,11 @@ inline Vector3 operator + (Vector3 lhs, f32 rhs)
 
 inline Vector3 operator + (f32 lhs, Vector3 rhs)
 {
-    PROFILE_BLOCK("Vector3 + f32");
     return rhs + lhs;
 }
 
 inline Vector3& operator += (Vector3 &lhs, Vector3 rhs)
 {
-    PROFILE_BLOCK("Vector3 += Vector3");
     lhs = lhs + rhs;
     return lhs;
 
@@ -457,14 +432,12 @@ inline Vector3& operator += (Vector3 &lhs, Vector3 rhs)
 
 inline Vector3& operator += (Vector3 &lhs, f32 rhs)
 {
-    PROFILE_BLOCK("Vector3 += f32");
     lhs = lhs + rhs;
     return lhs;
 }
 
 inline Vector3 operator - (Vector3 lhs, Vector3 rhs)
 {
-    PROFILE_BLOCK("Vector3 - Vector3");
     Vector3 vec;
     vec.x = lhs.x - rhs.x;
     vec.y = lhs.y - rhs.y;
@@ -474,7 +447,6 @@ inline Vector3 operator - (Vector3 lhs, Vector3 rhs)
 
 inline Vector3 operator - (Vector3 lhs, f32 rhs)
 {
-    PROFILE_BLOCK("Vector3 - f32");
     Vector3 vec;
     vec.x = lhs.x - rhs;
     vec.y = lhs.y - rhs;
@@ -484,27 +456,23 @@ inline Vector3 operator - (Vector3 lhs, f32 rhs)
 
 inline Vector3 operator - (f32 lhs, Vector3 rhs)
 {
-    PROFILE_BLOCK("Vector3 - f32");
     return rhs - lhs;
 }
 
 inline Vector3& operator -= (Vector3 &lhs, Vector3 rhs)
 {
-    PROFILE_BLOCK("Vector3 -= Vector3");
     lhs = lhs - rhs;
     return lhs;
 }
 
 inline Vector3& operator -= (Vector3 &lhs, f32 rhs)
 {
-    PROFILE_BLOCK("Vector3 -= f32");
     lhs = lhs - rhs;
     return lhs;
 }
 
 inline Vector3 operator * (Vector3 lhs, f32 rhs)
 {
-    PROFILE_BLOCK("Vector3 * f32");
     Vector3 vec;
     vec.x = lhs.x * rhs;
     vec.y = lhs.y * rhs;
@@ -514,13 +482,11 @@ inline Vector3 operator * (Vector3 lhs, f32 rhs)
 
 inline Vector3 operator * (f32 lhs, Vector3 rhs)
 {
-    PROFILE_BLOCK("Vector3 * f32");
     return rhs * lhs;
 }
 
 inline Vector3& operator *= (Vector3 &lhs, f32 rhs)
 {
-    PROFILE_BLOCK("Vector3 *= f32");
     lhs = lhs * rhs;
     return lhs;
 }
@@ -530,7 +496,6 @@ inline Vector3& operator *= (Vector3 &lhs, f32 rhs)
  ******************************************************************************/
 inline Vector4 operator + (Vector4 lhs, Vector4 rhs)
 {
-    PROFILE_BLOCK("Vector4 + Vector4");
     Vector4 vec;
     vec.x = lhs.x + rhs.x;
     vec.y = lhs.y + rhs.y;
@@ -541,7 +506,6 @@ inline Vector4 operator + (Vector4 lhs, Vector4 rhs)
 
 inline Vector4 operator + (Vector4 lhs, f32 rhs)
 {
-    PROFILE_BLOCK("Vector4 + f32");
     Vector4 vec;
     vec.x = lhs.x + rhs;
     vec.y = lhs.y + rhs;
@@ -552,27 +516,23 @@ inline Vector4 operator + (Vector4 lhs, f32 rhs)
 
 inline Vector4  operator + (f32 lhs, Vector4 rhs)
 {
-    PROFILE_BLOCK("Vector4 + f32");
     return rhs + lhs;
 }
 
 inline Vector4& operator += (Vector4 &lhs, Vector4 rhs)
 {
-    PROFILE_BLOCK("Vector4 += Vector4");
     lhs = lhs + rhs;
     return lhs;
 }
 
 inline Vector4& operator += (Vector4 &lhs, f32 rhs)
 {
-    PROFILE_BLOCK("Vector4 += f32");
     lhs = lhs + rhs;
     return lhs;
 }
 
 inline Vector4 operator - (Vector4 lhs, Vector4 rhs)
 {
-    PROFILE_BLOCK("Vector4 - Vector4");
     Vector4 vec;
     vec.x = lhs.x - rhs.x;
     vec.y = lhs.y - rhs.y;
@@ -583,7 +543,6 @@ inline Vector4 operator - (Vector4 lhs, Vector4 rhs)
 
 inline Vector4 operator - (Vector4 lhs, f32 rhs)
 {
-    PROFILE_BLOCK("Vector4 - f32");
     Vector4 vec;
     vec.x = lhs.x - rhs;
     vec.y = lhs.y - rhs;
@@ -594,27 +553,23 @@ inline Vector4 operator - (Vector4 lhs, f32 rhs)
 
 inline Vector4 operator - (f32 lhs, Vector4 rhs)
 {
-    PROFILE_BLOCK("Vector4 - f32");
     return rhs - lhs;
 }
 
 inline Vector4& operator -= (Vector4 &lhs, Vector4 rhs)
 {
-    PROFILE_BLOCK("Vector4 -= Vector4");
     lhs = lhs - rhs;
     return lhs;
 }
 
 inline Vector4& operator -= (Vector4 &lhs, f32 rhs)
 {
-    PROFILE_BLOCK("Vector4 -= f32");
     lhs = lhs - rhs;
     return lhs;
 }
 
 inline Vector4 operator * (Vector4 lhs, f32 rhs)
 {
-    PROFILE_BLOCK("Vector4 * f32");
     Vector4 vec;
     vec.x = lhs.x * rhs;
     vec.y = lhs.y * rhs;
@@ -625,13 +580,11 @@ inline Vector4 operator * (Vector4 lhs, f32 rhs)
 
 inline Vector4 operator * (f32 lhs, Vector4 rhs)
 {
-    PROFILE_BLOCK("Vector4 * f32");
     return rhs * lhs;
 }
 
 inline Vector4& operator *= (Vector4 &lhs, f32 rhs)
 {
-    PROFILE_BLOCK("Vector4 *= f32");
     lhs = lhs * rhs;
     return lhs;
 }
@@ -641,13 +594,11 @@ inline Vector4& operator *= (Vector4 &lhs, f32 rhs)
  ******************************************************************************/
 inline f32 length(Quaternion q)
 {
-    PROFILE_BLOCK("Quaternion length");
     return lry::sqrt(q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w);
 }
 
 inline Quaternion normalise(Quaternion q)
 {
-    PROFILE_BLOCK("Quaternion normalise");
     Quaternion r;
 
     f32 il = 1.0f / length(q);
@@ -657,7 +608,6 @@ inline Quaternion normalise(Quaternion q)
 
 inline Quaternion inverse(Quaternion q)
 {
-    PROFILE_BLOCK("Quaternion inverse");
     Quaternion r;
     r = { -q.x, -q.y, -q.z, q.w };
     return r;
@@ -665,7 +615,6 @@ inline Quaternion inverse(Quaternion q)
 
 inline Quaternion operator* (Quaternion p, Quaternion q)
 {
-    PROFILE_BLOCK("Quaternion * Quaternion");
     Quaternion r;
     r.x = p.w * q.x + p.x * q.w + p.y * q.z - p.z * q.y;
     r.y = p.w * q.y + p.y * q.w + p.z * q.x - p.x * q.z;
@@ -676,7 +625,6 @@ inline Quaternion operator* (Quaternion p, Quaternion q)
 
 inline Vector3 rotate(Vector3 v, Quaternion p)
 {
-    PROFILE_BLOCK("rotate(Vector3, Quaternion)");
     Vector3 r;
 
     Quaternion vq = Quaternion::make(v);
