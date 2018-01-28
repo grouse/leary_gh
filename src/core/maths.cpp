@@ -849,3 +849,40 @@ namespace lry {
 
 #endif
 
+extern Settings g_settings;
+Vector2 camera_from_screen( Vector2 v )
+{
+    Vector2 r;
+    r.x = 2.0f * v.x / g_settings.video.resolution.width - 1.0f;
+    r.y = 2.0f * v.y / g_settings.video.resolution.height - 1.0f;
+    return r;
+}
+
+Vector3 camera_from_screen( Vector3 v )
+{
+    Vector3 r;
+    r.x = 2.0f * v.x / g_settings.video.resolution.width - 1.0f;
+    r.y = 2.0f * v.y / g_settings.video.resolution.height - 1.0f;
+    r.z = v.z;
+    return r;
+}
+
+
+Vector2 screen_from_camera( Vector2 v)
+{
+    Vector2 r;
+    r.x = g_settings.video.resolution.width  / 2.0f * ( v.x + 1.0f );
+    r.y = g_settings.video.resolution.height / 2.0f * ( v.y + 1.0f );
+    return r;
+}
+
+Vector3 screen_from_camera( Vector3 v)
+{
+    Vector3 r;
+    r.x = g_settings.video.resolution.width  / 2.0f * ( v.x + 1.0f );
+    r.y = g_settings.video.resolution.height / 2.0f * ( v.y + 1.0f );
+    r.z = v.z;
+    return r;
+}
+
+

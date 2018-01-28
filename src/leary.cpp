@@ -69,9 +69,6 @@ struct GameReloadState {
 
 
 // NOTE(jesper): don't keep an address to these globals!!!!
-Matrix4 g_view_to_screen; // [-1  , 1]   -> [0, w]
-Matrix4 g_screen_to_view; // [0, w] -> [-1  , 1]
-
 extern Settings      g_settings;
 extern PlatformState *g_platform;
 extern Catalog       g_catalog;
@@ -101,15 +98,12 @@ void debug_add_texture(const char *name,
     item.u.ritem.pipeline   = pipeline;
     item.u.ritem.constants  = create_push_constants(pipeline);
 
-    Matrix4 t = Matrix4::identity();
-    t[0].x =  g_screen_to_view[0].x;
-    t[1].y =  g_screen_to_view[1].y;
-
-    Vector2 dim = { (f32)texture->width, (f32)texture->height };
-    dim = t * dim;
+    Vector2 dim = Vector2{ (f32)texture->width, (f32)texture->height };
+    dim.x = dim.x / g_settings.video.resolution.width;
+    dim.y = dim.y / g_settings.video.resolution.height;
 
     f32 vertices[] = {
-        0.0f,  0.0f,  0.0f, 0.0f,
+        0.0f, 0.0f,  0.0f, 0.0f,
         dim.x, 0.0f,  1.0f, 0.0f,
         dim.x, dim.y, 1.0f, 1.0f,
 
@@ -403,19 +397,6 @@ void game_init()
         g_game->fp_camera.view       = Matrix4::identity();
         g_game->fp_camera.position   = Vector3{0.0f, 5.0f, 0.0f};
         g_game->fp_camera.projection = Matrix4::perspective(vfov, aspect, 0.1f, 10000.0f);
-
-        Matrix4 view = Matrix4::identity();
-        view[0].x =  2.0f / width;
-        view[3].x = -1.0f;
-        view[1].y =  2.0f / height;
-        view[3].y = -1.0f;
-        g_screen_to_view = view;
-
-        view[0].x = width / 2.0f;
-        view[3].x = width / 2.0f;
-        view[1].y = height / 2.0f;
-        view[3].y = height / 2.0f;
-        g_view_to_screen = view;
     }
 
     { // render objects
@@ -518,8 +499,6 @@ void* game_pre_reload()
     state->texture_catalog     = g_catalog;
     state->settings            = g_settings;
 
-    state->screen_to_view      = g_screen_to_view;
-    state->view_to_screen      = g_view_to_screen;
 
     state->vulkan_device       = g_vulkan;
     state->game                = g_game;
@@ -560,8 +539,6 @@ void game_reload(void *s)
     g_settings            = state->settings;
     g_catalog     = state->texture_catalog;
 
-    g_screen_to_view      = state->screen_to_view;
-    g_view_to_screen      = state->view_to_screen;
 
     g_vulkan              = state->vulkan_device;
     load_vulkan(g_vulkan->instance);
@@ -769,8 +746,7 @@ void process_debug_overlay(DebugOverlay *overlay, f32 dt)
     i32 *vcount           = &overlay->vertex_count;
 
     usize offset = 0;
-    Vector2 pos = { -1.0f, -1.0f };
-    pos = g_view_to_screen * pos;
+    Vector2 pos = screen_from_camera( Vector2{ -1.0f, -1.0f });
 
     *vcount = 0;
 
@@ -912,7 +888,7 @@ void process_debug_overlay(DebugOverlay *overlay, f32 dt)
             pos.x = base_x;
         } break;
         case Debug_render_item: {
-            item.u.ritem.position = g_screen_to_view * (pos + Vector2{10.0f, 0.0f});
+            item.u.ritem.position = camera_from_screen(pos + Vector2{10.0f, 0.0f});
 
             Matrix4 t = translate(Matrix4::identity(), item.u.ritem.position);
             set_push_constant(&item.u.ritem.constants, t);

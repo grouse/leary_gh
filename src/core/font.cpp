@@ -6,8 +6,6 @@
  * Copyright (c) 2017 - all rights reserved
  */
 
-extern Matrix4 g_screen_to_view;
-
 void init_fonts()
 {
     usize font_size;
@@ -43,8 +41,6 @@ void render_font(stbtt_bakedchar *font,
     usize vertices_size = sizeof(f32)*24*text_length;
     auto vertices = (f32*)g_frame->alloc(vertices_size);
 
-    Matrix4 t = g_screen_to_view;
-
     f32 bx = pos->x;
 
     i32 vi = 0;
@@ -62,10 +58,10 @@ void render_font(stbtt_bakedchar *font,
         stbtt_aligned_quad q = {};
         stbtt_GetBakedQuad(font, 1024, 1024, c, &pos->x, &pos->y, &q, 1);
 
-        Vector2 tl = t * Vector2{q.x0, q.y0 + 15.0f};
-        Vector2 tr = t * Vector2{q.x1, q.y0 + 15.0f};
-        Vector2 br = t * Vector2{q.x1, q.y1 + 15.0f};
-        Vector2 bl = t * Vector2{q.x0, q.y1 + 15.0f};
+        Vector2 tl = camera_from_screen(Vector2{q.x0, q.y0 + 15.0f});
+        Vector2 tr = camera_from_screen(Vector2{q.x1, q.y0 + 15.0f});
+        Vector2 br = camera_from_screen(Vector2{q.x1, q.y1 + 15.0f});
+        Vector2 bl = camera_from_screen(Vector2{q.x0, q.y1 + 15.0f});
 
         vertices[vi++] = tl.x;
         vertices[vi++] = tl.y;
