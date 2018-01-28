@@ -58,12 +58,6 @@ struct DebugOverlayItem {
 };
 
 struct DebugOverlay {
-    VulkanBuffer vbo;
-    i32          vertex_count = 0;
-
-    f32             fsize = 20.0f;
-    stbtt_bakedchar font[256];
-
     struct {
         VulkanBuffer vbo;
         i32          vertex_count;

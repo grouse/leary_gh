@@ -173,6 +173,7 @@ VulkanBuffer create_vbo(usize size);
 VulkanBuffer create_ibo(u32 *indices, usize size);
 
 VulkanUniformBuffer create_ubo(usize size);
+void destroy_buffer(VulkanBuffer buffer);
 
 void buffer_data(VulkanUniformBuffer ubo, void *data, usize offset, usize size);
 

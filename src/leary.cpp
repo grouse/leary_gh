@@ -445,6 +445,8 @@ void game_quit()
 
     vkQueueWaitIdle(g_vulkan->queue);
 
+    destroy_fonts();
+
     destroy_buffer(g_debug_collision.cube.vbo);
     destroy_buffer(g_debug_collision.sphere.vbo);
     destroy_buffer(g_debug_collision.sphere.ibo);
@@ -463,7 +465,6 @@ void game_quit()
         destroy_texture(&it);
     }
 
-    destroy_buffer(g_game->overlay.vbo);
     destroy_buffer(g_game->overlay.texture.vbo);
 
     destroy_material(g_game->materials.terrain);
@@ -742,18 +743,7 @@ void process_debug_overlay(DebugOverlay *overlay, f32 dt)
     void *sp = g_stack->sp;
     defer { g_stack->reset(sp); };
 
-    stbtt_bakedchar *font = overlay->font;
-    i32 *vcount           = &overlay->vertex_count;
-
-    usize offset = 0;
     Vector2 pos = screen_from_camera( Vector2{ -1.0f, -1.0f });
-
-    *vcount = 0;
-
-    void *mapped;
-    vkMapMemory(g_vulkan->handle, overlay->vbo.memory,
-                0, VK_WHOLE_SIZE, 0, &mapped);
-
 
     isize buffer_size = 1024*1024;
     char *buffer = (char*)g_stack->alloc(buffer_size);
@@ -762,14 +752,14 @@ void process_debug_overlay(DebugOverlay *overlay, f32 dt)
     f32 dt_ms = dt * 1000.0f;
     snprintf(buffer, buffer_size, "frametime: %f ms, %f fps\n",
              dt_ms, 1000.0f / dt_ms);
-    render_font(font, buffer, &pos, vcount, mapped, &offset);
+    gui_textbox(buffer, &pos);
 
     for (auto &item : overlay->items) {
         {
             f32 base_x = pos.x;
             item.tl = pos;
             defer {
-                pos.y   += overlay->fsize;
+                pos.y   += 20.0f;
                 item.br  = pos;
 
                 pos.x    = base_x;
@@ -777,12 +767,12 @@ void process_debug_overlay(DebugOverlay *overlay, f32 dt)
 
             if (item.collapsed) {
                 snprintf(buffer, buffer_size, "%s...", item.title);
-                render_font(font, buffer, &pos, vcount, mapped, &offset);
+                gui_textbox(buffer, &pos);
                 continue;
             }
 
             snprintf(buffer, buffer_size, "%s", item.title);
-            render_font(font, buffer, &pos, vcount, mapped, &offset);
+            gui_textbox(buffer, &pos);
         }
 
         switch (item.type) {
@@ -796,14 +786,14 @@ void process_debug_overlay(DebugOverlay *overlay, f32 dt)
                     snprintf(buffer, buffer_size,
                              "  %s: { sp: %p, size: %zd, remaining: %zd }\n",
                              child.title, a->sp, a->size, a->remaining);
-                    render_font(font, buffer, &pos, vcount, mapped, &offset);
+                    gui_textbox(buffer, &pos);
                 } break;
                 case Debug_allocator_free_list: {
                     Allocator *a = (Allocator*)child.u.data;
                     snprintf(buffer, buffer_size,
                              "  %s: { size: %zd, remaining: %zd }\n",
                              child.title, a->size, a->remaining);
-                    render_font(font, buffer, &pos, vcount, mapped, &offset);
+                    gui_textbox(buffer, &pos);
                 } break;
                 default:
                     LOG("unhandled case: %d", item.type);
@@ -815,7 +805,7 @@ void process_debug_overlay(DebugOverlay *overlay, f32 dt)
             f32 margin   = 10.0f;
 
             f32 hy  = pos.y;
-            pos.y  += overlay->fsize;
+            pos.y  += 20.0f;
 
             f32 base_x = pos.x;
             f32 base_y = pos.y;
@@ -829,14 +819,14 @@ void process_debug_overlay(DebugOverlay *overlay, f32 dt)
             ProfileTimers &timers = g_profile_timers_prev;
             for (i32 i = 0; i < timers.count; i++) {
                 snprintf(buffer, buffer_size, "%s: ", timers.name[i]);
-                render_font(font, buffer, &pos, vcount, mapped, &offset);
+                gui_textbox(buffer, &pos);
 
                 if (pos.x >= c1.x) {
                     c1.x = pos.x;
                 }
 
                 pos.x  = c0.x;
-                pos.y += overlay->fsize;
+                pos.y += 20.0f;
             }
             pos.y = base_y;
 
@@ -844,29 +834,28 @@ void process_debug_overlay(DebugOverlay *overlay, f32 dt)
             pos.x  = c1.x;
             for (i32 i = 0; i < timers.count; i++) {
                 snprintf(buffer, buffer_size, "%" PRIu64, timers.cycles[i]);
-                render_font(font, buffer, &pos, vcount, mapped, &offset);
+                gui_textbox(buffer, &pos);
 
                 if (pos.x >= c2.x) {
                     c2.x = pos.x;
                 }
 
                 pos.x  = c1.x;
-                pos.y += overlay->fsize;
+                pos.y += 20.0f;
             }
             pos.y = base_y;
 
             c2.x = MAX(c1.x + 100.0f, c2.x) + margin;
             pos.x  = c2.x;
             for (i32 i = 0; i < timers.count; i++) {
-                snprintf(buffer, buffer_size, "%u", timers.calls[i]);
-                render_font(font, buffer, &pos, vcount, mapped, &offset);
+                gui_textbox(buffer, &pos);
 
                 if (pos.x >= c3.x) {
                     c3.x = pos.x;
                 }
 
                 pos.x  = c2.x;
-                pos.y += overlay->fsize;
+                pos.y += 20.0f;
             }
             pos.y = base_y;
 
@@ -874,16 +863,16 @@ void process_debug_overlay(DebugOverlay *overlay, f32 dt)
             pos.x  = c3.x;
             for (int i = 0; i < timers.count; i++) {
                 snprintf(buffer, buffer_size, "%f", timers.cycles[i] / (f32)timers.calls[i]);
-                render_font(font, buffer, &pos, vcount, mapped, &offset);
+                gui_textbox(buffer, &pos);
 
                 pos.x  = c3.x;
-                pos.y += overlay->fsize;
+                pos.y += 20.0f;
             }
 
-            render_font(font, "name",     &c0, vcount, mapped, &offset);
-            render_font(font, "cycles",   &c1, vcount, mapped, &offset);
-            render_font(font, "calls",    &c2, vcount, mapped, &offset);
-            render_font(font, "cy/calls", &c3, vcount, mapped, &offset);
+            gui_textbox("name",     &c0);
+            gui_textbox("cycles",   &c1);
+            gui_textbox("calls",    &c2);
+            gui_textbox("cy/calls", &c3);
 
             pos.x = base_x;
         } break;
@@ -900,8 +889,6 @@ void process_debug_overlay(DebugOverlay *overlay, f32 dt)
             break;
         }
     }
-
-    vkUnmapMemory(g_vulkan->handle, overlay->vbo.memory);
 }
 
 void game_update(f32 dt)
@@ -1160,37 +1147,6 @@ void game_render()
 
     }
 
-
-
-    // debug overlay text
-    if (g_game->overlay.vertex_count > 0) {
-        VulkanPipeline &pipeline = g_vulkan->pipelines[Pipeline_font];
-
-        vkCmdBindPipeline(command,
-                          VK_PIPELINE_BIND_POINT_GRAPHICS,
-                          pipeline.handle);
-
-
-        auto descriptors = create_array<VkDescriptorSet>(g_stack);
-        array_add(&descriptors, g_game->materials.font.descriptor_set);
-
-        vkCmdBindDescriptorSets(command,
-                                VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                pipeline.layout,
-                                0,
-                                (i32)descriptors.count, descriptors.data,
-                                0, nullptr);
-
-        Matrix4 t = Matrix4::identity();
-        vkCmdPushConstants(command, pipeline.layout,
-                           VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(t), &t);
-
-        vkCmdBindVertexBuffers(command, 0, 1,
-                               &g_game->overlay.vbo.handle, offsets);
-        vkCmdDraw(command, g_game->overlay.vertex_count, 1, 0, 0);
-    }
-
-
     // debug overlay items
     for (auto &item : g_game->overlay.render_queue) {
         VulkanPipeline &pipeline = g_vulkan->pipelines[item.pipeline];
@@ -1222,6 +1178,8 @@ void game_render()
     }
     g_game->overlay.render_queue.count = 0;
 
+    gui_render_text(command);
+
     end_renderpass(command);
     end_cmd_buffer(command, false);
 
@@ -1239,10 +1197,13 @@ void game_render()
 
 void game_update_and_render(f32 dt)
 {
+    gui_frame_start();
+
     game_update(dt);
+    process_debug_overlay(&g_game->overlay, dt);
+
     game_render();
 
-    process_debug_overlay(&g_game->overlay, dt);
 
     g_frame->reset();
     g_debug_frame->reset();

@@ -6,46 +6,122 @@
  * Copyright (c) 2017 - all rights reserved
  */
 
+#include "vulkan_render.h"
+
+struct FontData
+{
+    VulkanBuffer vbo;
+    i32 vertex_count = 0;
+
+    stbtt_bakedchar atlas[256];
+
+    void *buffer = nullptr;
+    usize offset = 0;
+};
+
+FontData g_font = {};
+extern VulkanDevice *g_vulkan;
+
 void init_fonts()
 {
     usize font_size;
     char *font_path = resolve_path(GamePath_data, "fonts/Roboto-Regular.ttf", g_stack);
-    if (font_path != nullptr) {
-        u8 *font_data = (u8*)read_file(font_path, &font_size, g_frame);
-
-        u8 *bitmap = g_frame->alloc_array<u8>(1024*1024);
-        stbtt_BakeFontBitmap(font_data, 0, g_game->overlay.fsize, bitmap,
-                             1024, 1024, 0, 256, g_game->overlay.font);
-
-        VkComponentMapping components = {};
-        components.a = VK_COMPONENT_SWIZZLE_R;
-        add_texture("font-regular", 1024, 1024, VK_FORMAT_R8_UNORM, bitmap,
-                    components);
-
-        // TODO(jesper): this size is really wrong
-        g_game->overlay.vbo = create_vbo(1024*1024);
+    if (font_path == nullptr) {
+        return;
     }
+
+    u8 *font_data = (u8*)read_file(font_path, &font_size, g_frame);
+
+    u8 *bitmap = g_frame->alloc_array<u8>(1024*1024);
+    stbtt_BakeFontBitmap(font_data, 0, 20.0f, bitmap,
+                         1024, 1024, 0, 256, g_font.atlas);
+
+    VkComponentMapping components = {};
+    components.a = VK_COMPONENT_SWIZZLE_R;
+    add_texture("font-regular", 1024, 1024, VK_FORMAT_R8_UNORM, bitmap, components);
+
+    // TODO(jesper): this size is really wrong
+    g_font.vbo = create_vbo( 1024 * 1024 );
 }
 
-void render_font(stbtt_bakedchar *font,
-                 const char *str,
-                 Vector2 *pos,
-                 i32 *out_vertex_count,
-                 void *buffer, usize *offset)
+void destroy_fonts()
+{
+    destroy_buffer(g_font.vbo);
+}
+
+
+void gui_frame_start()
+{
+    ASSERT(g_font.buffer == nullptr);
+
+    VkResult result = vkMapMemory(
+        g_vulkan->handle,
+        g_font.vbo.memory,
+        0, VK_WHOLE_SIZE, 0,
+        &g_font.buffer);
+
+    ASSERT(result == VK_SUCCESS);
+}
+
+void gui_render_text(VkCommandBuffer command)
+{
+    if (g_font.buffer != nullptr) {
+        vkUnmapMemory(g_vulkan->handle, g_font.vbo.memory);
+        g_font.buffer = nullptr;
+    }
+
+    VkDeviceSize offsets[] = { 0 };
+
+    if (g_font.vertex_count == 0) {
+        return;
+    }
+
+    VulkanPipeline &pipeline = g_vulkan->pipelines[Pipeline_font];
+
+    vkCmdBindPipeline(
+        command,
+        VK_PIPELINE_BIND_POINT_GRAPHICS,
+        pipeline.handle);
+
+    auto descriptors = create_array<VkDescriptorSet>(g_stack);
+    array_add(&descriptors, g_game->materials.font.descriptor_set);
+
+    vkCmdBindDescriptorSets(
+        command,
+        VK_PIPELINE_BIND_POINT_GRAPHICS,
+        pipeline.layout,
+        0,
+        (i32)descriptors.count, descriptors.data,
+        0, nullptr);
+
+    Matrix4 t = Matrix4::identity();
+    vkCmdPushConstants(
+        command,
+        pipeline.layout,
+        VK_SHADER_STAGE_VERTEX_BIT,
+        0, sizeof(t), &t);
+
+    vkCmdBindVertexBuffers(command, 0, 1, &g_font.vbo.handle, offsets);
+    vkCmdDraw(command, g_font.vertex_count, 1, 0, 0);
+
+    g_font.vertex_count = 0;
+    g_font.offset = 0;
+}
+
+void gui_textbox(StringView text, Vector2 *pos)
 {
     i32 vertex_count = 0;
 
-    usize text_length = strlen(str);
-    if (text_length == 0) return;
-
-    usize vertices_size = sizeof(f32)*24*text_length;
+    usize vertices_size = sizeof(f32) * 24 * text.size;
     auto vertices = (f32*)g_frame->alloc(vertices_size);
 
     f32 bx = pos->x;
 
     i32 vi = 0;
-    while (*str) {
-        char c = *str++;
+
+    for (i32 i = 0; i < text.size; i++) {
+        char c = text[i];
+
         if (c == '\n') {
             pos->y += 20.0f;
             pos->x  = bx;
@@ -56,7 +132,7 @@ void render_font(stbtt_bakedchar *font,
         vertex_count += 6;
 
         stbtt_aligned_quad q = {};
-        stbtt_GetBakedQuad(font, 1024, 1024, c, &pos->x, &pos->y, &q, 1);
+        stbtt_GetBakedQuad(g_font.atlas, 1024, 1024, c, &pos->x, &pos->y, &q, 1);
 
         Vector2 tl = camera_from_screen(Vector2{q.x0, q.y0 + 15.0f});
         Vector2 tr = camera_from_screen(Vector2{q.x1, q.y0 + 15.0f});
@@ -94,9 +170,9 @@ void render_font(stbtt_bakedchar *font,
         vertices[vi++] = q.t0;
     }
 
-    *out_vertex_count += vertex_count;
+    g_font.vertex_count += vertex_count;
 
-    memcpy((void*)((uptr)buffer + *offset), vertices, vertices_size);
-    *offset += vertices_size;
+    memcpy((void*)((uptr)g_font.buffer + g_font.offset), vertices, vertices_size);
+    g_font.offset += vertices_size;
 }
 
