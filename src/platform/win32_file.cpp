@@ -24,6 +24,7 @@
 
 #include "core/file.h"
 
+#include "core/maths.h"
 #include "platform.h"
 #include "leary_macros.h"
 
@@ -81,17 +82,16 @@ void init_paths(Allocator *a)
     g_paths.models   = create_string(a, g_paths.data, "models\\");
 }
 
-Array<Path> list_files(const char *folder, Allocator *allocator)
+Array<FilePath> list_files(FolderPath folder, Allocator *allocator)
 {
-    Array<Path> files = {};
+    Array<FilePath> files = {};
     files.allocator   = allocator;
 
     // TODO(jesper): ROBUSTNESS: better path length
     char path[2048];
-    sprintf(path, "%s\\*.*", folder);
+    snprintf(path, sizeof path, "%s\\*.*", folder.absolute.bytes);
 
-    isize dlen = strlen(folder);
-    bool eslash = (folder[dlen-1] == '\\');
+    bool eslash = (folder[folder.absolute.size-1] == '\\');
 
     HANDLE h = NULL;
     WIN32_FIND_DATA fd;
@@ -109,28 +109,12 @@ Array<Path> list_files(const char *folder, Allocator *allocator)
             // TODO(jesper): handle sub-folders
             LOG(Log_warning, "sub-folders are unimplemented");
         } else {
-            i32 flen = utf8_size(fd.cFileName);
-
-            Path p = {};
+            FilePath p = {};
             if (!eslash) {
-                p.absolute = create_string(allocator, folder, "\\", fd.cFileName);
+                p = create_file_path(allocator, folder, "\\", fd.cFileName);
             } else {
-                p.absolute = create_string(allocator, folder, fd.cFileName);
+                p = create_file_path(allocator, folder, fd.cFileName);
             }
-
-            if (!eslash) {
-                p.filename = { flen, p.absolute.bytes + dlen + 1 };
-            } else {
-                p.filename = { flen, p.absolute.bytes + dlen };
-            }
-
-            i32 ext = 0;
-            for (i32 i = 0; i < p.filename.size; i++) {
-                if (p.filename[i] == '.') {
-                    ext = i;
-                }
-            }
-            p.extension = { flen - ext, p.filename.bytes + ext + 1 };
 
             LOG("adding file: %s", p.absolute.bytes);
             array_add(&files, p);
@@ -153,50 +137,37 @@ char* resolve_relative(const char *path)
     return strdup(buffer);
 }
 
-char* resolve_path(GamePath rp, const char *path, Allocator *a)
+FilePath resolve_file_path(GamePath rp, StringView path, Allocator *a)
 {
-    usize length, plength;
-    char *resolved;
-    char *p, *root;
-
-    plength = strlen(path);
+    String root;
 
     switch (rp) {
-    case GamePath_data: {
-        length = g_paths.data.size + plength;
-        root   = g_paths.data.bytes;
-    } break;
-    case GamePath_exe: {
-        length = g_paths.exe.size + plength;
-        root   = g_paths.exe.bytes;
-    } break;
-    case GamePath_shaders: {
-        length = g_paths.shaders.size + plength;
-        root   = g_paths.shaders.bytes;
-    } break;
-    case GamePath_textures: {
-        length = g_paths.textures.size + plength;
-        root   = g_paths.textures.bytes;
-    } break;
-    case GamePath_models: {
-        length = g_paths.models.size + plength;
-        root   = g_paths.models.bytes;
-    } break;
-    case GamePath_preferences: {
-        length = g_paths.preferences.size + plength;
-        root   = g_paths.preferences.bytes;
-    } break;
+    case GamePath_data:
+        root = g_paths.data;
+        break;
+    case GamePath_exe:
+        root = g_paths.exe;
+        break;
+    case GamePath_shaders:
+        root = g_paths.shaders;
+        break;
+    case GamePath_textures:
+        root = g_paths.textures;
+        break;
+    case GamePath_models:
+        root = g_paths.models;
+        break;
+    case GamePath_preferences:
+        root = g_paths.preferences;
+        break;
     default:
         LOG(Log_error, "unknown path root: %d", rp);
         ASSERT(false);
-        return nullptr;
+        return {};
     }
 
-    resolved = (char*)a->alloc(length + 1);
-    p        = strcpy(resolved, root);
-    strcat(p, path);
-
-    for (i32 i = 0; i < length; i++) {
+    FilePath resolved = create_file_path(a, root, path);
+    for (i32 i = 0; i < resolved.absolute.size; i++) {
         if (resolved[i] == '/') {
             resolved[i] = '\\';
         }
@@ -205,9 +176,48 @@ char* resolve_path(GamePath rp, const char *path, Allocator *a)
     return resolved;
 }
 
-bool file_exists(const char *path)
+FolderPath resolve_folder_path(GamePath rp, StringView path, Allocator *a)
 {
-    return PathFileExists(path) == TRUE;
+    String root;
+
+    switch (rp) {
+    case GamePath_data:
+        root = g_paths.data;
+        break;
+    case GamePath_exe:
+        root = g_paths.exe;
+        break;
+    case GamePath_shaders:
+        root = g_paths.shaders;
+        break;
+    case GamePath_textures:
+        root = g_paths.textures;
+        break;
+    case GamePath_models:
+        root = g_paths.models;
+        break;
+    case GamePath_preferences:
+        root = g_paths.preferences;
+        break;
+    default:
+        LOG(Log_error, "unknown path root: %d", rp);
+        ASSERT(false);
+        return {};
+    }
+
+    FolderPath resolved = create_folder_path(a, root, path);
+    for (i32 i = 0; i < resolved.absolute.size; i++) {
+        if (resolved[i] == '/') {
+            resolved[i] = '\\';
+        }
+    }
+
+    return resolved;
+}
+
+bool file_exists(FilePathView file)
+{
+    return PathFileExists(file.absolute.bytes) == TRUE;
 }
 
 bool folder_exists(const char *path)
@@ -216,11 +226,10 @@ bool folder_exists(const char *path)
     return (r != INVALID_FILE_ATTRIBUTES && (r & FILE_ATTRIBUTE_DIRECTORY));
 }
 
-bool create_file(const char *path, bool create_folders = false)
+bool create_file(FilePathView p, bool create_folders = false)
 {
     if (create_folders) {
-        Path p = create_file_path(g_system_alloc, path);
-
+        // TODO(jesper): replace with create_folder_path_view
         char folder[MAX_PATH];
         strncpy(folder, p.absolute.bytes, p.absolute.size - p.filename.size - 1);
 
@@ -234,8 +243,12 @@ bool create_file(const char *path, bool create_folders = false)
     }
 
 
-    HANDLE file_handle = CreateFile(path, 0, 0, NULL, CREATE_NEW,
-                                    FILE_ATTRIBUTE_NORMAL, NULL);
+    HANDLE file_handle = CreateFile(
+        p.absolute.bytes,
+        0, 0, NULL,
+        CREATE_NEW,
+        FILE_ATTRIBUTE_NORMAL,
+        NULL);
 
     if (file_handle == INVALID_HANDLE_VALUE) {
         return false;
@@ -245,7 +258,7 @@ bool create_file(const char *path, bool create_folders = false)
     return true;
 }
 
-void* open_file(const char *path, FileAccess access)
+void* open_file(FilePathView path, FileAccess access)
 {
     DWORD flags;
     DWORD share_mode;
@@ -268,8 +281,13 @@ void* open_file(const char *path, FileAccess access)
         return nullptr;
     }
 
-    HANDLE file_handle = CreateFile(path, flags, share_mode, NULL,
-                                    OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    HANDLE file_handle = CreateFile(
+        path.absolute.bytes,
+        flags, share_mode,
+        NULL,
+        OPEN_EXISTING,
+        FILE_ATTRIBUTE_NORMAL,
+        NULL);
 
     if (file_handle == INVALID_HANDLE_VALUE) {
         return nullptr;
@@ -283,12 +301,12 @@ void close_file(void *file_handle)
     CloseHandle((HANDLE)file_handle);
 }
 
-char* read_file(const char *filename, usize *o_size, Allocator *a)
+char* read_file(FilePathView filename, usize *o_size, Allocator *a)
 {
     char *buffer = nullptr;
 
     HANDLE file = CreateFile(
-        filename,
+        filename.absolute.bytes,
         GENERIC_READ,
         FILE_SHARE_READ | FILE_SHARE_WRITE,
         NULL,
@@ -299,7 +317,8 @@ char* read_file(const char *filename, usize *o_size, Allocator *a)
     if (file == INVALID_HANDLE_VALUE) {
         LOG(Log_error,
             "failed to open file %s - %s",
-            filename, win32_system_error_message(GetLastError()));
+            filename.absolute.bytes,
+            win32_system_error_message(GetLastError()));
         return nullptr;
     }
 

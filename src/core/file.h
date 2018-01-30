@@ -28,87 +28,127 @@ enum GamePath {
     GamePath_preferences
 };
 
-struct Path {
+void resolve_filename_ext(
+    StringView absolute,
+    StringView *filename,
+    StringView *extension);
+
+struct FolderPath {
+    String absolute = {};
+
+    char& operator[](i32 i)
+    {
+        return absolute[i];
+    }
+};
+
+struct FolderPathView {
+    StringView absolute = {};
+
+    FolderPathView(FolderPath other)
+    {
+        absolute = other.absolute;
+    }
+
+    template<i32 N>
+    FolderPathView(const char (&str)[N])
+    {
+        absolute = { N, str };
+    }
+
+    FolderPathView(const char *str)
+    {
+        absolute = { str };
+    }
+
+    FolderPathView(i32 size, const char *str)
+    {
+        absolute = { size, str };
+    }
+
+    const char& operator[] (i32 i)
+    {
+        return absolute[i];
+    }
+};
+
+struct FilePath {
     String     absolute  = {};
     StringView filename  = {}; // NOTE(jesper): includes extension
     StringView extension = {}; // NOTE(jesper): excluding .
 
-    Path() {}
-
-    Path(Path &other)
+    char& operator[](i32 i)
     {
-        *this = other;
+        return absolute[i];
     }
-
-    Path(Path &&other)
-    {
-        absolute  = std::move(other.absolute);
-        filename  = std::move(other.filename);
-        extension = std::move(other.extension);
-    }
-
-    Path& operator=(const Path &other)
-    {
-        absolute = other.absolute;
-        filename = {
-            other.filename.size,
-            absolute.bytes + (other.filename.bytes - other.absolute.bytes)
-        };
-
-        extension = {
-            other.extension.size,
-            absolute.bytes + (other.extension.bytes - other.absolute.bytes)
-        };
-
-        return *this;
-    }
-
-    Path& operator=(Path &&other)
-    {
-        if (this == &other) {
-            return *this;
-        }
-
-        absolute  = std::move(other.absolute);
-        filename  = std::move(other.filename);
-        extension = std::move(other.extension);
-        return *this;
-    }
-
-
 };
 
-bool operator==(Path lhs, Path rhs);
+struct FilePathView {
+    StringView absolute  = {};
+    StringView filename  = {}; // NOTE(jesper): includes extension
+    StringView extension = {}; // NOTE(jesper): excluding .
+
+    template<i32 N>
+    FilePathView(const char (&str)[N])
+    {
+        absolute = { N, byte };
+        resolve_filename_ext(absolute, &filename, &extension);
+    }
+
+    FilePathView(const char *str)
+    {
+        absolute = { str };
+        resolve_filename_ext(absolute, &filename, &extension);
+    }
+
+    FilePathView(FilePath other)
+    {
+        absolute  = other.absolute;
+        filename  = other.filename;
+        extension = other.extension;
+    }
+
+    FilePathView(i32 size, const char *str)
+    {
+        absolute = { size, str };
+        resolve_filename_ext(absolute, &filename, &extension);
+    }
+
+    const char& operator[] (i32 i)
+    {
+        return absolute[i];
+    }
+};
+
+bool operator==(FilePath lhs, FilePath rhs);
+bool operator==(FolderPath lhs, FolderPath rhs);
 
 template<typename... Args>
-Path create_file_path(Allocator *a, Args... args)
+FilePath create_file_path(Allocator *a, Args... args)
 {
-    Path p = {};
+    FilePath p = {};
     p.absolute = create_string(a, args...);
-
-    i32 slash = 0;
-    i32 ext   = 0;
-    for (i32 i = 0; i < p.absolute.size; i++) {
-        if (p.absolute[i] == '/' || p.absolute[i] == '\\') {
-            slash = i;
-        } else if (p.absolute[i] == '.') {
-            ext = i;
-        }
-    }
-
-    p.filename = {
-        p.absolute.size - slash - 1,
-        p.absolute.bytes + slash + 1
-    };
-
-    if (ext != 0) {
-        p.extension = {
-            p.absolute.size - ext - 1,
-            p.absolute.bytes + ext + 1
-        };
-    }
+    resolve_filename_ext(p.absolute, &p.filename, &p.extension);
 
     return p;
 }
+
+template<typename... Args>
+FolderPath create_folder_path(Allocator *a, Args... args)
+{
+    FolderPath p = {};
+    p.absolute = create_string(a, args...);
+    return p;
+}
+
+i32 utf8_size(FilePath file);
+i32 utf8_size(FilePathView file);
+i32 utf8_size(FolderPath folder);
+i32 utf8_size(FolderPathView folder);
+
+void string_concat(String *str, FilePath file);
+void string_concat(String *str, FilePathView file);
+void string_concat(String *str, FolderPath folder);
+void string_concat(String *str, FolderPathView folder);
 
 #endif // LEARY_FILE_H

@@ -25,8 +25,8 @@ extern VulkanDevice *g_vulkan;
 void init_fonts()
 {
     usize font_size;
-    char *font_path = resolve_path(GamePath_data, "fonts/Roboto-Regular.ttf", g_stack);
-    if (font_path == nullptr) {
+    FilePath font_path = resolve_file_path(GamePath_data, "fonts/Roboto-Regular.ttf", g_stack);
+    if (font_path.absolute.size == 0) {
         return;
     }
 

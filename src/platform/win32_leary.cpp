@@ -30,7 +30,7 @@ SystemAllocator *g_system_alloc;
 #include "generated/type_info.h"
 
 struct CatalogThreadData {
-    char* folder;
+    FolderPathView folder;
     catalog_callback_t *callback;
 };
 
@@ -46,17 +46,17 @@ DWORD catalog_thread_process(void *data)
     CatalogThreadData *ctd = (CatalogThreadData*)data;
 
     HANDLE fh = CreateFile(
-        ctd->folder,
+        ctd->folder.absolute.bytes,
         GENERIC_READ | FILE_LIST_DIRECTORY,
         FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
         NULL,
         OPEN_EXISTING,
         FILE_ATTRIBUTE_NORMAL | FILE_FLAG_BACKUP_SEMANTICS,
         NULL);
+
     ASSERT(fh != INVALID_HANDLE_VALUE);
 
-    isize flen = strlen(ctd->folder);
-    bool eslash = ctd->folder[flen-1] == '\\';
+    bool eslash = ctd->folder[ctd->folder.absolute.size - 1] == '\\';
 
     DWORD buffer[2048];
     DWORD bytes = 0;
@@ -76,16 +76,11 @@ DWORD catalog_thread_process(void *data)
             if (fni->Action == FILE_ACTION_MODIFIED) {
                 ASSERT(fni->FileNameLength <= I32_MAX);
 
-                Path p;
+                FilePath p;
                 if (eslash) {
-                    p = create_file_path(g_system_alloc,
-                                         ctd->folder,
-                                         fni->FileName);
+                    p = create_file_path( g_system_alloc, ctd->folder, fni->FileName);
                 } else {
-                    p = create_file_path(g_system_alloc,
-                                         ctd->folder,
-                                         '\\',
-                                         fni->FileName);
+                    p = create_file_path(g_system_alloc, ctd->folder, '\\', fni->FileName);
                 }
 
                 ctd->callback(p);
@@ -97,7 +92,7 @@ DWORD catalog_thread_process(void *data)
     return 0;
 }
 
-void create_catalog_thread(Array<char*> folders, catalog_callback_t *callback)
+void create_catalog_thread(Array<FolderPath> folders, catalog_callback_t *callback)
 {
     for (auto f : folders) {
         auto data = g_persistent->talloc<CatalogThreadData>();
@@ -114,7 +109,7 @@ void create_catalog_thread(Array<char*> folders, catalog_callback_t *callback)
 
 void platform_quit()
 {
-    char *settings_path = resolve_path(GamePath_preferences, "settings.conf", g_stack);
+    FilePath settings_path = resolve_file_path(GamePath_preferences, "settings.conf", g_stack);
     serialize_save_conf(settings_path, Settings_members,
                         ARRAY_SIZE(Settings_members), &g_settings);
 
@@ -334,7 +329,7 @@ PLATFORM_INIT_FUNC(platform_init)
 
     init_paths(g_persistent);
 
-    char *settings_path = resolve_path(GamePath_preferences, "settings.conf", g_frame);
+    FilePath settings_path = resolve_file_path(GamePath_preferences, "settings.conf", g_frame);
     serialize_load_conf(settings_path, Settings_members,
                         ARRAY_SIZE(Settings_members), &g_settings);
 

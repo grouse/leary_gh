@@ -13,7 +13,7 @@
 
 #define ASSET_INVALID_ID (-1)
 
-#define CATALOG_PROCESS_FUNC(fname) void fname(Path path)
+#define CATALOG_PROCESS_FUNC(fname) void fname(FilePath path)
 typedef CATALOG_PROCESS_FUNC(catalog_process_t);
 
 typedef i32 AssetID;
@@ -50,8 +50,7 @@ struct EntityData {
 };
 
 struct Catalog {
-    Array<char*> folders;
-    const char *folder;
+    Array<FolderPath> folders;
 
     AssetID next_asset_id = 0;
     HashTable<const char*, catalog_process_t*> processes;
@@ -61,7 +60,7 @@ struct Catalog {
     HashTable<AssetID, EntityID>               entities;
 
     Mutex mutex;
-    Array<Path> process_queue;
+    Array<FilePath> process_queue;
 };
 
 

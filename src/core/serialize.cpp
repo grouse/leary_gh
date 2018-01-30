@@ -217,7 +217,7 @@ member_from_string(char **ptr,
 }
 
 void
-serialize_load_conf(char *path, StructMemberInfo *members, i32 num_members, void *out)
+serialize_load_conf(FilePathView path, StructMemberInfo *members, i32 num_members, void *out)
 {
     if (!file_exists(path)) {
         LOG(Log_warning, "path does not exist: %s", path);
@@ -231,7 +231,7 @@ serialize_load_conf(char *path, StructMemberInfo *members, i32 num_members, void
 }
 
 void
-serialize_save_conf(char *path, StructMemberInfo *members, i32 num_members, void *ptr)
+serialize_save_conf(FilePathView path, StructMemberInfo *members, i32 num_members, void *ptr)
 {
     if (!file_exists(path) && !create_file(path, true)) {
         LOG(Log_warning, "path does not exist or can't be created: %s",

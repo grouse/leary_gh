@@ -165,9 +165,9 @@ void platform_quit();
 void platform_toggle_raw_mouse();
 void platform_set_raw_mouse(bool enable);
 
-#define CATALOG_CALLBACK(fname)  void fname(Path path)
+#define CATALOG_CALLBACK(fname)  void fname(FilePath path)
 typedef CATALOG_CALLBACK(catalog_callback_t);
 
-void create_catalog_thread(Array<char*> folders, catalog_callback_t *callback);
+void create_catalog_thread(Array<FolderPath> folders, catalog_callback_t *callback);
 
 #endif // LEARY_PLATFORM_MAIN_H

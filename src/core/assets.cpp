@@ -197,12 +197,12 @@ void add_vertex(Array<f32> *vertices, Vector3 p)
     array_add(vertices, p.z);
 }
 
-Mesh load_mesh_obj(const char *filename)
+Mesh load_mesh_obj(StringView filename)
 {
     Mesh mesh = {};
 
-    char *path = resolve_path(GamePath_models, filename, g_frame);
-    if (path == nullptr) {
+    FilePath path = resolve_file_path(GamePath_models, filename, g_frame);
+    if (path.absolute.size == 0) {
         LOG("unable to resolve path: %s", path);
         return mesh;
     }
@@ -422,7 +422,7 @@ Mesh load_mesh_obj(const char *filename)
 
 extern Catalog g_catalog;
 
-Texture load_texture(Path path)
+Texture load_texture(FilePath path)
 {
     Texture t = {};
     u32 ehash = hash32(path.extension.bytes);
@@ -464,7 +464,7 @@ Texture* add_texture(const char *name,
     return &g_textures[texture_id];
 }
 
-Texture* add_texture(Path path)
+Texture* add_texture(FilePath path)
 {
     Texture t = load_texture(path);
     if (t.data == nullptr) {
@@ -531,7 +531,7 @@ Texture* find_texture(const char *name)
     return &g_textures[*tid];
 }
 
-EntityData parse_entity_data(Path p)
+EntityData parse_entity_data(FilePath p)
 {
     usize size;
     char *fp = read_file(p.absolute.bytes, &size, g_frame);
@@ -606,7 +606,7 @@ EntityData parse_entity_data(Path p)
     return data;
 }
 
-i32 add_entity(Path p)
+i32 add_entity(FilePath p)
 {
     EntityData data = parse_entity_data(p);
     Entity e = entities_add(data.position);
@@ -654,7 +654,7 @@ void process_catalog_system()
     // that we have thread safe versions of update_vk_texture, currently that'd
     // mean handling multi-threaded command buffer creation and submission
     for (i32 i = 0; i < g_catalog.process_queue.count; i++) {
-        Path &p = g_catalog.process_queue[i];
+        FilePath &p = g_catalog.process_queue[i];
 
         catalog_process_t **func = table_find(&g_catalog.processes, p.extension.bytes);
         if (func == nullptr) {
@@ -743,16 +743,16 @@ void init_catalog_system()
 
     init_mutex(&g_catalog.mutex);
 
-    array_add(&g_catalog.folders, resolve_path(GamePath_data, "textures", g_persistent));
+    array_add(&g_catalog.folders, resolve_folder_path(GamePath_data, "textures", g_persistent));
     table_add(&g_catalog.processes, "bmp", catalog_process_bmp);
 
-    array_add(&g_catalog.folders, resolve_path(GamePath_data, "entities", g_persistent));
+    array_add(&g_catalog.folders, resolve_folder_path(GamePath_data, "entities", g_persistent));
     table_add(&g_catalog.processes, "ent", catalog_process_entity);
 
     init_array(&g_textures, g_heap);
 
     for (i32 i = 0; i < g_catalog.folders.count; i++) {
-        Array<Path> files = list_files(g_catalog.folders[i], g_heap);
+        Array<FilePath> files = list_files(g_catalog.folders[i], g_heap);
 
         for (auto &p : files) {
             catalog_process_t **func = table_find(&g_catalog.processes,
