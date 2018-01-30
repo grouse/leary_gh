@@ -37,6 +37,7 @@ bool operator==(StringView lhs, StringView rhs)
 char16_t* utf16_string(String str, Allocator *a)
 {
     (void)a;
+    (void)str;
     return nullptr;
 }
 

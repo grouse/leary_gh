@@ -17,69 +17,6 @@ struct String {
     i32 size             = 0;
     i32 capacity         = 0;
 
-    String() {}
-
-    String(String &other)
-    {
-        *this = other;
-    }
-
-    String(String &&other)
-    {
-        size      = other.size;
-        capacity  = other.capacity;
-        allocator = other.allocator;
-        bytes     = other.bytes;
-
-        other.bytes    = nullptr;
-        other.size     = 0;
-        other.capacity = 0;
-    }
-
-    String& operator=(const String &other)
-    {
-        size      = other.size;
-        capacity  = other.size + 1;
-        allocator = other.allocator;
-
-        if (allocator != nullptr) {
-            bytes     = (char*)allocator->alloc(capacity);
-            std::memcpy(bytes, other.bytes, capacity);
-        }
-        return *this;
-    }
-
-    String& operator=(String &&other)
-    {
-        if (this == &other) {
-            return *this;
-        }
-
-        size      = other.size;
-        capacity  = other.capacity;
-        allocator = other.allocator;
-        bytes     = other.bytes;
-
-        other.bytes    = nullptr;
-        other.size     = 0;
-        other.capacity = 0;
-
-        return *this;
-    }
-
-    ~String()
-    {
-        ASSERT(allocator != nullptr || bytes == nullptr);
-
-        if (allocator != nullptr) {
-            allocator->dealloc(bytes);
-        }
-
-        bytes    = nullptr;
-        capacity = 0;
-        size     = 0;
-    }
-
     char& operator[] (isize i)
     {
         ASSERT(i < size);
@@ -214,6 +151,17 @@ String create_string(Allocator *a, T first, Args... rest)
     string_concat(&str, first, rest...);
 
     return str;
+}
+
+void destroy_string(String *string)
+{
+    ASSERT(string->bytes != nullptr);
+    ASSERT(string->allocator != nullptr);
+
+    string->allocator->dealloc(string->bytes);
+    string->bytes    = nullptr;
+    string->capacity = 0;
+    string->size     = 0;
 }
 
 #endif /* LEARY_STRING_H */
