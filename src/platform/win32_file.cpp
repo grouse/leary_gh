@@ -31,12 +31,12 @@
 extern SystemAllocator *g_system_alloc;
 
 struct PlatformPaths {
-    String preferences;
-    String data;
-    String exe;
-    String shaders;
-    String textures;
-    String models;
+    FolderPath preferences;
+    FolderPath data;
+    FolderPath exe;
+    FolderPath shaders;
+    FolderPath textures;
+    FolderPath models;
 };
 
 PlatformPaths g_paths;
@@ -57,7 +57,7 @@ void init_paths(Allocator *a)
             module_length = (DWORD) wcslen(buffer);
 
         buffer[module_length] = '\0';
-        g_paths.exe = create_string(a, buffer, "\\");
+        g_paths.exe = create_folder_path(a, buffer, "\\");
     }
 
     // --- app data dir
@@ -66,20 +66,20 @@ void init_paths(Allocator *a)
 
     if (env_length != 0) {
         buffer[env_length-1] = '\0';
-        g_paths.data = create_string(a, buffer);
+        g_paths.data = create_folder_path(a, buffer);
     } else {
-        g_paths.data = create_string(a, g_paths.exe, "..\\assets\\");
+        g_paths.data = create_folder_path(a, g_paths.exe, "..\\assets\\");
     }
 
     // --- app preferences dir
     result = SHGetFolderPathW(NULL, CSIDL_LOCAL_APPDATA, NULL, SHGFP_TYPE_CURRENT, buffer);
     if (result == S_OK) {
-        g_paths.preferences = create_string(a, buffer, "\\leary\\");
+        g_paths.preferences = create_folder_path(a, buffer, "\\leary\\");
     }
 
-    g_paths.shaders  = create_string(a, g_paths.exe, "data\\shaders\\");
-    g_paths.textures = create_string(a, g_paths.data, "textures\\");
-    g_paths.models   = create_string(a, g_paths.data, "models\\");
+    g_paths.shaders  = create_folder_path(a, g_paths.exe, "data\\shaders\\");
+    g_paths.textures = create_folder_path(a, g_paths.data, "textures\\");
+    g_paths.models   = create_folder_path(a, g_paths.data, "models\\");
 }
 
 Array<FilePath> list_files(FolderPath folder, Allocator *allocator)
@@ -125,21 +125,31 @@ Array<FilePath> list_files(FolderPath folder, Allocator *allocator)
     return files;
 }
 
-char* resolve_relative(const char *path)
+FilePath resolve_relative(FilePathView path, Allocator *a)
 {
     DWORD result;
 
     char buffer[MAX_PATH];
-    result = GetFullPathName(path, MAX_PATH, buffer, nullptr);
+    result = GetFullPathName(path.absolute.bytes, MAX_PATH, buffer, nullptr);
     ASSERT(result > 0);
 
-    // TODO(jesper): currently leaking memory
-    return strdup(buffer);
+    return create_file_path(a, buffer);
+}
+
+FolderPath resolve_relative(FolderPathView path, Allocator *a)
+{
+    DWORD result;
+
+    char buffer[MAX_PATH];
+    result = GetFullPathName(path.absolute.bytes, MAX_PATH, buffer, nullptr);
+    ASSERT(result > 0);
+
+    return create_folder_path(a, buffer);
 }
 
 FilePath resolve_file_path(GamePath rp, StringView path, Allocator *a)
 {
-    String root;
+    FolderPathView root;
 
     switch (rp) {
     case GamePath_data:
@@ -178,7 +188,7 @@ FilePath resolve_file_path(GamePath rp, StringView path, Allocator *a)
 
 FolderPath resolve_folder_path(GamePath rp, StringView path, Allocator *a)
 {
-    String root;
+    FolderPathView root;
 
     switch (rp) {
     case GamePath_data:

@@ -45,6 +45,8 @@ struct FolderPath {
 struct FolderPathView {
     StringView absolute = {};
 
+    FolderPathView() {}
+
     FolderPathView(FolderPath other)
     {
         absolute = other.absolute;
