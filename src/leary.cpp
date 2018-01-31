@@ -8,10 +8,6 @@
 
 #include "leary.h"
 
-#define STB_TRUETYPE_IMPLEMENTATION
-#define STBTT_ASSERT ASSERT
-#include "external/stb/stb_truetype.h"
-
 #include "platform/platform.h"
 #include "platform/platform_debug.h"
 #include "platform/platform_input.h"
@@ -28,6 +24,7 @@
 #include "core/string.cpp"
 #include "core/file.cpp"
 #include "core/font.cpp"
+#include "core/gui.cpp"
 #include "core/collision.cpp"
 
 #include "vulkan_render.cpp"
@@ -408,6 +405,7 @@ void game_init()
     init_entity_system();
     init_catalog_system();
     init_fonts();
+    init_gui();
     init_collision();
 
     { // update descriptor sets
@@ -1163,11 +1161,14 @@ void game_render()
                                 item.descriptors.data,
                                 0, nullptr);
 
+        // TODO(jesper): proper push constants support
+#if 0
         vkCmdPushConstants(command, pipeline.layout,
                            VK_SHADER_STAGE_VERTEX_BIT,
                            item.constants.offset,
                            (u32)item.constants.size,
                            item.constants.data);
+#endif
 
         Matrix4 t = translate(Matrix4::identity(), item.position);
         vkCmdPushConstants(command, pipeline.layout,
@@ -1178,7 +1179,7 @@ void game_render()
     }
     g_game->overlay.render_queue.count = 0;
 
-    gui_render_text(command);
+    gui_render(command);
 
     end_renderpass(command);
     end_cmd_buffer(command, false);
