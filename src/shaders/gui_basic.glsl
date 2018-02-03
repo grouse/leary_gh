@@ -37,7 +37,7 @@ layout(location = 0) out vec4 out_color;
 
 void main()
 {
-	out_color = out_color;
+	out_color = color;
 }
 
 #endif // FRAGMENT_SHADER

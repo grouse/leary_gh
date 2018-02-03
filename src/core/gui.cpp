@@ -196,7 +196,7 @@ void gui_textbox(StringView text, Vector2 *pos)
     array_add(&g_gui_render_queue, item);
 }
 
-void gui_frame(Vector2 position, f32 width, f32 height)
+void gui_frame(Vector2 position, f32 width, f32 height, Vector4 color)
 {
     struct Vertex {
         Vector2 position;
@@ -213,13 +213,15 @@ void gui_frame(Vector2 position, f32 width, f32 height)
     item.debug_info.line = __LINE__;
 #endif // LEARY_DEBUG
 
-    Vertex tl, tr, br, bl;
-    tl.position = camera_from_screen(Vector2{ position.x,         position.y });
-    tr.position = camera_from_screen(Vector2{ position.x + width, position.y });
-    br.position = camera_from_screen(Vector2{ position.x + width, position.y + height });
-    bl.position = camera_from_screen(Vector2{ position.x,         position.y + height });
+    width  = width / g_settings.video.resolution.width;
+    height = height / g_settings.video.resolution.height;
 
-    Vector4 color = { 1.0f, 1.0f, 1.0f, 1.0f };
+    Vertex tl, tr, br, bl;
+    tl.position = Vector2{ 0.0f,  0.0f };
+    tr.position = Vector2{ width, 0.0f };
+    br.position = Vector2{ width, height };
+    bl.position = Vector2{ 0.0f,  height };
+
     tl.color = tr.color = br.color = bl.color = color;
 
     Array<Vertex> vertices;
@@ -234,19 +236,21 @@ void gui_frame(Vector2 position, f32 width, f32 height)
 
     item.vbo          = g_gui_vbo;
     item.vbo_offset   = g_gui_vbo_offset;
-    item.vertex_count = vertices.count;
+    item.vertex_count = 6;
 
-    Matrix4 t = Matrix4::identity();
+    Matrix4 t = translate(Matrix4::identity(), camera_from_screen(position));
     item.constants.offset = 0;
     item.constants.size   = sizeof t;
     item.constants.data   = g_frame->alloc( item.constants.size );
     memcpy(item.constants.data, &t, sizeof t);
 
-    ASSERT(g_gui_vbo_offset + vertices.count * sizeof vertices[0] < g_gui_vbo.size);
+    isize vertices_size = vertices.count * sizeof vertices[0];
+
+    ASSERT(g_gui_vbo_offset + vertices_size < g_gui_vbo.size);
     memcpy((void*)((uptr)g_gui_vbo_map + g_gui_vbo_offset),
            vertices.data,
-           vertices.count * sizeof vertices[0]);
+           vertices_size);
 
-    g_gui_vbo_offset += vertices.count * sizeof vertices[0];
+    g_gui_vbo_offset += vertices_size;
     array_add(&g_gui_render_queue, item);
 }

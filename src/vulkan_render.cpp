@@ -1054,9 +1054,9 @@ VulkanPipeline create_pipeline(PipelineID id)
 
     VkPipelineVertexInputStateCreateInfo vii = {};
     vii.sType                           = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-    vii.vertexBindingDescriptionCount   = (i32)vbinds.count;
+    vii.vertexBindingDescriptionCount   = vbinds.count;
     vii.pVertexBindingDescriptions      = vbinds.data;
-    vii.vertexAttributeDescriptionCount = (i32)vdescs.count;
+    vii.vertexAttributeDescriptionCount = vdescs.count;
     vii.pVertexAttributeDescriptions    = vdescs.data;
 
     VkPipelineInputAssemblyStateCreateInfo iai = {};
@@ -1097,23 +1097,27 @@ VulkanPipeline create_pipeline(PipelineID id)
     raster.rasterizerDiscardEnable = VK_FALSE;
     raster.frontFace               = VK_FRONT_FACE_CLOCKWISE;
     raster.depthBiasEnable         = VK_FALSE;
+    raster.lineWidth               = 1.0f;
 
     switch (id) {
     case Pipeline_wireframe:
     case Pipeline_wireframe_lines:
         raster.polygonMode = VK_POLYGON_MODE_LINE;
-        raster.lineWidth   = 1.0f;
+        raster.cullMode    = VK_CULL_MODE_NONE;
+        break;
+    case Pipeline_gui_basic:
+        raster.polygonMode = VK_POLYGON_MODE_FILL;
         raster.cullMode    = VK_CULL_MODE_NONE;
         break;
     default:
         raster.polygonMode = VK_POLYGON_MODE_FILL;
-        raster.lineWidth   = 1.0f;
         raster.cullMode    = VK_CULL_MODE_BACK_BIT;
         break;
     }
 
     VkPipelineColorBlendAttachmentState cba = {};
     switch (id) {
+    case Pipeline_gui_basic:
     case Pipeline_font:
         cba.blendEnable         = VK_TRUE;
         cba.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;

@@ -268,5 +268,22 @@ T max(T a, T b)
     return a > b ? a : b;
 }
 
+Vector4 unpack_rgba(u32 hex)
+{
+    Vector4 c;
+
+    u8 r = (hex >> 24) & 0xFF;
+    u8 g = (hex >> 16) & 0xFF;
+    u8 b = (hex >> 8)  & 0xFF;
+    u8 a = hex & 0xFF;
+
+    c.r = r / 255.0f;
+    c.g = g / 255.0f;
+    c.b = b / 255.0f;
+    c.a = a / 255.0f;
+
+    return c;
+}
+
 #endif /* MATH_H */
 

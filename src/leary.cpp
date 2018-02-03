@@ -742,9 +742,9 @@ void process_debug_overlay(DebugOverlay *overlay, f32 dt)
     void *sp = g_stack->sp;
     defer { g_stack->reset(sp); };
 
-    gui_frame({ 100.0f, 100.0f }, 200.0f, 200.0f);
 
     Vector2 pos = screen_from_camera( Vector2{ -1.0f, -1.0f });
+    gui_frame({ 100.0f, 100.0f }, 200.0f, 200.0f, unpack_rgba(0x2A282ACC));
 
     isize buffer_size = 1024*1024;
     char *buffer = (char*)g_stack->alloc(buffer_size);
