@@ -27,6 +27,13 @@ struct Allocator {
     virtual void  reset  (void  *) {}
     virtual void  reset  ()        {}
 
+    inline void* zalloc(isize s)
+    {
+        void *ptr = alloc(s);
+        memset(ptr, 0, s);
+        return ptr;
+    }
+
     template <typename T>
     inline T* talloc()
     {
@@ -41,6 +48,7 @@ struct Allocator {
         memcpy(m, &e, sizeof(T));
         return m;
     }
+
 
     template <typename T>
     inline T* alloc_array(isize count)

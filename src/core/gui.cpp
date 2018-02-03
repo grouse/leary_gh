@@ -50,20 +50,10 @@ void destroy_gui()
 void gui_frame_start()
 {
     g_gui_vbo_offset = 0;
-    g_font.offset = 0;
 
-    ASSERT(g_font.buffer == nullptr);
     ASSERT(g_gui_vbo_map == nullptr);
 
     VkResult result = vkMapMemory(
-        g_vulkan->handle,
-        g_font.vbo.memory,
-        0, VK_WHOLE_SIZE, 0,
-        &g_font.buffer);
-
-    ASSERT(result == VK_SUCCESS);
-
-    result = vkMapMemory(
         g_vulkan->handle,
         g_gui_vbo.memory,
         0, VK_WHOLE_SIZE, 0,
@@ -74,11 +64,6 @@ void gui_frame_start()
 
 void gui_render(VkCommandBuffer command)
 {
-    if (g_font.buffer != nullptr) {
-        vkUnmapMemory(g_vulkan->handle, g_font.vbo.memory);
-        g_font.buffer = nullptr;
-    }
-
     if (g_gui_vbo_map != nullptr) {
         vkUnmapMemory(g_vulkan->handle, g_gui_vbo.memory);
         g_gui_vbo_map = nullptr;
@@ -117,7 +102,8 @@ void gui_render(VkCommandBuffer command)
         vkCmdBindVertexBuffers(command, 0, 1, &item.vbo.handle, &item.vbo_offset);
         vkCmdDraw(command, item.vertex_count, 1, 0, 0);
     }
-    g_gui_render_queue.count = 0;
+
+    init_array(&g_gui_render_queue, g_frame);
 }
 
 void gui_textbox(StringView text, Vector2 *pos)
@@ -193,8 +179,8 @@ void gui_textbox(StringView text, Vector2 *pos)
     init_array(&item.descriptors, g_frame);
     array_add(&item.descriptors, g_game->materials.font.descriptor_set);
 
-    item.vbo          = g_font.vbo;
-    item.vbo_offset   = g_font.offset;
+    item.vbo          = g_gui_vbo;
+    item.vbo_offset   = g_gui_vbo_offset;
     item.vertex_count = vertex_count;
 
     Matrix4 t = Matrix4::identity();
@@ -203,9 +189,9 @@ void gui_textbox(StringView text, Vector2 *pos)
     item.constants.data   = g_frame->alloc( item.constants.size );
     memcpy(item.constants.data, &t, sizeof t);
 
-    ASSERT(g_font.offset + vertices_size < g_font.vbo.size);
-    memcpy((void*)((uptr)g_font.buffer + g_font.offset), vertices, vertices_size);
-    g_font.offset += vertices_size;
+    ASSERT(g_gui_vbo_offset + vertices_size < g_gui_vbo.size);
+    memcpy((void*)((uptr)g_gui_vbo_map + g_gui_vbo_offset), vertices, vertices_size);
+    g_gui_vbo_offset += vertices_size;
 
     array_add(&g_gui_render_queue, item);
 }
@@ -226,7 +212,6 @@ void gui_frame(Vector2 position, f32 width, f32 height)
     item.debug_info.file = __FILE__;
     item.debug_info.line = __LINE__;
 #endif // LEARY_DEBUG
-
 
     Vertex tl, tr, br, bl;
     tl.position = camera_from_screen(Vector2{ position.x,         position.y });
@@ -258,7 +243,6 @@ void gui_frame(Vector2 position, f32 width, f32 height)
     memcpy(item.constants.data, &t, sizeof t);
 
     ASSERT(g_gui_vbo_offset + vertices.count * sizeof vertices[0] < g_gui_vbo.size);
-
     memcpy((void*)((uptr)g_gui_vbo_map + g_gui_vbo_offset),
            vertices.data,
            vertices.count * sizeof vertices[0]);

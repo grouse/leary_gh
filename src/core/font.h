@@ -11,13 +11,7 @@
 
 struct FontData
 {
-    VulkanBuffer vbo;
-    i32 vertex_count = 0;
-
     stbtt_bakedchar atlas[256];
-
-    void *buffer = nullptr;
-    usize offset = 0;
 };
 
 #endif // LEARY_FONT_H

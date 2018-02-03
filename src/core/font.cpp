@@ -34,13 +34,9 @@ void init_fonts()
     VkComponentMapping components = {};
     components.a = VK_COMPONENT_SWIZZLE_R;
     add_texture("font-regular", 1024, 1024, VK_FORMAT_R8_UNORM, bitmap, components);
-
-    // TODO(jesper): this size is really wrong
-    g_font.vbo = create_vbo( 1024 * 1024 );
 }
 
 void destroy_fonts()
 {
-    destroy_buffer(g_font.vbo);
 }
 

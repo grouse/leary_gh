@@ -75,8 +75,8 @@ i32 array_add(Array<T> *a, T e)
 
     if (a->count >= a->capacity) {
         i32 capacity = a->capacity == 0 ? 1 : a->capacity * 2;
-        a->data        = a->allocator->realloc_array(a->data, capacity);
-        a->capacity    = capacity;
+        a->data      = a->allocator->realloc_array(a->data, capacity);
+        a->capacity  = capacity;
     }
 
     a->data[a->count] = e;
