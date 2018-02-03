@@ -6,6 +6,8 @@
  * Copyright (c) 2018 - all rights reserved
  */
 
+#include "gui.h"
+
 struct DebugInfo
 {
     const char* file;
@@ -27,6 +29,9 @@ struct GuiRenderItem
     DebugInfo              debug_info;
 #endif
 };
+
+static GuiRenderItem
+gui_frame_render_item(Vector2 position, f32 width, f32 height, Vector4 color);
 
 
 VulkanBuffer g_gui_vbo;
@@ -64,6 +69,8 @@ void gui_frame_start()
 
 void gui_render(VkCommandBuffer command)
 {
+    PROFILE_FUNCTION();
+
     if (g_gui_vbo_map != nullptr) {
         vkUnmapMemory(g_vulkan->handle, g_gui_vbo.memory);
         g_gui_vbo_map = nullptr;
@@ -106,8 +113,12 @@ void gui_render(VkCommandBuffer command)
     init_array(&g_gui_render_queue, g_frame);
 }
 
-void gui_textbox(StringView text, Vector2 *pos)
+Vector2 gui_textbox(StringView text, Vector2 *pos)
 {
+    PROFILE_FUNCTION();
+
+    Vector2 size = {};
+
     i32 vertex_count = 0;
 
     usize vertices_size = sizeof(f32) * 24 * text.size;
@@ -131,6 +142,9 @@ void gui_textbox(StringView text, Vector2 *pos)
 
         stbtt_aligned_quad q = {};
         stbtt_GetBakedQuad(g_font.atlas, 1024, 1024, c, &pos->x, &pos->y, &q, 1);
+
+        size.x = max(size.x, q.x1);
+        size.y = max(size.y, q.y1 + 15.0f);
 
         Vector2 tl = camera_from_screen(Vector2{q.x0, q.y0 + 15.0f});
         Vector2 tr = camera_from_screen(Vector2{q.x1, q.y0 + 15.0f});
@@ -194,10 +208,52 @@ void gui_textbox(StringView text, Vector2 *pos)
     g_gui_vbo_offset += vertices_size;
 
     array_add(&g_gui_render_queue, item);
+
+    return size;
+}
+
+void gui_textbox(GuiFrame *frame, StringView text, Vector2 *pos)
+{
+    frame->position.x = min(frame->position.x, pos->x);
+    frame->position.y = min(frame->position.y, pos->y);
+
+    Vector2 size = gui_textbox(text, pos);
+
+    frame->width  = max(frame->width, size.x);
+    frame->height = max(frame->height, size.y);
+}
+
+
+GuiFrame gui_frame_begin(Vector4 color)
+{
+    GuiFrame frame = {};
+    frame.color        = color;
+    frame.render_index = array_add(&g_gui_render_queue, {});
+    return frame;
+}
+
+void gui_frame_end(GuiFrame frame)
+{
+    auto item = gui_frame_render_item(
+        frame.position,
+        frame.width, frame.height,
+        frame.color);
+    g_gui_render_queue[frame.render_index] = item;
 }
 
 void gui_frame(Vector2 position, f32 width, f32 height, Vector4 color)
 {
+    auto item = gui_frame_render_item(position, width, height, color);
+    array_add(&g_gui_render_queue, item);
+}
+
+
+
+static GuiRenderItem
+gui_frame_render_item(Vector2 position, f32 width, f32 height, Vector4 color)
+{
+    PROFILE_FUNCTION();
+
     struct Vertex {
         Vector2 position;
         Vector4 color;
@@ -213,8 +269,9 @@ void gui_frame(Vector2 position, f32 width, f32 height, Vector4 color)
     item.debug_info.line = __LINE__;
 #endif // LEARY_DEBUG
 
-    width  = width / g_settings.video.resolution.width;
-    height = height / g_settings.video.resolution.height;
+    // TODO(jesper): fully understand why i need to multiple this by 2
+    width  = width / g_settings.video.resolution.width * 2.0f;
+    height = height / g_settings.video.resolution.height * 2.0f;
 
     Vertex tl, tr, br, bl;
     tl.position = Vector2{ 0.0f,  0.0f };
@@ -252,5 +309,5 @@ void gui_frame(Vector2 position, f32 width, f32 height, Vector4 color)
            vertices_size);
 
     g_gui_vbo_offset += vertices_size;
-    array_add(&g_gui_render_queue, item);
+    return item;
 }

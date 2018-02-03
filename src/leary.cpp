@@ -743,17 +743,22 @@ void process_debug_overlay(DebugOverlay *overlay, f32 dt)
     defer { g_stack->reset(sp); };
 
 
+    Vector4 fc = unpack_rgba(0x2A282ACC);
+
     Vector2 pos = screen_from_camera( Vector2{ -1.0f, -1.0f });
-    gui_frame({ 100.0f, 100.0f }, 200.0f, 200.0f, unpack_rgba(0x2A282ACC));
+    //gui_frame({ 300.0f, 0.0f }, 200.0f, 30.0f, fc);
 
     isize buffer_size = 1024*1024;
     char *buffer = (char*)g_stack->alloc(buffer_size);
     buffer[0] = '\0';
 
+    GuiFrame frame = gui_frame_begin(fc);
+
     f32 dt_ms = dt * 1000.0f;
     snprintf(buffer, buffer_size, "frametime: %f ms, %f fps\n",
              dt_ms, 1000.0f / dt_ms);
-    gui_textbox(buffer, &pos);
+    gui_textbox(&frame, buffer, &pos);
+
 
     for (auto &item : overlay->items) {
         {
@@ -768,12 +773,12 @@ void process_debug_overlay(DebugOverlay *overlay, f32 dt)
 
             if (item.collapsed) {
                 snprintf(buffer, buffer_size, "%s...", item.title);
-                gui_textbox(buffer, &pos);
+                gui_textbox(&frame, buffer, &pos);
                 continue;
             }
 
             snprintf(buffer, buffer_size, "%s", item.title);
-            gui_textbox(buffer, &pos);
+            gui_textbox(&frame, buffer, &pos);
         }
 
         switch (item.type) {
@@ -787,14 +792,14 @@ void process_debug_overlay(DebugOverlay *overlay, f32 dt)
                     snprintf(buffer, buffer_size,
                              "  %s: { sp: %p, size: %zd, remaining: %zd }\n",
                              child.title, a->sp, a->size, a->remaining);
-                    gui_textbox(buffer, &pos);
+                    gui_textbox(&frame, buffer, &pos);
                 } break;
                 case Debug_allocator_free_list: {
                     Allocator *a = (Allocator*)child.u.data;
                     snprintf(buffer, buffer_size,
                              "  %s: { size: %zd, remaining: %zd }\n",
                              child.title, a->size, a->remaining);
-                    gui_textbox(buffer, &pos);
+                    gui_textbox(&frame, buffer, &pos);
                 } break;
                 default:
                     LOG("unhandled case: %d", item.type);
@@ -820,7 +825,7 @@ void process_debug_overlay(DebugOverlay *overlay, f32 dt)
             ProfileTimers &timers = g_profile_timers_prev;
             for (i32 i = 0; i < timers.count; i++) {
                 snprintf(buffer, buffer_size, "%s: ", timers.name[i]);
-                gui_textbox(buffer, &pos);
+                gui_textbox(&frame, buffer, &pos);
 
                 if (pos.x >= c1.x) {
                     c1.x = pos.x;
@@ -835,7 +840,7 @@ void process_debug_overlay(DebugOverlay *overlay, f32 dt)
             pos.x  = c1.x;
             for (i32 i = 0; i < timers.count; i++) {
                 snprintf(buffer, buffer_size, "%" PRIu64, timers.cycles[i]);
-                gui_textbox(buffer, &pos);
+                gui_textbox(&frame, buffer, &pos);
 
                 if (pos.x >= c2.x) {
                     c2.x = pos.x;
@@ -849,7 +854,7 @@ void process_debug_overlay(DebugOverlay *overlay, f32 dt)
             c2.x = MAX(c1.x + 100.0f, c2.x) + margin;
             pos.x  = c2.x;
             for (i32 i = 0; i < timers.count; i++) {
-                gui_textbox(buffer, &pos);
+                gui_textbox(&frame, buffer, &pos);
 
                 if (pos.x >= c3.x) {
                     c3.x = pos.x;
@@ -864,16 +869,16 @@ void process_debug_overlay(DebugOverlay *overlay, f32 dt)
             pos.x  = c3.x;
             for (int i = 0; i < timers.count; i++) {
                 snprintf(buffer, buffer_size, "%f", timers.cycles[i] / (f32)timers.calls[i]);
-                gui_textbox(buffer, &pos);
+                gui_textbox(&frame, buffer, &pos);
 
                 pos.x  = c3.x;
                 pos.y += 20.0f;
             }
 
-            gui_textbox("name",     &c0);
-            gui_textbox("cycles",   &c1);
-            gui_textbox("calls",    &c2);
-            gui_textbox("cy/calls", &c3);
+            gui_textbox(&frame, "name",     &c0);
+            gui_textbox(&frame, "cycles",   &c1);
+            gui_textbox(&frame, "calls",    &c2);
+            gui_textbox(&frame, "cy/calls", &c3);
 
             pos.x = base_x;
         } break;
@@ -890,6 +895,8 @@ void process_debug_overlay(DebugOverlay *overlay, f32 dt)
             break;
         }
     }
+
+    gui_frame_end(frame);
 }
 
 void game_update(f32 dt)

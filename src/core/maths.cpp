@@ -366,6 +366,13 @@ inline Vector2 operator+ (Vector2 lhs, Vector2 rhs)
     return result;
 }
 
+inline Vector2& operator+=(Vector2 &lhs, f32 rhs)
+{
+    lhs.x += rhs;
+    lhs.y += rhs;
+    return lhs;
+}
+
 inline Matrix4 operator * (Matrix4 lhs, Matrix4 rhs)
 {
     Matrix4 result = {};
