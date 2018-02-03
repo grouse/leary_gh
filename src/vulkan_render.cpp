@@ -710,169 +710,74 @@ VulkanShader create_shader(ShaderID id)
     defer { g_stack->reset(sp); };
 
     VulkanShader shader = {};
+    shader.name = "main";
 
     VkShaderModuleCreateInfo info = {};
     info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
 
+    FilePath path = {};
+
     switch (id) {
-    case ShaderID_terrain_vert: {
-        FilePath path = resolve_file_path(GamePath_shaders, "terrain.vert.spv", g_stack);
-
-        usize size;
-        u32 *source = (u32*)read_file(path, &size, g_frame);
-        ASSERT(source != nullptr);
-
-        shader.name   = "main";
+    case ShaderID_terrain_vert:
+        path = resolve_file_path(GamePath_shaders, "terrain.vert.spv", g_stack);
         shader.stage  = VK_SHADER_STAGE_VERTEX_BIT;
-
-        info.codeSize = size;
-        info.pCode    = source;
-
-        VkResult result = vkCreateShaderModule(g_vulkan->handle, &info,
-                                               nullptr, &shader.module);
-        ASSERT(result == VK_SUCCESS);
-    } break;
-    case ShaderID_terrain_frag: {
-        FilePath path = resolve_file_path(GamePath_shaders, "terrain.frag.spv", g_stack);
-
-        usize size;
-        u32 *source = (u32*)read_file(path, &size, g_frame);
-        ASSERT(source != nullptr);
-
-        shader.name   = "main";
+        break;
+    case ShaderID_terrain_frag:
+        path = resolve_file_path(GamePath_shaders, "terrain.frag.spv", g_stack);
         shader.stage  = VK_SHADER_STAGE_FRAGMENT_BIT;
-
-        info.codeSize = size;
-        info.pCode    = source;
-
-        VkResult result = vkCreateShaderModule(g_vulkan->handle, &info,
-                                               nullptr, &shader.module);
-        ASSERT(result == VK_SUCCESS);
-    } break;
-    case ShaderID_wireframe_vert: {
-        FilePath path = resolve_file_path(GamePath_shaders, "wireframe.vert.spv", g_stack);
-
-        usize size;
-        u32 *source = (u32*)read_file(path, &size, g_frame);
-        ASSERT(source != nullptr);
-
-        shader.name   = "main";
+        break;
+    case ShaderID_wireframe_vert:
+        path = resolve_file_path(GamePath_shaders, "wireframe.vert.spv", g_stack);
         shader.stage  = VK_SHADER_STAGE_VERTEX_BIT;
-
-        info.codeSize = size;
-        info.pCode    = source;
-
-        VkResult result = vkCreateShaderModule(g_vulkan->handle, &info,
-                                               nullptr, &shader.module);
-        ASSERT(result == VK_SUCCESS);
-    } break;
-    case ShaderID_wireframe_frag: {
-        FilePath path = resolve_file_path(GamePath_shaders, "wireframe.frag.spv", g_stack);
-
-        usize size;
-        u32 *source = (u32*)read_file(path, &size, g_frame);
-        ASSERT(source != nullptr);
-
-        shader.name   = "main";
+        break;
+    case ShaderID_wireframe_frag:
+        path = resolve_file_path(GamePath_shaders, "wireframe.frag.spv", g_stack);
         shader.stage  = VK_SHADER_STAGE_FRAGMENT_BIT;
-
-        info.codeSize = size;
-        info.pCode    = source;
-
-        VkResult result = vkCreateShaderModule(g_vulkan->handle, &info,
-                                               nullptr, &shader.module);
-        ASSERT(result == VK_SUCCESS);
-    } break;
-    case ShaderID_mesh_vert: {
-        FilePath path = resolve_file_path(GamePath_shaders, "mesh.vert.spv", g_stack);
-
-        usize size;
-        u32 *source = (u32*)read_file(path, &size, g_frame);
-        ASSERT(source != nullptr);
-
-        shader.name   = "main";
+        break;
+    case ShaderID_mesh_vert:
+        path = resolve_file_path(GamePath_shaders, "mesh.vert.spv", g_stack);
         shader.stage  = VK_SHADER_STAGE_VERTEX_BIT;
-
-        info.codeSize = size;
-        info.pCode    = source;
-
-        VkResult result = vkCreateShaderModule(g_vulkan->handle, &info,
-                                               nullptr, &shader.module);
-        ASSERT(result == VK_SUCCESS);
-    } break;
-    case ShaderID_mesh_frag: {
-        FilePath path = resolve_file_path(GamePath_shaders, "mesh.frag.spv", g_stack);
-
-        usize size;
-        u32 *source = (u32*)read_file(path, &size, g_frame);
-        ASSERT(source != nullptr);
-
-        shader.name   = "main";
+        break;
+    case ShaderID_mesh_frag:
+        path = resolve_file_path(GamePath_shaders, "mesh.frag.spv", g_stack);
         shader.stage  = VK_SHADER_STAGE_FRAGMENT_BIT;
-
-        info.codeSize = size;
-        info.pCode    = source;
-
-        VkResult result = vkCreateShaderModule(g_vulkan->handle, &info,
-                                               nullptr, &shader.module);
-        ASSERT(result == VK_SUCCESS);
-    } break;
-    case ShaderID_basic2d_vert: {
-        FilePath path = resolve_file_path(GamePath_shaders, "basic2d.vert.spv", g_stack);
-
-        usize size;
-        u32 *source = (u32*)read_file(path, &size, g_frame);
-        ASSERT(source != nullptr);
-
-        shader.name   = "main";
+        break;
+    case ShaderID_basic2d_vert:
+        path = resolve_file_path(GamePath_shaders, "basic2d.vert.spv", g_stack);
         shader.stage  = VK_SHADER_STAGE_VERTEX_BIT;
-
-        info.codeSize = size;
-        info.pCode    = source;
-
-        VkResult result = vkCreateShaderModule(g_vulkan->handle, &info,
-                                               nullptr, &shader.module);
-        ASSERT(result == VK_SUCCESS);
-    } break;
-    case ShaderID_basic2d_frag: {
-        FilePath path = resolve_file_path(GamePath_shaders, "basic2d.frag.spv", g_stack);
-
-        usize size;
-        u32 *source = (u32*)read_file(path, &size, g_frame);
-        ASSERT(source != nullptr);
-
-        shader.name   = "main";
+        break;
+    case ShaderID_basic2d_frag:
+        path = resolve_file_path(GamePath_shaders, "basic2d.frag.spv", g_stack);
         shader.stage  = VK_SHADER_STAGE_FRAGMENT_BIT;
-
-        info.codeSize = size;
-        info.pCode    = source;
-
-        VkResult result = vkCreateShaderModule(g_vulkan->handle, &info,
-                                               nullptr, &shader.module);
-        ASSERT(result == VK_SUCCESS);
-    } break;
-    case ShaderID_font_frag: {
-        FilePath path = resolve_file_path(GamePath_shaders, "font.frag.spv", g_stack);
-
-        usize size;
-        u32 *source = (u32*)read_file(path, &size, g_frame);
-        ASSERT(source != nullptr);
-
-        shader.name   = "main";
+        break;
+    case ShaderID_gui_basic_vert:
+        path = resolve_file_path(GamePath_shaders, "gui_basic.vert.spv", g_stack);
+        shader.stage  = VK_SHADER_STAGE_VERTEX_BIT;
+        break;
+    case ShaderID_gui_basic_frag:
+        path = resolve_file_path(GamePath_shaders, "gui_basic.frag.spv", g_stack);
         shader.stage  = VK_SHADER_STAGE_FRAGMENT_BIT;
-
-        info.codeSize = size;
-        info.pCode    = source;
-
-        VkResult result = vkCreateShaderModule(g_vulkan->handle, &info,
-                                               nullptr, &shader.module);
-        ASSERT(result == VK_SUCCESS);
-    } break;
+        break;
+    case ShaderID_font_frag:
+        path = resolve_file_path(GamePath_shaders, "font.frag.spv", g_stack);
+        shader.stage  = VK_SHADER_STAGE_FRAGMENT_BIT;
+        break;
     default:
         LOG("unknown shader id: %d", id);
         ASSERT(false);
         break;
     }
+
+    usize size;
+    u32 *source = (u32*)read_file(path, &size, g_frame);
+    ASSERT(source != nullptr);
+
+    info.codeSize = size;
+    info.pCode    = source;
+
+    VkResult result = vkCreateShaderModule(g_vulkan->handle, &info,
+                                           nullptr, &shader.module);
+    ASSERT(result == VK_SUCCESS);
 
     return shader;
 }
@@ -894,6 +799,10 @@ VulkanPipeline create_pipeline(PipelineID id)
     case Pipeline_basic2d:
         pipeline.shaders[ShaderStage_vertex]   = create_shader(ShaderID_basic2d_vert);
         pipeline.shaders[ShaderStage_fragment] = create_shader(ShaderID_basic2d_frag);
+        break;
+    case Pipeline_gui_basic:
+        pipeline.shaders[ShaderStage_vertex]   = create_shader(ShaderID_gui_basic_vert);
+        pipeline.shaders[ShaderStage_fragment] = create_shader(ShaderID_gui_basic_frag);
         break;
     case Pipeline_terrain:
         pipeline.shaders[ShaderStage_vertex]   = create_shader(ShaderID_terrain_vert);
@@ -1080,6 +989,7 @@ VulkanPipeline create_pipeline(PipelineID id)
     switch (id) {
     case Pipeline_font:
     case Pipeline_basic2d:
+    case Pipeline_gui_basic:
     case Pipeline_mesh:
     case Pipeline_terrain: {
         VkPushConstantRange pc = {};
@@ -1115,6 +1025,11 @@ VulkanPipeline create_pipeline(PipelineID id)
 
         array_add(&vdescs, { 0, 0, VK_FORMAT_R32G32_SFLOAT, 0 });
         array_add(&vdescs, { 1, 0, VK_FORMAT_R32G32_SFLOAT, sizeof(f32) * 2 });
+        break;
+    case Pipeline_gui_basic:
+        array_add(&vbinds, { 0, sizeof(f32) * 6, VK_VERTEX_INPUT_RATE_VERTEX });
+        array_add(&vdescs, { 0, 0, VK_FORMAT_R32G32_SFLOAT, 0 });
+        array_add(&vdescs, { 1, 0, VK_FORMAT_R32G32B32A32_SFLOAT, sizeof(f32) * 2 });
         break;
     case Pipeline_basic2d:
         array_add(&vbinds, { 0, sizeof(f32) * 4, VK_VERTEX_INPUT_RATE_VERTEX });
@@ -2425,22 +2340,27 @@ PushConstants create_push_constants(PipelineID pipeline)
     PushConstants c = {};
 
     switch (pipeline) {
-    case Pipeline_font: {
+    case Pipeline_font:
         c.offset = 0;
         c.size   = sizeof(Matrix4);
         c.data   = g_heap->alloc(c.size);
-    } break;
+        break;
     case Pipeline_wireframe:
-    case Pipeline_wireframe_lines: {
+    case Pipeline_wireframe_lines:
         c.offset = 0;
         c.size   = sizeof(Matrix4) + sizeof(Vector3);
         c.data   = g_heap->alloc(c.size);
-    } break;
-    case Pipeline_basic2d: {
+        break;
+    case Pipeline_gui_basic:
         c.offset = 0;
         c.size   = sizeof(Matrix4);
         c.data   = g_heap->alloc(c.size);
-    } break;
+        break;
+    case Pipeline_basic2d:
+        c.offset = 0;
+        c.size   = sizeof(Matrix4);
+        c.data   = g_heap->alloc(c.size);
+        break;
     default:
         // TODO(jesper): error handling
         ASSERT(false);

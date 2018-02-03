@@ -11,7 +11,6 @@ layout(location = 1) in vec2 texture_coordinate;
 // output bindings
 layout(location = 0) out vec2 frag_texture_coordinate;
 
-
 // push constants
 layout(push_constant) uniform Object {
 	mat4 srt;
@@ -32,7 +31,6 @@ layout(binding = 0) uniform sampler2D texture_sampler;
 
 // input bindings
 layout(location = 0) in vec2 texture_coordinate;
-
 
 // output bindings
 layout(location = 0) out vec4 out_color;

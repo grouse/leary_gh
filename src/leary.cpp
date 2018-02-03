@@ -444,6 +444,7 @@ void game_quit()
     vkQueueWaitIdle(g_vulkan->queue);
 
     destroy_fonts();
+    destroy_gui();
 
     destroy_buffer(g_debug_collision.cube.vbo);
     destroy_buffer(g_debug_collision.sphere.vbo);
@@ -740,6 +741,8 @@ void process_debug_overlay(DebugOverlay *overlay, f32 dt)
 
     void *sp = g_stack->sp;
     defer { g_stack->reset(sp); };
+
+    gui_frame({ 100.0f, 100.0f }, 200.0f, 200.0f);
 
     Vector2 pos = screen_from_camera( Vector2{ -1.0f, -1.0f });
 
@@ -1204,7 +1207,6 @@ void game_update_and_render(f32 dt)
     process_debug_overlay(&g_game->overlay, dt);
 
     game_render();
-
 
     g_frame->reset();
     g_debug_frame->reset();

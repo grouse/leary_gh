@@ -23,6 +23,8 @@ enum ShaderID {
     ShaderID_mesh_frag,
     ShaderID_basic2d_vert,
     ShaderID_basic2d_frag,
+    ShaderID_gui_basic_vert,
+    ShaderID_gui_basic_frag,
     ShaderID_font_frag,
     ShaderID_terrain_vert,
     ShaderID_terrain_frag,
@@ -35,6 +37,7 @@ enum PipelineID {
     Pipeline_mesh,
     Pipeline_terrain,
     Pipeline_basic2d,
+    Pipeline_gui_basic,
     Pipeline_wireframe,
     Pipeline_wireframe_lines,
 
