@@ -263,6 +263,18 @@ void destroy_map(RHHashMap<K, V> *map)
     *map = {};
 }
 
+template<typename V>
+void destroy_map(RHHashMap<StringView, V> *map)
+{
+    for (i32 i = 0; i < map->count; i++) {
+        map->entries[i].value.~V();
+        map->allocator->dealloc(map->entries[i].key);
+    }
+
+    map->allocator->dealloc(map->entries);
+    *map = {};
+}
+
 template<typename K, typename V>
 void map_add(RHHashMap<K, V> *map, K key, V value)
 {
@@ -282,7 +294,7 @@ void map_add(RHHashMap<K, V> *map, K key, V value)
         map->resize_threshold = (map->capacity * RH_LOAD_FACTOR) / 100;
     }
 
-    u32 hash = hash32(key);
+    u32 hash = hash32(&key);
     u32 index = hash & map->mask;
 
     Entry e = {
@@ -305,16 +317,57 @@ void map_add(RHHashMap<K, V> *map, K key, V value)
     }
 }
 
+template<typename V>
+void map_add(RHHashMap<StringView, V> *map, StringView key, V value)
+{
+    using Entry = typename RHHashMap<StringView, V>::Entry;
+
+    if (++map->count >= map->resize_threshold) {
+        auto a = map->allocator;
+
+        i32 capacity = map->capacity * 2;
+        Entry *entries = a->ialloc_array<Entry>(capacity);
+        std::memcpy(entries, map->entries, map->capacity);
+        a->dealloc(map->entries);
+
+        map->capacity = capacity;
+        map->mask     = map->capacity - 1;
+        map->entries  = entries;
+        map->resize_threshold = (map->capacity * RH_LOAD_FACTOR) / 100;
+    }
+
+    u32 hash  = hash32(&key);
+    u32 index = hash & map->mask;
+
+    Entry e = {};
+    e.key      = create_string(map->allocator, key);
+    e.value    = std::move(value);
+    e.distance = 0;
+
+    for (i32 i = (i32)index; ; i = (i + 1) & map->mask) {
+        if (map->entries[i].distance == -1) {
+            map->entries[i] = std::move(e);
+            return;
+        }
+
+        if (map->entries[i].distance < e.distance) {
+            std::swap(e, map->entries[i]);
+        }
+
+        e.distance++;
+    }
+}
+
 template<typename K, typename V>
 V* map_find(RHHashMap<K, V> *map, K key)
 {
-    u32 hash = hash32(key);
+    u32 hash = hash32(&key);
     u32 index = hash & map->mask;
     i32 distance = 0;
 
     for (;;) {
         if (map->entries[index].distance == -1 ||
-            map->entries[index].distance <= distance)
+            distance > map->entries[index].distance)
         {
             return nullptr;
         }

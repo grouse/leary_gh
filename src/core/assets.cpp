@@ -419,7 +419,7 @@ extern Catalog g_catalog;
 Texture load_texture(FilePath path)
 {
     Texture t = {};
-    u32 ehash = hash32(path.extension.bytes);
+    u32 ehash = hash32(path.extension);
 
     // TODO(jesper): this isn't constexpr because C++ constexpr is like the
     // village idiot everyone smiles at and tries to ignore and go on about
@@ -452,8 +452,8 @@ Texture* add_texture(StringView name,
 
     TextureID texture_id = (TextureID)array_add(&g_textures, t);
 
-    table_add(&g_catalog.assets,   name,       t.asset_id);
-    table_add(&g_catalog.textures, t.asset_id, texture_id);
+    map_add(&g_catalog.assets,   name,       t.asset_id);
+    map_add(&g_catalog.textures, t.asset_id, texture_id);
 
     return &g_textures[texture_id];
 }
@@ -471,8 +471,8 @@ Texture* add_texture(FilePath path)
 
     TextureID texture_id = (TextureID)array_add(&g_textures, t);
 
-    table_add(&g_catalog.assets,   path.filename, t.asset_id);
-    table_add(&g_catalog.textures, t.asset_id,    texture_id);
+    map_add(&g_catalog.assets,   path.filename, t.asset_id);
+    map_add(&g_catalog.textures, t.asset_id,    texture_id);
 
     return &g_textures[texture_id];
 }
@@ -487,15 +487,15 @@ Mesh* add_mesh(FilePath path)
     m.asset_id = g_catalog.next_asset_id++;
     MeshID mesh_id = (MeshID)array_add(&g_meshes, m);
 
-    table_add(&g_catalog.assets, path.filename, m.asset_id);
-    table_add(&g_catalog.meshes, m.asset_id,    mesh_id);
+    map_add(&g_catalog.assets, path.filename, m.asset_id);
+    map_add(&g_catalog.meshes, m.asset_id,    mesh_id);
 
     return &g_meshes[mesh_id];
 }
 
 AssetID find_asset_id(StringView name)
 {
-    i32 *id = table_find(&g_catalog.assets, name);
+    i32 *id = map_find(&g_catalog.assets, name);
     if (id == nullptr) {
         return ASSET_INVALID_ID;
     }
@@ -510,7 +510,7 @@ Texture* find_texture(AssetID id)
         return {};
     }
 
-    TextureID *tid = table_find(&g_catalog.textures, id);
+    TextureID *tid = map_find(&g_catalog.textures, id);
     if (tid == nullptr) {
         LOG(Log_error, "invalid asset id for texture: %d", id);
         return nullptr;
@@ -526,13 +526,13 @@ Texture* find_texture(AssetID id)
 
 Texture* find_texture(StringView name)
 {
-    AssetID *id = table_find(&g_catalog.assets, name);
+    AssetID *id = map_find(&g_catalog.assets, name);
     if (id == nullptr || *id == ASSET_INVALID_ID) {
         LOG(Log_error, "unable to find texture with name: %s", name);
         return nullptr;
     }
 
-    TextureID *tid = table_find(&g_catalog.textures, *id);
+    TextureID *tid = map_find(&g_catalog.textures, *id);
     if (tid == nullptr || *tid == ASSET_INVALID_ID) {
         LOG(Log_error, "unable to find texture with name: %s", name);
         return nullptr;
@@ -543,13 +543,13 @@ Texture* find_texture(StringView name)
 
 Mesh* find_mesh(StringView name)
 {
-    AssetID *id = table_find(&g_catalog.assets, name);
+    AssetID *id = map_find(&g_catalog.assets, name);
     if (id == nullptr || *id == ASSET_INVALID_ID) {
         LOG(Log_error, "unable to find mesh with name: %s", name.bytes);
         return nullptr;
     }
 
-    MeshID *mid = table_find(&g_catalog.meshes, *id);
+    MeshID *mid = map_find(&g_catalog.meshes, *id);
     if (mid == nullptr || *mid == ASSET_INVALID_ID) {
         LOG(Log_error, "unable to find mesh with name: %s", name.bytes);
         return nullptr;
@@ -673,8 +673,8 @@ i32 add_entity(FilePath p)
 
     AssetID asset_id = g_catalog.next_asset_id++;
 
-    table_add(&g_catalog.assets,   p.filename, asset_id);
-    table_add(&g_catalog.entities, asset_id,   e.id);
+    map_add(&g_catalog.assets,   p.filename, asset_id);
+    map_add(&g_catalog.entities, asset_id,   e.id);
 
     return 1;
 }
@@ -695,7 +695,7 @@ void process_catalog_system()
     for (i32 i = 0; i < g_catalog.process_queue.count; i++) {
         FilePath &p = g_catalog.process_queue[i];
 
-        catalog_process_t **func = table_find(&g_catalog.processes, p.extension.bytes);
+        catalog_process_t **func = map_find(&g_catalog.processes, p.extension);
         if (func == nullptr) {
             LOG(Log_error,
                 "could not find process function for extension: %.*s",
@@ -714,7 +714,7 @@ void process_catalog_system()
 
 CATALOG_CALLBACK(catalog_thread_proc)
 {
-    i32 *id = table_find(&g_catalog.assets, path.filename);
+    i32 *id = map_find(&g_catalog.assets, path.filename);
     if (id == nullptr || *id == ASSET_INVALID_ID) {
         LOG("asset not found in catalogue system: %s\n",
             path.filename.bytes);
@@ -759,7 +759,7 @@ CATALOG_PROCESS_FUNC(catalog_process_entity)
         return;
     }
 
-    EntityID *eid = table_find(&g_catalog.entities, id);
+    EntityID *eid = map_find(&g_catalog.entities, id);
     if (eid && *eid != ASSET_INVALID_ID) {
         Entity &e = g_entities[*eid];
 
@@ -784,24 +784,24 @@ void init_catalog_system()
     g_catalog = {};
     init_array(&g_catalog.folders,       g_heap);
 
-    init_table(&g_catalog.assets,        g_heap);
-    init_table(&g_catalog.textures,      g_heap);
-    init_table(&g_catalog.meshes,        g_heap);
-    init_table(&g_catalog.entities,      g_heap);
+    init_map(&g_catalog.assets,          g_heap);
+    init_map(&g_catalog.textures,        g_heap);
+    init_map(&g_catalog.meshes,          g_heap);
+    init_map(&g_catalog.entities,        g_heap);
 
-    init_table(&g_catalog.processes,     g_heap);
+    init_map(&g_catalog.processes,       g_heap);
     init_array(&g_catalog.process_queue, g_heap);
 
     init_mutex(&g_catalog.mutex);
 
     array_add(&g_catalog.folders, resolve_folder_path(GamePath_data, "textures", g_persistent));
-    table_add(&g_catalog.processes, "bmp", catalog_process_bmp);
+    map_add(&g_catalog.processes, "bmp", catalog_process_bmp);
 
     array_add(&g_catalog.folders, resolve_folder_path(GamePath_data, "models", g_persistent));
-    table_add(&g_catalog.processes, "obj", catalog_process_obj);
+    map_add(&g_catalog.processes, "obj", catalog_process_obj);
 
     array_add(&g_catalog.folders, resolve_folder_path(GamePath_data, "entities", g_persistent));
-    table_add(&g_catalog.processes, "ent", catalog_process_entity);
+    map_add(&g_catalog.processes, "ent", catalog_process_entity);
 
     init_array(&g_textures, g_heap);
     init_array(&g_meshes,   g_heap);
@@ -810,8 +810,9 @@ void init_catalog_system()
         Array<FilePath> files = list_files(g_catalog.folders[i], g_heap);
 
         for (auto &p : files) {
-            catalog_process_t **func = table_find(&g_catalog.processes,
-                                                  p.extension.bytes);
+            catalog_process_t **func = map_find(
+                &g_catalog.processes,
+                p.extension);
 
             if (func == nullptr) {
                 LOG(Log_error,

@@ -56,12 +56,12 @@ struct Catalog {
     Array<FolderPath> folders;
 
     AssetID next_asset_id = 0;
-    HashTable<const char*, catalog_process_t*> processes;
+    RHHashMap<StringView, catalog_process_t*> processes;
 
-    HashTable<StringView, AssetID> assets;
-    HashTable<AssetID, TextureID>   textures;
-    HashTable<AssetID, EntityID>    entities;
-    HashTable<AssetID, MeshID>      meshes;
+    RHHashMap<StringView, AssetID> assets;
+    RHHashMap<AssetID, TextureID>  textures;
+    RHHashMap<AssetID, EntityID>   entities;
+    RHHashMap<AssetID, MeshID>     meshes;
 
     Mutex mutex;
     Array<FilePath> process_queue;
