@@ -56,3 +56,15 @@ u32 hash32(u32 i)
 {
     return i;
 }
+
+template<typename T>
+u32 hash32(T *t)
+{
+    return hash32((void*)t, sizeof(T));
+}
+
+template<>
+u32 hash32(StringView *str)
+{
+    return hash32((void*)str->bytes, str->size);
+}

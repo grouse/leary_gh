@@ -66,10 +66,11 @@ void init_collision()
 
     // debug sphere wireframe
     {
-        Mesh sphere = load_mesh_obj("unit_sphere.obj");
-        g_debug_collision.sphere.index_count = sphere.indices.count;
-        g_debug_collision.sphere.vbo = create_vbo(sphere.vertices.data, sphere.vertices.count * sizeof sphere.vertices[0]);
-        g_debug_collision.sphere.ibo = create_ibo(sphere.indices.data, sphere.indices.count * sizeof sphere.indices[0]);
+        Mesh *sphere = find_mesh("unit_sphere.obj");
+        ASSERT(sphere != nullptr);
+        g_debug_collision.sphere.index_count = sphere->indices.count;
+        g_debug_collision.sphere.vbo = create_vbo(sphere->vertices.data, sphere->vertices.count * sizeof sphere->vertices[0]);
+        g_debug_collision.sphere.ibo = create_ibo(sphere->indices.data, sphere->indices.count * sizeof sphere->indices[0]);
     }
 
     CollidableAABB test = {};

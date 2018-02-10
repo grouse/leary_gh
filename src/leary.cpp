@@ -70,9 +70,7 @@ extern Settings      g_settings;
 extern PlatformState *g_platform;
 extern Catalog       g_catalog;
 
-
 Terrain        g_terrain;
-Array<Entity>  g_entities;
 Physics        g_physics;
 
 VulkanDevice *g_vulkan;

@@ -20,9 +20,10 @@ bool operator == (Vertex &lhs, Vertex &rhs)
     return memcmp(&lhs, &rhs, sizeof(Vertex)) == 0;
 }
 
-extern Array<Entity> g_entities;
 
 Array<Texture> g_textures;
+Array<Mesh>    g_meshes;
+Array<Entity>  g_entities;
 Catalog        g_catalog;
 
 // NOTE(jesper): only Microsoft BMP version 3 is supported
@@ -197,15 +198,9 @@ void add_vertex(Array<f32> *vertices, Vector3 p)
     array_add(vertices, p.z);
 }
 
-Mesh load_mesh_obj(StringView filename)
+Mesh load_mesh_obj(FilePathView path)
 {
     Mesh mesh = {};
-
-    FilePath path = resolve_file_path(GamePath_models, filename, g_frame);
-    if (path.absolute.size == 0) {
-        LOG("unable to resolve path: %s", path);
-        return mesh;
-    }
 
     usize size;
     char *file = read_file(path, &size, g_frame);
@@ -416,7 +411,6 @@ Mesh load_mesh_obj(StringView filename)
         }
     }
 
-
     return mesh;
 }
 
@@ -442,7 +436,7 @@ Texture load_texture(FilePath path)
 }
 
 
-Texture* add_texture(const char *name,
+Texture* add_texture(StringView name,
                      u32 width, u32 height,
                      VkFormat format, void *pixels,
                      VkComponentMapping components)
@@ -477,13 +471,29 @@ Texture* add_texture(FilePath path)
 
     TextureID texture_id = (TextureID)array_add(&g_textures, t);
 
-    table_add( & g_catalog.assets,   path.filename.bytes, t.asset_id);
-    table_add( & g_catalog.textures, t.asset_id,          texture_id);
+    table_add(&g_catalog.assets,   path.filename, t.asset_id);
+    table_add(&g_catalog.textures, t.asset_id,    texture_id);
 
     return &g_textures[texture_id];
 }
 
-AssetID find_asset_id(const char *name)
+Mesh* add_mesh(FilePath path)
+{
+    Mesh m = load_mesh_obj(path);
+    if (m.vertices.count == 0) {
+        return nullptr;
+    }
+
+    m.asset_id = g_catalog.next_asset_id++;
+    MeshID mesh_id = (MeshID)array_add(&g_meshes, m);
+
+    table_add(&g_catalog.assets, path.filename, m.asset_id);
+    table_add(&g_catalog.meshes, m.asset_id,    mesh_id);
+
+    return &g_meshes[mesh_id];
+}
+
+AssetID find_asset_id(StringView name)
 {
     i32 *id = table_find(&g_catalog.assets, name);
     if (id == nullptr) {
@@ -514,7 +524,7 @@ Texture* find_texture(AssetID id)
     return &g_textures[*tid];
 }
 
-Texture* find_texture(const char *name)
+Texture* find_texture(StringView name)
 {
     AssetID *id = table_find(&g_catalog.assets, name);
     if (id == nullptr || *id == ASSET_INVALID_ID) {
@@ -530,6 +540,24 @@ Texture* find_texture(const char *name)
 
     return &g_textures[*tid];
 }
+
+Mesh* find_mesh(StringView name)
+{
+    AssetID *id = table_find(&g_catalog.assets, name);
+    if (id == nullptr || *id == ASSET_INVALID_ID) {
+        LOG(Log_error, "unable to find mesh with name: %s", name.bytes);
+        return nullptr;
+    }
+
+    MeshID *mid = table_find(&g_catalog.meshes, *id);
+    if (mid == nullptr || *mid == ASSET_INVALID_ID) {
+        LOG(Log_error, "unable to find mesh with name: %s", name.bytes);
+        return nullptr;
+    }
+
+    return &g_meshes[*mid];
+}
+
 
 EntityData parse_entity_data(FilePath p)
 {
@@ -565,12 +593,15 @@ EntityData parse_entity_data(FilePath p)
     }
 
     i64 version = read_i64(t);
-    ASSERT(version == 1);
 
     t = next_token(&l);
     if (t.type != Token::identifier) {
         LOG(Log_error, "parse error in %s: expected identifier", p.absolute.bytes);
         return {};
+    }
+
+    if (version == 1) {
+        data.mesh = create_string(g_frame, "cube.obj");
     }
 
     while (t.type != Token::eof) {
@@ -593,6 +624,14 @@ EntityData parse_entity_data(FilePath p)
 
             do t = next_token(&l);
             while (t.type != Token::semicolon);
+        } else if (version > 1 && is_identifier(t, "mesh")) {
+            Token m = next_token(&l);
+
+            do t = next_token(&l);
+            while (t.type != Token::semicolon);
+
+            i32 length = (i32)(t.str - m.str);
+            data.mesh = create_string(g_frame, StringView{ length, m.str });
         } else {
             LOG(Log_error, "parse error %s:%d: unknown identifier: %.*s",
                 p.absolute.bytes, l.line_number, t.length, t.str);
@@ -615,27 +654,27 @@ i32 add_entity(FilePath p)
     i32 pid = physics_add(e);
     (void)pid;
 
-    // TODO(jesper): find mesh in mesh table
-    Mesh cube = load_mesh_obj("cube.obj");
+    Mesh *m = find_mesh(data.mesh);
+    ASSERT(m != nullptr);
 
     IndexRenderObject obj = {};
     obj.material = &g_game->materials.phong;
 
-    usize vertex_size = cube.vertices.count * sizeof(cube.vertices[0]);
-    usize index_size  = cube.indices.count  * sizeof(cube.indices[0]);
+    usize vertex_size = m->vertices.count * sizeof(m->vertices[0]);
+    usize index_size  = m->indices.count  * sizeof(m->indices[0]);
 
     obj.entity_id   = e.id;
     obj.pipeline    = Pipeline_mesh;
-    obj.index_count = cube.indices.count;
-    obj.vbo         = create_vbo(cube.vertices.data, vertex_size);
-    obj.ibo         = create_ibo(cube.indices.data, index_size);
+    obj.index_count = m->indices.count;
+    obj.vbo         = create_vbo(m->vertices.data, vertex_size);
+    obj.ibo         = create_ibo(m->indices.data, index_size);
 
     array_add(&g_game->index_render_objects, obj);
 
     AssetID asset_id = g_catalog.next_asset_id++;
 
-    table_add(&g_catalog.assets,   p.filename.bytes, asset_id);
-    table_add(&g_catalog.entities, asset_id,         e.id);
+    table_add(&g_catalog.assets,   p.filename, asset_id);
+    table_add(&g_catalog.entities, asset_id,   e.id);
 
     return 1;
 }
@@ -675,7 +714,7 @@ void process_catalog_system()
 
 CATALOG_CALLBACK(catalog_thread_proc)
 {
-    i32 *id = table_find(&g_catalog.assets, path.filename.bytes);
+    i32 *id = table_find(&g_catalog.assets, path.filename);
     if (id == nullptr || *id == ASSET_INVALID_ID) {
         LOG("asset not found in catalogue system: %s\n",
             path.filename.bytes);
@@ -729,6 +768,17 @@ CATALOG_PROCESS_FUNC(catalog_process_entity)
     }
 }
 
+CATALOG_PROCESS_FUNC(catalog_process_obj)
+{
+    AssetID id = find_asset_id(path.filename.bytes);
+    if (id == ASSET_INVALID_ID) {
+        add_mesh(path);
+        return;
+    }
+
+    ASSERT(false && "hot reloading changed meshes not supported");
+}
+
 void init_catalog_system()
 {
     g_catalog = {};
@@ -736,6 +786,7 @@ void init_catalog_system()
 
     init_table(&g_catalog.assets,        g_heap);
     init_table(&g_catalog.textures,      g_heap);
+    init_table(&g_catalog.meshes,        g_heap);
     init_table(&g_catalog.entities,      g_heap);
 
     init_table(&g_catalog.processes,     g_heap);
@@ -746,10 +797,14 @@ void init_catalog_system()
     array_add(&g_catalog.folders, resolve_folder_path(GamePath_data, "textures", g_persistent));
     table_add(&g_catalog.processes, "bmp", catalog_process_bmp);
 
+    array_add(&g_catalog.folders, resolve_folder_path(GamePath_data, "models", g_persistent));
+    table_add(&g_catalog.processes, "obj", catalog_process_obj);
+
     array_add(&g_catalog.folders, resolve_folder_path(GamePath_data, "entities", g_persistent));
     table_add(&g_catalog.processes, "ent", catalog_process_entity);
 
     init_array(&g_textures, g_heap);
+    init_array(&g_meshes,   g_heap);
 
     for (i32 i = 0; i < g_catalog.folders.count; i++) {
         Array<FilePath> files = list_files(g_catalog.folders[i], g_heap);

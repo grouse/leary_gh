@@ -19,12 +19,14 @@ typedef CATALOG_PROCESS_FUNC(catalog_process_t);
 typedef i32 AssetID;
 typedef i32 TextureID;
 typedef i32 EntityID;
+typedef i32 MeshID;
 
 struct Mesh {
+    AssetID asset_id = ASSET_INVALID_ID;
+
     Array<f32> vertices;
     Array<u32> indices;
 };
-
 
 struct Texture {
     AssetID asset_id = ASSET_INVALID_ID;
@@ -45,8 +47,9 @@ struct Texture {
 };
 
 struct EntityData {
-    bool valid       = false;
+    bool    valid    = false;
     Vector3 position = {};
+    String  mesh     = {};
 };
 
 struct Catalog {
@@ -55,9 +58,10 @@ struct Catalog {
     AssetID next_asset_id = 0;
     HashTable<const char*, catalog_process_t*> processes;
 
-    HashTable<const char*, AssetID>            assets;
-    HashTable<AssetID, TextureID>              textures;
-    HashTable<AssetID, EntityID>               entities;
+    HashTable<StringView, AssetID> assets;
+    HashTable<AssetID, TextureID>   textures;
+    HashTable<AssetID, EntityID>    entities;
+    HashTable<AssetID, MeshID>      meshes;
 
     Mutex mutex;
     Array<FilePath> process_queue;

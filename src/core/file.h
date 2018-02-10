@@ -143,6 +143,20 @@ FolderPath create_folder_path(Allocator *a, Args... args)
     return p;
 }
 
+// NOTE(jesper): platform specific implementation
+FilePath resolve_file_path(GamePath rp, StringView path, Allocator *a);
+
+FilePath resolve_file_path(GamePath rp, FilePathView path, Allocator *a)
+{
+    return resolve_file_path(rp, path.absolute, a);
+}
+
+template<i32 N>
+FilePath resolve_file_path(GamePath rp, const char (&str)[N], Allocator *a)
+{
+    return resolve_file_path(rp, StringView{str}, a);
+}
+
 i32 utf8_size(FilePath file);
 i32 utf8_size(FilePathView file);
 i32 utf8_size(FolderPath folder);

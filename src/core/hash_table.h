@@ -19,9 +19,7 @@ struct Pair {
 
 template <typename K, typename V>
 struct HashTable {
-
-    // TODO(jesper): replace this with custom array implementation, I don't want
-    // to use the generalised array implementation here.
+    Allocator *allocator = nullptr;
     Array<Pair<K, V>> table[TABLE_SIZE];
 };
 

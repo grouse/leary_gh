@@ -7,11 +7,14 @@
  */
 
 #include "hash_table.h"
+#include "string.h"
 
 template <typename K, typename V>
 void init_table(HashTable<K, V> *table, Allocator *a)
 {
     *table = {};
+    table->allocator = a;
+
     for (i32 i = 0; i < TABLE_SIZE; i++) {
         table->table[i].allocator = a;
     }
@@ -35,12 +38,23 @@ void destroy_hashtable(HashTable<K, V> *table)
     }
 }
 
+template <typename V>
+void destroy_hashtable(HashTable<StringView, V> *table)
+{
+    for (i32 i = 0; i < TABLE_SIZE; i++) {
+        for (i32 j = 0; j < table->table[i].count; j++) {
+            table->allocator->dealloc(table->table[i][j].key.bytes);
+        }
+        destroy_array(&table->table[i]);
+    }
+}
+
 
 
 template <typename K, typename V>
 V* table_add(HashTable<K, V> *table, K key, V value)
 {
-    u64 hash  = hash32((void*)&key, sizeof(K));
+    u64 hash  = hash32(&key);
     u64 index = hash % TABLE_SIZE;
 
     for (i32 i = 0; i < table->table[index].count; i++) {
@@ -125,13 +139,36 @@ V* table_add(HashTable<char*, V> *table, const char *key, V value)
     return &table->table[index][i].value;
 }
 
+template<typename V>
+V* table_add(HashTable<StringView, V> *table, StringView key, V value)
+{
+    u64 hash  = hash32(&key);
+    u64 index = hash % TABLE_SIZE;
+
+    for (i32 i = 0; i < table->table[index].count; i++) {
+        // TODO(jesper): add a comparator template argument? only allow keys
+        // with defined operator==? hmmm
+        if (table->table[index][i].key == key) {
+            // TODO(jesper): to_string key
+            LOG("key already exists in hash table");
+            ASSERT(false);
+            return nullptr;
+        }
+    }
+
+    String str_key = create_string(table->allocator, key);
+    Pair<StringView, V> pair = { str_key, value };
+    i32 i = array_add(&table->table[index], pair);
+    return &table->table[index][i].value;
+}
+
 // NOTE(jesper): IMPORTANT: the pointers return from this function should not be
 // kept around, they will become invalid as the table grows, because it's being
 // backed by a dynamic array instead of a linked list.
 template <typename K, typename V>
 V* table_find(HashTable<K, V> *table, K key)
 {
-    u64 hash  = hash32((void*)&key, sizeof(K));
+    u64 hash  = hash32(&key);
     u64 index = hash % TABLE_SIZE;
 
     auto ltable = *table;
@@ -200,9 +237,10 @@ V* table_find(HashTable<char*, V> *table, const char *key)
 
 
 template<typename K, typename V>
-void init_map(RHHashMap<K, V> *map,
-              Allocator *a,
-              i32 initial_size = RH_INITIAL_SIZE)
+void init_map(
+    RHHashMap<K, V> *map,
+    Allocator *a,
+    i32 initial_size = RH_INITIAL_SIZE)
 {
     using Entry = typename RHHashMap<K, V>::Entry;
 

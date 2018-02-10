@@ -1,3 +1,4 @@
-#version 1
+#version 2
 
-position 20.0, 1.5, 9.0;
+position 21.0, 1.5, 9.0;
+mesh cube.obj;
