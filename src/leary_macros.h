@@ -42,7 +42,6 @@ Defer<F> operator+ (DeferDummy, F&& f)
 
 #define defer auto defer_( __LINE__ ) = DeferDummy( ) + [&]( )
 
-
 #if LEARY_ENABLE_LOGGING
 #define LOG(...) platform_debug_print(DEBUG_FILENAME, __LINE__, __FUNCTION__, __VA_ARGS__)
 #define LOG_UNIMPLEMENTED() LOG(Log_unimplemented, "fixme! stub");
@@ -50,6 +49,17 @@ Defer<F> operator+ (DeferDummy, F&& f)
 #define LOG(...) do {} while(0)
 #define LOG_UNIMPLEMENTED() do {} while(0)
 #endif
+
+#define PARSE_ERROR(path, lexer, msg) \
+    LOG(Log_error,\
+        "parse error %.*s:%d: " msg,\
+        path.absolute.size, path.absolute.bytes, lexer.line_number)
+
+#define PARSE_ERROR_F(path, lexer, msg, ...) \
+    LOG(Log_error,\
+        "parse error %.*s:%d: " msg,\
+        path.absolute.size, path.absolute.bytes, lexer.line_number, __VA_ARGS__)
+
 
 #define ASSERT(condition) \
     do { \

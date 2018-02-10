@@ -576,19 +576,19 @@ EntityData parse_entity_data(FilePath p)
 
     t = next_token(&l);
     if (t.type != Token::hash) {
-        LOG(Log_error, "parse error in %s: expected version declaration");
+        PARSE_ERROR(p, l, "expected version declaration");
         return {};
     }
 
     t = next_token(&l);
     if (t.type != Token::identifier || !is_identifier(t, "version")) {
-        LOG(Log_error, "parse error in %s: expected version declaration", p.absolute.bytes);
+        PARSE_ERROR(p, l, "expected version declaration");
         return {};
     }
 
     t = next_token(&l);
     if (t.type != Token::number) {
-        LOG(Log_error, "parse error in %s: expected version number", p.absolute.bytes);
+        PARSE_ERROR(p, l, "expected version number");
         return {};
     }
 
@@ -596,7 +596,7 @@ EntityData parse_entity_data(FilePath p)
 
     t = next_token(&l);
     if (t.type != Token::identifier) {
-        LOG(Log_error, "parse error in %s: expected identifier", p.absolute.bytes);
+        PARSE_ERROR(p, l, "expected identifier");
         return {};
     }
 
@@ -606,35 +606,55 @@ EntityData parse_entity_data(FilePath p)
 
     while (t.type != Token::eof) {
         if (is_identifier(t, "position")) {
+            Token x, y, z;
 
-            t = next_token(&l);
-            data.position.x = read_f32(t);
+            x = next_token(&l);
+            data.position.x = read_f32(x);
 
-            do t = next_token(&l);
-            while (t.type != Token::comma);
+            do {
+                t = next_token(&l);
+                if (t.type == Token::eof) {
+                    PARSE_ERROR(p, l, "unexpected end of file, expected token: ','");
+                    return {};
+                }
+            } while (t.type != Token::comma);
 
-            t = next_token(&l);
-            data.position.y = read_f32(t);
+            y = next_token(&l);
+            data.position.y = read_f32(y);
 
-            do t = next_token(&l);
-            while (t.type != Token::comma);
+            do {
+                t = next_token(&l);
+                if (t.type == Token::eof) {
+                    PARSE_ERROR(p, l, "unexpected end of file, expected token: ','");
+                    return {};
+                }
+            } while (t.type != Token::comma);
 
-            t = next_token(&l);
-            data.position.z = read_f32(t);
+            z = next_token(&l);
+            data.position.z = read_f32(z);
 
-            do t = next_token(&l);
-            while (t.type != Token::semicolon);
+            do {
+                t = next_token(&l);
+                if (t.type == Token::eof) {
+                    PARSE_ERROR(p, l, "unexpected end of file, expected token: ';'");
+                    return {};
+                }
+            } while (t.type != Token::semicolon);
         } else if (version > 1 && is_identifier(t, "mesh")) {
             Token m = next_token(&l);
 
-            do t = next_token(&l);
-            while (t.type != Token::semicolon);
+            do {
+                t = next_token(&l);
+                if (t.type == Token::eof) {
+                    PARSE_ERROR(p, l, "unexpected end of file, expected token: ';'");
+                    return {};
+                }
+            } while (t.type != Token::semicolon);
 
             i32 length = (i32)(t.str - m.str);
             data.mesh = create_string(g_frame, StringView{ length, m.str });
         } else {
-            LOG(Log_error, "parse error %s:%d: unknown identifier: %.*s",
-                p.absolute.bytes, l.line_number, t.length, t.str);
+            PARSE_ERROR_F(p, l, "unknown identifier: %.*s", t.length, t.str);
             return {};
         }
 
@@ -648,6 +668,11 @@ EntityData parse_entity_data(FilePath p)
 i32 add_entity(FilePath p)
 {
     EntityData data = parse_entity_data(p);
+    if (data.valid == false) {
+        ASSERT(false && "failed parsing entity data");
+        return -1;
+    }
+
     Entity e = entities_add(data.position);
 
     // TODO(jesper): determine if entity has physics enabled
