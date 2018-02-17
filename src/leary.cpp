@@ -121,6 +121,7 @@ Entity entities_add(EntityData data)
     e.id       = (i32)g_entities.count;
     e.position = data.position;
     e.scale    = data.scale;
+    e.rotation = data.rotation;
 
     i32 i = (i32)array_add(&g_entities, e);
     g_entities[i].index = i;

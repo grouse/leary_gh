@@ -857,7 +857,7 @@ namespace lry {
 #endif
 
 extern Settings g_settings;
-Vector2 camera_from_screen( Vector2 v )
+Vector2 camera_from_screen(Vector2 v)
 {
     Vector2 r;
     r.x = 2.0f * v.x / g_settings.video.resolution.width - 1.0f;
@@ -865,7 +865,7 @@ Vector2 camera_from_screen( Vector2 v )
     return r;
 }
 
-Vector3 camera_from_screen( Vector3 v )
+Vector3 camera_from_screen(Vector3 v)
 {
     Vector3 r;
     r.x = 2.0f * v.x / g_settings.video.resolution.width - 1.0f;
@@ -875,7 +875,7 @@ Vector3 camera_from_screen( Vector3 v )
 }
 
 
-Vector2 screen_from_camera( Vector2 v)
+Vector2 screen_from_camera(Vector2 v)
 {
     Vector2 r;
     r.x = g_settings.video.resolution.width  / 2.0f * ( v.x + 1.0f );
@@ -883,7 +883,7 @@ Vector2 screen_from_camera( Vector2 v)
     return r;
 }
 
-Vector3 screen_from_camera( Vector3 v)
+Vector3 screen_from_camera(Vector3 v)
 {
     Vector3 r;
     r.x = g_settings.video.resolution.width  / 2.0f * ( v.x + 1.0f );
@@ -893,3 +893,30 @@ Vector3 screen_from_camera( Vector3 v)
 }
 
 
+Quaternion quat_from_euler(Vector3 v)
+{
+    Quaternion q;
+
+    f32 pitch = v.x;
+    f32 roll  = v.y;
+    f32 yaw   = v.z;
+
+    f32 cy = lry::cos(yaw * 0.5f);
+    f32 sy = lry::sin(yaw * 0.5f);
+    f32 cr = lry::cos(roll * 0.5f);
+    f32 sr = lry::sin(roll * 0.5f);
+    f32 cp = lry::cos(pitch * 0.5f);
+    f32 sp = lry::sin(pitch * 0.5f);
+
+    q.x = cy * sr * cp - sy * cr * sp;
+    q.y = cy * cr * sp + sy * sr * cp;
+    q.z = sy * cr * cp - cy * sr * sp;
+    q.w = cy * cr * cp + sy * sr * sp;
+
+    return q;
+}
+
+f32 radian_from_degree(f32 d)
+{
+    return d * PI / 180.0f;
+}

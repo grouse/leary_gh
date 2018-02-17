@@ -73,7 +73,7 @@ struct Entity {
     i32        index;
     Vector3    position;
     Vector3    scale;
-    Quaternion rotation = Quaternion::make({ 0.0f, 1.0f, 0.0f });
+    Quaternion rotation = Quaternion::make( Vector3{ 0.0f, 1.0f, 0.0f });
 };
 
 struct IndexRenderObject {

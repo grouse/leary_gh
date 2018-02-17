@@ -230,6 +230,11 @@ Token peek_next_token(Lexer l)
     return next_token(&l);
 }
 
+Token peek_token(Lexer *l)
+{
+    return peek_next_token(*l);
+}
+
 bool is_identifier(Token token, const char *str)
 {
     return (strncmp(token.str, str, token.length) == 0);

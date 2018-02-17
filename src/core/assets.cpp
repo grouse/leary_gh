@@ -600,6 +600,58 @@ Vector3 parse_vector3(FilePathView path, Lexer *lexer)
     return v;
 }
 
+Vector4 parse_vector4(FilePathView path, Lexer *lexer)
+{
+    Vector4 v;
+    Token t, x, y, z, w;
+
+    x = next_token(lexer);
+    v.x = read_f32(x);
+
+    do {
+        t = next_token(lexer);
+        if (t.type == Token::eof) {
+            PARSE_ERROR(path, *lexer, "unexpected end of file, expected token: ','");
+            return {};
+        }
+    } while (t.type != Token::comma);
+
+    y = next_token(lexer);
+    v.y = read_f32(y);
+
+    do {
+        t = next_token(lexer);
+        if (t.type == Token::eof) {
+            PARSE_ERROR(path, *lexer, "unexpected end of file, expected token: ','");
+            return {};
+        }
+    } while (t.type != Token::comma);
+
+    z = next_token(lexer);
+    v.z = read_f32(z);
+
+    do {
+        t = next_token(lexer);
+        if (t.type == Token::eof) {
+            PARSE_ERROR(path, *lexer, "unexpected end of file, expected token: ','");
+            return {};
+        }
+    } while (t.type != Token::comma);
+
+    w = next_token(lexer);
+    v.w = read_f32(w);
+
+    do {
+        t = next_token(lexer);
+        if (t.type == Token::eof) {
+            PARSE_ERROR(path, *lexer, "unexpected end of file, expected token: ';'");
+            return {};
+        }
+    } while (t.type != Token::semicolon);
+
+    return v;
+}
+
 
 EntityData parse_entity_data(FilePath p)
 {
@@ -646,15 +698,38 @@ EntityData parse_entity_data(FilePath p)
         data.mesh = create_string(g_frame, "cube.obj");
     }
 
-    if (version < 3) {
-        data.scale = { 1.0f, 1.0f, 1.0f };
-    }
+    data.scale    = { 1.0f, 1.0f, 1.0f };
+    data.rotation = Quaternion::make( Vector3{ 0.0f, 1.0f, 0.0f } );
 
     while (t.type != Token::eof) {
         if (is_identifier(t, "position")) {
             data.position = parse_vector3(p, &l);
         } else if (version >= 3 && is_identifier(t, "scale")) {
             data.scale = parse_vector3(p, &l);
+        } else if (version >= 4 && is_identifier(t, "rotation")) {
+            t = next_token(&l);
+            if (is_identifier(t, "quaternion")) {
+                data.rotation = Quaternion::make(parse_vector4(p, &l));
+            } else if (is_identifier(t, "euler")) {
+                Vector3 euler = parse_vector3(p, &l);
+                euler.x = radian_from_degree(euler.x);
+                euler.y = radian_from_degree(euler.y);
+                euler.z = radian_from_degree(euler.z);
+                data.rotation = quat_from_euler(euler);
+            } else {
+                PARSE_ERROR_F(
+                    p, l,
+                    "expected \"quaternion\" or \"euler\" after \"rotation\", got %.*s",
+                    t.length, t.str);
+
+                do {
+                    t = next_token(&l);
+                    if (t.type == Token::eof) {
+                        PARSE_ERROR(p, l, "unexpected end of file, expected token: ';'");
+                        return {};
+                    }
+                } while (t.type != Token::semicolon);
+            }
         } else if (version >= 2 && is_identifier(t, "mesh")) {
             Token m = next_token(&l);
 
@@ -806,6 +881,7 @@ CATALOG_PROCESS_FUNC(catalog_process_entity)
         EntityData data = parse_entity_data(path);
         e.position = data.position;
         e.scale    = data.scale;
+        e.rotation = data.rotation;
     }
 }
 
