@@ -562,40 +562,28 @@ Mesh* find_mesh(StringView name)
 Vector3 parse_vector3(FilePathView path, Lexer *lexer)
 {
     Vector3 v;
-    Token t, x, y, z;
+    Token x, y, z;
 
     x = next_token(lexer);
     v.x = read_f32(x);
 
-    do {
-        t = next_token(lexer);
-        if (t.type == Token::eof) {
-            PARSE_ERROR(path, *lexer, "unexpected end of file, expected token: ','");
-            return {};
-        }
-    } while (t.type != Token::comma);
+    if (eat_until(path, lexer, Token::comma) == false) {
+        return {};
+    }
 
     y = next_token(lexer);
     v.y = read_f32(y);
 
-    do {
-        t = next_token(lexer);
-        if (t.type == Token::eof) {
-            PARSE_ERROR(path, *lexer, "unexpected end of file, expected token: ','");
-            return {};
-        }
-    } while (t.type != Token::comma);
+    if (eat_until(path, lexer, Token::comma) == false) {
+        return {};
+    }
 
     z = next_token(lexer);
     v.z = read_f32(z);
 
-    do {
-        t = next_token(lexer);
-        if (t.type == Token::eof) {
-            PARSE_ERROR(path, *lexer, "unexpected end of file, expected token: ';'");
-            return {};
-        }
-    } while (t.type != Token::semicolon);
+    if (eat_until(path, lexer, Token::semicolon) == false) {
+        return {};
+    }
 
     return v;
 }
@@ -603,51 +591,36 @@ Vector3 parse_vector3(FilePathView path, Lexer *lexer)
 Vector4 parse_vector4(FilePathView path, Lexer *lexer)
 {
     Vector4 v;
-    Token t, x, y, z, w;
+    Token x, y, z, w;
 
     x = next_token(lexer);
     v.x = read_f32(x);
 
-    do {
-        t = next_token(lexer);
-        if (t.type == Token::eof) {
-            PARSE_ERROR(path, *lexer, "unexpected end of file, expected token: ','");
-            return {};
-        }
-    } while (t.type != Token::comma);
+    if (eat_until(path, lexer, Token::comma) == false) {
+        return {};
+    }
 
     y = next_token(lexer);
     v.y = read_f32(y);
 
-    do {
-        t = next_token(lexer);
-        if (t.type == Token::eof) {
-            PARSE_ERROR(path, *lexer, "unexpected end of file, expected token: ','");
-            return {};
-        }
-    } while (t.type != Token::comma);
+    if (eat_until(path, lexer, Token::comma) == false) {
+        return {};
+    }
 
     z = next_token(lexer);
     v.z = read_f32(z);
 
-    do {
-        t = next_token(lexer);
-        if (t.type == Token::eof) {
-            PARSE_ERROR(path, *lexer, "unexpected end of file, expected token: ','");
-            return {};
-        }
-    } while (t.type != Token::comma);
+    if (eat_until(path, lexer, Token::comma) == false) {
+        return {};
+    }
 
     w = next_token(lexer);
     v.w = read_f32(w);
 
-    do {
-        t = next_token(lexer);
-        if (t.type == Token::eof) {
-            PARSE_ERROR(path, *lexer, "unexpected end of file, expected token: ';'");
-            return {};
-        }
-    } while (t.type != Token::semicolon);
+
+    if (eat_until(path, lexer, Token::semicolon) == false) {
+        return {};
+    }
 
     return v;
 }
@@ -722,24 +695,16 @@ EntityData parse_entity_data(FilePath p)
                     "expected \"quaternion\" or \"euler\" after \"rotation\", got %.*s",
                     t.length, t.str);
 
-                do {
-                    t = next_token(&l);
-                    if (t.type == Token::eof) {
-                        PARSE_ERROR(p, l, "unexpected end of file, expected token: ';'");
-                        return {};
-                    }
-                } while (t.type != Token::semicolon);
+                if (eat_until(p, &l, Token::semicolon) == false) {
+                    return {};
+                }
             }
         } else if (version >= 2 && is_identifier(t, "mesh")) {
             Token m = next_token(&l);
 
-            do {
-                t = next_token(&l);
-                if (t.type == Token::eof) {
-                    PARSE_ERROR(p, l, "unexpected end of file, expected token: ';'");
-                    return {};
-                }
-            } while (t.type != Token::semicolon);
+            if (eat_until(p, &l, &t, Token::semicolon) == false) {
+                return {};
+            }
 
             i32 length = (i32)(t.str - m.str);
             data.mesh = create_string(g_frame, StringView{ length, m.str });

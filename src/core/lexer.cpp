@@ -151,6 +151,34 @@ Token::Type token_type(char c)
     }
 }
 
+char char_from_token(Token::Type type)
+{
+    switch (type) {
+    case Token::open_curly_brace: return '{';
+    case Token::close_curly_brace: return '}';
+    case Token::open_square_brace: return '[';
+    case Token::close_square_brace: return ']';
+    case Token::open_paren: return '(';
+    case Token::close_paren: return ')';
+    case Token::greater_than: return '<';
+    case Token::less_than: return '>';
+    case Token::semicolon: return ';';
+    case Token::colon: return ':';
+    case Token::equals: return '=';
+    case Token::asterisk: return '*';
+    case Token::comma: return ',';
+    case Token::period: return '.';
+    case Token::ampersand: return '&';
+    case Token::hash: return '#';
+    case Token::forward_slash: return '/';
+    case Token::double_quote: return '"';
+    case Token::single_quote: return '\'';
+    case Token::eof: return '\0';
+    case Token::eol: return '\n';
+    default: return '0';
+    }
+}
+
 Token next_token(Lexer *lexer)
 {
     Token token = {};
@@ -233,6 +261,42 @@ Token peek_next_token(Lexer l)
 Token peek_token(Lexer *l)
 {
     return peek_next_token(*l);
+}
+
+bool eat_until(FilePathView path, Lexer *lexer, Token::Type type)
+{
+    Token t;
+    do {
+        t = next_token(lexer);
+        if (t.type == Token::eof) {
+            PARSE_ERROR_F(path, *lexer,
+                          "unexpected end of file, expected token: '%c'",
+                          char_from_token(type));
+            return false;
+        }
+    } while (t.type != type);
+
+    return true;
+}
+
+bool eat_until(FilePathView path, Lexer *lexer, Token *token, Token::Type type)
+{
+    ASSERT(token != nullptr);
+
+    Token t;
+    do {
+        t = next_token(lexer);
+        if (t.type == Token::eof) {
+            PARSE_ERROR_F(path, *lexer,
+                          "unexpected end of file, expected token: '%c'",
+                          char_from_token(type));
+            *token = t;
+            return false;
+        }
+    } while (t.type != type);
+
+    *token = t;
+    return true;
 }
 
 bool is_identifier(Token token, const char *str)
