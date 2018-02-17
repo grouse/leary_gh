@@ -53,7 +53,7 @@ Defer<F> operator+ (DeferDummy, F&& f)
 #define PARSE_ERROR(path, lexer, msg) \
     LOG(Log_error,\
         "parse error %.*s:%d: " msg,\
-        path.absolute.size, path.absolute.bytes, lexer.line_number)
+        path.absolute.size, path.absolute.bytes, (lexer).line_number)
 
 #define PARSE_ERROR_F(path, lexer, msg, ...) \
     LOG(Log_error,\

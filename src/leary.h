@@ -72,6 +72,7 @@ struct Entity {
     i32        id;
     i32        index;
     Vector3    position;
+    Vector3    scale;
     Quaternion rotation = Quaternion::make({ 0.0f, 1.0f, 0.0f });
 };
 
@@ -153,7 +154,7 @@ INTROSPECT struct Settings
     VideoSettings video;
 };
 
-Entity entities_add(Vector3 pos);
+Entity entities_add(EntityData data);
 i32 physics_add(Entity entity);
 
 #endif /* LEARY_H */

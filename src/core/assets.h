@@ -49,6 +49,7 @@ struct Texture {
 struct EntityData {
     bool    valid    = false;
     Vector3 position = {};
+    Vector3 scale    = {};
     String  mesh     = {};
 };
 

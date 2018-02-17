@@ -211,6 +211,7 @@ Mesh load_mesh_obj(FilePathView path)
 
     char *end  = file + size;
 
+    LOG(" loading mesh: %.*s", path.filename.size, path.filename.bytes);
     LOG("-- file size: %llu bytes", size);
 
     i32 num_faces   = 0;
@@ -558,6 +559,47 @@ Mesh* find_mesh(StringView name)
     return &g_meshes[*mid];
 }
 
+Vector3 parse_vector3(FilePathView path, Lexer *lexer)
+{
+    Vector3 v;
+    Token t, x, y, z;
+
+    x = next_token(lexer);
+    v.x = read_f32(x);
+
+    do {
+        t = next_token(lexer);
+        if (t.type == Token::eof) {
+            PARSE_ERROR(path, *lexer, "unexpected end of file, expected token: ','");
+            return {};
+        }
+    } while (t.type != Token::comma);
+
+    y = next_token(lexer);
+    v.y = read_f32(y);
+
+    do {
+        t = next_token(lexer);
+        if (t.type == Token::eof) {
+            PARSE_ERROR(path, *lexer, "unexpected end of file, expected token: ','");
+            return {};
+        }
+    } while (t.type != Token::comma);
+
+    z = next_token(lexer);
+    v.z = read_f32(z);
+
+    do {
+        t = next_token(lexer);
+        if (t.type == Token::eof) {
+            PARSE_ERROR(path, *lexer, "unexpected end of file, expected token: ';'");
+            return {};
+        }
+    } while (t.type != Token::semicolon);
+
+    return v;
+}
+
 
 EntityData parse_entity_data(FilePath p)
 {
@@ -600,47 +642,20 @@ EntityData parse_entity_data(FilePath p)
         return {};
     }
 
-    if (version == 1) {
+    if (version < 2) {
         data.mesh = create_string(g_frame, "cube.obj");
+    }
+
+    if (version < 3) {
+        data.scale = { 1.0f, 1.0f, 1.0f };
     }
 
     while (t.type != Token::eof) {
         if (is_identifier(t, "position")) {
-            Token x, y, z;
-
-            x = next_token(&l);
-            data.position.x = read_f32(x);
-
-            do {
-                t = next_token(&l);
-                if (t.type == Token::eof) {
-                    PARSE_ERROR(p, l, "unexpected end of file, expected token: ','");
-                    return {};
-                }
-            } while (t.type != Token::comma);
-
-            y = next_token(&l);
-            data.position.y = read_f32(y);
-
-            do {
-                t = next_token(&l);
-                if (t.type == Token::eof) {
-                    PARSE_ERROR(p, l, "unexpected end of file, expected token: ','");
-                    return {};
-                }
-            } while (t.type != Token::comma);
-
-            z = next_token(&l);
-            data.position.z = read_f32(z);
-
-            do {
-                t = next_token(&l);
-                if (t.type == Token::eof) {
-                    PARSE_ERROR(p, l, "unexpected end of file, expected token: ';'");
-                    return {};
-                }
-            } while (t.type != Token::semicolon);
-        } else if (version > 1 && is_identifier(t, "mesh")) {
+            data.position = parse_vector3(p, &l);
+        } else if (version >= 3 && is_identifier(t, "scale")) {
+            data.scale = parse_vector3(p, &l);
+        } else if (version >= 2 && is_identifier(t, "mesh")) {
             Token m = next_token(&l);
 
             do {
@@ -673,7 +688,7 @@ i32 add_entity(FilePath p)
         return -1;
     }
 
-    Entity e = entities_add(data.position);
+    Entity e = entities_add(data);
 
     // TODO(jesper): determine if entity has physics enabled
     i32 pid = physics_add(e);
@@ -790,6 +805,7 @@ CATALOG_PROCESS_FUNC(catalog_process_entity)
 
         EntityData data = parse_entity_data(path);
         e.position = data.position;
+        e.scale    = data.scale;
     }
 }
 

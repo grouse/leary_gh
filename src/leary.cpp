@@ -115,11 +115,12 @@ void debug_add_texture(const char *name,
     array_add(&overlay->items, item);
 }
 
-Entity entities_add(Vector3 pos)
+Entity entities_add(EntityData data)
 {
     Entity e   = {};
     e.id       = (i32)g_entities.count;
-    e.position = pos;
+    e.position = data.position;
+    e.scale    = data.scale;
 
     i32 i = (i32)array_add(&g_entities, e);
     g_entities[i].index = i;
@@ -905,7 +906,7 @@ void game_update(f32 dt)
 
     Entity &player = g_entities[0];
 
-    {
+    if (false) {
         Quaternion r = Quaternion::make({0.0f, 1.0f, 0.0f}, 1.5f * dt);
         player.rotation = player.rotation * r;
 
@@ -1069,10 +1070,11 @@ void game_render()
 
         Matrix4 t = translate(Matrix4::identity(), e->position);
         Matrix4 r = Matrix4::make(e->rotation);
-        t = t * r;
+
+        Matrix4 srt = scale(t * r, e->scale);
 
         vkCmdPushConstants(command, pipeline.layout,
-                           VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(t), &t);
+                           VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(srt), &srt);
 
         vkCmdDrawIndexed(command, object.index_count, 1, 0, 0, 0);
     }
