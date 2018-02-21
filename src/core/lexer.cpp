@@ -31,6 +31,7 @@ struct Token {
         semicolon,
         colon,
         equals,
+        hyphen,
         asterisk,
         comma,
         period,
@@ -84,6 +85,7 @@ i64 read_i64(Token token)
 {
     i64 result = 0;
     i32 i = token.length;
+
     while (i && token.str[0] && token.str[0] >= '0' && token.str[0] <= '9') {
         result *= 10;
         result += token.str[0] - '0';
@@ -139,6 +141,7 @@ Token::Type token_type(char c)
     case '*':  return Token::asterisk;
     case ',':  return Token::comma;
     case '.':  return Token::period;
+    case '-':  return Token::hyphen;
     case '&':  return Token::ampersand;
     case '#':  return Token::hash;
     case '/':  return Token::forward_slash;
@@ -168,6 +171,7 @@ char char_from_token(Token::Type type)
     case Token::asterisk: return '*';
     case Token::comma: return ',';
     case Token::period: return '.';
+    case Token::hyphen: return '-';
     case Token::ampersand: return '&';
     case Token::hash: return '#';
     case Token::forward_slash: return '/';
@@ -261,6 +265,18 @@ Token peek_next_token(Lexer l)
 Token peek_token(Lexer *l)
 {
     return peek_next_token(*l);
+}
+
+bool eat_until_newline(FilePathView path, Lexer *lexer)
+{
+    while (lexer->at < lexer->end) {
+        if (is_newline(lexer->at[0])) {
+            return true;
+        }
+
+        lexer->at++;
+    }
+    return false;
 }
 
 bool eat_until(FilePathView path, Lexer *lexer, Token::Type type)

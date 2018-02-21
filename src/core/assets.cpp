@@ -198,6 +198,303 @@ void add_vertex(Array<f32> *vertices, Vector3 p)
     array_add(vertices, p.z);
 }
 
+struct FBXHeader {
+    u32 header_version;
+    u32 version;
+};
+
+static FBXHeader fbx_read_header(FilePathView path, Lexer *lexer, Token *token)
+{
+    FBXHeader header = {};
+    if (eat_until(path, lexer, Token::open_curly_brace) == false ) {
+        return {};
+    }
+
+    i32 cblevel = 0;
+    i32 cbend = cblevel++;
+
+    Token t = next_token(lexer);
+    while (t.type != Token::eof) {
+        if (is_identifier(t, "FBXHeaderVersion")) {
+            t = next_token(lexer);
+            t = next_token(lexer);
+
+            header.header_version = (u32)read_u64(t);
+        } else if (is_identifier(t, "FBXVersion")) {
+            t = next_token(lexer);
+            t = next_token(lexer);
+
+            header.version = (u32)read_u64(t);
+        } else if (t.type == Token::open_curly_brace) {
+            cblevel++;
+        } else if (t.type == Token::close_curly_brace) {
+            cblevel--;
+            if (cblevel == cbend) {
+                break;
+            }
+        }
+
+        t = next_token(lexer);
+    }
+
+    *token = t;
+    return header;
+}
+
+static bool fbx_read_f32_list(
+    FilePathView path,
+    Lexer *lexer,
+    Token *token,
+    Array<f32> *values)
+{
+    Token t = next_token(lexer);
+    defer { *token = t; };
+
+    t = next_token(lexer);
+
+    while (t.type != Token::identifier &&
+           t.type != Token::open_curly_brace )
+    {
+        f32 f = read_f32(t);
+        array_add(values, f);
+
+        while (true) {
+            if (is_newline(lexer->at[0]) ||
+                token_type(lexer->at[0]) == Token::comma)
+            {
+                lexer->at++;
+                if (lexer->at >= lexer->end) {
+                    PARSE_ERROR_F(
+                        path, *lexer,
+                        "unexpected end of file, expected token: '%c' or newline",
+                        char_from_token(Token::comma));
+                    return false;
+                }
+                break;
+            }
+
+            lexer->at++;
+            if (lexer->at >= lexer->end) {
+                PARSE_ERROR_F(
+                    path, *lexer,
+                    "unexpected end of file, expected token: '%c' or newline",
+                    char_from_token(Token::comma));
+                return false;
+            }
+        }
+        t = next_token(lexer);
+    }
+
+    return true;
+}
+
+static bool fbx_read_i32_list(
+    FilePathView path,
+    Lexer *lexer,
+    Token *token,
+    Array<i32> *values)
+{
+    Token t = next_token(lexer);
+    defer { *token = t; };
+
+    t = next_token(lexer);
+    while (t.type != Token::identifier &&
+           t.type != Token::open_curly_brace )
+    {
+        bool negate = false;
+        if (t.type == Token::hyphen) {
+            negate = true;
+            t = next_token(lexer);
+        }
+
+        i32 i = (i32)read_i64(t);
+        if (negate) {
+            i = -i;
+        }
+
+        array_add(values, i);
+
+        while (true) {
+            if (is_newline(lexer->at[0]) ||
+                token_type(lexer->at[0]) == Token::comma)
+            {
+                lexer->at++;
+                if (lexer->at >= lexer->end) {
+                    PARSE_ERROR_F(
+                        path, *lexer,
+                        "unexpected end of file, expected token: '%c' or newline",
+                        char_from_token(Token::comma));
+                    return false;
+                }
+                break;
+            }
+
+            lexer->at++;
+            if (lexer->at >= lexer->end) {
+                PARSE_ERROR_F(
+                    path, *lexer,
+                    "unexpected end of file, expected token: '%c' or newline",
+                    char_from_token(Token::comma));
+                return false;
+            }
+        }
+
+        t = next_token(lexer);
+    }
+
+    return true;
+}
+
+
+Mesh load_mesh_fbx(FilePathView path)
+{
+    Mesh mesh = {};
+
+    usize size;
+    char *file = read_file(path, &size, g_frame);
+    if (file == nullptr) {
+        LOG("unable to read file: %s", path);
+        return mesh;
+    }
+
+
+    enum NormalsType {
+        Normals_unknown,
+        Normals_ByPolygonVertex,
+        Normals_AllSame
+    };
+
+    FBXHeader header = {};
+
+    i32 cblevel = 0;
+
+    NormalsType normals_type = Normals_unknown;
+    auto vertices = create_array<f32>(g_frame);
+    auto normals  = create_array<f32>(g_frame);
+    auto indices  = create_array<i32>(g_frame);
+
+    Lexer l = create_lexer(file, size);
+    Token t = next_token(&l);
+    while (t.type != Token::eof) {
+        if (t.type == Token::semicolon) {
+            if (eat_until_newline(path, &l) == false ) {
+                return {};
+            }
+            t = next_token(&l);
+            continue;
+        }
+
+        if (is_identifier(t, "FBXHeaderExtension")) {
+            header = fbx_read_header(path, &l, &t);
+        } else if (is_identifier(t, "Objects")) {
+            if (eat_until(path, &l, Token::open_curly_brace) == false ) {
+                return {};
+            }
+
+            i32 cbend = cblevel++;
+
+            t = next_token(&l);
+            while (t.type != Token::eof) {
+
+                if (is_identifier(t, "Model")) {
+                    if (eat_until(path, &l, Token::open_curly_brace) == false ) {
+                        return {};
+                    }
+
+                    i32 cbend2 = cblevel++;
+                    t = next_token(&l);
+                    while (t.type != Token::eof) {
+                        if (is_identifier(t, "Vertices")) {
+                            if (fbx_read_f32_list(path, &l, &t, &vertices) == false) {
+                                return {};
+                            }
+                        }
+
+                        if (is_identifier(t, "PolygonVertexIndex")) {
+                           if (fbx_read_i32_list(path, &l, &t, &indices) == false ) {
+                               return {};
+                           }
+                        }
+
+                        if (is_identifier(t, "LayerElementNormal")) {
+                            if (eat_until(path, &l, Token::open_curly_brace) == false ) {
+                                return {};
+                            }
+
+                            i32 len_end = cblevel++;
+                            t = next_token(&l);
+                            while (t.type != Token::eof) {
+
+                                if (is_identifier(t, "Normals")) {
+                                    if (fbx_read_f32_list(path, &l, &t, &normals) == false) {
+                                        return {};
+                                    }
+                                } else if (is_identifier(t, "MappingInformationType")) {
+                                    t = next_token(&l);
+                                    t = next_token(&l);
+                                    if (t.type == Token::double_quote) {
+                                        t = next_token(&l);
+                                    }
+
+                                    Token mit = t;
+                                    if (is_identifier(mit, "ByPolygonVertex")) {
+                                        normals_type = Normals_ByPolygonVertex;
+                                    } else if (is_identifier(mit, "AllSame")) {
+                                        normals_type = Normals_AllSame;
+                                    } else {
+                                        PARSE_ERROR(path, l, "unknown MappingInformationType");
+                                        return {};
+                                    }
+
+                                    if (peek_token(&l).type == Token::double_quote) {
+                                        t = next_token(&l);
+                                    }
+
+                                } else if (t.type == Token::open_curly_brace) {
+                                    cblevel++;
+                                } else if (t.type == Token::close_curly_brace) {
+                                    cblevel--;
+                                    if (cblevel == len_end) {
+                                        break;
+                                    }
+                                }
+
+                                t = next_token(&l);
+                            }
+                        }
+
+                        if (t.type == Token::open_curly_brace) {
+                            cblevel++;
+                        } else if (t.type == Token::close_curly_brace) {
+                            cblevel--;
+                            if (cblevel == cbend2) {
+                                break;
+                            }
+                        }
+
+                        t = next_token(&l);
+                    }
+                }
+
+                if (t.type == Token::open_curly_brace) {
+                    cblevel++;
+                } else if (t.type == Token::close_curly_brace) {
+                    cblevel--;
+                    if (cblevel == cbend) {
+                        break;
+                    }
+                }
+
+                t = next_token(&l);
+            }
+        }
+
+        t = next_token(&l);
+    }
+
+    return mesh;
+}
+
 Mesh load_mesh_obj(FilePathView path)
 {
     Mesh mesh = {};
@@ -478,9 +775,25 @@ Texture* add_texture(FilePath path)
     return &g_textures[texture_id];
 }
 
-Mesh* add_mesh(FilePath path)
+Mesh* add_mesh_obj(FilePath path)
 {
     Mesh m = load_mesh_obj(path);
+    if (m.vertices.count == 0) {
+        return nullptr;
+    }
+
+    m.asset_id = g_catalog.next_asset_id++;
+    MeshID mesh_id = (MeshID)array_add(&g_meshes, m);
+
+    map_add(&g_catalog.assets, path.filename, m.asset_id);
+    map_add(&g_catalog.meshes, m.asset_id,    mesh_id);
+
+    return &g_meshes[mesh_id];
+}
+
+Mesh* add_mesh_fbx(FilePath path)
+{
+    Mesh m = load_mesh_fbx(path);
     if (m.vertices.count == 0) {
         return nullptr;
     }
@@ -854,7 +1167,18 @@ CATALOG_PROCESS_FUNC(catalog_process_obj)
 {
     AssetID id = find_asset_id(path.filename.bytes);
     if (id == ASSET_INVALID_ID) {
-        add_mesh(path);
+        add_mesh_obj(path);
+        return;
+    }
+
+    ASSERT(false && "hot reloading changed meshes not supported");
+}
+
+CATALOG_PROCESS_FUNC(catalog_process_fbx)
+{
+    AssetID id = find_asset_id(path.filename.bytes);
+    if (id == ASSET_INVALID_ID) {
+        add_mesh_fbx(path);
         return;
     }
 
@@ -881,6 +1205,9 @@ void init_catalog_system()
 
     array_add(&g_catalog.folders, resolve_folder_path(GamePath_data, "models", g_persistent));
     map_add(&g_catalog.processes, "obj", catalog_process_obj);
+
+    array_add(&g_catalog.folders, resolve_folder_path(GamePath_data, "models", g_persistent));
+    map_add(&g_catalog.processes, "fbx", catalog_process_fbx);
 
     array_add(&g_catalog.folders, resolve_folder_path(GamePath_data, "entities", g_persistent));
     map_add(&g_catalog.processes, "ent", catalog_process_entity);
