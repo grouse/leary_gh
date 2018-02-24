@@ -72,6 +72,8 @@ bool is_newline(char c)
 
 void eat_newline(Lexer *l)
 {
+    l->line_number++;
+
     if (l->at[0] == '\r') {
         l->at++;
     }
@@ -192,7 +194,6 @@ Token next_token(Lexer *lexer)
         if (is_whitespace(lexer->at[0])) {
             lexer->at++;
         } else if (is_newline(lexer->at[0])) {
-            lexer->line_number++;
             eat_newline(lexer);
         } else if (token_type(lexer->at[0]) == Token::forward_slash &&
                    token_type(lexer->at[1]) == Token::forward_slash)
@@ -202,7 +203,6 @@ Token next_token(Lexer *lexer)
             while (lexer->at[0] && !is_newline(lexer->at[0])) {
                 lexer->at++;
             }
-            lexer->line_number++;
             eat_newline(lexer);
         } else if (token_type(lexer->at[0]) == Token::forward_slash &&
                    token_type(lexer->at[1]) == Token::asterisk)
