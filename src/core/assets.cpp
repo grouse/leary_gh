@@ -575,6 +575,56 @@ Mesh load_mesh_fbx(FilePathView path)
         t = next_token(&l);
     }
 
+    init_array(&mesh.indices, g_persistent);
+    for (int i = 0; i < vertex_indices.count; ) {
+        if (vertex_indices[i+2] < 0) {
+            array_add(&mesh.indices, (u32)vertex_indices[i]);
+            array_add(&mesh.indices, (u32)vertex_indices[i+1]);
+            array_add(&mesh.indices, (u32)(-(vertex_indices[i+2] + 1)));
+            i += 3;
+        } else if (vertex_indices[i+3] < 0) {
+            array_add(&mesh.indices, (u32)vertex_indices[i]);
+            array_add(&mesh.indices, (u32)vertex_indices[i+1]);
+            array_add(&mesh.indices, (u32)vertex_indices[i+2]);
+
+            array_add(&mesh.indices, (u32)vertex_indices[i+2]);
+            array_add(&mesh.indices, (u32)(-(vertex_indices[i+3] + 1)));
+            array_add(&mesh.indices, (u32)vertex_indices[i]);
+            i += 4;
+        } else {
+            LOG(Log_error, "only triangles and quads are supported");
+            return {};
+        }
+    }
+
+    init_array(&mesh.vertices, g_persistent);
+    for (int i = 0; i < mesh.indices.count;) {
+        i32 v0 = mesh.indices[i];
+        i32 v1 = mesh.indices[i+1];
+        i32 v2 = mesh.indices[i+2];
+
+        Vector3 p0 = { vertices[v0], vertices[v0+1], vertices[v0+2] };
+        Vector3 p1 = { vertices[v1], vertices[v1+1], vertices[v1+2] };
+        Vector3 p2 = { vertices[v2], vertices[v2+1], vertices[v2+2] };
+
+        Vector3 n0 = { normals[v0], normals[v0+1], normals[v0+2] };
+        Vector3 n1 = { normals[v1], normals[v1+1], normals[v1+2] };
+        Vector3 n2 = { normals[v2], normals[v2+1], normals[v2+2] };
+
+        Vector2 uv0 = {};
+        Vector2 uv1 = {};
+        Vector2 uv2  = {};
+
+        add_vertex(&mesh.vertices, p0, n0, uv0);
+        add_vertex(&mesh.vertices, p1, n1, uv1);
+        add_vertex(&mesh.vertices, p2, n2, uv2);
+
+        i += 3;
+    }
+
+    ASSERT( normals_mit == uvs_mit );
+    ASSERT( normals_mit == FbxMit_ByPolygonVertex );
+
     return mesh;
 }
 

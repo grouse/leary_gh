@@ -20,6 +20,7 @@ struct Array {
     T& operator[] (i32 i)
     {
         ASSERT(i < count);
+        ASSERT(i >= 0);
         return data[i];
     }
 
@@ -43,6 +44,7 @@ struct StaticArray {
     T& operator[] (i32 i)
     {
         ASSERT(i < count);
+        ASSERT(i >= 0);
         return data[i];
     }
 
