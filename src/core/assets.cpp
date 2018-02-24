@@ -363,12 +363,50 @@ fbx_read_mapping_information_type(
         return FbxMit_unknown;
     }
 
-    if (peek_token(lexer).type == Token::double_quote) {
+    t = next_token(lexer);
+    if (t.type == Token::double_quote) {
         t = next_token(lexer);
     }
 
-    t = next_token(lexer);
     return mit;
+}
+
+enum FbxReferenceInformationType {
+    FbxRit_unknown,
+    FbxRit_IndexToDirect,
+    FbxRit_Direct
+};
+static FbxReferenceInformationType
+fbx_read_reference_information_type(
+    FilePathView path,
+    Lexer *lexer,
+    Token *token)
+{
+    FbxReferenceInformationType rit = FbxRit_unknown;
+
+    Token t = next_token(lexer);
+    defer { *token = t; };
+
+    t = next_token(lexer);
+    if (t.type == Token::double_quote) {
+        t = next_token(lexer);
+    }
+
+    if (is_identifier(t, "Direct")) {
+        rit = FbxRit_Direct;
+    } else if (is_identifier(t, "IndexToDirect")) {
+        rit = FbxRit_IndexToDirect;
+    } else {
+        PARSE_ERROR(path, *lexer, "unknown ReferenceInformationType");
+        return FbxRit_unknown;
+    }
+
+    t = next_token(lexer);
+    if (t.type == Token::double_quote) {
+        t = next_token(lexer);
+    }
+
+    return rit;
 }
 
 
@@ -393,12 +431,14 @@ Mesh load_mesh_fbx(FilePathView path)
     auto vertices       = create_array<f32>(g_frame);
     auto vertex_indices = create_array<i32>(g_frame);
 
-    auto                      normals     = create_array<f32>(g_frame);
-    FbxMappingInformationType normals_mit = FbxMit_unknown;
+    auto                        normals     = create_array<f32>(g_frame);
+    FbxMappingInformationType   normals_mit = FbxMit_unknown;
+    FbxReferenceInformationType normals_rit = FbxRit_unknown;
 
-    auto                      uvs        = create_array<f32>(g_frame);
-    auto                      uv_indices = create_array<i32>(g_frame);
-    FbxMappingInformationType uvs_mit    = FbxMit_unknown;
+    auto                        uvs        = create_array<f32>(g_frame);
+    auto                        uv_indices = create_array<i32>(g_frame);
+    FbxMappingInformationType   uvs_mit    = FbxMit_unknown;
+    FbxReferenceInformationType uvs_rit    = FbxRit_unknown;
 
     Lexer l = create_lexer(file, size);
     Token t = next_token(&l);
@@ -467,6 +507,11 @@ Mesh load_mesh_fbx(FilePathView path)
                                     continue;
                                 }
 
+                                if (is_identifier(t, "ReferenceInformationType")) {
+                                    normals_rit = fbx_read_reference_information_type( path, &l, &t);
+                                    continue;
+                                }
+
                                 if (t.type == Token::open_curly_brace) {
                                     if (eat_until(path, &l, Token::close_curly_brace) == false ) {
                                         return {};
@@ -510,6 +555,11 @@ Mesh load_mesh_fbx(FilePathView path)
 
                                 if (is_identifier(t, "MappingInformationType")) {
                                     uvs_mit = fbx_read_mapping_information_type(path, &l, &t);
+                                    continue;
+                                }
+
+                                if (is_identifier(t, "ReferenceInformationType")) {
+                                    uvs_rit = fbx_read_reference_information_type(path, &l, &t);
                                     continue;
                                 }
 
@@ -575,21 +625,22 @@ Mesh load_mesh_fbx(FilePathView path)
         t = next_token(&l);
     }
 
-    init_array(&mesh.indices, g_persistent);
+    ASSERT(vertex_indices.count == uv_indices.count);
+
+    auto vert_indices_tri = create_array<i32>(g_frame);
     for (int i = 0; i < vertex_indices.count; ) {
         if (vertex_indices[i+2] < 0) {
-            array_add(&mesh.indices, (u32)vertex_indices[i]);
-            array_add(&mesh.indices, (u32)vertex_indices[i+1]);
-            array_add(&mesh.indices, (u32)(-(vertex_indices[i+2] + 1)));
+            array_add(&vert_indices_tri, vertex_indices[i]);
+            array_add(&vert_indices_tri, vertex_indices[i+1]);
+            array_add(&vert_indices_tri, -(vertex_indices[i+2] + 1));
             i += 3;
         } else if (vertex_indices[i+3] < 0) {
-            array_add(&mesh.indices, (u32)vertex_indices[i]);
-            array_add(&mesh.indices, (u32)vertex_indices[i+1]);
-            array_add(&mesh.indices, (u32)vertex_indices[i+2]);
-
-            array_add(&mesh.indices, (u32)vertex_indices[i+2]);
-            array_add(&mesh.indices, (u32)(-(vertex_indices[i+3] + 1)));
-            array_add(&mesh.indices, (u32)vertex_indices[i]);
+            array_add(&vert_indices_tri, vertex_indices[i]);
+            array_add(&vert_indices_tri, vertex_indices[i+1]);
+            array_add(&vert_indices_tri, vertex_indices[i+2]);
+            array_add(&vert_indices_tri, vertex_indices[i+2]);
+            array_add(&vert_indices_tri, -(vertex_indices[i+3] + 1));
+            array_add(&vert_indices_tri, vertex_indices[i]);
             i += 4;
         } else {
             LOG(Log_error, "only triangles and quads are supported");
@@ -597,23 +648,71 @@ Mesh load_mesh_fbx(FilePathView path)
         }
     }
 
+    auto uv_indices_tri = create_array<i32>(g_frame);
+    if (uvs_rit == FbxRit_IndexToDirect) {
+        for (int i = 0; i < vertex_indices.count; ) {
+            if (vertex_indices[i+2] < 0) {
+                array_add(&uv_indices_tri, uv_indices[i]);
+                array_add(&uv_indices_tri, uv_indices[i+1]);
+                array_add(&uv_indices_tri, uv_indices[i+2]);
+                i += 3;
+            } else if (vertex_indices[i+3] < 0) {
+                array_add(&uv_indices_tri, uv_indices[i]);
+                array_add(&uv_indices_tri, uv_indices[i+1]);
+                array_add(&uv_indices_tri, uv_indices[i+2]);
+                array_add(&uv_indices_tri, uv_indices[i+2]);
+                array_add(&uv_indices_tri, uv_indices[i+3]);
+                array_add(&uv_indices_tri, uv_indices[i]);
+                i += 4;
+            } else {
+                LOG(Log_error, "only triangles and quads are supported");
+                return {};
+            }
+        }
+    }
+
+    // TODO(jesper): unsupported reference index types
+    ASSERT(uvs_rit == FbxRit_IndexToDirect);
+    ASSERT(normals_rit == FbxRit_Direct);
+
     init_array(&mesh.vertices, g_persistent);
-    for (int i = 0; i < mesh.indices.count;) {
-        i32 v0 = mesh.indices[i];
-        i32 v1 = mesh.indices[i+1];
-        i32 v2 = mesh.indices[i+2];
+    init_array(&mesh.indices,  g_persistent);
+
+    u32 index = 0;
+    for (int i = 0; i < vert_indices_tri.count;) {
+        i32 v0 = vert_indices_tri[i+0] * 3;
+        i32 v1 = vert_indices_tri[i+1] * 3;
+        i32 v2 = vert_indices_tri[i+2] * 3;
 
         Vector3 p0 = { vertices[v0], vertices[v0+1], vertices[v0+2] };
         Vector3 p1 = { vertices[v1], vertices[v1+1], vertices[v1+2] };
         Vector3 p2 = { vertices[v2], vertices[v2+1], vertices[v2+2] };
 
-        Vector3 n0 = { normals[v0], normals[v0+1], normals[v0+2] };
-        Vector3 n1 = { normals[v1], normals[v1+1], normals[v1+2] };
-        Vector3 n2 = { normals[v2], normals[v2+1], normals[v2+2] };
+        Vector3 n0, n1, n2;
+        if (normals_rit == FbxRit_Direct) {
+            n0 = { normals[v0], normals[v0+1], normals[v0+2] };
+            n1 = { normals[v1], normals[v1+1], normals[v1+2] };
+            n2 = { normals[v2], normals[v2+1], normals[v2+2] };
+        } else {
+            n0 = n1 = n2 = {};
+        }
 
-        Vector2 uv0 = {};
-        Vector2 uv1 = {};
-        Vector2 uv2  = {};
+        Vector2 uv0, uv1, uv2;
+        if (uvs_rit == FbxRit_IndexToDirect) {
+            i32 uvi0 = uv_indices_tri[i+0] * 2;
+            i32 uvi1 = uv_indices_tri[i+1] * 2;
+            i32 uvi2 = uv_indices_tri[i+2] * 2;
+
+            uv0 = { uvs[uvi0], uvs[uvi0 + 1] };
+            uv1 = { uvs[uvi1], uvs[uvi1 + 1] };
+            uv2 = { uvs[uvi2], uvs[uvi2 + 1] };
+        } else {
+            uv0 = uv1 = uv2 = {};
+        }
+
+        array_add(&mesh.indices, index++);
+        array_add(&mesh.indices, index++);
+        array_add(&mesh.indices, index++);
 
         add_vertex(&mesh.vertices, p0, n0, uv0);
         add_vertex(&mesh.vertices, p1, n1, uv1);
