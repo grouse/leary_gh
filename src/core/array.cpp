@@ -48,6 +48,17 @@ void init_array(Array<T> *arr, Allocator *a, i32 capacity)
 }
 
 template<typename T>
+void reset_array(Array<T> *arr)
+{
+    ASSERT(arr->allocator != nullptr);
+    arr->allocator->dealloc(arr->data);
+
+    arr->data     = nullptr;
+    arr->count    = 0;
+    arr->capacity = 0;
+}
+
+template<typename T>
 void destroy_array(Array<T> *a)
 {
     a->allocator->dealloc(a->data);

@@ -239,13 +239,18 @@ static bool fbx_skip_block(FilePathView path, Lexer *lexer, Token *token)
     defer { *token = t; };
 
     while (t.type != Token::close_curly_brace) {
+        if (t.type == Token::eof) {
+            return false;
+        }
+
         if (t.type == Token::open_curly_brace) {
             if (fbx_skip_block(path, lexer, &t) == false) {
                 return false;
             }
+        } else {
+            t = next_token(lexer);
         }
 
-        t = next_token(lexer);
     }
 
     t = next_token(lexer);
@@ -468,9 +473,14 @@ static FbxModel fbx_read_model(FilePathView path, Lexer *lexer, Token *token)
     t = next_token(lexer); ASSERT(t.type == Token::colon);
 
     t = next_token(lexer); ASSERT(t.type == Token::identifier);
-    model.name = { t.length, t.str };
+    Token name = t;
 
-    t = next_token(lexer); ASSERT(t.type == Token::double_quote);
+    if (eat_until(path, lexer, Token::double_quote) == false ) {
+        return {};
+    }
+
+    model.name = { (i32)(lexer->at - name.str), t.str };
+
     t = next_token(lexer); ASSERT(t.type == Token::comma);
     t = next_token(lexer); ASSERT(t.type == Token::double_quote);
 
@@ -496,7 +506,7 @@ static FbxModel fbx_read_model(FilePathView path, Lexer *lexer, Token *token)
            if (fbx_read_i32_list(path, lexer, &t, &model.vertex_indices) == false ) {
                return {};
            }
-            continue;
+           continue;
         }
 
         if (is_identifier(t, "LayerElementNormal")) {
@@ -527,6 +537,7 @@ static FbxModel fbx_read_model(FilePathView path, Lexer *lexer, Token *token)
                     if (fbx_skip_block(path, lexer, &t) == false) {
                         return {};
                     }
+                    continue;
                 }
 
                 if (t.type == Token::close_curly_brace) {
@@ -536,6 +547,8 @@ static FbxModel fbx_read_model(FilePathView path, Lexer *lexer, Token *token)
 
                 t = next_token(lexer);
             }
+
+            continue;
         }
 
         if (is_identifier(t, "LayerElementUV")) {
@@ -573,6 +586,7 @@ static FbxModel fbx_read_model(FilePathView path, Lexer *lexer, Token *token)
                     if (fbx_skip_block(path, lexer, &t) == false) {
                         return {};
                     }
+                    continue;
                 }
 
                 if (t.type == Token::close_curly_brace) {
@@ -588,6 +602,7 @@ static FbxModel fbx_read_model(FilePathView path, Lexer *lexer, Token *token)
             if (fbx_skip_block(path, lexer, &t) == false) {
                 return {};
             }
+            continue;
         }
 
         if (t.type == Token::close_curly_brace) {
@@ -644,15 +659,20 @@ Mesh load_mesh_fbx(FilePathView path)
                 if (is_identifier(t, "Model")) {
                     FbxModel model = fbx_read_model(path, &l, &t);
 
-                    if (model.valid) {
+                    if (model.valid &&
+                        model.vertices.count > 0 &&
+                        model.uvs.count > 0)
+                    {
                         array_add(&models, model);
                     }
+                    continue;
                 }
 
                 if (t.type == Token::open_curly_brace) {
                     if (fbx_skip_block(path, &l, &t) == false) {
                         return {};
                     }
+                    continue;
                 }
 
                 if (t.type == Token::close_curly_brace) {
@@ -669,106 +689,107 @@ Mesh load_mesh_fbx(FilePathView path)
         t = next_token(&l);
     }
 
-#if 0
-    ASSERT(vertex_indices.count == uv_indices.count);
+    init_array(&mesh.vertices, g_persistent);
+    init_array(&mesh.indices,  g_persistent);
 
-    auto vert_indices_tri = create_array<i32>(g_frame);
-    for (int i = 0; i < vertex_indices.count; ) {
-        if (vertex_indices[i+2] < 0) {
-            array_add(&vert_indices_tri, vertex_indices[i]);
-            array_add(&vert_indices_tri, vertex_indices[i+1]);
-            array_add(&vert_indices_tri, -(vertex_indices[i+2] + 1));
-            i += 3;
-        } else if (vertex_indices[i+3] < 0) {
-            array_add(&vert_indices_tri, vertex_indices[i]);
-            array_add(&vert_indices_tri, vertex_indices[i+1]);
-            array_add(&vert_indices_tri, vertex_indices[i+2]);
-            array_add(&vert_indices_tri, vertex_indices[i+2]);
-            array_add(&vert_indices_tri, -(vertex_indices[i+3] + 1));
-            array_add(&vert_indices_tri, vertex_indices[i]);
-            i += 4;
-        } else {
-            LOG(Log_error, "only triangles and quads are supported");
-            return {};
-        }
-    }
+    auto vertex_indices = create_array<i32>(g_frame);
+    auto uv_indices     = create_array<i32>(g_frame);
 
-    auto uv_indices_tri = create_array<i32>(g_frame);
-    if (uvs_rit == FbxRit_IndexToDirect) {
-        for (int i = 0; i < vertex_indices.count; ) {
-            if (vertex_indices[i+2] < 0) {
-                array_add(&uv_indices_tri, uv_indices[i]);
-                array_add(&uv_indices_tri, uv_indices[i+1]);
-                array_add(&uv_indices_tri, uv_indices[i+2]);
+    u32 index = 0;
+    for (FbxModel m : models) {
+        // TODO(jesper): don't know what to do with uvs if this isn't true
+        //ASSERT(m.vertex_indices.count == m.uv_indices.count);
+
+        // TODO(jesper): unsupported reference index types
+        ASSERT(m.uvs_rit     == FbxRit_IndexToDirect);
+        ASSERT(m.normals_rit == FbxRit_Direct);
+
+        for (int i = 0; i < m.vertex_indices.count; ) {
+            if (m.vertex_indices[i+2] < 0) {
+                array_add(&vertex_indices, m.vertex_indices[i]);
+                array_add(&vertex_indices, m.vertex_indices[i+1]);
+                array_add(&vertex_indices, -(m.vertex_indices[i+2] + 1));
                 i += 3;
-            } else if (vertex_indices[i+3] < 0) {
-                array_add(&uv_indices_tri, uv_indices[i]);
-                array_add(&uv_indices_tri, uv_indices[i+1]);
-                array_add(&uv_indices_tri, uv_indices[i+2]);
-                array_add(&uv_indices_tri, uv_indices[i+2]);
-                array_add(&uv_indices_tri, uv_indices[i+3]);
-                array_add(&uv_indices_tri, uv_indices[i]);
+            } else if (m.vertex_indices[i+3] < 0) {
+                array_add(&vertex_indices, m.vertex_indices[i]);
+                array_add(&vertex_indices, m.vertex_indices[i+1]);
+                array_add(&vertex_indices, m.vertex_indices[i+2]);
+                array_add(&vertex_indices, m.vertex_indices[i+2]);
+                array_add(&vertex_indices, -(m.vertex_indices[i+3] + 1));
+                array_add(&vertex_indices, m.vertex_indices[i]);
                 i += 4;
             } else {
                 LOG(Log_error, "only triangles and quads are supported");
                 return {};
             }
         }
-    }
 
-    // TODO(jesper): unsupported reference index types
-    ASSERT(uvs_rit == FbxRit_IndexToDirect);
-    ASSERT(normals_rit == FbxRit_Direct);
-
-    init_array(&mesh.vertices, g_persistent);
-    init_array(&mesh.indices,  g_persistent);
-
-    u32 index = 0;
-    for (int i = 0; i < vert_indices_tri.count;) {
-        i32 v0 = vert_indices_tri[i+0] * 3;
-        i32 v1 = vert_indices_tri[i+1] * 3;
-        i32 v2 = vert_indices_tri[i+2] * 3;
-
-        Vector3 p0 = { vertices[v0], vertices[v0+1], vertices[v0+2] };
-        Vector3 p1 = { vertices[v1], vertices[v1+1], vertices[v1+2] };
-        Vector3 p2 = { vertices[v2], vertices[v2+1], vertices[v2+2] };
-
-        Vector3 n0, n1, n2;
-        if (normals_rit == FbxRit_Direct) {
-            n0 = { normals[v0], normals[v0+1], normals[v0+2] };
-            n1 = { normals[v1], normals[v1+1], normals[v1+2] };
-            n2 = { normals[v2], normals[v2+1], normals[v2+2] };
-        } else {
-            n0 = n1 = n2 = {};
+        if (m.uvs_rit == FbxRit_IndexToDirect) {
+            for (int i = 0; i < m.vertex_indices.count; ) {
+                if (m.vertex_indices[i+2] < 0) {
+                    array_add(&uv_indices, m.uv_indices[i]);
+                    array_add(&uv_indices, m.uv_indices[i+1]);
+                    array_add(&uv_indices, m.uv_indices[i+2]);
+                    i += 3;
+                } else if (m.vertex_indices[i+3] < 0) {
+                    array_add(&uv_indices, m.uv_indices[i]);
+                    array_add(&uv_indices, m.uv_indices[i+1]);
+                    array_add(&uv_indices, m.uv_indices[i+2]);
+                    array_add(&uv_indices, m.uv_indices[i+2]);
+                    array_add(&uv_indices, m.uv_indices[i+3]);
+                    array_add(&uv_indices, m.uv_indices[i]);
+                    i += 4;
+                } else {
+                    LOG(Log_error, "only triangles and quads are supported");
+                    return {};
+                }
+            }
         }
 
-        Vector2 uv0, uv1, uv2;
-        if (uvs_rit == FbxRit_IndexToDirect) {
-            i32 uvi0 = uv_indices_tri[i+0] * 2;
-            i32 uvi1 = uv_indices_tri[i+1] * 2;
-            i32 uvi2 = uv_indices_tri[i+2] * 2;
+        for (int i = 0; i < vertex_indices.count;) {
+            i32 v0 = vertex_indices[i+0] * 3;
+            i32 v1 = vertex_indices[i+1] * 3;
+            i32 v2 = vertex_indices[i+2] * 3;
 
-            uv0 = { uvs[uvi0], uvs[uvi0 + 1] };
-            uv1 = { uvs[uvi1], uvs[uvi1 + 1] };
-            uv2 = { uvs[uvi2], uvs[uvi2 + 1] };
-        } else {
-            uv0 = uv1 = uv2 = {};
+            Vector3 p0 = { m.vertices[v0], m.vertices[v0+1], m.vertices[v0+2] };
+            Vector3 p1 = { m.vertices[v1], m.vertices[v1+1], m.vertices[v1+2] };
+            Vector3 p2 = { m.vertices[v2], m.vertices[v2+1], m.vertices[v2+2] };
+
+            Vector3 n0, n1, n2;
+            if (m.normals_rit == FbxRit_Direct) {
+                n0 = { m.normals[v0], m.normals[v0+1], m.normals[v0+2] };
+                n1 = { m.normals[v1], m.normals[v1+1], m.normals[v1+2] };
+                n2 = { m.normals[v2], m.normals[v2+1], m.normals[v2+2] };
+            } else {
+                n0 = n1 = n2 = {};
+            }
+
+            Vector2 uv0, uv1, uv2;
+            if (m.uvs_rit == FbxRit_IndexToDirect) {
+                i32 uvi0 = uv_indices[i+0] * 2;
+                i32 uvi1 = uv_indices[i+1] * 2;
+                i32 uvi2 = uv_indices[i+2] * 2;
+
+                uv0 = { m.uvs[uvi0], m.uvs[uvi0 + 1] };
+                uv1 = { m.uvs[uvi1], m.uvs[uvi1 + 1] };
+                uv2 = { m.uvs[uvi2], m.uvs[uvi2 + 1] };
+            } else {
+                uv0 = uv1 = uv2 = {};
+            }
+
+            array_add(&mesh.indices, index++);
+            array_add(&mesh.indices, index++);
+            array_add(&mesh.indices, index++);
+
+            add_vertex(&mesh.vertices, p0, n0, uv0);
+            add_vertex(&mesh.vertices, p1, n1, uv1);
+            add_vertex(&mesh.vertices, p2, n2, uv2);
+            i += 3;
         }
 
-        array_add(&mesh.indices, index++);
-        array_add(&mesh.indices, index++);
-        array_add(&mesh.indices, index++);
-
-        add_vertex(&mesh.vertices, p0, n0, uv0);
-        add_vertex(&mesh.vertices, p1, n1, uv1);
-        add_vertex(&mesh.vertices, p2, n2, uv2);
-
-        i += 3;
+        reset_array(&uv_indices);
+        reset_array(&vertex_indices);
     }
-
-    ASSERT( normals_mit == uvs_mit );
-    ASSERT( normals_mit == FbxMit_ByPolygonVertex );
-#endif
 
     return mesh;
 }
