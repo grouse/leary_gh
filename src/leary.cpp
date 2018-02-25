@@ -1072,7 +1072,8 @@ void game_render()
         Matrix4 t = translate(Matrix4::identity(), e->position);
         Matrix4 r = Matrix4::make(e->rotation);
 
-        Matrix4 srt = scale(t * r, e->scale);
+        Matrix4 srt = scale(t, e->scale);
+        srt = srt * r;
 
         vkCmdPushConstants(command, pipeline.layout,
                            VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(srt), &srt);
