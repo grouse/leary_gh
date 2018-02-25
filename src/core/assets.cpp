@@ -203,6 +203,55 @@ struct FBXHeader {
     u32 version;
 };
 
+enum FbxMappingInformationType {
+    FbxMit_unknown,
+    FbxMit_ByPolygonVertex,
+    FbxMit_AllSame
+};
+
+enum FbxReferenceInformationType {
+    FbxRit_unknown,
+    FbxRit_IndexToDirect,
+    FbxRit_Direct
+};
+
+struct FbxModel {
+    StringView name;
+    Array<f32> vertices;
+    Array<i32> vertex_indices;
+
+    Array<f32> normals;
+    FbxReferenceInformationType normals_rit = FbxRit_unknown;
+    FbxMappingInformationType   normals_mit = FbxMit_unknown;
+
+    Array<f32> uvs;
+    Array<i32> uv_indices;
+    FbxReferenceInformationType uvs_rit = FbxRit_unknown;
+    FbxMappingInformationType   uvs_mit = FbxMit_unknown;
+
+    bool valid = false;
+};
+
+
+static bool fbx_skip_block(FilePathView path, Lexer *lexer, Token *token)
+{
+    Token t = next_token(lexer);
+    defer { *token = t; };
+
+    while (t.type != Token::close_curly_brace) {
+        if (t.type == Token::open_curly_brace) {
+            if (fbx_skip_block(path, lexer, &t) == false) {
+                return false;
+            }
+        }
+
+        t = next_token(lexer);
+    }
+
+    t = next_token(lexer);
+    return true;
+}
+
 static FBXHeader fbx_read_header(FilePathView path, Lexer *lexer, Token *token)
 {
     FBXHeader header = {};
@@ -332,11 +381,6 @@ static bool fbx_read_i32_list(
     return true;
 }
 
-enum FbxMappingInformationType {
-    FbxMit_unknown,
-    FbxMit_ByPolygonVertex,
-    FbxMit_AllSame
-};
 
 static FbxMappingInformationType
 fbx_read_mapping_information_type(
@@ -371,11 +415,6 @@ fbx_read_mapping_information_type(
     return mit;
 }
 
-enum FbxReferenceInformationType {
-    FbxRit_unknown,
-    FbxRit_IndexToDirect,
-    FbxRit_Direct
-};
 static FbxReferenceInformationType
 fbx_read_reference_information_type(
     FilePathView path,
@@ -409,6 +448,160 @@ fbx_read_reference_information_type(
     return rit;
 }
 
+static FbxModel fbx_read_model(FilePathView path, Lexer *lexer, Token *token)
+{
+    FbxModel model = {};
+    init_array(&model.vertices,       g_frame);
+    init_array(&model.vertex_indices, g_frame);
+    init_array(&model.normals,        g_frame);
+    init_array(&model.uvs,            g_frame);
+    init_array(&model.uv_indices,     g_frame);
+
+    Token t = next_token(lexer); ASSERT(t.type == Token::colon);
+    defer { *token = t; };
+
+    Token model_type = {};
+
+    t = next_token(lexer); ASSERT(t.type == Token::double_quote);
+    t = next_token(lexer); ASSERT(is_identifier(t, "Model"));
+    t = next_token(lexer); ASSERT(t.type == Token::colon);
+    t = next_token(lexer); ASSERT(t.type == Token::colon);
+
+    t = next_token(lexer); ASSERT(t.type == Token::identifier);
+    model.name = { t.length, t.str };
+
+    t = next_token(lexer); ASSERT(t.type == Token::double_quote);
+    t = next_token(lexer); ASSERT(t.type == Token::comma);
+    t = next_token(lexer); ASSERT(t.type == Token::double_quote);
+
+    t = next_token(lexer); ASSERT(t.type == Token::identifier);
+    model_type = t;
+
+    t = next_token(lexer); ASSERT(t.type == Token::double_quote);
+
+    if (eat_until(path, lexer, Token::open_curly_brace) == false ) {
+        return {};
+    }
+
+    t = next_token(lexer);
+    while (t.type != Token::eof) {
+        if (is_identifier(t, "Vertices")) {
+            if (fbx_read_f32_list(path, lexer, &t, &model.vertices) == false) {
+                return {};
+            }
+            continue;
+        }
+
+        if (is_identifier(t, "PolygonVertexIndex")) {
+           if (fbx_read_i32_list(path, lexer, &t, &model.vertex_indices) == false ) {
+               return {};
+           }
+            continue;
+        }
+
+        if (is_identifier(t, "LayerElementNormal")) {
+            if (eat_until(path, lexer, Token::open_curly_brace) == false ) {
+                return {};
+            }
+
+            t = next_token(lexer);
+            while (t.type != Token::eof) {
+                if (is_identifier(t, "Normals")) {
+                    if (fbx_read_f32_list(path, lexer, &t, &model.normals) == false) {
+                        return {};
+                    }
+                    continue;
+                }
+
+                if (is_identifier(t, "MappingInformationType")) {
+                    model.normals_mit = fbx_read_mapping_information_type(path, lexer, &t);
+                    continue;
+                }
+
+                if (is_identifier(t, "ReferenceInformationType")) {
+                    model.normals_rit = fbx_read_reference_information_type(path, lexer, &t);
+                    continue;
+                }
+
+                if (t.type == Token::open_curly_brace) {
+                    if (fbx_skip_block(path, lexer, &t) == false) {
+                        return {};
+                    }
+                }
+
+                if (t.type == Token::close_curly_brace) {
+                    t = next_token(lexer);
+                    break;
+                }
+
+                t = next_token(lexer);
+            }
+        }
+
+        if (is_identifier(t, "LayerElementUV")) {
+            if (eat_until(path, lexer, Token::open_curly_brace) == false ) {
+                return {};
+            }
+
+            t = next_token(lexer);
+            while (t.type != Token::eof) {
+                if (is_identifier(t, "UV")) {
+                    if (fbx_read_f32_list(path, lexer, &t, &model.uvs) == false) {
+                        return {};
+                    }
+                    continue;
+                }
+
+                if (is_identifier(t, "UVIndex")) {
+                    if (fbx_read_i32_list(path, lexer, &t, &model.uv_indices) == false) {
+                        return {};
+                    }
+                    continue;
+                }
+
+                if (is_identifier(t, "MappingInformationType")) {
+                    model.uvs_mit = fbx_read_mapping_information_type(path, lexer, &t);
+                    continue;
+                }
+
+                if (is_identifier(t, "ReferenceInformationType")) {
+                    model.uvs_rit = fbx_read_reference_information_type(path, lexer, &t);
+                    continue;
+                }
+
+                if (t.type == Token::open_curly_brace) {
+                    if (fbx_skip_block(path, lexer, &t) == false) {
+                        return {};
+                    }
+                }
+
+                if (t.type == Token::close_curly_brace) {
+                    t = next_token(lexer);
+                    break;
+                }
+
+                t = next_token(lexer);
+            }
+        }
+
+        if (t.type == Token::open_curly_brace) {
+            if (fbx_skip_block(path, lexer, &t) == false) {
+                return {};
+            }
+        }
+
+        if (t.type == Token::close_curly_brace) {
+            t = next_token(lexer);
+            break;
+        }
+
+        t = next_token(lexer);
+    }
+
+    model.valid = true;
+    return model;
+}
+
 
 
 Mesh load_mesh_fbx(FilePathView path)
@@ -422,23 +615,8 @@ Mesh load_mesh_fbx(FilePathView path)
         return mesh;
     }
 
-
     FBXHeader header = {};
-
-    i32 cblevel = 0;
-
-
-    auto vertices       = create_array<f32>(g_frame);
-    auto vertex_indices = create_array<i32>(g_frame);
-
-    auto                        normals     = create_array<f32>(g_frame);
-    FbxMappingInformationType   normals_mit = FbxMit_unknown;
-    FbxReferenceInformationType normals_rit = FbxRit_unknown;
-
-    auto                        uvs        = create_array<f32>(g_frame);
-    auto                        uv_indices = create_array<i32>(g_frame);
-    FbxMappingInformationType   uvs_mit    = FbxMit_unknown;
-    FbxReferenceInformationType uvs_rit    = FbxRit_unknown;
+    auto models = create_array<FbxModel>(g_frame);
 
     Lexer l = create_lexer(file, size);
     Token t = next_token(&l);
@@ -461,159 +639,25 @@ Mesh load_mesh_fbx(FilePathView path)
                 return {};
             }
 
-            i32 objects_end = cblevel++;
-
             t = next_token(&l);
             while (l.at < l.end) {
                 if (is_identifier(t, "Model")) {
-                    if (eat_until(path, &l, Token::open_curly_brace) == false ) {
-                        return {};
-                    }
+                    FbxModel model = fbx_read_model(path, &l, &t);
 
-                    i32 model_end = cblevel++;
-                    t = next_token(&l);
-                    while (l.at < l.end) {
-                        if (is_identifier(t, "Vertices")) {
-                            if (fbx_read_f32_list(path, &l, &t, &vertices) == false) {
-                                return {};
-                            }
-                            continue;
-                        }
-
-                        if (is_identifier(t, "PolygonVertexIndex")) {
-                           if (fbx_read_i32_list(path, &l, &t, &vertex_indices) == false ) {
-                               return {};
-                           }
-                            continue;
-                        }
-
-                        if (is_identifier(t, "LayerElementNormal")) {
-                            if (eat_until(path, &l, Token::open_curly_brace) == false ) {
-                                return {};
-                            }
-
-                            i32 normals_end = cblevel++;
-                            t = next_token(&l);
-                            while (l.at < l.end) {
-                                if (is_identifier(t, "Normals")) {
-                                    if (fbx_read_f32_list(path, &l, &t, &normals) == false) {
-                                        return {};
-                                    }
-                                    continue;
-                                }
-
-                                if (is_identifier(t, "MappingInformationType")) {
-                                    normals_mit = fbx_read_mapping_information_type( path, &l, &t);
-                                    continue;
-                                }
-
-                                if (is_identifier(t, "ReferenceInformationType")) {
-                                    normals_rit = fbx_read_reference_information_type( path, &l, &t);
-                                    continue;
-                                }
-
-                                if (t.type == Token::open_curly_brace) {
-                                    if (eat_until(path, &l, Token::close_curly_brace) == false ) {
-                                        return {};
-                                    }
-                                    t = next_token(&l);
-                                }
-
-                                if (t.type == Token::close_curly_brace) {
-                                    cblevel--;
-                                    if (cblevel == normals_end) {
-                                        t = next_token(&l);
-                                        break;
-                                    }
-                                }
-
-                                t = next_token(&l);
-                            }
-                        }
-
-                        if (is_identifier(t, "LayerElementUV")) {
-                            if (eat_until(path, &l, Token::open_curly_brace) == false ) {
-                                return {};
-                            }
-
-                            i32 uvs_end = cblevel++;
-                            t = next_token(&l);
-                            while (l.at < l.end) {
-                                if (is_identifier(t, "UV")) {
-                                    if (fbx_read_f32_list(path, &l, &t, &uvs) == false) {
-                                        return {};
-                                    }
-                                    continue;
-                                }
-
-                                if (is_identifier(t, "UVIndex")) {
-                                    if (fbx_read_i32_list(path, &l, &t, &uv_indices) == false) {
-                                        return {};
-                                    }
-                                    continue;
-                                }
-
-                                if (is_identifier(t, "MappingInformationType")) {
-                                    uvs_mit = fbx_read_mapping_information_type(path, &l, &t);
-                                    continue;
-                                }
-
-                                if (is_identifier(t, "ReferenceInformationType")) {
-                                    uvs_rit = fbx_read_reference_information_type(path, &l, &t);
-                                    continue;
-                                }
-
-                                if (t.type == Token::open_curly_brace) {
-                                    if (eat_until(path, &l, Token::close_curly_brace) == false ) {
-                                        return {};
-                                    }
-                                    t = next_token(&l);
-                                }
-
-                                if (t.type == Token::close_curly_brace) {
-                                    cblevel--;
-                                    if (cblevel == uvs_end) {
-                                        t = next_token(&l);
-                                        break;
-                                    }
-                                }
-
-                                t = next_token(&l);
-                            }
-                        }
-
-                        if (t.type == Token::open_curly_brace) {
-                            if (eat_until(path, &l, Token::close_curly_brace) == false ) {
-                                return {};
-                            }
-                            t = next_token(&l);
-                        }
-
-                        if (t.type == Token::close_curly_brace) {
-                            cblevel--;
-                            if (cblevel == model_end) {
-                                t = next_token(&l);
-                                break;
-                            }
-                        }
-
-                        t = next_token(&l);
+                    if (model.valid) {
+                        array_add(&models, model);
                     }
                 }
 
                 if (t.type == Token::open_curly_brace) {
-                    if (eat_until(path, &l, Token::close_curly_brace) == false ) {
+                    if (fbx_skip_block(path, &l, &t) == false) {
                         return {};
                     }
-                    t = next_token(&l);
                 }
 
                 if (t.type == Token::close_curly_brace) {
-                    cblevel--;
-                    if (cblevel == objects_end) {
-                        t = next_token(&l);
-                        break;
-                    }
+                    t = next_token(&l);
+                    break;
                 }
 
                 t = next_token(&l);
@@ -625,6 +669,7 @@ Mesh load_mesh_fbx(FilePathView path)
         t = next_token(&l);
     }
 
+#if 0
     ASSERT(vertex_indices.count == uv_indices.count);
 
     auto vert_indices_tri = create_array<i32>(g_frame);
@@ -723,6 +768,7 @@ Mesh load_mesh_fbx(FilePathView path)
 
     ASSERT( normals_mit == uvs_mit );
     ASSERT( normals_mit == FbxMit_ByPolygonVertex );
+#endif
 
     return mesh;
 }
