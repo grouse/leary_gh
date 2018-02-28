@@ -2415,3 +2415,33 @@ GfxDescriptorSet gfx_create_descriptor(
     return desc;
 }
 
+void gfx_bind_descriptors(
+    VkCommandBuffer cmd,
+    VkPipelineLayout layout,
+    VkPipelineBindPoint bind_point,
+    Array<GfxDescriptorSet> descriptors)
+{
+    auto vk_sets = create_array<VkDescriptorSet>(g_stack, descriptors.count);
+    for (auto set : descriptors) {
+        array_add(&vk_sets, set.vk_set);
+    }
+
+    vkCmdBindDescriptorSets(
+        cmd,
+        bind_point, layout,
+        0, vk_sets.count, vk_sets.data,
+        0, nullptr);
+}
+
+void gfx_bind_descriptor(
+    VkCommandBuffer cmd,
+    VkPipelineLayout layout,
+    VkPipelineBindPoint bind_point,
+    GfxDescriptorSet descriptor)
+{
+    vkCmdBindDescriptorSets(
+        cmd,
+        bind_point, layout,
+        0, 1, &descriptor.vk_set,
+        0, nullptr);
+}

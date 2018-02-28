@@ -109,8 +109,8 @@ void debug_add_texture(const char *name,
     item.u.ritem.vbo = create_vbo(vertices, sizeof(vertices));
     item.u.ritem.vertex_count = 6;
 
-    item.u.ritem.descriptors = create_array<VkDescriptorSet>(g_heap, 1);
-    array_add(&item.u.ritem.descriptors, material.descriptor_set.vk_set);
+    init_array(&item.u.ritem.descriptors, g_heap, 1);
+    array_add(&item.u.ritem.descriptors, material.descriptor_set);
     array_add(&overlay->items, item);
 }
 
@@ -973,18 +973,14 @@ void render_terrain(VkCommandBuffer command)
                       VK_PIPELINE_BIND_POINT_GRAPHICS,
                       pipeline.handle);
 
-    auto descriptors = create_array<VkDescriptorSet>(g_stack);
-    array_add(&descriptors, pipeline.descriptor_set.vk_set);
-    array_add(&descriptors, g_terrain.material->descriptor_set.vk_set);
-
-
-    vkCmdBindDescriptorSets(command,
-                            VK_PIPELINE_BIND_POINT_GRAPHICS,
-                            pipeline.layout,
-                            0,
-                            (i32)descriptors.count,
-                            descriptors.data,
-                            0, nullptr);
+    auto descriptors = create_array<GfxDescriptorSet>(g_stack);
+    array_add(&descriptors, pipeline.descriptor_set);
+    array_add(&descriptors, g_terrain.material->descriptor_set);
+    gfx_bind_descriptors(
+        command,
+        pipeline.layout,
+        VK_PIPELINE_BIND_POINT_GRAPHICS,
+        descriptors);
 
     for (auto &c : g_terrain.chunks) {
         vkCmdBindVertexBuffers(command, 0, 1, &c.vbo.handle, offsets);
@@ -1019,12 +1015,11 @@ void game_render()
         // TODO(jesper): bind material descriptor set if bound
         // TODO(jesper): only bind pipeline descriptor set if one exists, might
         // be such a special case that we should hardcode it?
-        vkCmdBindDescriptorSets(command,
-                                VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                pipeline.layout,
-                                0,
-                                1, &pipeline.descriptor_set.vk_set,
-                                0, nullptr);
+        gfx_bind_descriptor(
+            command,
+            pipeline.layout,
+            VK_PIPELINE_BIND_POINT_GRAPHICS,
+            pipeline.descriptor_set);
 
         vkCmdBindVertexBuffers(command, 0, 1, &object.vbo.handle, offsets);
 
@@ -1034,32 +1029,28 @@ void game_render()
         vkCmdDraw(command, object.vertex_count, 1, 0, 0);
     }
 
+    auto descriptors = create_array<GfxDescriptorSet>(g_frame);
     for (auto &object : g_game->index_render_objects) {
+        reset_array_count(&descriptors);
+
         VulkanPipeline &pipeline = g_vulkan->pipelines[object.pipeline];
 
         vkCmdBindPipeline(command,
                           VK_PIPELINE_BIND_POINT_GRAPHICS,
                           pipeline.handle);
 
-        // TODO(jesper): bind material descriptor set if bound
-        // TODO(jesper): only bind pipeline descriptor set if one exists, might
-        // be such a special case that we should hardcode it?
-        auto descriptors = create_array<VkDescriptorSet>(g_stack);
-        defer { destroy_array(&descriptors); };
 
-        array_add(&descriptors, pipeline.descriptor_set.vk_set);
-
+        array_add(&descriptors, pipeline.descriptor_set);
 
         if (object.material) {
-            array_add(&descriptors, object.material->descriptor_set.vk_set);
+            array_add(&descriptors, object.material->descriptor_set);
         }
 
-        vkCmdBindDescriptorSets(command,
-                                VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                pipeline.layout,
-                                0,
-                                (i32)descriptors.count, descriptors.data,
-                                0, nullptr);
+        gfx_bind_descriptors(
+            command,
+            pipeline.layout,
+            VK_PIPELINE_BIND_POINT_GRAPHICS,
+            descriptors);
 
         vkCmdBindVertexBuffers(command, 0, 1, &object.vbo.handle, offsets);
         vkCmdBindIndexBuffer(command, object.ibo.handle,
@@ -1083,20 +1074,19 @@ void game_render()
 
     // collidables
     if (g_debug_collision.render_collidables) {
+        reset_array_count(&descriptors);
+
         VulkanPipeline pipeline = g_vulkan->pipelines[Pipeline_wireframe_lines];
 
         vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS,
                           pipeline.handle);
 
-        auto descriptors = create_array<VkDescriptorSet>(g_stack);
-        array_add(&descriptors, pipeline.descriptor_set.vk_set);
-
-        vkCmdBindDescriptorSets(command,
-                                VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                pipeline.layout,
-                                0,
-                                descriptors.count, descriptors.data,
-                                0, nullptr);
+        array_add(&descriptors, pipeline.descriptor_set);
+        gfx_bind_descriptors(
+            command,
+            pipeline.layout,
+            VK_PIPELINE_BIND_POINT_GRAPHICS,
+            descriptors);
 
         struct {
             Matrix4 transform;
@@ -1125,15 +1115,12 @@ void game_render()
         vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS,
                           pipeline.handle);
 
-        descriptors.count = 0;
-        array_add(&descriptors, pipeline.descriptor_set.vk_set);
-
-        vkCmdBindDescriptorSets(command,
-                                VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                pipeline.layout,
-                                0,
-                                descriptors.count, descriptors.data,
-                                0, nullptr);
+        // TODO(jesper): needed? same descriptors as last pipeline bind
+        gfx_bind_descriptors(
+            command,
+            pipeline.layout,
+            VK_PIPELINE_BIND_POINT_GRAPHICS,
+            descriptors);
 
         vkCmdBindVertexBuffers(command, 0, 1, &g_debug_collision.sphere.vbo.handle, offsets);
         vkCmdBindIndexBuffer(command, g_debug_collision.sphere.ibo.handle, 0, VK_INDEX_TYPE_UINT32);
@@ -1164,13 +1151,11 @@ void game_render()
                           VK_PIPELINE_BIND_POINT_GRAPHICS,
                           pipeline.handle);
 
-        vkCmdBindDescriptorSets(command,
-                                VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                pipeline.layout,
-                                0,
-                                (u32)item.descriptors.count,
-                                item.descriptors.data,
-                                0, nullptr);
+        gfx_bind_descriptors(
+            command,
+            pipeline.layout,
+            VK_PIPELINE_BIND_POINT_GRAPHICS,
+            item.descriptors);
 
         // TODO(jesper): proper push constants support
 #if 0

@@ -7,6 +7,7 @@
  */
 
 #include "gui.h"
+#include "gfx_vulkan.h"
 
 struct DebugInfo
 {
@@ -21,9 +22,9 @@ struct GuiRenderItem
     VkDeviceSize           vbo_offset;
     i32                    vertex_count;
 
-    PipelineID             pipeline_id;
-    Array<VkDescriptorSet> descriptors;
-    PushConstants          constants;
+    PipelineID              pipeline_id;
+    Array<GfxDescriptorSet> descriptors;
+    PushConstants           constants;
 
 #if LEARY_DEBUG
     DebugInfo              debug_info;
@@ -88,14 +89,11 @@ void gui_render(VkCommandBuffer command)
             pipeline.handle);
 
         if (item.descriptors.count > 0) {
-            vkCmdBindDescriptorSets(
+            gfx_bind_descriptors(
                 command,
-                VK_PIPELINE_BIND_POINT_GRAPHICS,
                 pipeline.layout,
-                0,
-                (u32)item.descriptors.count,
-                item.descriptors.data,
-                0, nullptr);
+                VK_PIPELINE_BIND_POINT_GRAPHICS,
+                item.descriptors);
         }
 
         vkCmdPushConstants(
@@ -191,7 +189,7 @@ Vector2 gui_textbox(StringView text, Vector2 *pos)
 #endif // LEARY_DEBUG
 
     init_array(&item.descriptors, g_frame);
-    array_add(&item.descriptors, g_game->materials.font.descriptor_set.vk_set);
+    array_add(&item.descriptors, g_game->materials.font.descriptor_set);
 
     item.vbo          = g_gui_vbo;
     item.vbo_offset   = g_gui_vbo_offset;

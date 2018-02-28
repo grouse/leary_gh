@@ -205,6 +205,18 @@ GfxDescriptorSet gfx_create_descriptor(
     VkDescriptorType type,
     VkDescriptorSetLayout layout);
 
+void gfx_bind_descriptors(
+    VkCommandBuffer cmd,
+    VkPipelineLayout layout,
+    VkPipelineBindPoint bind_point,
+    Array<GfxDescriptorSet> descriptors);
+
+void gfx_bind_descriptor(
+    VkCommandBuffer cmd,
+    VkPipelineLayout layout,
+    VkPipelineBindPoint bind_point,
+    GfxDescriptorSet descriptor);
+
 
 #endif /* VULKAN_DEVICE_H */
 

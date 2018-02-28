@@ -36,12 +36,12 @@ enum DebugOverlayItemType {
 };
 
 struct DebugRenderItem {
-    Vector2                position;
-    PipelineID             pipeline;
-    Array<VkDescriptorSet> descriptors  = {};
-    VulkanBuffer           vbo;
-    i32                    vertex_count = 0;
-    PushConstants          constants;
+    Vector2                 position;
+    PipelineID              pipeline;
+    Array<GfxDescriptorSet> descriptors  = {};
+    VulkanBuffer            vbo;
+    i32                     vertex_count = 0;
+    PushConstants           constants;
 };
 
 struct DebugOverlayItem {

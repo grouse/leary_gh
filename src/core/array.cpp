@@ -59,6 +59,12 @@ void reset_array(Array<T> *arr)
 }
 
 template<typename T>
+void reset_array_count(Array<T> *arr)
+{
+    arr->count    = 0;
+}
+
+template<typename T>
 void destroy_array(Array<T> *a)
 {
     a->allocator->dealloc(a->data);
