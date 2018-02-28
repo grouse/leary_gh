@@ -111,8 +111,25 @@ struct VulkanPhysicalDevice {
     VkPhysicalDeviceFeatures         features;
 };
 
+struct GfxDescriptorPool
+{
+    i32 capacity;
+    i32 count;
+    VkDescriptorPool vk_pool;
+    VkDescriptorSet  *sets;
+};
+
+struct GfxDescriptorSet
+{
+    i32 id      = -1;
+    i32 pool_id = -1;
+    VkDescriptorSet vk_set;
+};
+
 struct VulkanDevice {
     VkDevice                 handle;
+
+    Array<GfxDescriptorPool> descriptor_pools[2];
 
     VkInstance               instance;
     VkDebugReportCallbackEXT debug_callback;

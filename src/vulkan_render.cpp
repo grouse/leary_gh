@@ -1529,6 +1529,8 @@ void init_vulkan()
     defer { g_stack->reset(sp); };
 
     g_vulkan = g_persistent->ialloc<VulkanDevice>();
+    init_array(&g_vulkan->descriptor_pools[0], g_heap);
+    init_array(&g_vulkan->descriptor_pools[1], g_heap);
 
     VkResult result;
     /**************************************************************************
@@ -2381,3 +2383,91 @@ void set_push_constant(PushConstants *c, T t)
     ASSERT(c->size == sizeof(T));
     memcpy(c->data, &t, sizeof(T));
 }
+
+GfxDescriptorSet gfx_create_descriptor(
+    VkDescriptorType type,
+    VkDescriptorSetLayout layout)
+{
+    Array<GfxDescriptorPool> *pools = nullptr;
+
+    switch (type) {
+    case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
+        pools = &g_vulkan->descriptor_pools[0];
+        break;
+    case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
+        pools = &g_vulkan->descriptor_pools[1];
+        break;
+    case VK_DESCRIPTOR_TYPE_SAMPLER:
+    case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
+    case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE:
+    case VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER:
+    case VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER:
+    case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER:
+    case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC:
+    case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC:
+    case VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT:
+        LOG(Log_error, "unimplemented descriptor type");
+        return {};
+        break;
+    }
+
+    GfxDescriptorSet desc = {};
+    for (i32 i = 0; i < pools->count; i++) {
+        GfxDescriptorPool &pool = (*pools)[i];
+        if (pool.count < pool.capacity) {
+
+            VkDescriptorSetAllocateInfo dai = {};
+            dai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+            dai.descriptorSetCount = 1;
+            dai.descriptorPool = pool.vk_pool;
+            dai.pSetLayouts = &layout;
+
+            VkResult result = vkAllocateDescriptorSets(g_vulkan->handle, &dai, &desc.vk_set);
+            ASSERT(result == VK_SUCCESS);
+
+            pool.sets[pool.count] = desc.vk_set;
+
+            desc.id      = pool.count++;
+            desc.pool_id = i;
+        }
+    }
+
+    if (desc.id == -1) {
+        // TODO(jesper): investigate a better pool size or potentially
+        // automatically resizing existing pools in some way
+        GfxDescriptorPool pool = {};
+        pool.count    = 0;
+        pool.capacity = 10;
+        pool.sets = g_persistent->alloc_array<VkDescriptorSet>(pool.capacity);
+
+        VkDescriptorPoolSize dps = {};
+        dps.type            = type;
+        dps.descriptorCount = pool.capacity;
+
+        VkDescriptorPoolCreateInfo pi = {};
+        pi.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+        pi.poolSizeCount = 1;
+        pi.pPoolSizes    = &dps;
+        pi.maxSets       = pool.capacity;
+
+        VkResult result = vkCreateDescriptorPool( g_vulkan->handle, &pi, nullptr, &pool.vk_pool);
+        ASSERT(result == VK_SUCCESS);
+
+        VkDescriptorSetAllocateInfo dai = {};
+        dai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+        dai.descriptorSetCount = 1;
+        dai.descriptorPool = pool.vk_pool;
+        dai.pSetLayouts = &layout;
+
+        result = vkAllocateDescriptorSets(g_vulkan->handle, &dai, &desc.vk_set);
+        ASSERT(result == VK_SUCCESS);
+
+        pool.sets[pool.count] = desc.vk_set;
+
+        desc.id = pool.count++;
+        desc.pool_id = array_add(pools, pool);
+    }
+
+    return desc;
+}
+
