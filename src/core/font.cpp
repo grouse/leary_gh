@@ -12,7 +12,7 @@
 #define STBTT_ASSERT ASSERT
 #include "external/stb/stb_truetype.h"
 
-#include "vulkan_render.h"
+#include "gfx_vulkan.h"
 
 FontData g_font = {};
 extern VulkanDevice *g_vulkan;

@@ -25,8 +25,7 @@
 #include "core/profiling.h"
 #include "core/allocator.h"
 #include "core/maths.h"
-
-#include "vulkan_render.h"
+#include "core/gfx_vulkan.h"
 
 enum DebugOverlayItemType {
     Debug_allocator_stack,

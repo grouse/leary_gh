@@ -26,8 +26,7 @@
 #include "core/font.cpp"
 #include "core/gui.cpp"
 #include "core/collision.cpp"
-
-#include "vulkan_render.cpp"
+#include "core/gfx_vulkan.cpp"
 
 #include "core/serialize.cpp"
 

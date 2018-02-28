@@ -191,7 +191,7 @@ Vector2 gui_textbox(StringView text, Vector2 *pos)
 #endif // LEARY_DEBUG
 
     init_array(&item.descriptors, g_frame);
-    array_add(&item.descriptors, g_game->materials.font.descriptor_set);
+    array_add(&item.descriptors, g_game->materials.font.descriptor_set.vk_set);
 
     item.vbo          = g_gui_vbo;
     item.vbo_offset   = g_gui_vbo_offset;

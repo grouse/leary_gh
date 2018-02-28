@@ -6,7 +6,7 @@
  * Copyright (c) 2017-2018 - all rights reserved
  */
 
-#include "vulkan_render.h"
+#include "gfx_vulkan.h"
 
 
 struct Vertex {
