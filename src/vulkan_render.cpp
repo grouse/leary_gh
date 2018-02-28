@@ -2030,8 +2030,19 @@ void destroy_buffer_ubo(VulkanUniformBuffer ubo)
     destroy_buffer(ubo.buffer);
 }
 
+void gfx_destroy_descriptors(Array<GfxDescriptorPool> *pools)
+{
+    for (i32 i = 0; i < pools->count; i++)
+    {
+        vkDestroyDescriptorPool(g_vulkan->handle, (*pools)[i].vk_pool, nullptr);
+    }
+}
+
 void destroy_vulkan()
 {
+    gfx_destroy_descriptors(&g_vulkan->descriptor_pools[0]);
+    gfx_destroy_descriptors(&g_vulkan->descriptor_pools[1]);
+
     for (i32 i = 0; i < g_vulkan->framebuffers.count; ++i) {
         vkDestroyFramebuffer(g_vulkan->handle, g_vulkan->framebuffers[i], nullptr);
     }
@@ -2220,56 +2231,19 @@ Material create_material(PipelineID pipeline_id, MaterialID id)
     mat.id       = id;
     mat.pipeline = pipeline_id;
 
-    auto pool_sizes = create_array<VkDescriptorPoolSize>(g_frame);
-
-    switch (id) {
-    case Material_phong: {
-        array_add(&pool_sizes, VkDescriptorPoolSize{
-            VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1
-        });
-    } break;
-    case Material_basic2d: {
-        array_add(&pool_sizes, VkDescriptorPoolSize{
-            VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1
-        });
-    } break;
-    default:
-        LOG("unknown material");
-        ASSERT(false);
-        break;
-    }
-
-    VkDescriptorPoolCreateInfo pool_info = {};
-    pool_info.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    pool_info.poolSizeCount = (u32)pool_sizes.count;
-    pool_info.pPoolSizes    = pool_sizes.data;
-    pool_info.maxSets       = 1;
-
-    VkResult result = vkCreateDescriptorPool(g_vulkan->handle,
-                                             &pool_info,
-                                             nullptr,
-                                             &mat.descriptor_pool);
-    ASSERT(result == VK_SUCCESS);
-
     VulkanPipeline &pipeline = g_vulkan->pipelines[pipeline_id];
 
-    VkDescriptorSetAllocateInfo dai = {};
-    dai.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    dai.descriptorPool     = mat.descriptor_pool;
-    dai.descriptorSetCount = 1;
-    dai.pSetLayouts        = &pipeline.descriptor_layout_material;
-
-    result = vkAllocateDescriptorSets(g_vulkan->handle,
-                                      &dai,
-                                      &mat.descriptor_set);
-    ASSERT(result == VK_SUCCESS);
+    mat.descriptor_set = gfx_create_descriptor(
+        VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+        pipeline.descriptor_layout_material);
+    ASSERT(mat.descriptor_set.id != -1);
 
     return mat;
 }
 
 void destroy_material(Material material)
 {
-    vkDestroyDescriptorPool(g_vulkan->handle, material.descriptor_pool, nullptr);
+    (void)material;
 }
 
 void set_texture(Material *material, ResourceSlot slot, Texture *texture)
@@ -2292,7 +2266,7 @@ void set_texture(Material *material, ResourceSlot slot, Texture *texture)
 
     VkWriteDescriptorSet writes = {};
     writes.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    writes.dstSet          = material->descriptor_set;
+    writes.dstSet          = material->descriptor_set.vk_set;
 
     // TODO(jesper): the dstBinding depends on ResourceSlot and MaterialID
     switch (slot) {

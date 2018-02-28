@@ -174,8 +174,7 @@ struct Material {
     // creating the material for its descriptor layout, but maybe the dependency
     // makes more sense if it goes the other way around?
     PipelineID       pipeline;
-    VkDescriptorPool descriptor_pool;
-    VkDescriptorSet  descriptor_set;
+    GfxDescriptorSet descriptor_set;
 };
 
 struct PushConstants {
@@ -201,6 +200,10 @@ Material create_material(PipelineID pipeline_id, MaterialID id);
 
 void set_ubo(VulkanPipeline *pipeline, ResourceSlot slot, VulkanUniformBuffer *ubo);
 void set_texture(Material *material, ResourceSlot slot, Texture *texture);
+
+GfxDescriptorSet gfx_create_descriptor(
+    VkDescriptorType type,
+    VkDescriptorSetLayout layout);
 
 
 #endif /* VULKAN_DEVICE_H */
