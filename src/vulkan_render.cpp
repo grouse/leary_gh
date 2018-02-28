@@ -937,46 +937,17 @@ VulkanPipeline create_pipeline(PipelineID id)
     } break;
     }
 
-    // NOTE(jesper): create a pool size descriptor for each type of
-    // descriptor this shader program uses
-    auto psizes = create_array<VkDescriptorPoolSize>(g_stack);
-
-    VkDescriptorPoolCreateInfo pool_info = {};
-    pool_info.sType  = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-
-    VkDescriptorSetAllocateInfo dai = {};
-    dai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-
     switch (id) {
     case Pipeline_terrain:
     case Pipeline_wireframe:
     case Pipeline_wireframe_lines:
     case Pipeline_mesh: {
-        array_add(&psizes, { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         1 });
-        //array_add(&pool_sizes, { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1 });
-
-        pool_info.poolSizeCount = (u32)psizes.count;
-        pool_info.pPoolSizes    = psizes.data;
-        pool_info.maxSets       = 1;
-
-        dai.descriptorSetCount = 1;
-        dai.pSetLayouts        = &layouts[0];
+        pipeline.descriptor_set = gfx_create_descriptor(
+            VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+            layouts[0]);
+        ASSERT(pipeline.descriptor_set.id != -1);
     } break;
     default: break;
-    }
-
-    if (pool_info.poolSizeCount > 0) {
-        result = vkCreateDescriptorPool(g_vulkan->handle, &pool_info, nullptr,
-                                        &pipeline.descriptor_pool);
-        ASSERT(result == VK_SUCCESS);
-
-        dai.descriptorPool     = pipeline.descriptor_pool;
-    }
-
-    if (dai.descriptorSetCount > 0) {
-        result = vkAllocateDescriptorSets(g_vulkan->handle, &dai,
-                                          &pipeline.descriptor_set);
-        ASSERT(result == VK_SUCCESS);
     }
 
     VkPipelineLayoutCreateInfo layout_info = {};
@@ -1990,7 +1961,6 @@ void destroy_pipeline(VulkanPipeline pipeline)
         vkDestroySampler(g_vulkan->handle, pipeline.samplers[i], nullptr);
     }
 
-    vkDestroyDescriptorPool(g_vulkan->handle, pipeline.descriptor_pool, nullptr);
     vkDestroyDescriptorSetLayout(g_vulkan->handle, pipeline.descriptor_layout_pipeline, nullptr);
     vkDestroyDescriptorSetLayout(g_vulkan->handle, pipeline.descriptor_layout_material, nullptr);
     vkDestroyPipelineLayout(g_vulkan->handle, pipeline.layout, nullptr);
@@ -2304,7 +2274,7 @@ void set_ubo(PipelineID pipeline_id,
 
     VkWriteDescriptorSet writes = {};
     writes.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    writes.dstSet          = pipeline.descriptor_set;
+    writes.dstSet          = pipeline.descriptor_set.vk_set;
     // TODO(jesper): set this based on ResourceSlot
     writes.dstBinding      = 0;
     writes.dstArrayElement = 0;

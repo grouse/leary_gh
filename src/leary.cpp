@@ -111,7 +111,7 @@ void debug_add_texture(const char *name,
     item.u.ritem.vertex_count = 6;
 
     item.u.ritem.descriptors = create_array<VkDescriptorSet>(g_heap, 1);
-    array_add(&item.u.ritem.descriptors, material.descriptor_set);
+    array_add(&item.u.ritem.descriptors, material.descriptor_set.vk_set);
     array_add(&overlay->items, item);
 }
 
@@ -975,8 +975,8 @@ void render_terrain(VkCommandBuffer command)
                       pipeline.handle);
 
     auto descriptors = create_array<VkDescriptorSet>(g_stack);
-    array_add(&descriptors, pipeline.descriptor_set);
-    array_add(&descriptors, g_terrain.material->descriptor_set);
+    array_add(&descriptors, pipeline.descriptor_set.vk_set);
+    array_add(&descriptors, g_terrain.material->descriptor_set.vk_set);
 
 
     vkCmdBindDescriptorSets(command,
@@ -1024,7 +1024,7 @@ void game_render()
                                 VK_PIPELINE_BIND_POINT_GRAPHICS,
                                 pipeline.layout,
                                 0,
-                                1, &pipeline.descriptor_set,
+                                1, &pipeline.descriptor_set.vk_set,
                                 0, nullptr);
 
         vkCmdBindVertexBuffers(command, 0, 1, &object.vbo.handle, offsets);
@@ -1048,11 +1048,11 @@ void game_render()
         auto descriptors = create_array<VkDescriptorSet>(g_stack);
         defer { destroy_array(&descriptors); };
 
-        array_add(&descriptors, pipeline.descriptor_set);
+        array_add(&descriptors, pipeline.descriptor_set.vk_set);
 
 
         if (object.material) {
-            array_add(&descriptors, object.material->descriptor_set);
+            array_add(&descriptors, object.material->descriptor_set.vk_set);
         }
 
         vkCmdBindDescriptorSets(command,
@@ -1090,7 +1090,7 @@ void game_render()
                           pipeline.handle);
 
         auto descriptors = create_array<VkDescriptorSet>(g_stack);
-        array_add(&descriptors, pipeline.descriptor_set);
+        array_add(&descriptors, pipeline.descriptor_set.vk_set);
 
         vkCmdBindDescriptorSets(command,
                                 VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -1127,7 +1127,7 @@ void game_render()
                           pipeline.handle);
 
         descriptors.count = 0;
-        array_add(&descriptors, pipeline.descriptor_set);
+        array_add(&descriptors, pipeline.descriptor_set.vk_set);
 
         vkCmdBindDescriptorSets(command,
                                 VK_PIPELINE_BIND_POINT_GRAPHICS,

@@ -61,14 +61,29 @@ struct VulkanShader {
     const char            *name;
 };
 
+struct GfxDescriptorPool
+{
+    i32 capacity;
+    i32 count;
+    VkDescriptorPool vk_pool;
+    VkDescriptorSet  *sets;
+};
+
+struct GfxDescriptorSet
+{
+    i32 id      = -1;
+    i32 pool_id = -1;
+    VkDescriptorSet vk_set;
+};
+
+
 struct VulkanPipeline {
     PipelineID id;
     VkPipeline            handle;
 
     VkPipelineLayout      layout;
 
-    VkDescriptorSet       descriptor_set;
-    VkDescriptorPool      descriptor_pool;
+    GfxDescriptorSet      descriptor_set;
 
     // TODO(jesper): better name. The suffix implies the bind frequency. E.g.
     // _pipeline will contain descriptors bound once per pipeline, e.g.
@@ -109,21 +124,6 @@ struct VulkanPhysicalDevice {
     VkPhysicalDeviceProperties       properties;
     VkPhysicalDeviceMemoryProperties memory;
     VkPhysicalDeviceFeatures         features;
-};
-
-struct GfxDescriptorPool
-{
-    i32 capacity;
-    i32 count;
-    VkDescriptorPool vk_pool;
-    VkDescriptorSet  *sets;
-};
-
-struct GfxDescriptorSet
-{
-    i32 id      = -1;
-    i32 pool_id = -1;
-    VkDescriptorSet vk_set;
 };
 
 struct VulkanDevice {
