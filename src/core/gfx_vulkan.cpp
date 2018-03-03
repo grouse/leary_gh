@@ -188,6 +188,30 @@ u32 find_memory_type(VulkanPhysicalDevice physical_device, u32 filter,
     return UINT32_MAX;
 }
 
+VkExtensionProperties* find_extension(
+    StaticArray<VkExtensionProperties> *extensions,
+    const char *name)
+{
+    for (i32 i = 0; i < extensions->count; i++) {
+        if (strcmp(extensions->data[i].extensionName, name) == 0) {
+            return &extensions->data[i];
+        }
+    }
+    return nullptr;
+}
+
+VkLayerProperties* find_layer(
+    StaticArray<VkLayerProperties> *layers,
+    const char *name)
+{
+    for (i32 i = 0; i < layers->count; i++) {
+        if (strcmp(layers->data[i].layerName, name) == 0) {
+            return &layers->data[i];
+        }
+    }
+    return nullptr;
+}
+
 static const VkFormat g_depth_formats[] = {
     VK_FORMAT_D32_SFLOAT,
     VK_FORMAT_D32_SFLOAT_S8_UINT,
@@ -1508,22 +1532,22 @@ void init_vulkan()
      * Create VkInstance
      *************************************************************************/
     {
-        // NOTE(jesper): currently we don't ASSERT about missing required
-        // extensions or layers, and we don't store any internal state about
+        // NOTE(jesper): currently we don't store any internal state about
         // which ones we've enabled.
-        u32 supported_layers_count = 0;
-        result = vkEnumerateInstanceLayerProperties(&supported_layers_count,
-                                                    nullptr);
+        u32 count = 0;
+        result = vkEnumerateInstanceLayerProperties(&count, nullptr);
         ASSERT(result == VK_SUCCESS);
 
-        auto supported_layers = g_frame->alloc_array<VkLayerProperties>(supported_layers_count);
+        auto supported_layers = create_static_array<VkLayerProperties>(
+            g_stack->alloc_array<VkLayerProperties>(count), count);
+        supported_layers.count = count;
 
-        result = vkEnumerateInstanceLayerProperties(&supported_layers_count,
-                                                    supported_layers);
+        result = vkEnumerateInstanceLayerProperties(&count, supported_layers.data);
+        ASSERT(supported_layers.count == (i32)count);
         ASSERT(result == VK_SUCCESS);
 
-        for (u32 i = 0; i < supported_layers_count; i++) {
-            LOG("VkLayerProperties[%u]", i);
+        for (i32 i = 0; i < supported_layers.count; i++) {
+            LOG("VkLayerProperties[%d]", i);
             LOG("  layerName            : %s",
                       supported_layers[i].layerName);
             LOG("  specVersion          : %u.%u.%u",
@@ -1536,20 +1560,21 @@ void init_vulkan()
                       supported_layers[i].description);
         }
 
-        u32 supported_extensions_count = 0;
-        result = vkEnumerateInstanceExtensionProperties(nullptr,
-                                                        &supported_extensions_count,
-                                                        nullptr);
+        result = vkEnumerateInstanceExtensionProperties(nullptr, &count, nullptr);
         ASSERT(result == VK_SUCCESS);
 
-        auto supported_extensions = g_frame->alloc_array<VkExtensionProperties>(supported_extensions_count);
-        result = vkEnumerateInstanceExtensionProperties(nullptr,
-                                                        &supported_extensions_count,
-                                                        supported_extensions);
+        auto supported_extensions = create_static_array<VkExtensionProperties>(
+            g_stack->alloc_array<VkExtensionProperties>(count), count);
+        supported_extensions.count = count;
+
+        result = vkEnumerateInstanceExtensionProperties(
+            nullptr,
+            &count, supported_extensions.data);
+        ASSERT(supported_extensions.count == (i32)count);
         ASSERT(result == VK_SUCCESS);
 
-        for (u32 i = 0; i < supported_extensions_count; i++) {
-            LOG("vkExtensionProperties[%u]", i);
+        for (i32 i = 0; i < supported_extensions.count; i++) {
+            LOG("vkExtensionProperties[%d]", i);
             LOG("  extensionName: %s", supported_extensions[i].extensionName);
             LOG("  specVersion  : %u", supported_extensions[i].specVersion);
         }
@@ -1557,31 +1582,49 @@ void init_vulkan()
 
         // NOTE(jesper): we might want to store these in the device for future
         // usage/debug information
-        i32 enabled_layers_count = 0;
-        auto enabled_layers = g_frame->alloc_array<char*>(supported_layers_count);
+        auto enabled_extensions = create_array<const char*>(g_stack);
+        auto enabled_layers     = create_array<const char*>(g_stack);
 
-        i32 enabled_extensions_count = 0;
-        auto enabled_extensions = g_frame->alloc_array<char*>(supported_extensions_count);
+        auto required_extensions = create_array<const char*>(g_stack);
+        array_add(&required_extensions, VK_KHR_SURFACE_EXTENSION_NAME);
+        gfx_platform_required_extensions(&required_extensions);
 
-        for (i32 i = 0; i < (i32)supported_layers_count; ++i) {
-            VkLayerProperties &layer = supported_layers[i];
-
-            if (platform_vulkan_enable_instance_layer(layer) ||
-                strcmp(layer.layerName, "VK_LAYER_LUNARG_standard_validation") == 0)
-            {
-                enabled_layers[enabled_layers_count++] = layer.layerName;
+        for (const char *name : required_extensions) {
+            VkExtensionProperties *ext = find_extension(&supported_extensions, name);
+            if (ext == nullptr) {
+                LOG(Log_error, "missing requied vulkan extension: %s", name);
+                continue;
             }
+
+            array_add(&enabled_extensions, (const char*)&ext->extensionName[0]);
         }
 
-        for (i32 i = 0; i < (i32)supported_extensions_count; ++i) {
-            VkExtensionProperties &extension = supported_extensions[i];
 
-            if (platform_vulkan_enable_instance_extension(extension) ||
-                strcmp(extension.extensionName, VK_KHR_SURFACE_EXTENSION_NAME) == 0 ||
-                strcmp(extension.extensionName, VK_EXT_DEBUG_REPORT_EXTENSION_NAME) == 0)
-            {
-                enabled_extensions[enabled_extensions_count++] = extension.extensionName;
+        auto debug_extensions = create_array<const char*>(g_stack);
+        array_add(&debug_extensions, VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
+
+        for (const char *name: debug_extensions) {
+            VkExtensionProperties *ext = find_extension(&supported_extensions, name);
+            if (ext == nullptr) {
+                LOG(Log_warning, "missing debug vulkan extension: %s", name);
+                continue;
             }
+
+            array_add(&enabled_extensions, (const char*)&ext->extensionName[0]);
+        }
+
+
+        auto debug_layers = create_array<const char*>(g_stack);
+        array_add(&debug_layers, "VK_LAYER_LUNARG_standard_validation");
+
+        for (const char *name : debug_layers) {
+            VkLayerProperties *layer = find_layer(&supported_layers, name);
+            if (layer == nullptr) {
+                LOG(Log_warning, "missing debug vulkan extension: %s", name);
+                continue;
+            }
+
+            array_add(&enabled_layers, (const char*)&layer->layerName[0]);
         }
 
         // Create the VkInstance
@@ -1595,10 +1638,10 @@ void init_vulkan()
         VkInstanceCreateInfo create_info = {};
         create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
         create_info.pApplicationInfo = &app_info;
-        create_info.enabledLayerCount = (u32) enabled_layers_count;
-        create_info.ppEnabledLayerNames = enabled_layers;
-        create_info.enabledExtensionCount = (u32) enabled_extensions_count;
-        create_info.ppEnabledExtensionNames = enabled_extensions;
+        create_info.enabledLayerCount       = enabled_layers.count;
+        create_info.ppEnabledLayerNames     = enabled_layers.data;
+        create_info.enabledExtensionCount   = enabled_extensions.count;
+        create_info.ppEnabledExtensionNames = enabled_extensions.data;
 
         result = vkCreateInstance(&create_info, nullptr, &g_vulkan->instance);
         ASSERT(result == VK_SUCCESS);
@@ -1683,7 +1726,7 @@ void init_vulkan()
     // (imo), but to create the swapchain we need the device, and to create the
     // device we need the surface
     VkSurfaceKHR surface;
-    result = platform_vulkan_create_surface(g_vulkan->instance, &surface);
+    result = gfx_platform_create_surface(g_vulkan->instance, &surface);
     ASSERT(result == VK_SUCCESS);
 
 

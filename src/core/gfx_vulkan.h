@@ -217,6 +217,5 @@ void gfx_bind_descriptor(
     VkPipelineBindPoint bind_point,
     GfxDescriptorSet descriptor);
 
-
 #endif /* VULKAN_DEVICE_H */
 

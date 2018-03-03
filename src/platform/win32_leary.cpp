@@ -291,7 +291,7 @@ window_proc(HWND   hwnd,
         }
     } break;
     default:
-        LOG(Log_info, "unhandled event: %d", message);
+        //LOG(Log_info, "unhandled event: %d", message);
         return DefWindowProc(hwnd, message, wparam, lparam);
     }
 

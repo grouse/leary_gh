@@ -24,9 +24,9 @@
 
 extern PlatformState *g_platform;
 
-VkResult
-platform_vulkan_create_surface(VkInstance instance,
-                               VkSurfaceKHR *surface)
+VkResult gfx_platform_create_surface(
+    VkInstance instance,
+    VkSurfaceKHR *surface)
 {
     VkWin32SurfaceCreateInfoKHR create_info = {
         VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
@@ -39,23 +39,7 @@ platform_vulkan_create_surface(VkInstance instance,
     return vkCreateWin32SurfaceKHR(instance, &create_info, nullptr, surface);
 }
 
-bool
-platform_vulkan_enable_instance_extension(VkExtensionProperties &extension)
+void gfx_platform_required_extensions(Array<const char*> *extensions)
 {
-    bool enable = false;
-
-    enable |= strcmp(extension.extensionName, VK_KHR_WIN32_SURFACE_EXTENSION_NAME) == 0;
-
-    return enable;
+    array_add(extensions, VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
 }
-
-bool
-platform_vulkan_enable_instance_layer(VkLayerProperties layer)
-{
-    (void)layer;
-    bool enable = false;
-    return enable;
-}
-
-
-
