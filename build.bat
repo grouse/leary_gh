@@ -47,5 +47,6 @@ glslangValidator -V %ROOT%\src\shaders\gui_basic.glsl -DFRAGMENT_SHADER -S frag 
 REM cl %FLAGS% %UNOPTIMIZED% %INCLUDE_DIR% %ROOT%\src\platform\win32_leary.cpp /link %LIBS% /DLL /OUT:game_compiled.dll
 cl %FLAGS% %UNOPTIMIZED% %INCLUDE_DIR% /Feleary.exe %ROOT%\src\platform/win32_main.cpp /SUBSYSTEM:WINDOWS /link %LIBS%
 REM cl %FLAGS% %OPTIMIZED% %INCLUDE_DIR% /Febenchmark.exe %ROOT%\benchmarks\main.cpp /SUBSYSTEM:CONSOLE /link %LIBS%
+cl %FLAGS% %UNOPTIMIZED% %INCLUDE_DIR% %ROOT%\tools\exporter.cpp /link %LIBS% /DLL /OUT:exporter.dll
 rename game_compiled.dll game.dll
 POPD
