@@ -11,6 +11,7 @@
 
 #include "core/types.h"
 #include "platform/thread.h"
+#include "leary_macros.h"
 
 struct Allocator {
     void  *mem;
@@ -19,124 +20,90 @@ struct Allocator {
 
     Mutex mutex;
 
-    virtual ~Allocator() {}
-
-    virtual void* alloc  (isize size)             = 0;
-    virtual void  dealloc(void  *ptr)             = 0;
-    virtual void* realloc(void  *ptr, isize size) = 0;
-    virtual void  reset  (void  *) {}
-    virtual void  reset  ()        {}
-
-    inline void* zalloc(isize s)
-    {
-        void *ptr = alloc(s);
-        memset(ptr, 0, s);
-        return ptr;
-    }
-
-    template <typename T>
-    inline T* talloc()
-    {
-        return (T*)alloc(sizeof(T));
-    }
-
-    template <typename T>
-    inline T* ialloc()
-    {
-        T *m = (T*)alloc(sizeof(T));
-        T e  = {};
-        memcpy(m, &e, sizeof(T));
-        return m;
-    }
-
-
-    template <typename T>
-    inline T* alloc_array(isize count)
-    {
-        return (T*)alloc(sizeof(T) * count);
-    }
-
-    template <typename T>
-    inline T* zalloc_array(isize count)
-    {
-        T *ptr = (T*)alloc(sizeof(T) * count);
-        memset(ptr, 0, sizeof(T) * count);
-        return ptr;
-    }
-
-    template <typename T>
-    inline T* ialloc_array(isize count)
-    {
-        T *ptr = (T*)alloc(sizeof(T) * count);
-        T val  = {};
-        for (i32 i = 0; i < count; i++) {
-            ptr[i] = val;
-        }
-        return ptr;
-    }
-
-    template <typename T>
-    inline T* ialloc_array(isize count, T val)
-    {
-        T *ptr = (T*)alloc(sizeof(T) * count);
-        for (i32 i = 0; i < count; i++) {
-            ptr[i] = val;
-        }
-        return ptr;
-    }
-
-    template<typename T>
-    inline T* realloc_array(T *ptr, isize capacity)
-    {
-        isize s = capacity * sizeof(T);
-        return (T*)realloc(ptr, s);
-    }
-};
-
-
-struct SystemAllocator : public Allocator {
-    void* alloc  (isize size)             override;
-    void  dealloc(void  *ptr)             override;
-    void* realloc(void  *ptr, isize size) override;
-};
-
-struct LinearAllocator : public Allocator {
-    void *current;
-    void *last;
-
-    LinearAllocator(void *mem, isize size);
-
-    void* alloc  (isize size)             override;
-    void  dealloc(void  *ptr)             override;
-    void* realloc(void  *ptr, isize size) override;
-    void  reset  ()                       override;
-};
-
-struct StackAllocator : public Allocator {
-    void *sp;
-
-    StackAllocator(void *mem, isize size);
-
-    void* alloc  (isize size)             override;
-    void  dealloc(void  *ptr)             override;
-    void* realloc(void  *ptr, isize size) override;
-    void  reset  (void  *ptr)             override;
-};
-
-struct HeapAllocator : public Allocator {
     struct FreeBlock {
         isize size;
         FreeBlock *next;
     };
 
-    FreeBlock *free;
+    union {
+        struct { // linear allocator
+            void *current;
+            void *last;
+        };
 
-    HeapAllocator(void *mem, isize size);
+        struct { // stack allocator
+            void *sp;
+        };
 
-    void* alloc  (isize size)             override;
-    void  dealloc(void  *ptr)             override;
-    void* realloc(void  *ptr, isize size) override;
+        struct { // heap allocator
+            FreeBlock *free;
+        };
+    };
+
+    using alloc_t   = void* (Allocator *a, isize size);
+    using dealloc_t = void  (Allocator *a, void *ptr);
+    using realloc_t = void* (Allocator *a, void *ptr, isize size);
+    using reset_t      = void  (Allocator *a, void *ptr);
+
+    alloc_t   *alloc   = nullptr;
+    dealloc_t *dealloc = nullptr;
+    realloc_t *realloc = nullptr;
+    reset_t      *reset   = nullptr;
 };
+
+void* alloc(Allocator *a, isize size)
+{
+    ASSERT(a->alloc != nullptr);
+    return a->alloc(a, size);
+}
+
+void dealloc(Allocator *a, void *ptr)
+{
+    ASSERT(a->dealloc != nullptr);
+    a->dealloc(a, ptr);
+}
+
+void* realloc(Allocator *a, void *ptr, isize size)
+{
+    ASSERT(a->realloc != nullptr);
+    return a->realloc(a, ptr, size);
+}
+
+void reset(Allocator *a, void *ptr)
+{
+    ASSERT(a->reset != nullptr);
+    a->reset(a, ptr);
+}
+
+template<typename T>
+T* alloc_array(Allocator *a, i32 count)
+{
+    return (T*)alloc(a, sizeof(T) * count);
+}
+
+template<typename T>
+T* realloc_array(Allocator *a, T *current, i32 capacity)
+{
+    return (T*)realloc(a, current, capacity * sizeof(T));
+}
+
+template<typename T>
+T* ialloc(Allocator *a)
+{
+    T *ptr = (T*)alloc(a, sizeof(T));
+    *ptr = {};
+    return ptr;
+}
+
+template<typename T>
+T* ialloc_array(Allocator *a, i32 count, T value = {})
+{
+    T *ptr = (T*)alloc(a, sizeof(T) * count);
+    for (i32 i = 0; i < count; i++) {
+        ptr[i] = value;
+    }
+    return ptr;
+}
 
 #endif /* ALLOCATOR_H */
 

@@ -28,7 +28,7 @@
 #include "platform.h"
 #include "leary_macros.h"
 
-extern SystemAllocator *g_system_alloc;
+extern Allocator *g_system_alloc;
 
 struct PlatformPaths {
     FolderPath preferences;
@@ -338,17 +338,17 @@ char* read_file(FilePathView filename, usize *o_size, Allocator *a)
         ASSERT(file_size.QuadPart <= 0xFFFFFFFF);
         *o_size = (usize) file_size.QuadPart;
 
-        buffer = (char*)a->alloc((usize)file_size.QuadPart);
+        buffer = (char*)alloc(a, file_size.QuadPart);
         if (buffer == nullptr) {
             LOG(Log_error,
-                "failed to allocate %d bytes from allocator for file %s",
+                "failed to alloc %d bytes from allocator for file %s",
                 file_size.QuadPart, filename);
             return nullptr;
         }
 
         DWORD bytes_read;
         if (!ReadFile(file, buffer, (u32)file_size.QuadPart, &bytes_read, 0)) {
-            a->dealloc(buffer);
+            dealloc(a, buffer);
             buffer = nullptr;
         }
 

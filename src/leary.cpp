@@ -283,31 +283,31 @@ void init_debug_overlay()
     allocators.children = create_array<DebugOverlayItem*>(g_heap);
     allocators.type     = Debug_allocators;
 
-    auto stack = g_heap->talloc<DebugOverlayItem>();
+    auto stack = ialloc<DebugOverlayItem>(g_heap);
     stack->type  = Debug_allocator_stack;
     stack->title = "stack";
     stack->u.data  = (void*)g_stack;
     array_add(&allocators.children, stack);
 
-    auto frame = g_heap->talloc<DebugOverlayItem>();
+    auto frame = ialloc<DebugOverlayItem>(g_heap);
     frame->type  = Debug_allocator_stack;
     frame->title = "frame";
     frame->u.data  = (void*)g_frame;
     array_add(&allocators.children, frame);
 
-    auto persistent = g_heap->talloc<DebugOverlayItem>();
+    auto persistent = ialloc<DebugOverlayItem>(g_heap);
     persistent->type  = Debug_allocator_stack;
     persistent->title = "persistent";
     persistent->u.data  = (void*)g_persistent;
     array_add(&allocators.children, persistent);
 
-    auto debug_frame = g_heap->talloc<DebugOverlayItem>();
+    auto debug_frame = ialloc<DebugOverlayItem>(g_heap);
     debug_frame->type  = Debug_allocator_stack;
     debug_frame->title = "debug_frame";
     debug_frame->u.data  = (void*)g_debug_frame;
     array_add(&allocators.children, debug_frame);
 
-    auto free_list = g_heap->talloc<DebugOverlayItem>();
+    auto free_list = ialloc<DebugOverlayItem>(g_heap);
     free_list->type  = Debug_allocator_free_list;
     free_list->title = "free list";
     free_list->u.data  = (void*)g_heap;
@@ -381,9 +381,9 @@ void game_init()
     init_profiling();
 
     void *sp = g_stack->sp;
-    defer { g_stack->reset(sp); };
+    defer { reset(g_stack, sp); };
 
-    g_game = g_persistent->ialloc<GameState>();
+    g_game = ialloc<GameState>(g_persistent);
 
     { // cameras and coordinate bases
         f32 width = (f32)g_settings.video.resolution.width;
@@ -431,7 +431,7 @@ void game_init()
     init_terrain();
     init_debug_overlay();
 
-    g_game->key_state = g_persistent->ialloc_array<i32>(256, InputType_key_release);
+    g_game->key_state = ialloc_array<i32>(g_persistent, 256, InputType_key_release);
 }
 
 void game_quit()
@@ -488,7 +488,7 @@ void game_quit()
 
 void* game_pre_reload()
 {
-    auto state = g_frame->talloc<GameReloadState>();
+    auto state = ialloc<GameReloadState>(g_frame);
 
     // TODO(jesper): I feel like this could be quite nicely preprocessed and
     // generated. look into
@@ -542,7 +542,7 @@ void game_reload(void *s)
     g_vulkan              = state->vulkan_device;
     load_vulkan(g_vulkan->instance);
 
-    g_frame->dealloc(state);
+    dealloc(g_frame, state);
 }
 
 void game_input(InputEvent event)
@@ -739,7 +739,7 @@ void process_debug_overlay(DebugOverlay *overlay, f32 dt)
     PROFILE_FUNCTION();
 
     void *sp = g_stack->sp;
-    defer { g_stack->reset(sp); };
+    defer { reset(g_stack, sp); };
 
 
     Vector4 fc = unpack_rgba(0x2A282ACC);
@@ -748,7 +748,7 @@ void process_debug_overlay(DebugOverlay *overlay, f32 dt)
     //gui_frame({ 300.0f, 0.0f }, 200.0f, 30.0f, fc);
 
     isize buffer_size = 1024*1024;
-    char *buffer = (char*)g_stack->alloc(buffer_size);
+    char *buffer = (char*)alloc(g_stack, buffer_size);
     buffer[0] = '\0';
 
     GuiFrame frame = gui_frame_begin(fc);
@@ -787,7 +787,7 @@ void process_debug_overlay(DebugOverlay *overlay, f32 dt)
 
                 switch (child.type) {
                 case Debug_allocator_stack: {
-                    StackAllocator *a = (StackAllocator*)child.u.data;
+                    Allocator *a = (Allocator*)child.u.data;
                     snprintf(buffer, buffer_size,
                              "  %s: { sp: %p, size: %zd, remaining: %zd }\n",
                              child.title, a->sp, a->size, a->remaining);
@@ -992,7 +992,7 @@ void game_render()
 {
     PROFILE_FUNCTION();
     void *sp = g_stack->sp;
-    defer { g_stack->reset(sp); };
+    defer { reset(g_stack, sp); };
 
     u32 image_index = acquire_swapchain();
 
@@ -1201,6 +1201,6 @@ void game_update_and_render(f32 dt)
 
     game_render();
 
-    g_frame->reset();
-    g_debug_frame->reset();
+    reset(g_frame, nullptr);
+    reset(g_frame, nullptr);
 }

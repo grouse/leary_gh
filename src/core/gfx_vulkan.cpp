@@ -244,17 +244,17 @@ bool has_stencil(VkFormat format)
 
 VkCommandBuffer begin_cmd_buffer()
 {
-    // TODO(jesper): don't allocate command buffers on demand; allocate a big
+    // TODO(jesper): don't alloc command buffers on demand; alloc a big
     // pool of them in the device init and keep a freelist if unused ones, or
     // ring buffer, or something
-    VkCommandBufferAllocateInfo allocate_info = {};
-    allocate_info.sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    allocate_info.commandPool        = g_vulkan->command_pool;
-    allocate_info.level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    allocate_info.commandBufferCount = 1;
+    VkCommandBufferAllocateInfo alloc_info = {};
+    alloc_info.sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    alloc_info.commandPool        = g_vulkan->command_pool;
+    alloc_info.level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    alloc_info.commandBufferCount = 1;
 
     VkCommandBuffer buffer;
-    VkResult result = vkAllocateCommandBuffers(g_vulkan->handle, &allocate_info, &buffer);
+    VkResult result = vkAllocateCommandBuffers(g_vulkan->handle, &alloc_info, &buffer);
     ASSERT(result == VK_SUCCESS);
 
     VkCommandBufferBeginInfo begin_info = {};
@@ -532,7 +532,7 @@ VulkanSwapchain swapchain_create(VulkanPhysicalDevice *physical_device,
                                                   nullptr);
     ASSERT(result == VK_SUCCESS);
 
-    auto formats = g_frame->alloc_array<VkSurfaceFormatKHR>(formats_count);
+    auto formats = alloc_array<VkSurfaceFormatKHR>(g_frame, formats_count);
     result = vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device->handle,
                                                   swapchain.surface,
                                                   &formats_count,
@@ -564,7 +564,7 @@ VulkanSwapchain swapchain_create(VulkanPhysicalDevice *physical_device,
                                                        nullptr);
     ASSERT(result == VK_SUCCESS);
 
-    auto present_modes = g_frame->alloc_array<VkPresentModeKHR>(present_modes_count);
+    auto present_modes = alloc_array<VkPresentModeKHR>(g_frame, present_modes_count);
     result = vkGetPhysicalDeviceSurfacePresentModesKHR(physical_device->handle,
                                                        swapchain.surface,
                                                        &present_modes_count,
@@ -635,7 +635,7 @@ VulkanSwapchain swapchain_create(VulkanPhysicalDevice *physical_device,
                                      nullptr);
     ASSERT(result == VK_SUCCESS);
 
-    swapchain.images = g_frame->alloc_array<VkImage>(swapchain.images_count);
+    swapchain.images = alloc_array<VkImage>(g_frame, swapchain.images_count);
 
     result = vkGetSwapchainImagesKHR(g_vulkan->handle,
                                      swapchain.handle,
@@ -643,7 +643,7 @@ VulkanSwapchain swapchain_create(VulkanPhysicalDevice *physical_device,
                                      swapchain.images);
     ASSERT(result == VK_SUCCESS);
 
-    swapchain.imageviews = g_persistent->alloc_array<VkImageView>(swapchain.images_count);
+    swapchain.imageviews = alloc_array<VkImageView>(g_persistent, swapchain.images_count);
 
     VkImageSubresourceRange subresource_range = {};
     subresource_range.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -731,7 +731,7 @@ VkSampler create_sampler()
 VulkanShader create_shader(ShaderID id)
 {
     void *sp = g_stack->sp;
-    defer { g_stack->reset(sp); };
+    defer { reset(g_stack, sp); };
 
     VulkanShader shader = {};
     shader.name = "main";
@@ -809,7 +809,7 @@ VulkanShader create_shader(ShaderID id)
 VulkanPipeline create_pipeline(PipelineID id)
 {
     void *sp = g_stack->sp;
-    defer { g_stack->reset(sp); };
+    defer { reset(g_stack, sp); };
 
     VkResult result;
     VulkanPipeline pipeline = {};
@@ -850,7 +850,7 @@ VulkanPipeline create_pipeline(PipelineID id)
     case Pipeline_mesh:
     case Pipeline_terrain:
         pipeline.sampler_count = 1;
-        pipeline.samplers = g_persistent->alloc_array<VkSampler>(pipeline.sampler_count);
+        pipeline.samplers = alloc_array<VkSampler>(g_persistent, pipeline.sampler_count);
         pipeline.samplers[0] = create_sampler();
         break;
     default: break;
@@ -1521,9 +1521,9 @@ void vkdebug_destroy()
 void init_vulkan()
 {
     void *sp = g_stack->sp;
-    defer { g_stack->reset(sp); };
+    defer { reset(g_stack, sp); };
 
-    g_vulkan = g_persistent->ialloc<VulkanDevice>();
+    g_vulkan = ialloc<VulkanDevice>(g_persistent);
     init_array(&g_vulkan->descriptor_pools[0], g_heap);
     init_array(&g_vulkan->descriptor_pools[1], g_heap);
 
@@ -1539,7 +1539,8 @@ void init_vulkan()
         ASSERT(result == VK_SUCCESS);
 
         auto supported_layers = create_static_array<VkLayerProperties>(
-            g_stack->alloc_array<VkLayerProperties>(count), count);
+            alloc_array<VkLayerProperties>(g_stack, count),
+            count);
         supported_layers.count = count;
 
         result = vkEnumerateInstanceLayerProperties(&count, supported_layers.data);
@@ -1564,7 +1565,8 @@ void init_vulkan()
         ASSERT(result == VK_SUCCESS);
 
         auto supported_extensions = create_static_array<VkExtensionProperties>(
-            g_stack->alloc_array<VkExtensionProperties>(count), count);
+            alloc_array<VkExtensionProperties>(g_stack, count),
+            count);
         supported_extensions.count = count;
 
         result = vkEnumerateInstanceExtensionProperties(
@@ -1663,7 +1665,7 @@ void init_vulkan()
         result = vkEnumeratePhysicalDevices(g_vulkan->instance, &count, nullptr);
         ASSERT(result == VK_SUCCESS);
 
-        auto physical_devices = g_frame->alloc_array<VkPhysicalDevice>(count);
+        auto physical_devices = alloc_array<VkPhysicalDevice>(g_frame, count);
         result = vkEnumeratePhysicalDevices(g_vulkan->instance,
                                             &count, physical_devices);
         ASSERT(result == VK_SUCCESS);
@@ -1739,7 +1741,7 @@ void init_vulkan()
                                                  &queue_family_count,
                                                  nullptr);
 
-        auto queue_families = g_frame->alloc_array<VkQueueFamilyProperties>(queue_family_count);
+        auto queue_families = alloc_array<VkQueueFamilyProperties>(g_frame, queue_family_count);
         vkGetPhysicalDeviceQueueFamilyProperties(g_vulkan->physical_device.handle,
                                                  &queue_family_count,
                                                  queue_families);
@@ -1920,7 +1922,7 @@ void init_vulkan()
      * Create Framebuffers
      *************************************************************************/
     {
-        auto buffer = g_persistent->alloc_array<VkFramebuffer>(g_vulkan->swapchain.images_count);
+        auto buffer = alloc_array<VkFramebuffer>(g_persistent, g_vulkan->swapchain.images_count);
         g_vulkan->framebuffers = create_static_array<VkFramebuffer>(buffer, g_vulkan->swapchain.images_count);
 
         VkFramebufferCreateInfo create_info = {};
@@ -1930,7 +1932,7 @@ void init_vulkan()
         create_info.height          = g_vulkan->swapchain.extent.height;
         create_info.layers          = 1;
 
-        auto attachments = g_stack->alloc_array<VkImageView>(2);
+        auto attachments = alloc_array<VkImageView>(g_stack, 2);
         attachments[1] = g_vulkan->swapchain.depth.imageview;
 
         for (i32 i = 0; i < (i32)g_vulkan->swapchain.images_count; ++i)
@@ -2109,7 +2111,7 @@ VulkanBuffer create_buffer(usize size,
                                      &buffer.handle);
     ASSERT(result == VK_SUCCESS);
 
-    // TODO: allocate buffers from large memory pool in VulkanDevice
+    // TODO: alloc buffers from large memory pool in VulkanDevice
     VkMemoryRequirements memory_requirements;
     vkGetBufferMemoryRequirements(g_vulkan->handle, buffer.handle, &memory_requirements);
 
@@ -2118,13 +2120,13 @@ VulkanBuffer create_buffer(usize size,
                                  memory_flags);
     ASSERT(index != UINT32_MAX);
 
-    VkMemoryAllocateInfo allocate_info = {};
-    allocate_info.sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    allocate_info.allocationSize  = memory_requirements.size;
-    allocate_info.memoryTypeIndex = index;
+    VkMemoryAllocateInfo alloc_info = {};
+    alloc_info.sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    alloc_info.allocationSize  = memory_requirements.size;
+    alloc_info.memoryTypeIndex = index;
 
     result = vkAllocateMemory(g_vulkan->handle,
-                              &allocate_info,
+                              &alloc_info,
                               nullptr,
                               &buffer.memory);
     ASSERT(result == VK_SUCCESS);
@@ -2336,23 +2338,23 @@ PushConstants create_push_constants(PipelineID pipeline)
     case Pipeline_font:
         c.offset = 0;
         c.size   = sizeof(Matrix4);
-        c.data   = g_heap->alloc(c.size);
+        c.data   = alloc(g_heap, c.size);
         break;
     case Pipeline_wireframe:
     case Pipeline_wireframe_lines:
         c.offset = 0;
         c.size   = sizeof(Matrix4) + sizeof(Vector3);
-        c.data   = g_heap->alloc(c.size);
+        c.data   = alloc(g_heap, c.size);
         break;
     case Pipeline_gui_basic:
         c.offset = 0;
         c.size   = sizeof(Matrix4);
-        c.data   = g_heap->alloc(c.size);
+        c.data   = alloc(g_heap, c.size);
         break;
     case Pipeline_basic2d:
         c.offset = 0;
         c.size   = sizeof(Matrix4);
-        c.data   = g_heap->alloc(c.size);
+        c.data   = alloc(g_heap, c.size);
         break;
     default:
         // TODO(jesper): error handling
@@ -2425,7 +2427,7 @@ GfxDescriptorSet gfx_create_descriptor(
         GfxDescriptorPool pool = {};
         pool.count    = 0;
         pool.capacity = 10;
-        pool.sets = g_persistent->alloc_array<VkDescriptorSet>(pool.capacity);
+        pool.sets = alloc_array<VkDescriptorSet>(g_persistent, pool.capacity);
 
         VkDescriptorPoolSize dps = {};
         dps.type            = type;

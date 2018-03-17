@@ -17,17 +17,17 @@ void init_profiling()
 {
     g_profile_timers.count    = 0;
     g_profile_timers.capacity = NUM_PROFILE_TIMERS;
-    g_profile_timers.name     = g_persistent->alloc_array<const char*>(NUM_PROFILE_TIMERS);
-    g_profile_timers.cycles   = g_persistent->alloc_array<u64>(NUM_PROFILE_TIMERS);
-    g_profile_timers.calls    = g_persistent->alloc_array<u32>(NUM_PROFILE_TIMERS);
-    g_profile_timers.open     = g_persistent->alloc_array<bool>(NUM_PROFILE_TIMERS);
+    g_profile_timers.name     = alloc_array<const char*>(g_persistent, NUM_PROFILE_TIMERS);
+    g_profile_timers.cycles   = alloc_array<u64>(g_persistent, NUM_PROFILE_TIMERS);
+    g_profile_timers.calls    = alloc_array<u32>(g_persistent, NUM_PROFILE_TIMERS);
+    g_profile_timers.open     = alloc_array<bool>(g_persistent, NUM_PROFILE_TIMERS);
 
     g_profile_timers_prev.count    = 0;
     g_profile_timers_prev.capacity = NUM_PROFILE_TIMERS;
-    g_profile_timers_prev.name     = g_persistent->alloc_array<const char*>(NUM_PROFILE_TIMERS);
-    g_profile_timers_prev.cycles   = g_persistent->alloc_array<u64>(NUM_PROFILE_TIMERS);
-    g_profile_timers_prev.calls    = g_persistent->alloc_array<u32>(NUM_PROFILE_TIMERS);
-    g_profile_timers_prev.open     = g_persistent->alloc_array<bool>(NUM_PROFILE_TIMERS);
+    g_profile_timers_prev.name     = alloc_array<const char*>(g_persistent, NUM_PROFILE_TIMERS);
+    g_profile_timers_prev.cycles   = alloc_array<u64>(g_persistent, NUM_PROFILE_TIMERS);
+    g_profile_timers_prev.calls    = alloc_array<u32>(g_persistent, NUM_PROFILE_TIMERS);
+    g_profile_timers_prev.open     = alloc_array<bool>(g_persistent, NUM_PROFILE_TIMERS);
 }
 
 
@@ -48,7 +48,7 @@ i32 profile_start_timer(const char *name)
     // NUM_PROFILE_TIMERS
     ASSERT(g_profile_timers.count < g_profile_timers.capacity);
 
-    // NOTE(jesper): assume the passed in string won't be deallocated, I don't
+    // NOTE(jesper): assume the passed in string won't be deallocd, I don't
     // see a use case for these functions where name isn't a pointer to a string
     // literal, so it'll be fine
     g_profile_timers.name[index]  = name;

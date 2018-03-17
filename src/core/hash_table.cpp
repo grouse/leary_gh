@@ -247,7 +247,7 @@ void init_map(
     map->allocator = a;
     map->capacity = initial_size;
     map->mask     = map->capacity - 1;
-    map->entries  = a->ialloc_array<Entry>(map->capacity);
+    map->entries  = ialloc_array<Entry>(a, map->capacity);
     map->resize_threshold = (map->capacity * RH_LOAD_FACTOR) / 100;
 
 }
@@ -284,9 +284,9 @@ void map_add(RHHashMap<K, V> *map, K key, V value)
         auto a = map->allocator;
 
         i32 capacity = map->capacity * 2;
-        Entry *entries = a->ialloc_array<Entry>(capacity);
+        Entry *entries = ialloc_array<Entry>(a, capacity);
         std::memcpy(entries, map->entries, map->capacity);
-        a->dealloc(map->entries);
+        dealloc(a, map->entries);
 
         map->capacity = capacity;
         map->mask     = map->capacity - 1;
@@ -326,9 +326,9 @@ void map_add(RHHashMap<StringView, V> *map, StringView key, V value)
         auto a = map->allocator;
 
         i32 capacity = map->capacity * 2;
-        Entry *entries = a->ialloc_array<Entry>(capacity);
+        Entry *entries = ialloc_array<Entry>(a, capacity);
         std::memcpy(entries, map->entries, map->capacity);
-        a->dealloc(map->entries);
+        dealloc(a, map->entries);
 
         map->capacity = capacity;
         map->mask     = map->capacity - 1;

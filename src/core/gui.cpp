@@ -120,7 +120,7 @@ Vector2 gui_textbox(StringView text, Vector2 *pos)
     i32 vertex_count = 0;
 
     usize vertices_size = sizeof(f32) * 24 * text.size;
-    auto vertices = (f32*)g_frame->alloc(vertices_size);
+    auto vertices = (f32*)alloc(g_frame, vertices_size);
 
     f32 bx = pos->x;
 
@@ -198,7 +198,7 @@ Vector2 gui_textbox(StringView text, Vector2 *pos)
     Matrix4 t = Matrix4::identity();
     item.constants.offset = 0;
     item.constants.size   = sizeof t;
-    item.constants.data   = g_frame->alloc( item.constants.size );
+    item.constants.data   = alloc(g_frame, item.constants.size);
     memcpy(item.constants.data, &t, sizeof t);
 
     ASSERT(g_gui_vbo_offset + vertices_size < g_gui_vbo.size);
@@ -296,7 +296,7 @@ gui_frame_render_item(Vector2 position, f32 width, f32 height, Vector4 color)
     Matrix4 t = translate(Matrix4::identity(), camera_from_screen(position));
     item.constants.offset = 0;
     item.constants.size   = sizeof t;
-    item.constants.data   = g_frame->alloc( item.constants.size );
+    item.constants.data   = alloc(g_frame, item.constants.size);
     memcpy(item.constants.data, &t, sizeof t);
 
     isize vertices_size = vertices.count * sizeof vertices[0];

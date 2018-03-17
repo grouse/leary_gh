@@ -132,7 +132,7 @@ String create_string(Allocator *a, T first)
     i32 size = utf8_size(first) + 1;
 
     str.capacity = size;
-    str.bytes    = (char*)a->alloc(size);
+    str.bytes    = (char*)alloc(a, size);
     string_concat(&str, first);
 
     return str;
@@ -147,7 +147,7 @@ String create_string(Allocator *a, T first, Args... rest)
     i32 size = utf8_size(first) + utf8_size(rest...) + 1;
 
     str.capacity = size;
-    str.bytes    = (char*)a->alloc(size);
+    str.bytes    = (char*)alloc(a, size);
     string_concat(&str, first, rest...);
 
     return str;
@@ -158,7 +158,7 @@ void destroy_string(String *string)
     ASSERT(string->bytes != nullptr);
     ASSERT(string->allocator != nullptr);
 
-    string->allocator->dealloc(string->bytes);
+    dealloc(string->allocator, string->bytes);
     string->bytes    = nullptr;
     string->capacity = 0;
     string->size     = 0;

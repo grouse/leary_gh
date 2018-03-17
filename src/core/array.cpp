@@ -22,7 +22,7 @@ Array<T> create_array(Allocator *allocator, i32 capacity)
 {
     Array<T> a;
     a.allocator = allocator;
-    a.data      = allocator->alloc_array<T>(capacity);
+    a.data      = alloc_array<T>(allocator, capacity);
     a.count     = 0;
     a.capacity  = capacity;
 
@@ -42,7 +42,7 @@ template<typename T>
 void init_array(Array<T> *arr, Allocator *a, i32 capacity)
 {
     arr->allocator = a;
-    arr->data      = a->alloc_array<T>(capacity);
+    arr->data      = alloc_array<T>(a, capacity);
     arr->count     = 0;
     arr->capacity  = capacity;
 }
@@ -51,7 +51,7 @@ template<typename T>
 void reset_array(Array<T> *arr)
 {
     ASSERT(arr->allocator != nullptr);
-    arr->allocator->dealloc(arr->data);
+    dealloc(arr->allocator, arr->data);
 
     arr->data     = nullptr;
     arr->count    = 0;
@@ -67,7 +67,7 @@ void reset_array_count(Array<T> *arr)
 template<typename T>
 void destroy_array(Array<T> *a)
 {
-    a->allocator->dealloc(a->data);
+    dealloc(a->allocator, a->data);
     a->data     = nullptr;
     a->capacity = 0;
     a->count    = 0;
@@ -92,7 +92,7 @@ i32 array_add(Array<T> *a, T e)
 
     if (a->count >= a->capacity) {
         i32 capacity = a->capacity == 0 ? 1 : a->capacity * 2;
-        a->data      = a->allocator->realloc_array(a->data, capacity);
+        a->data      = realloc_array(a->allocator, a->data, capacity);
         a->capacity  = capacity;
     }
 

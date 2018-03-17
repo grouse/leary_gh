@@ -50,14 +50,17 @@ struct BlenderModel {
 
 FilePath g_export_path;
 Array<BlenderModel> g_models;
-LinearAllocator *g_export_alloc;
+Allocator *g_export_alloc;
 Settings g_settings;
 
 
 DL_EXPORT
 void init(const char* path)
 {
-    g_export_alloc = new LinearAllocator(malloc(1024*1024*64), 1024*1024*64);
+    isize size      = 1024*1024*64;
+    g_export_alloc  = new Allocator();
+    *g_export_alloc = linear_allocator(malloc(size), size);
+
     g_export_path = create_file_path(g_export_alloc, path);
     init_array(&g_models, g_export_alloc);
 }

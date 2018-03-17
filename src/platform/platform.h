@@ -147,17 +147,26 @@ struct NativePlatformState {
 struct PlatformState {
     NativePlatformState native;
 
+    struct {
+        Allocator heap;
+        Allocator debug_frame;
+        Allocator frame;
+        Allocator persistent;
+        Allocator stack;
+        Allocator system;
+    } allocators;
+
     bool raw_mouse = false;
 
     struct {
         void            *game;
 
-        HeapAllocator   *heap;
-        LinearAllocator *frame;
-        LinearAllocator *debug_frame;
-        LinearAllocator *persistent;
-        StackAllocator  *stack;
-        SystemAllocator *system_alloc;
+        Allocator *heap;
+        Allocator *frame;
+        Allocator *debug_frame;
+        Allocator *persistent;
+        Allocator *stack;
+        Allocator *system_alloc;
     } reload_state;
 };
 
