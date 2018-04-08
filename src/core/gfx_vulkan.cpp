@@ -272,22 +272,6 @@ void present_semaphore(VkSemaphore semaphore)
     array_add(&g_vulkan->present_semaphores, semaphore);
 }
 
-void present_frame(u32 image)
-{
-    VkPresentInfoKHR info = {};
-    info.sType              = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-    info.waitSemaphoreCount = (u32)g_vulkan->present_semaphores.count;
-    info.pWaitSemaphores    = g_vulkan->present_semaphores.data;
-    info.swapchainCount     = 1;
-    info.pSwapchains        = &g_vulkan->swapchain.handle;
-    info.pImageIndices      = &image;
-
-    VkResult result = vkQueuePresentKHR(g_vulkan->queue, &info);
-    ASSERT(result == VK_SUCCESS);
-
-    g_vulkan->present_semaphores.count = 0;
-}
-
 void submit_semaphore_wait(VkSemaphore semaphore, VkPipelineStageFlags stage)
 {
     array_add(&g_vulkan->semaphores_submit_wait,        semaphore);
@@ -301,39 +285,25 @@ void submit_semaphore_signal(VkSemaphore semaphore)
 
 void submit_frame()
 {
-    VkSubmitInfo info = {};
-    info.sType                = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    if (g_vulkan->commands_queued.count > 0) {
+        VkSubmitInfo info = {};
+        info.sType                = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
-    info.commandBufferCount   = (u32)g_vulkan->commands_queued.count;
-    info.pCommandBuffers      = g_vulkan->commands_queued.data;
+        info.commandBufferCount   = (u32)g_vulkan->commands_queued.count;
+        info.pCommandBuffers      = g_vulkan->commands_queued.data;
 
-#if 0
-    info.waitSemaphoreCount   = (u32)g_vulkan->semaphores_submit_wait.count;
-    info.pWaitSemaphores      = g_vulkan->semaphores_submit_wait.data;
-    info.pWaitDstStageMask    = g_vulkan->semaphores_submit_wait_stages.data;
+        vkQueueSubmit(g_vulkan->queue, 1, &info, VK_NULL_HANDLE);
+        vkQueueWaitIdle(g_vulkan->queue);
 
-    info.signalSemaphoreCount = (u32)g_vulkan->semaphores_submit_signal.count;
-    info.pSignalSemaphores    = g_vulkan->semaphores_submit_signal.data;
-#endif
+        // TODO(jesper): move the command buffers into a free list instead of
+        // actually freeing them, to be reset and reused with
+        // begin_cmd_buffer
+        vkFreeCommandBuffers(g_vulkan->handle, g_vulkan->command_pool,
+                             (u32)g_vulkan->commands_queued.count,
+                             g_vulkan->commands_queued.data);
 
-    vkQueueSubmit(g_vulkan->queue, 1, &info, VK_NULL_HANDLE);
-    vkQueueWaitIdle(g_vulkan->queue);
-
-    // TODO(jesper): move the command buffers into a free list instead of
-    // actually freeing them, to be reset and reused with
-    // begin_cmd_buffer
-    vkFreeCommandBuffers(g_vulkan->handle, g_vulkan->command_pool,
-                         (u32)g_vulkan->commands_queued.count,
-                         g_vulkan->commands_queued.data);
-
-    g_vulkan->commands_queued.count          = 0;
-    g_vulkan->semaphores_submit_wait.count   = 0;
-    g_vulkan->semaphores_submit_signal.count = 0;
-}
-
-void end_renderpass(VkCommandBuffer cmd)
-{
-    vkCmdEndRenderPass(cmd);
+        g_vulkan->commands_queued.count = 0;
+    }
 }
 
 #define VK_LOAD_FUNC(i, f) (PFN_##f)vkGetInstanceProcAddr(i, #f)
@@ -341,24 +311,6 @@ void load_vulkan(VkInstance instance)
 {
     CreateDebugReportCallbackEXT  = VK_LOAD_FUNC(instance, vkCreateDebugReportCallbackEXT);
     DestroyDebugReportCallbackEXT = VK_LOAD_FUNC(instance, vkDestroyDebugReportCallbackEXT);
-}
-
-void begin_renderpass(VkCommandBuffer cmd, u32 image)
-{
-    VkClearValue clear_values[2];
-    clear_values[0].color        = { {1.0f, 0.0f, 0.0f, 0.0f} };
-    clear_values[1].depthStencil = { 1.0f, 0 };
-
-    VkRenderPassBeginInfo info = {};
-    info.sType             = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    info.renderPass        = g_vulkan->renderpass;
-    info.framebuffer       = g_vulkan->framebuffers[image];
-    info.renderArea.offset = { 0, 0 };
-    info.renderArea.extent = g_vulkan->swapchain.extent;
-    info.clearValueCount   = 2;
-    info.pClearValues      = clear_values;
-
-    vkCmdBeginRenderPass(cmd, &info, VK_SUBPASS_CONTENTS_INLINE);
 }
 
 void end_cmd_buffer(VkCommandBuffer buffer,
@@ -2537,7 +2489,20 @@ GfxFrame gfx_begin_frame()
     result = vkBeginCommandBuffer(frame.cmd, &begin_info);
     ASSERT(result == VK_SUCCESS);
 
-    begin_renderpass(frame.cmd, frame.swapchain_index);
+    VkClearValue clear_values[2];
+    clear_values[0].color        = { {1.0f, 0.0f, 0.0f, 0.0f} };
+    clear_values[1].depthStencil = { 1.0f, 0 };
+
+    VkRenderPassBeginInfo info = {};
+    info.sType             = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    info.renderPass        = g_vulkan->renderpass;
+    info.framebuffer       = g_vulkan->framebuffers[frame.swapchain_index];
+    info.renderArea.offset = { 0, 0 };
+    info.renderArea.extent = g_vulkan->swapchain.extent;
+    info.clearValueCount   = 2;
+    info.pClearValues      = clear_values;
+
+    vkCmdBeginRenderPass(frame.cmd, &info, VK_SUBPASS_CONTENTS_INLINE);
 
     return frame;
 }
@@ -2547,7 +2512,7 @@ void gfx_end_frame()
     VkResult result;
     GfxFrame& frame = g_vulkan->frames[g_vulkan->current_frame];
 
-    end_renderpass(frame.cmd);
+    vkCmdEndRenderPass(frame.cmd);
 
     result = vkEndCommandBuffer(frame.cmd);
     ASSERT(result == VK_SUCCESS);
@@ -2585,9 +2550,11 @@ void gfx_end_frame()
     result = vkQueuePresentKHR(g_vulkan->queue, &pinfo);
     ASSERT(result == VK_SUCCESS);
 
-    g_vulkan->present_semaphores.count = 0;
-
     g_vulkan->current_frame = (g_vulkan->current_frame + 1) % GFX_NUM_FRAMES;
     frame.submitted = true;
+
+    g_vulkan->present_semaphores.count       = 0;
+    g_vulkan->semaphores_submit_wait.count   = 0;
+    g_vulkan->semaphores_submit_signal.count = 0;
 }
 

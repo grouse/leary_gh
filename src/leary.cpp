@@ -853,6 +853,7 @@ void process_debug_overlay(DebugOverlay *overlay, f32 dt)
             c2.x = MAX(c1.x + 100.0f, c2.x) + margin;
             pos.x  = c2.x;
             for (i32 i = 0; i < timers.count; i++) {
+                snprintf(buffer, buffer_size, "%" PRIu32, timers.calls[i]);
                 gui_textbox(&frame, buffer, &pos);
 
                 if (pos.x >= c3.x) {
