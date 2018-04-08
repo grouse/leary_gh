@@ -115,8 +115,6 @@ struct VulkanSwapchain {
     VkImageView       *imageviews;
 
     VulkanDepthBuffer depth;
-
-    VkSemaphore       available;
 };
 
 struct VulkanPhysicalDevice {
@@ -126,22 +124,34 @@ struct VulkanPhysicalDevice {
     VkPhysicalDeviceFeatures         features;
 };
 
+struct GfxFrame {
+    VkCommandBuffer cmd;
+    VkFence         fence;
+    VkSemaphore     available;
+    VkSemaphore     complete;
+    bool            submitted;
+    u32             swapchain_index;
+};
+
+#define GFX_NUM_FRAMES (2)
+
 struct VulkanDevice {
     VkDevice                 handle;
 
     Array<GfxDescriptorPool> descriptor_pools[2];
 
+    GfxFrame frames[GFX_NUM_FRAMES];
+    i32      current_frame = 0;
+
     VkInstance               instance;
     VkDebugReportCallbackEXT debug_callback;
 
+    // TODO(jesper): split present and graphics queue
     VkQueue                  queue;
     u32                      queue_family_index;
 
-
     VulkanSwapchain          swapchain;
     VulkanPhysicalDevice     physical_device;
-
-    VkSemaphore              render_completed;
 
     VkCommandPool            command_pool;
     VkRenderPass             renderpass;

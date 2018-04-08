@@ -307,12 +307,14 @@ void submit_frame()
     info.commandBufferCount   = (u32)g_vulkan->commands_queued.count;
     info.pCommandBuffers      = g_vulkan->commands_queued.data;
 
+#if 0
     info.waitSemaphoreCount   = (u32)g_vulkan->semaphores_submit_wait.count;
     info.pWaitSemaphores      = g_vulkan->semaphores_submit_wait.data;
     info.pWaitDstStageMask    = g_vulkan->semaphores_submit_wait_stages.data;
 
     info.signalSemaphoreCount = (u32)g_vulkan->semaphores_submit_signal.count;
     info.pSignalSemaphores    = g_vulkan->semaphores_submit_signal.data;
+#endif
 
     vkQueueSubmit(g_vulkan->queue, 1, &info, VK_NULL_HANDLE);
     vkQueueWaitIdle(g_vulkan->queue);
@@ -1957,17 +1959,41 @@ void init_vulkan()
     VkSemaphoreCreateInfo semaphore_info = {};
     semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
-    result = vkCreateSemaphore(g_vulkan->handle,
-                               &semaphore_info,
-                               nullptr,
-                               &g_vulkan->swapchain.available);
+    VkFenceCreateInfo fence_info = {};
+    fence_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+
+    VkCommandBufferAllocateInfo alloc_info = {};
+    alloc_info.sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    alloc_info.commandPool        = g_vulkan->command_pool;
+    alloc_info.level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    alloc_info.commandBufferCount = GFX_NUM_FRAMES;
+
+    VkCommandBuffer command_buffers[GFX_NUM_FRAMES];
+    result = vkAllocateCommandBuffers(g_vulkan->handle, &alloc_info, &command_buffers[0]);
     ASSERT(result == VK_SUCCESS);
 
-    result = vkCreateSemaphore(g_vulkan->handle,
-                               &semaphore_info,
-                               nullptr,
-                               &g_vulkan->render_completed);
-    ASSERT(result == VK_SUCCESS);
+    for (i32 i = 0; i < GFX_NUM_FRAMES; i++)
+    {
+        GfxFrame& frame = g_vulkan->frames[i];
+        frame.cmd = command_buffers[i];
+
+        result = vkCreateSemaphore(
+            g_vulkan->handle,
+            &semaphore_info,
+            nullptr,
+            &frame.available);
+        ASSERT(result == VK_SUCCESS);
+
+        result = vkCreateSemaphore(
+            g_vulkan->handle,
+            &semaphore_info,
+            nullptr,
+            &frame.complete);
+        ASSERT(result == VK_SUCCESS);
+
+        result = vkCreateFence(g_vulkan->handle, &fence_info, nullptr, &frame.fence);
+        ASSERT(result == VK_SUCCESS);
+    }
 
     for (i32 i = 0; i < (i32)Pipeline_count; i++) {
         g_vulkan->pipelines[i] = create_pipeline((PipelineID)i);
@@ -2073,9 +2099,13 @@ void destroy_vulkan()
 
     vkDestroyCommandPool(g_vulkan->handle, g_vulkan->command_pool, nullptr);
 
+    for (i32 i = 0; i < GFX_NUM_FRAMES; i++) {
+        GfxFrame frame = g_vulkan->frames[i];
 
-    vkDestroySemaphore(g_vulkan->handle, g_vulkan->swapchain.available, nullptr);
-    vkDestroySemaphore(g_vulkan->handle, g_vulkan->render_completed, nullptr);
+        vkDestroyFence(g_vulkan->handle, frame.fence, nullptr);
+        vkDestroySemaphore(g_vulkan->handle, frame.available, nullptr);
+        vkDestroySemaphore(g_vulkan->handle, frame.complete, nullptr);
+    }
 
 
     // TODO(jesper): move out of here when the swapchain<->device dependency is
@@ -2224,20 +2254,6 @@ void buffer_data(VulkanUniformBuffer ubo, void *data, usize offset, usize size)
     vkUnmapMemory(g_vulkan->handle, ubo.staging.memory);
 
     buffer_copy(ubo.staging.handle, ubo.buffer.handle, size);
-}
-
-u32 acquire_swapchain()
-{
-    VkResult result;
-    u32 image_index;
-    result = vkAcquireNextImageKHR(g_vulkan->handle,
-                                   g_vulkan->swapchain.handle,
-                                   UINT64_MAX,
-                                   g_vulkan->swapchain.available,
-                                   VK_NULL_HANDLE,
-                                   &image_index);
-    ASSERT(result == VK_SUCCESS);
-    return image_index;
 }
 
 Material create_material(PipelineID pipeline_id, MaterialID id)
@@ -2490,3 +2506,88 @@ void gfx_bind_descriptor(
         0, 1, &descriptor.vk_set,
         0, nullptr);
 }
+
+GfxFrame gfx_begin_frame()
+{
+    VkResult result;
+    GfxFrame& frame = g_vulkan->frames[g_vulkan->current_frame];
+
+    if (frame.submitted) {
+        result = vkWaitForFences(g_vulkan->handle, 1, &frame.fence, VK_TRUE, UINT64_MAX);
+        ASSERT(result == VK_SUCCESS);
+
+        result = vkResetFences(g_vulkan->handle, 1, &frame.fence);
+        ASSERT(result == VK_SUCCESS);
+
+        frame.submitted = false;
+    }
+
+    result = vkAcquireNextImageKHR(
+        g_vulkan->handle,
+        g_vulkan->swapchain.handle,
+        UINT64_MAX,
+        frame.available,
+        VK_NULL_HANDLE,
+        &frame.swapchain_index);
+
+    VkCommandBufferBeginInfo begin_info = {};
+    begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+    result = vkBeginCommandBuffer(frame.cmd, &begin_info);
+    ASSERT(result == VK_SUCCESS);
+
+    begin_renderpass(frame.cmd, frame.swapchain_index);
+
+    return frame;
+}
+
+void gfx_end_frame()
+{
+    VkResult result;
+    GfxFrame& frame = g_vulkan->frames[g_vulkan->current_frame];
+
+    end_renderpass(frame.cmd);
+
+    result = vkEndCommandBuffer(frame.cmd);
+    ASSERT(result == VK_SUCCESS);
+
+    submit_semaphore_wait(
+        frame.available,
+        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+
+    submit_semaphore_signal(frame.complete);
+
+    VkSubmitInfo sinfo = {};
+    sinfo.sType                = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+
+    sinfo.commandBufferCount   = 1;
+    sinfo.pCommandBuffers      = &frame.cmd;
+
+    sinfo.waitSemaphoreCount   = (u32)g_vulkan->semaphores_submit_wait.count;
+    sinfo.pWaitSemaphores      = g_vulkan->semaphores_submit_wait.data;
+    sinfo.pWaitDstStageMask    = g_vulkan->semaphores_submit_wait_stages.data;
+    sinfo.signalSemaphoreCount = (u32)g_vulkan->semaphores_submit_signal.count;
+    sinfo.pSignalSemaphores    = g_vulkan->semaphores_submit_signal.data;
+
+    vkQueueSubmit(g_vulkan->queue, 1, &sinfo, frame.fence);
+
+    present_semaphore(frame.complete);
+
+    VkPresentInfoKHR pinfo = {};
+    pinfo.sType              = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+    pinfo.waitSemaphoreCount = (u32)g_vulkan->present_semaphores.count;
+    pinfo.pWaitSemaphores    = g_vulkan->present_semaphores.data;
+    pinfo.swapchainCount     = 1;
+    pinfo.pSwapchains        = &g_vulkan->swapchain.handle;
+    pinfo.pImageIndices      = &frame.swapchain_index;
+
+    result = vkQueuePresentKHR(g_vulkan->queue, &pinfo);
+    ASSERT(result == VK_SUCCESS);
+
+    g_vulkan->present_semaphores.count = 0;
+
+    g_vulkan->current_frame = (g_vulkan->current_frame + 1) % GFX_NUM_FRAMES;
+    frame.submitted = true;
+}
+

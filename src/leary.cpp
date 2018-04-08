@@ -994,21 +994,16 @@ void game_render()
     void *sp = g_stack->sp;
     defer { reset(g_stack, sp); };
 
-    u32 image_index = acquire_swapchain();
-
+    GfxFrame frame = gfx_begin_frame();
 
     VkDeviceSize offsets[] = { 0 };
-    VkResult result;
 
-    VkCommandBuffer command = begin_cmd_buffer();
-    begin_renderpass(command, image_index);
-
-    render_terrain(command);
+    render_terrain(frame.cmd);
 
     for (auto &object : g_game->render_objects) {
         VulkanPipeline &pipeline = g_vulkan->pipelines[object.pipeline];
 
-        vkCmdBindPipeline(command,
+        vkCmdBindPipeline(frame.cmd,
                           VK_PIPELINE_BIND_POINT_GRAPHICS,
                           pipeline.handle);
 
@@ -1016,17 +1011,20 @@ void game_render()
         // TODO(jesper): only bind pipeline descriptor set if one exists, might
         // be such a special case that we should hardcode it?
         gfx_bind_descriptor(
-            command,
+            frame.cmd,
             pipeline.layout,
             VK_PIPELINE_BIND_POINT_GRAPHICS,
             pipeline.descriptor_set);
 
-        vkCmdBindVertexBuffers(command, 0, 1, &object.vbo.handle, offsets);
+        vkCmdBindVertexBuffers(frame.cmd, 0, 1, &object.vbo.handle, offsets);
 
-        vkCmdPushConstants(command, pipeline.layout, VK_SHADER_STAGE_VERTEX_BIT,
-                           0, sizeof(object.transform), &object.transform);
+        vkCmdPushConstants(
+            frame.cmd,
+            pipeline.layout,
+            VK_SHADER_STAGE_VERTEX_BIT,
+            0, sizeof(object.transform), &object.transform);
 
-        vkCmdDraw(command, object.vertex_count, 1, 0, 0);
+        vkCmdDraw(frame.cmd, object.vertex_count, 1, 0, 0);
     }
 
     auto descriptors = create_array<GfxDescriptorSet>(g_frame);
@@ -1035,7 +1033,7 @@ void game_render()
 
         VulkanPipeline &pipeline = g_vulkan->pipelines[object.pipeline];
 
-        vkCmdBindPipeline(command,
+        vkCmdBindPipeline(frame.cmd,
                           VK_PIPELINE_BIND_POINT_GRAPHICS,
                           pipeline.handle);
 
@@ -1047,13 +1045,13 @@ void game_render()
         }
 
         gfx_bind_descriptors(
-            command,
+            frame.cmd,
             pipeline.layout,
             VK_PIPELINE_BIND_POINT_GRAPHICS,
             descriptors);
 
-        vkCmdBindVertexBuffers(command, 0, 1, &object.vbo.handle, offsets);
-        vkCmdBindIndexBuffer(command, object.ibo.handle,
+        vkCmdBindVertexBuffers(frame.cmd, 0, 1, &object.vbo.handle, offsets);
+        vkCmdBindIndexBuffer(frame.cmd, object.ibo.handle,
                              0, VK_INDEX_TYPE_UINT32);
 
 
@@ -1065,10 +1063,13 @@ void game_render()
         Matrix4 srt = scale(t, e->scale);
         srt = srt * r;
 
-        vkCmdPushConstants(command, pipeline.layout,
-                           VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(srt), &srt);
+        vkCmdPushConstants(
+            frame.cmd,
+            pipeline.layout,
+            VK_SHADER_STAGE_VERTEX_BIT,
+            0, sizeof(srt), &srt);
 
-        vkCmdDrawIndexed(command, object.index_count, 1, 0, 0, 0);
+        vkCmdDrawIndexed(frame.cmd, object.index_count, 1, 0, 0, 0);
     }
 
 
@@ -1078,12 +1079,12 @@ void game_render()
 
         VulkanPipeline pipeline = g_vulkan->pipelines[Pipeline_wireframe_lines];
 
-        vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS,
+        vkCmdBindPipeline(frame.cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
                           pipeline.handle);
 
         array_add(&descriptors, pipeline.descriptor_set);
         gfx_bind_descriptors(
-            command,
+            frame.cmd,
             pipeline.layout,
             VK_PIPELINE_BIND_POINT_GRAPHICS,
             descriptors);
@@ -1093,7 +1094,7 @@ void game_render()
             Vector3 color;
         } pc;
 
-        vkCmdBindVertexBuffers(command, 0, 1, &g_debug_collision.cube.vbo.handle, offsets);
+        vkCmdBindVertexBuffers(frame.cmd, 0, 1, &g_debug_collision.cube.vbo.handle, offsets);
         for (auto &c : g_collision.aabbs) {
             pc.transform = translate(Matrix4::identity(), c.position);
             pc.transform = scale(pc.transform, c.scale);
@@ -1104,26 +1105,26 @@ void game_render()
                 pc.color = { 0.0f, 1.0f, 0.0f };
             }
 
-            vkCmdPushConstants(command, pipeline.layout,
+            vkCmdPushConstants(frame.cmd, pipeline.layout,
                                VK_SHADER_STAGE_VERTEX_BIT,
                                0, sizeof(pc), &pc);
-            vkCmdDraw(command, g_debug_collision.cube.vertex_count, 1, 0, 0);
+            vkCmdDraw(frame.cmd, g_debug_collision.cube.vertex_count, 1, 0, 0);
         }
 
 
         pipeline = g_vulkan->pipelines[Pipeline_wireframe];
-        vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS,
+        vkCmdBindPipeline(frame.cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
                           pipeline.handle);
 
         // TODO(jesper): needed? same descriptors as last pipeline bind
         gfx_bind_descriptors(
-            command,
+            frame.cmd,
             pipeline.layout,
             VK_PIPELINE_BIND_POINT_GRAPHICS,
             descriptors);
 
-        vkCmdBindVertexBuffers(command, 0, 1, &g_debug_collision.sphere.vbo.handle, offsets);
-        vkCmdBindIndexBuffer(command, g_debug_collision.sphere.ibo.handle, 0, VK_INDEX_TYPE_UINT32);
+        vkCmdBindVertexBuffers(frame.cmd, 0, 1, &g_debug_collision.sphere.vbo.handle, offsets);
+        vkCmdBindIndexBuffer(frame.cmd, g_debug_collision.sphere.ibo.handle, 0, VK_INDEX_TYPE_UINT32);
 
         for (auto &c : g_collision.spheres) {
             pc.transform = translate(Matrix4::identity(), c.position);
@@ -1135,10 +1136,10 @@ void game_render()
                 pc.color = { 0.0f, 1.0f, 0.0f };
             }
 
-            vkCmdPushConstants(command, pipeline.layout,
+            vkCmdPushConstants(frame.cmd, pipeline.layout,
                                VK_SHADER_STAGE_VERTEX_BIT,
                                0, sizeof(pc), &pc);
-            vkCmdDrawIndexed(command, g_debug_collision.sphere.index_count, 1, 0, 0, 0);
+            vkCmdDrawIndexed(frame.cmd, g_debug_collision.sphere.index_count, 1, 0, 0, 0);
         }
 
     }
@@ -1147,12 +1148,12 @@ void game_render()
     for (auto &item : g_game->overlay.render_queue) {
         VulkanPipeline &pipeline = g_vulkan->pipelines[item.pipeline];
 
-        vkCmdBindPipeline(command,
+        vkCmdBindPipeline(frame.cmd,
                           VK_PIPELINE_BIND_POINT_GRAPHICS,
                           pipeline.handle);
 
         gfx_bind_descriptors(
-            command,
+            frame.cmd,
             pipeline.layout,
             VK_PIPELINE_BIND_POINT_GRAPHICS,
             item.descriptors);
@@ -1167,29 +1168,17 @@ void game_render()
 #endif
 
         Matrix4 t = translate(Matrix4::identity(), item.position);
-        vkCmdPushConstants(command, pipeline.layout,
+        vkCmdPushConstants(frame.cmd, pipeline.layout,
                            VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(t), &t);
 
-        vkCmdBindVertexBuffers(command, 0, 1, &item.vbo.handle, offsets);
-        vkCmdDraw(command, item.vertex_count, 1, 0, 0);
+        vkCmdBindVertexBuffers(frame.cmd, 0, 1, &item.vbo.handle, offsets);
+        vkCmdDraw(frame.cmd, item.vertex_count, 1, 0, 0);
     }
     g_game->overlay.render_queue.count = 0;
 
-    gui_render(command);
+    gui_render(frame.cmd);
 
-    end_renderpass(command);
-    end_cmd_buffer(command, false);
-
-    submit_semaphore_wait(g_vulkan->swapchain.available,
-                          VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
-    submit_semaphore_signal(g_vulkan->render_completed);
-    submit_frame();
-
-    present_semaphore(g_vulkan->render_completed);
-    present_frame(image_index);
-
-    result = vkQueueWaitIdle(g_vulkan->queue);
-    ASSERT(result == VK_SUCCESS);
+    gfx_end_frame();
 }
 
 void game_update_and_render(f32 dt)
