@@ -1945,7 +1945,20 @@ void init_vulkan()
 
         result = vkCreateFence(g_vulkan->handle, &fence_info, nullptr, &frame.fence);
         ASSERT(result == VK_SUCCESS);
+
+        VkQueryPoolCreateInfo query_info = {};
+        query_info.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
+        query_info.queryType = VK_QUERY_TYPE_TIMESTAMP;
+        query_info.queryCount = GFX_NUM_TIMESTAMP_QUERIES;
+
+        result = vkCreateQueryPool(
+            g_vulkan->handle,
+            &query_info,
+            nullptr,
+            &frame.timestamps);
+        ASSERT(result == VK_SUCCESS);
     }
+
 
     for (i32 i = 0; i < (i32)Pipeline_count; i++) {
         g_vulkan->pipelines[i] = create_pipeline((PipelineID)i);
@@ -2057,6 +2070,7 @@ void destroy_vulkan()
         vkDestroyFence(g_vulkan->handle, frame.fence, nullptr);
         vkDestroySemaphore(g_vulkan->handle, frame.available, nullptr);
         vkDestroySemaphore(g_vulkan->handle, frame.complete, nullptr);
+        vkDestroyQueryPool(g_vulkan->handle, frame.timestamps, nullptr);
     }
 
 
@@ -2465,6 +2479,8 @@ GfxFrame gfx_begin_frame()
     GfxFrame& frame = g_vulkan->frames[g_vulkan->current_frame];
 
     if (frame.submitted) {
+        PROFILE_BLOCK(vk_wait_frame);
+
         result = vkWaitForFences(g_vulkan->handle, 1, &frame.fence, VK_TRUE, UINT64_MAX);
         ASSERT(result == VK_SUCCESS);
 
@@ -2474,13 +2490,38 @@ GfxFrame gfx_begin_frame()
         frame.submitted = false;
     }
 
-    result = vkAcquireNextImageKHR(
-        g_vulkan->handle,
-        g_vulkan->swapchain.handle,
-        UINT64_MAX,
-        frame.available,
-        VK_NULL_HANDLE,
-        &frame.swapchain_index);
+    if (frame.current_timestamp > 0) {
+        u64 timestamps[GFX_NUM_TIMESTAMP_QUERIES];
+        result = vkGetQueryPoolResults(
+            g_vulkan->handle,
+            frame.timestamps,
+            0, frame.current_timestamp,
+            sizeof timestamps,
+            &timestamps[0],
+            sizeof timestamps[0],
+            VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT);
+        ASSERT(result == VK_SUCCESS);
+
+        u64 start = timestamps[0];
+        u64 end   = timestamps[1];
+
+        f32 tick = (1000 * 1000 * 1000) / g_vulkan->physical_device.properties.limits.timestampPeriod;
+        g_vulkan->gpu_time = ((end - start) * 1000) / tick;
+
+        frame.current_timestamp = 0;
+    }
+
+    {
+        PROFILE_BLOCK(vk_acquire_swapchain);
+
+        result = vkAcquireNextImageKHR(
+            g_vulkan->handle,
+            g_vulkan->swapchain.handle,
+            UINT64_MAX,
+            frame.available,
+            VK_NULL_HANDLE,
+            &frame.swapchain_index);
+    }
 
     VkCommandBufferBeginInfo begin_info = {};
     begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -2488,6 +2529,12 @@ GfxFrame gfx_begin_frame()
 
     result = vkBeginCommandBuffer(frame.cmd, &begin_info);
     ASSERT(result == VK_SUCCESS);
+
+    vkCmdWriteTimestamp(
+        frame.cmd,
+        VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT,
+        frame.timestamps,
+        frame.current_timestamp++);
 
     VkClearValue clear_values[2];
     clear_values[0].color        = { {1.0f, 0.0f, 0.0f, 0.0f} };
@@ -2513,6 +2560,12 @@ void gfx_end_frame()
     GfxFrame& frame = g_vulkan->frames[g_vulkan->current_frame];
 
     vkCmdEndRenderPass(frame.cmd);
+
+    vkCmdWriteTimestamp(
+        frame.cmd,
+        VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT,
+        frame.timestamps,
+        frame.current_timestamp++);
 
     result = vkEndCommandBuffer(frame.cmd);
     ASSERT(result == VK_SUCCESS);

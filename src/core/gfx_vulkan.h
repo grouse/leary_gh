@@ -129,19 +129,26 @@ struct GfxFrame {
     VkFence         fence;
     VkSemaphore     available;
     VkSemaphore     complete;
+    VkQueryPool     timestamps;
+    i32             current_timestamp;
     bool            submitted;
     u32             swapchain_index;
 };
 
 #define GFX_NUM_FRAMES (2)
+#define GFX_NUM_TIMESTAMP_QUERIES (2)
 
 struct VulkanDevice {
+    f32 gpu_time = 0.0f;
+
     VkDevice                 handle;
 
     Array<GfxDescriptorPool> descriptor_pools[2];
 
     GfxFrame frames[GFX_NUM_FRAMES];
     i32      current_frame = 0;
+
+    VkQueryPool timestamp_queries;
 
     VkInstance               instance;
     VkDebugReportCallbackEXT debug_callback;

@@ -745,7 +745,6 @@ void process_debug_overlay(DebugOverlay *overlay, f32 dt)
     Vector4 fc = unpack_rgba(0x2A282ACC);
 
     Vector2 pos = screen_from_camera( Vector2{ -1.0f, -1.0f });
-    //gui_frame({ 300.0f, 0.0f }, 200.0f, 30.0f, fc);
 
     isize buffer_size = 1024*1024;
     char *buffer = (char*)alloc(g_stack, buffer_size);
@@ -754,8 +753,12 @@ void process_debug_overlay(DebugOverlay *overlay, f32 dt)
     GuiFrame frame = gui_frame_begin(fc);
 
     f32 dt_ms = dt * 1000.0f;
-    snprintf(buffer, buffer_size, "frametime: %f ms, %f fps\n",
+    snprintf(buffer, buffer_size, "cpu time: %f ms, %f fps\n",
              dt_ms, 1000.0f / dt_ms);
+    gui_textbox(&frame, buffer, &pos);
+
+    snprintf(buffer, buffer_size, "gpu time: %f ms, %f fps\n",
+             g_vulkan->gpu_time, 1000.0f / g_vulkan->gpu_time);
     gui_textbox(&frame, buffer, &pos);
 
 
