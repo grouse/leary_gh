@@ -60,9 +60,6 @@ void MEMORY_BARRIER()
 
 #define DIVIDER "-----------------------------------------------------------------------------------------------------------------------------------------------------"
 
-#define MCOMBINE2(a, b) a ## b
-#define MCOMBINE(a, b) MCOMBINE2(a, b)
-
 #define BENCHMARK_FUNC(name) void MCOMBINE(benchmark_, name)(Benchmark *state)
 #define BENCHMARK(name) \
     static Benchmark MCOMBINE(benchmark_var_, name) = create_benchmark(#name, &benchmark_##name)

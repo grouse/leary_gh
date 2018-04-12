@@ -17,7 +17,7 @@
 #include "core/array.cpp"
 #include "core/hash_table.cpp"
 #include "core/lexer.cpp"
-#include "core/profiling.cpp"
+#include "core/profiler.cpp"
 #include "core/maths.cpp"
 #include "core/random.cpp"
 #include "core/assets.cpp"
@@ -42,9 +42,6 @@ struct Terrain {
 };
 
 struct GameReloadState {
-    ProfileTimers profile_timers;
-    ProfileTimers profile_timers_prev;
-
     Matrix4       screen_to_view;
     Matrix4       view_to_screen;
 
@@ -378,7 +375,7 @@ i32 physics_id(i32 entity_id)
 
 void game_init()
 {
-    init_profiling();
+    init_profiler();
 
     void *sp = g_stack->sp;
     defer { reset(g_stack, sp); };
@@ -492,9 +489,6 @@ void* game_pre_reload()
 
     // TODO(jesper): I feel like this could be quite nicely preprocessed and
     // generated. look into
-    state->profile_timers      = g_profile_timers;
-    state->profile_timers_prev = g_profile_timers_prev;
-
     state->texture_catalog     = g_catalog;
     state->settings            = g_settings;
 
@@ -531,9 +525,6 @@ void game_reload(void *s)
     g_physics  = state->physics;
 
     g_game                = state->game;
-
-    g_profile_timers      = state->profile_timers;
-    g_profile_timers_prev = state->profile_timers_prev;
 
     g_settings            = state->settings;
     g_catalog     = state->texture_catalog;
@@ -818,15 +809,15 @@ void process_debug_overlay(DebugOverlay *overlay, f32 dt)
             f32 base_x = pos.x;
             f32 base_y = pos.y;
 
-            Vector2 c0, c1, c2, c3;
-            c0.x = c1.x = c2.x = c3.x = pos.x + margin;
-            c0.y = c1.y = c2.y = c3.y = hy;
+            Vector2 c0, c1, c2;
+            c0.x = c1.x = c2.x = pos.x + margin;
+            c0.y = c1.y = c2.y = hy;
 
             pos.x  = c0.x;
 
-            ProfileTimers &timers = g_profile_timers_prev;
+            Array<ProfileTimer> &timers = g_profile_timers;
             for (i32 i = 0; i < timers.count; i++) {
-                snprintf(buffer, buffer_size, "%s: ", timers.name[i]);
+                snprintf(buffer, buffer_size, "%s: ", timers[i].name);
                 gui_textbox(&frame, buffer, &pos);
 
                 if (pos.x >= c1.x) {
@@ -841,7 +832,7 @@ void process_debug_overlay(DebugOverlay *overlay, f32 dt)
             c1.x = MAX(c0.x + 250.0f, c1.x) + margin;
             pos.x  = c1.x;
             for (i32 i = 0; i < timers.count; i++) {
-                snprintf(buffer, buffer_size, "%" PRIu64, timers.cycles[i]);
+                snprintf(buffer, buffer_size, "%" PRIu64, timers[i].duration);
                 gui_textbox(&frame, buffer, &pos);
 
                 if (pos.x >= c2.x) {
@@ -853,35 +844,19 @@ void process_debug_overlay(DebugOverlay *overlay, f32 dt)
             }
             pos.y = base_y;
 
-            c2.x = MAX(c1.x + 100.0f, c2.x) + margin;
+            c2.x = MAX(c1.x + 250.0f, c2.x) + margin;
             pos.x  = c2.x;
             for (i32 i = 0; i < timers.count; i++) {
-                snprintf(buffer, buffer_size, "%" PRIu32, timers.calls[i]);
+                snprintf(buffer, buffer_size, "%" PRIu64, timers[i].calls);
                 gui_textbox(&frame, buffer, &pos);
-
-                if (pos.x >= c3.x) {
-                    c3.x = pos.x;
-                }
 
                 pos.x  = c2.x;
                 pos.y += 20.0f;
             }
-            pos.y = base_y;
 
-            c3.x = MAX(c2.x + 75.0f, c3.x) + margin;
-            pos.x  = c3.x;
-            for (int i = 0; i < timers.count; i++) {
-                snprintf(buffer, buffer_size, "%f", timers.cycles[i] / (f32)timers.calls[i]);
-                gui_textbox(&frame, buffer, &pos);
-
-                pos.x  = c3.x;
-                pos.y += 20.0f;
-            }
-
-            gui_textbox(&frame, "name",     &c0);
-            gui_textbox(&frame, "cycles",   &c1);
-            gui_textbox(&frame, "calls",    &c2);
-            gui_textbox(&frame, "cy/calls", &c3);
+            gui_textbox(&frame, "name",          &c0);
+            gui_textbox(&frame, "duration (cy)", &c1);
+            gui_textbox(&frame, "calls (#)",     &c2);
 
             pos.x = base_x;
         } break;

@@ -13,6 +13,9 @@
 
 #include "platform/platform_debug.h"
 
+#define MCOMBINE2(a, b) a ## b
+#define MCOMBINE(a, b) MCOMBINE2(a, b)
+
 #define ARRAY_SIZE(a) (isize)(sizeof((a)) / sizeof((a)[0]))
 
 #define MIN(a, b) (a) < (b) ? (a) : (b)

@@ -7,8 +7,6 @@
  */
 
 #include "maths.h"
-#include "profiling.h"
-
 #include <cmath>
 
 inline constexpr f32 radians(f32 degrees)

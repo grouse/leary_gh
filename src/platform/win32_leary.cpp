@@ -396,7 +396,7 @@ DL_EXPORT
 PLATFORM_UPDATE_FUNC(platform_update)
 {
     (void)platform;
-    profile_start_frame();
+    profiler_begin_frame();
 
     PROFILE_START(win32_input);
     MSG msg;
@@ -409,7 +409,7 @@ PLATFORM_UPDATE_FUNC(platform_update)
     PROFILE_END(win32_input);
 
     game_update_and_render(dt);
-    profile_end_frame();
+    profiler_end_frame();
 }
 
 BOOL WINAPI DllMain(HINSTANCE instance, DWORD fwd, LPVOID reserved)

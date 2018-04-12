@@ -24,8 +24,6 @@ namespace lry {
 
 #define PI (f32)M_PI
 
-#define MCOMBINE2(a, b) a ## b
-#define MCOMBINE(a, b) MCOMBINE2(a, b)
 #define DUMMY_VAR MCOMBINE(dummy_, __LINE__)
 
 union Vector2 {

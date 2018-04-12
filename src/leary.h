@@ -22,7 +22,7 @@
 #include "platform/platform_debug.h"
 #include "leary_macros.h"
 
-#include "core/profiling.h"
+#include "core/profiler.h"
 #include "core/allocator.h"
 #include "core/maths.h"
 #include "core/gfx_vulkan.h"

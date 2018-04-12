@@ -2479,7 +2479,7 @@ GfxFrame gfx_begin_frame()
     GfxFrame& frame = g_vulkan->frames[g_vulkan->current_frame];
 
     if (frame.submitted) {
-        PROFILE_BLOCK(vk_wait_frame);
+        PROFILE_SCOPE(vk_wait_frame);
 
         result = vkWaitForFences(g_vulkan->handle, 1, &frame.fence, VK_TRUE, UINT64_MAX);
         ASSERT(result == VK_SUCCESS);
@@ -2512,7 +2512,7 @@ GfxFrame gfx_begin_frame()
     }
 
     {
-        PROFILE_BLOCK(vk_acquire_swapchain);
+        PROFILE_SCOPE(vk_acquire_swapchain);
 
         result = vkAcquireNextImageKHR(
             g_vulkan->handle,
