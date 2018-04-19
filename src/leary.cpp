@@ -489,18 +489,14 @@ void* game_pre_reload()
 
     // TODO(jesper): I feel like this could be quite nicely preprocessed and
     // generated. look into
-    state->texture_catalog     = g_catalog;
-    state->settings            = g_settings;
-
-
-    state->vulkan_device       = g_vulkan;
-    state->game                = g_game;
-
-    state->terrain = g_terrain;
-    state->entities = g_entities;
-    state->physics = g_physics;
-
-    state->collision = g_collision;
+    state->texture_catalog = g_catalog;
+    state->settings        = g_settings;
+    state->vulkan_device   = g_vulkan;
+    state->game            = g_game;
+    state->terrain         = g_terrain;
+    state->entities        = g_entities;
+    state->physics         = g_physics;
+    state->collision       = g_collision;
     state->debug_collision = g_debug_collision;
 
     // NOTE(jesper): wait for the vulkan queues to be idle. Here for when I get
@@ -517,20 +513,17 @@ void game_reload(void *s)
     // TODO(jesper): I feel like this could be quite nicely preprocessed and
     // generated. look into
     auto state = (GameReloadState*)s;
-    g_collision = state->collision;
+
+    g_collision       = state->collision;
     g_debug_collision = state->debug_collision;
+    g_terrain         = state->terrain;
+    g_entities        = state->entities;
+    g_physics         = state->physics;
+    g_game            = state->game;
+    g_settings        = state->settings;
+    g_catalog         = state->texture_catalog;
+    g_vulkan          = state->vulkan_device;
 
-    g_terrain  = state->terrain;
-    g_entities = state->entities;
-    g_physics  = state->physics;
-
-    g_game                = state->game;
-
-    g_settings            = state->settings;
-    g_catalog     = state->texture_catalog;
-
-
-    g_vulkan              = state->vulkan_device;
     load_vulkan(g_vulkan->instance);
 
     dealloc(g_frame, state);
@@ -538,6 +531,9 @@ void game_reload(void *s)
 
 void game_input(InputEvent event)
 {
+    // TODO(jesper): only pass event to gui if it's not handled by the game?
+    gui_input(event);
+
     switch (event.type) {
     case InputType_key_press: {
         if (event.key.repeated) {
@@ -764,14 +760,16 @@ void process_debug_overlay(DebugOverlay *overlay, f32 dt)
                 pos.x    = base_x;
             };
 
-            if (item.collapsed) {
-                snprintf(buffer, buffer_size, "%s...", item.title);
-                gui_textbox(&frame, buffer, &pos);
-                continue;
+            snprintf(buffer, buffer_size, "%s", item.title);
+            GuiWidget widget = gui_push_textbox(&frame, buffer, &pos);
+
+            if (widget.pressed) {
+                item.collapsed = !item.collapsed;
             }
 
-            snprintf(buffer, buffer_size, "%s", item.title);
-            gui_textbox(&frame, buffer, &pos);
+            if (item.collapsed) {
+                continue;
+            }
         }
 
         switch (item.type) {
@@ -1160,15 +1158,18 @@ void game_render()
     gfx_end_frame();
 }
 
+void game_begin_frame()
+{
+    gui_begin_frame();
+}
+
 void game_update_and_render(f32 dt)
 {
-    gui_frame_start();
-
     game_update(dt);
     process_debug_overlay(&g_game->overlay, dt);
 
     game_render();
 
     reset(g_frame, nullptr);
-    reset(g_frame, nullptr);
+    reset(g_debug_frame, nullptr);
 }

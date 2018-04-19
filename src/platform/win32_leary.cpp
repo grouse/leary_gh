@@ -227,7 +227,7 @@ window_proc(HWND   hwnd,
         event.mouse.dx = mouse_state.dx;
         event.mouse.dy = mouse_state.dy;
 
-        game_input( event);
+        game_input(event);
     } break;
     case WM_MOUSELEAVE:
         mouse_state.in_window = false;
@@ -396,7 +396,9 @@ DL_EXPORT
 PLATFORM_UPDATE_FUNC(platform_update)
 {
     (void)platform;
+
     profiler_begin_frame();
+    game_begin_frame();
 
     PROFILE_START(win32_input);
     MSG msg;
@@ -409,7 +411,6 @@ PLATFORM_UPDATE_FUNC(platform_update)
     PROFILE_END(win32_input);
 
     game_update_and_render(dt);
-    profiler_end_frame();
 }
 
 BOOL WINAPI DllMain(HINSTANCE instance, DWORD fwd, LPVOID reserved)
