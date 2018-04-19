@@ -31,6 +31,14 @@ struct GuiRenderItem
 #endif
 };
 
+struct GuiWidget
+{
+    Vector2 size     = { 0.0f, 0.0f };
+    Vector2 position = { 0.0f, 0.0f };
+    bool pressed     = false;
+    bool hover       = false;
+};
+
 static GuiRenderItem
 gui_frame_render_item(Vector2 position, f32 width, f32 height, Vector4 color);
 
@@ -40,10 +48,13 @@ usize g_gui_vbo_offset = 0;
 void* g_gui_vbo_map = nullptr;
 
 Array<GuiRenderItem> g_gui_render_queue;
+Array<InputEvent> g_gui_input_queue;
+
 
 void init_gui()
 {
     init_array(&g_gui_render_queue, g_frame);
+    init_array(&g_gui_input_queue, g_frame);
 
     g_gui_vbo = create_vbo(1024*1024);
 }
@@ -53,8 +64,11 @@ void destroy_gui()
     destroy_buffer(g_gui_vbo);
 }
 
-void gui_frame_start()
+void gui_begin_frame()
 {
+    g_gui_render_queue.count = g_gui_render_queue.capacity = 0;
+    g_gui_input_queue.count  = g_gui_input_queue.capacity = 0;
+
     g_gui_vbo_offset = 0;
 
     ASSERT(g_gui_vbo_map == nullptr);
@@ -66,6 +80,11 @@ void gui_frame_start()
         &g_gui_vbo_map);
 
     ASSERT(result == VK_SUCCESS);
+}
+
+void gui_input(InputEvent event)
+{
+    array_add(&g_gui_input_queue, event);
 }
 
 void gui_render(VkCommandBuffer command)
@@ -107,15 +126,14 @@ void gui_render(VkCommandBuffer command)
         vkCmdBindVertexBuffers(command, 0, 1, &item.vbo.handle, &item.vbo_offset);
         vkCmdDraw(command, item.vertex_count, 1, 0, 0);
     }
-
-    init_array(&g_gui_render_queue, g_frame);
 }
 
-Vector2 gui_textbox(StringView text, Vector2 *pos)
+GuiWidget gui_textbox(StringView text, Vector2 *pos)
 {
     PROFILE_FUNCTION();
 
-    Vector2 size = {};
+    GuiWidget widget = {};
+    widget.position = *pos;
 
     i32 vertex_count = 0;
 
@@ -141,8 +159,8 @@ Vector2 gui_textbox(StringView text, Vector2 *pos)
         stbtt_aligned_quad q = {};
         stbtt_GetBakedQuad(g_font.atlas, 1024, 1024, c, &pos->x, &pos->y, &q, 1);
 
-        size.x = max(size.x, q.x1);
-        size.y = max(size.y, q.y1 + 15.0f);
+        widget.size.x = max(widget.size.x, q.x1);
+        widget.size.y = max(widget.size.y, q.y1 + 15.0f);
 
         Vector2 tl = camera_from_screen(Vector2{q.x0, q.y0 + 15.0f});
         Vector2 tr = camera_from_screen(Vector2{q.x1, q.y0 + 15.0f});
@@ -207,20 +225,41 @@ Vector2 gui_textbox(StringView text, Vector2 *pos)
 
     array_add(&g_gui_render_queue, item);
 
-    return size;
+    return widget;
 }
 
-void gui_textbox(GuiFrame *frame, StringView text, Vector2 *pos)
+GuiWidget gui_textbox(GuiFrame *frame, StringView text, Vector2 *pos)
 {
     frame->position.x = min(frame->position.x, pos->x);
     frame->position.y = min(frame->position.y, pos->y);
 
-    Vector2 size = gui_textbox(text, pos);
+    GuiWidget widget = gui_textbox(text, pos);
 
-    frame->width  = max(frame->width, size.x);
-    frame->height = max(frame->height, size.y);
+    frame->width  = max(frame->width, widget.size.x);
+    frame->height = max(frame->height, widget.size.y);
+
+    return widget;
 }
 
+GuiWidget gui_push_textbox(GuiFrame *frame, StringView text, Vector2 *pos)
+{
+    GuiWidget widget = gui_textbox(frame, text, pos);
+    Vector2 tl = widget.position;
+    Vector2 br = widget.position + widget.size;
+
+    for (auto event : g_gui_input_queue) {
+        if (event.type == InputType_mouse_press) {
+            if (event.mouse.x >= tl.x && event.mouse.x <= br.x &&
+                event.mouse.y >= tl.y && event.mouse.y <= br.y)
+            {
+                widget.pressed = true;
+                break;
+            }
+        }
+    }
+
+    return widget;
+}
 
 GuiFrame gui_frame_begin(Vector4 color)
 {
