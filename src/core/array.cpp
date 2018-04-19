@@ -181,3 +181,16 @@ void array_clear(Array<T> *a)
     }
     a->count = 0;
 }
+
+template<typename T, typename F>
+void array_ins_sort(Array<T> *a, F cmp)
+{
+    for (i32 i = 0; i < a->count; i++) {
+        for (i32 j = i;
+             j > 0 && cmp(&a->data[j-1], &a->data[j]);
+             j--)
+        {
+            std::swap(a->data[j], a->data[j-1]);
+        }
+    }
+}

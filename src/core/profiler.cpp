@@ -113,6 +113,12 @@ merge_existing:
             existing.duration += timer.duration;
         }
     }
+
+    array_ins_sort(
+        &g_profile_timers,
+        [](ProfileTimer *lhs, ProfileTimer *rhs) {
+            return lhs->duration < rhs->duration;
+        });
 }
 
 void profiler_end_frame()
