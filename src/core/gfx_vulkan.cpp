@@ -549,6 +549,12 @@ VulkanSwapchain swapchain_create(VulkanPhysicalDevice *physical_device,
         swapchain.extent.width  = (u32)g_settings.video.resolution.width;
         swapchain.extent.height = (u32)g_settings.video.resolution.height;
     }
+    g_vulkan->resolution.x = (f32)swapchain.extent.width;
+    g_vulkan->resolution.y = (f32)swapchain.extent.height;
+
+    // TODO(jesper): this offset corresponds to the window border/titlebar
+    // offsetse, do something much better here!
+    g_vulkan->offset = { 1.0f, 14.0f };
 
     // TODO: determine the number of VkImages to use in the swapchain
     u32 desired_swapchain_images = surface_capabilities.minImageCount + 1;
@@ -2610,4 +2616,22 @@ void gfx_end_frame()
     g_vulkan->semaphores_submit_wait.count   = 0;
     g_vulkan->semaphores_submit_signal.count = 0;
 }
+
+Vector2 screen_from_camera(Vector2 v)
+{
+    Vector2 r;
+    r.x = g_vulkan->resolution.x / 2.0f * ( v.x + 1.0f ) + g_vulkan->offset.x;
+    r.y = g_vulkan->resolution.y / 2.0f * ( v.y + 1.0f ) + g_vulkan->offset.y;
+    return r;
+}
+
+Vector3 screen_from_camera(Vector3 v)
+{
+    Vector3 r;
+    r.x = g_vulkan->resolution.x / 2.0f * ( v.x + 1.0f ) + g_vulkan->offset.x;
+    r.y = g_vulkan->resolution.y / 2.0f * ( v.y + 1.0f ) + g_vulkan->offset.y;
+    r.z = v.z;
+    return r;
+}
+
 

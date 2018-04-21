@@ -133,7 +133,7 @@ GuiWidget gui_textbox(StringView text, Vector2 *pos)
     PROFILE_FUNCTION();
 
     GuiWidget widget = {};
-    widget.position = *pos;
+    widget.position = { F32_MAX, F32_MAX };
 
     i32 vertex_count = 0;
 
@@ -159,13 +159,16 @@ GuiWidget gui_textbox(StringView text, Vector2 *pos)
         stbtt_aligned_quad q = {};
         stbtt_GetBakedQuad(g_font.atlas, 1024, 1024, c, &pos->x, &pos->y, &q, 1);
 
-        widget.size.x = max(widget.size.x, q.x1);
-        widget.size.y = max(widget.size.y, q.y1 + 15.0f);
+        widget.position.x = min(widget.position.x, q.x0);
+        widget.position.y = min(widget.position.y, q.y0);
 
-        Vector2 tl = camera_from_screen(Vector2{q.x0, q.y0 + 15.0f});
-        Vector2 tr = camera_from_screen(Vector2{q.x1, q.y0 + 15.0f});
-        Vector2 br = camera_from_screen(Vector2{q.x1, q.y1 + 15.0f});
-        Vector2 bl = camera_from_screen(Vector2{q.x0, q.y1 + 15.0f});
+        widget.size.x = max(widget.size.x, q.x1);
+        widget.size.y = max(widget.size.y, q.y1);
+
+        Vector2 tl = camera_from_screen(Vector2{q.x0, q.y0});
+        Vector2 tr = camera_from_screen(Vector2{q.x1, q.y0});
+        Vector2 br = camera_from_screen(Vector2{q.x1, q.y1});
+        Vector2 bl = camera_from_screen(Vector2{q.x0, q.y1});
 
         vertices[vi++] = tl.x;
         vertices[vi++] = tl.y;

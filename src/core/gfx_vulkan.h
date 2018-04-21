@@ -143,6 +143,10 @@ struct VulkanDevice {
 
     VkDevice                 handle;
 
+    // TODO(jesper): this maps 1:1 to swapchain.extents, de-duplicate and clean
+    Vector2                  resolution;
+    Vector2                  offset;
+
     Array<GfxDescriptorPool> descriptor_pools[2];
 
     GfxFrame frames[GFX_NUM_FRAMES];

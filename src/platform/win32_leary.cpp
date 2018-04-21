@@ -229,6 +229,18 @@ window_proc(HWND   hwnd,
 
         game_input(event);
     } break;
+    case WM_LBUTTONDOWN: {
+        if (g_platform->raw_mouse) {
+            break;
+        }
+
+        InputEvent event;
+        event.type = InputType_mouse_press;
+        event.mouse.x = (f32)(lparam & 0xffff);
+        event.mouse.y = (f32)((lparam >> 16) & 0xffff);
+
+        game_input(event);
+    } break;
     case WM_MOUSELEAVE:
         mouse_state.in_window = false;
         break;
