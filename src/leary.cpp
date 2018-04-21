@@ -761,15 +761,15 @@ void process_debug_overlay(DebugOverlay *overlay, f32 dt)
             };
 
             snprintf(buffer, buffer_size, "%s", item.title);
-            GuiWidget widget = gui_push_textbox(&frame, buffer, &pos);
+            GuiWidget widget = gui_textbox(&frame, buffer, &pos);
 
-            if (widget.pressed) {
+            if (is_pressed(widget)) {
                 item.collapsed = !item.collapsed;
             }
+        }
 
-            if (item.collapsed) {
-                continue;
-            }
+        if (item.collapsed) {
+            continue;
         }
 
         switch (item.type) {

@@ -854,25 +854,6 @@ namespace lry {
 
 #endif
 
-extern Settings g_settings;
-Vector2 camera_from_screen(Vector2 v)
-{
-    Vector2 r;
-    r.x = 2.0f * v.x / g_settings.video.resolution.width - 1.0f;
-    r.y = 2.0f * v.y / g_settings.video.resolution.height - 1.0f;
-    return r;
-}
-
-Vector3 camera_from_screen(Vector3 v)
-{
-    Vector3 r;
-    r.x = 2.0f * v.x / g_settings.video.resolution.width - 1.0f;
-    r.y = 2.0f * v.y / g_settings.video.resolution.height - 1.0f;
-    r.z = v.z;
-    return r;
-}
-
-
 Quaternion quat_from_euler(Vector3 v)
 {
     Quaternion q;

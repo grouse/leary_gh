@@ -238,5 +238,8 @@ void gfx_bind_descriptor(
     VkPipelineBindPoint bind_point,
     GfxDescriptorSet descriptor);
 
+Vector2 camera_from_screen(Vector2 v);
+Vector3 camera_from_screen(Vector3 v);
+
 #endif /* VULKAN_DEVICE_H */
 

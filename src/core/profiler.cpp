@@ -65,8 +65,9 @@ void profiler_begin_frame()
     // TODO(jesper): THREAD_SAFETY
     std::swap(g_profile_events, g_profile_events_prev);
     g_profile_events.count = 0;
-
     g_profile_timers.count = 0;
+
+    PROFILE_FUNCTION();
 
     i32 s = 0;
     i32 stack[PROFILER_MAX_STACK_DEPTH];
@@ -114,11 +115,14 @@ merge_existing:
         }
     }
 
-    array_ins_sort(
-        &g_profile_timers,
-        [](ProfileTimer *lhs, ProfileTimer *rhs) {
-            return lhs->duration < rhs->duration;
-        });
+    {
+        PROFILE_SCOPE(profiler_timer_sort);
+        array_ins_sort(
+            &g_profile_timers,
+            [](ProfileTimer *lhs, ProfileTimer *rhs) {
+                return lhs->duration < rhs->duration;
+            });
+    }
 }
 
 void profiler_end_frame()

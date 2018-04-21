@@ -2634,4 +2634,21 @@ Vector3 screen_from_camera(Vector3 v)
     return r;
 }
 
+Vector2 camera_from_screen(Vector2 v)
+{
+    Vector2 r;
+    r.x = 2.0f * v.x / g_vulkan->resolution.x - 1.0f;
+    r.y = 2.0f * v.y / g_vulkan->resolution.y - 1.0f;
+    return r;
+}
+
+Vector3 camera_from_screen(Vector3 v)
+{
+    Vector3 r;
+    r.x = 2.0f * v.x / g_vulkan->resolution.x - 1.0f;
+    r.y = 2.0f * v.y / g_vulkan->resolution.y - 1.0f;
+    r.z = v.z;
+    return r;
+}
+
 

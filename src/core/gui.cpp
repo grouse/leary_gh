@@ -157,18 +157,29 @@ GuiWidget gui_textbox(StringView text, Vector2 *pos)
         vertex_count += 6;
 
         stbtt_aligned_quad q = {};
-        stbtt_GetBakedQuad(g_font.atlas, 1024, 1024, c, &pos->x, &pos->y, &q, 1);
 
-        widget.position.x = min(widget.position.x, q.x0);
-        widget.position.y = min(widget.position.y, q.y0);
+        {
+            PROFILE_SCOPE(gui_textbox_GetBakedQuad);
+            stbtt_GetBakedQuad(g_font.atlas, 1024, 1024, c, &pos->x, &pos->y, &q, 1);
+        }
 
-        widget.size.x = max(widget.size.x, q.x1);
-        widget.size.y = max(widget.size.y, q.y1);
+        {
+            PROFILE_SCOPE(gui_textbox_widget_sizing);
+            widget.position.x = min(widget.position.x, q.x0);
+            widget.position.y = min(widget.position.y, q.y0);
 
-        Vector2 tl = camera_from_screen(Vector2{q.x0, q.y0});
-        Vector2 tr = camera_from_screen(Vector2{q.x1, q.y0});
-        Vector2 br = camera_from_screen(Vector2{q.x1, q.y1});
-        Vector2 bl = camera_from_screen(Vector2{q.x0, q.y1});
+            widget.size.x = max(widget.size.x, q.x1);
+            widget.size.y = max(widget.size.y, q.y1);
+        }
+
+        Vector2 tl, tr, br, bl;
+        {
+            PROFILE_SCOPE(gui_textbox_transform);
+            tl = camera_from_screen(Vector2{q.x0, q.y0});
+            tr = camera_from_screen(Vector2{q.x1, q.y0});
+            br = camera_from_screen(Vector2{q.x1, q.y1});
+            bl = camera_from_screen(Vector2{q.x0, q.y1});
+        }
 
         vertices[vi++] = tl.x;
         vertices[vi++] = tl.y;
@@ -244,9 +255,8 @@ GuiWidget gui_textbox(GuiFrame *frame, StringView text, Vector2 *pos)
     return widget;
 }
 
-GuiWidget gui_push_textbox(GuiFrame *frame, StringView text, Vector2 *pos)
+bool is_pressed(GuiWidget widget)
 {
-    GuiWidget widget = gui_textbox(frame, text, pos);
     Vector2 tl = widget.position;
     Vector2 br = widget.position + widget.size;
 
@@ -255,13 +265,12 @@ GuiWidget gui_push_textbox(GuiFrame *frame, StringView text, Vector2 *pos)
             if (event.mouse.x >= tl.x && event.mouse.x <= br.x &&
                 event.mouse.y >= tl.y && event.mouse.y <= br.y)
             {
-                widget.pressed = true;
-                break;
+                return true;
             }
         }
     }
 
-    return widget;
+    return false;
 }
 
 GuiFrame gui_frame_begin(Vector4 color)
@@ -310,8 +319,8 @@ gui_frame_render_item(Vector2 position, f32 width, f32 height, Vector4 color)
 #endif // LEARY_DEBUG
 
     // TODO(jesper): fully understand why i need to multiple this by 2
-    width  = width / g_settings.video.resolution.width * 2.0f;
-    height = height / g_settings.video.resolution.height * 2.0f;
+    width  = width / g_vulkan->resolution.x * 2.0f;
+    height = height / g_vulkan->resolution.y * 2.0f;
 
     Vertex tl, tr, br, bl;
     tl.position = Vector2{ 0.0f,  0.0f };
