@@ -46,7 +46,6 @@ struct DebugRenderItem {
 
 struct DebugOverlayItem {
     const char               *title;
-    Vector2 tl, br;
     Array<DebugOverlayItem*> children;
     bool                     collapsed;
     DebugOverlayItemType     type;

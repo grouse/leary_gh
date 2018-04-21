@@ -116,6 +116,12 @@ union Vector4 {
         Vector2 gb;
         f32 DUMMY_VAR;
     };
+
+    f32& operator[](i32 i)
+    {
+        ASSERT(i < 4);
+        return data[i];
+    }
 };
 
 

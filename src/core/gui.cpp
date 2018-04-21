@@ -139,23 +139,14 @@ GuiWidget gui_textbox(StringView text, Vector2 *pos)
 
     usize vertices_size = sizeof(f32) * 24 * text.size;
     auto vertices = (f32*)alloc(g_frame, vertices_size);
+    f32 *v        = &vertices[0];
 
     f32 bx = pos->x;
-
-    i32 vi = 0;
 
     for (i32 i = 0; i < text.size; i++) {
         char c = text[i];
 
-        if (c == '\n') {
-            pos->y += 20.0f;
-            pos->x  = bx;
-            vertices_size -= sizeof(f32)*4*6;
-            continue;
-        }
-
         vertex_count += 6;
-
         stbtt_aligned_quad q = {};
 
         {
@@ -168,49 +159,49 @@ GuiWidget gui_textbox(StringView text, Vector2 *pos)
             widget.position.x = min(widget.position.x, q.x0);
             widget.position.y = min(widget.position.y, q.y0);
 
-            widget.size.x = max(widget.size.x, q.x1);
-            widget.size.y = max(widget.size.y, q.y1);
+            widget.size.x = max(widget.size.x, q.x1 - widget.position.x);
+            widget.size.y = max(widget.size.y, q.y1 - widget.position.y);
         }
 
         Vector2 tl, tr, br, bl;
-        {
-            PROFILE_SCOPE(gui_textbox_transform);
-            tl = camera_from_screen(Vector2{q.x0, q.y0});
-            tr = camera_from_screen(Vector2{q.x1, q.y0});
-            br = camera_from_screen(Vector2{q.x1, q.y1});
-            bl = camera_from_screen(Vector2{q.x0, q.y1});
-        }
+        tl = Vector2{q.x0, q.y0};
+        tr = Vector2{q.x1, q.y0};
+        br = Vector2{q.x1, q.y1};
+        bl = Vector2{q.x0, q.y1};
 
-        vertices[vi++] = tl.x;
-        vertices[vi++] = tl.y;
-        vertices[vi++] = q.s0;
-        vertices[vi++] = q.t0;
+        *v++ = tl.x;
+        *v++ = tl.y;
+        *v++ = q.s0;
+        *v++ = q.t0;
 
-        vertices[vi++] = tr.x;
-        vertices[vi++] = tr.y;
-        vertices[vi++] = q.s1;
-        vertices[vi++] = q.t0;
+        *v++ = tr.x;
+        *v++ = tr.y;
+        *v++ = q.s1;
+        *v++ = q.t0;
 
-        vertices[vi++] = br.x;
-        vertices[vi++] = br.y;
-        vertices[vi++] = q.s1;
-        vertices[vi++] = q.t1;
+        *v++ = br.x;
+        *v++ = br.y;
+        *v++ = q.s1;
+        *v++ = q.t1;
 
-        vertices[vi++] = br.x;
-        vertices[vi++] = br.y;
-        vertices[vi++] = q.s1;
-        vertices[vi++] = q.t1;
+        *v++ = br.x;
+        *v++ = br.y;
+        *v++ = q.s1;
+        *v++ = q.t1;
 
-        vertices[vi++] = bl.x;
-        vertices[vi++] = bl.y;
-        vertices[vi++] = q.s0;
-        vertices[vi++] = q.t1;
+        *v++ = bl.x;
+        *v++ = bl.y;
+        *v++ = q.s0;
+        *v++ = q.t1;
 
-        vertices[vi++] = tl.x;
-        vertices[vi++] = tl.y;
-        vertices[vi++] = q.s0;
-        vertices[vi++] = q.t0;
+        *v++ = tl.x;
+        *v++ = tl.y;
+        *v++ = q.s0;
+        *v++ = q.t0;
     }
+
+    pos->x = bx;
+    pos->y += 20.0f;
 
     GuiRenderItem item = {};
     item.pipeline_id = Pipeline_font;
@@ -228,6 +219,13 @@ GuiWidget gui_textbox(StringView text, Vector2 *pos)
     item.vertex_count = vertex_count;
 
     Matrix4 t = Matrix4::identity();
+
+    t[0][0] = 2.0f / g_vulkan->resolution.x;
+    t[1][1] = 2.0f / g_vulkan->resolution.y;
+
+    t[3][0] = -1.0f;
+    t[3][1] = -1.0f;
+
     item.constants.offset = 0;
     item.constants.size   = sizeof t;
     item.constants.data   = alloc(g_frame, item.constants.size);
@@ -244,19 +242,20 @@ GuiWidget gui_textbox(StringView text, Vector2 *pos)
 
 GuiWidget gui_textbox(GuiFrame *frame, StringView text, Vector2 *pos)
 {
-    frame->position.x = min(frame->position.x, pos->x);
-    frame->position.y = min(frame->position.y, pos->y);
-
     GuiWidget widget = gui_textbox(text, pos);
 
-    frame->width  = max(frame->width, widget.size.x);
-    frame->height = max(frame->height, widget.size.y);
+    frame->position.x = min(frame->position.x, widget.position.x);
+    frame->position.y = min(frame->position.y, widget.position.y);
+    frame->width      = max(frame->width,      widget.position.x + widget.size.x);
+    frame->height     = max(frame->height,     widget.position.y + widget.size.y);
 
     return widget;
 }
 
 bool is_pressed(GuiWidget widget)
 {
+    PROFILE_FUNCTION();
+
     Vector2 tl = widget.position;
     Vector2 br = widget.position + widget.size;
 

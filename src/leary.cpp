@@ -705,16 +705,6 @@ void game_input(InputEvent event)
         g_game->fp_camera.yaw   += 0.001f * event.mouse.dx;
         g_game->fp_camera.pitch += 0.001f * event.mouse.dy;
     } break;
-    case InputType_mouse_press: {
-        Vector2 p = { event.mouse.x, event.mouse.y };
-        for (auto &item : g_game->overlay.items) {
-            if (p.x >= item.tl.x && p.x <= item.br.x &&
-                p.y >= item.tl.y && p.y <= item.br.y)
-            {
-                item.collapsed = !item.collapsed;
-            }
-        }
-    } break;
     default:
         //LOG("unhandled input type: %d", event.type);
         break;
@@ -729,7 +719,7 @@ void process_debug_overlay(DebugOverlay *overlay, f32 dt)
     defer { reset(g_stack, sp); };
 
 
-    Vector4 fc = unpack_rgba(0x2A282ACC);
+    Vector4 bg = unpack_rgba(0x2A282ACC);
 
     Vector2 pos = screen_from_camera( Vector2{ -1.0f, -1.0f });
 
@@ -737,35 +727,23 @@ void process_debug_overlay(DebugOverlay *overlay, f32 dt)
     char *buffer = (char*)alloc(g_stack, buffer_size);
     buffer[0] = '\0';
 
-    GuiFrame frame = gui_frame_begin(fc);
+    GuiFrame frame = gui_frame_begin(bg);
 
     f32 dt_ms = dt * 1000.0f;
-    snprintf(buffer, buffer_size, "cpu time: %f ms, %f fps\n",
+    snprintf(buffer, buffer_size, "cpu time: %f ms, %f fps",
              dt_ms, 1000.0f / dt_ms);
     gui_textbox(&frame, buffer, &pos);
 
-    snprintf(buffer, buffer_size, "gpu time: %f ms, %f fps\n",
+    snprintf(buffer, buffer_size, "gpu time: %f ms, %f fps",
              g_vulkan->gpu_time, 1000.0f / g_vulkan->gpu_time);
     gui_textbox(&frame, buffer, &pos);
 
-
     for (auto &item : overlay->items) {
-        {
-            f32 base_x = pos.x;
-            item.tl = pos;
-            defer {
-                pos.y   += 20.0f;
-                item.br  = pos;
+        snprintf(buffer, buffer_size, "%s", item.title);
+        GuiWidget widget = gui_textbox(&frame, buffer, &pos);
 
-                pos.x    = base_x;
-            };
-
-            snprintf(buffer, buffer_size, "%s", item.title);
-            GuiWidget widget = gui_textbox(&frame, buffer, &pos);
-
-            if (is_pressed(widget)) {
-                item.collapsed = !item.collapsed;
-            }
+        if (is_pressed(widget)) {
+            item.collapsed = !item.collapsed;
         }
 
         if (item.collapsed) {
@@ -781,14 +759,14 @@ void process_debug_overlay(DebugOverlay *overlay, f32 dt)
                 case Debug_allocator_stack: {
                     Allocator *a = (Allocator*)child.u.data;
                     snprintf(buffer, buffer_size,
-                             "  %s: { sp: %p, size: %zd, remaining: %zd }\n",
+                             "  %s: { sp: %p, size: %zd, remaining: %zd }",
                              child.title, a->sp, a->size, a->remaining);
                     gui_textbox(&frame, buffer, &pos);
                 } break;
                 case Debug_allocator_free_list: {
                     Allocator *a = (Allocator*)child.u.data;
                     snprintf(buffer, buffer_size,
-                             "  %s: { size: %zd, remaining: %zd }\n",
+                             "  %s: { size: %zd, remaining: %zd }",
                              child.title, a->size, a->remaining);
                     gui_textbox(&frame, buffer, &pos);
                 } break;
@@ -799,57 +777,44 @@ void process_debug_overlay(DebugOverlay *overlay, f32 dt)
             }
         } break;
         case Debug_profile_timers: {
-            f32 margin   = 10.0f;
-
-            f32 hy  = pos.y;
-            pos.y  += 20.0f;
+            f32 margin = 10.0f;
 
             f32 base_x = pos.x;
-            f32 base_y = pos.y;
+            f32 base_y = pos.y + 20.0f;
 
             Vector2 c0, c1, c2;
             c0.x = c1.x = c2.x = pos.x + margin;
-            c0.y = c1.y = c2.y = hy;
+            c0.y = c1.y = c2.y = pos.y;
 
-            pos.x  = c0.x;
+            pos.x = c0.x;
+            pos.y = base_y;
 
             Array<ProfileTimer> &timers = g_profile_timers;
             for (i32 i = 0; i < timers.count; i++) {
                 snprintf(buffer, buffer_size, "%s: ", timers[i].name);
-                gui_textbox(&frame, buffer, &pos);
+                GuiWidget w = gui_textbox(&frame, buffer, &pos);
 
-                if (pos.x >= c1.x) {
-                    c1.x = pos.x;
-                }
-
-                pos.x  = c0.x;
-                pos.y += 20.0f;
+                c1.x = max(c1.x, w.size.x);
             }
+            c1.x  = max(c0.x + 250.0f, c1.x) + margin;
+
+            pos.x = c1.x;
             pos.y = base_y;
 
-            c1.x = MAX(c0.x + 250.0f, c1.x) + margin;
-            pos.x  = c1.x;
             for (i32 i = 0; i < timers.count; i++) {
                 snprintf(buffer, buffer_size, "%" PRIu64, timers[i].duration);
-                gui_textbox(&frame, buffer, &pos);
+                GuiWidget w = gui_textbox(&frame, buffer, &pos);
 
-                if (pos.x >= c2.x) {
-                    c2.x = pos.x;
-                }
-
-                pos.x  = c1.x;
-                pos.y += 20.0f;
+                c2.x = max(c2.x, w.size.x);
             }
+            c2.x = max(c1.x + 250.0f, c2.x) + margin;
+
+            pos.x = c2.x;
             pos.y = base_y;
 
-            c2.x = MAX(c1.x + 250.0f, c2.x) + margin;
-            pos.x  = c2.x;
             for (i32 i = 0; i < timers.count; i++) {
                 snprintf(buffer, buffer_size, "%" PRIu64, timers[i].calls);
                 gui_textbox(&frame, buffer, &pos);
-
-                pos.x  = c2.x;
-                pos.y += 20.0f;
             }
 
             gui_textbox(&frame, "name",          &c0);

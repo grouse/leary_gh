@@ -71,6 +71,7 @@ void profiler_begin_frame()
 
     i32 s = 0;
     i32 stack[PROFILER_MAX_STACK_DEPTH];
+
     for (i32 i = 0; i < PROFILER_MAX_STACK_DEPTH; i++) {
         stack[i] = -1;
     }
