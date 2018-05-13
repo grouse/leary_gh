@@ -7,8 +7,11 @@
  */
 
 #include "profiler.h"
+#include "gfx_vulkan.h"
 
 #define PROFILER_MAX_STACK_DEPTH (256)
+
+extern VulkanDevice* g_vulkan;
 
 enum ProfileEventType {
     ProfileEvent_start,
@@ -30,8 +33,11 @@ struct ProfileTimer {
 
 Array<ProfileEvent> g_profile_events;
 Array<ProfileEvent> g_profile_events_prev;
-
 Array<ProfileTimer> g_profile_timers;
+
+GfxTexture g_profiler_graph;
+constexpr i32 kProfilerGraphWidth  = 512;
+constexpr i32 kProfilerGraphHeight = 128;
 
 void profiler_start(const char *name)
 {
@@ -58,6 +64,25 @@ void init_profiler()
     init_array(&g_profile_events, g_heap);
     init_array(&g_profile_events_prev, g_heap);
     init_array(&g_profile_timers, g_heap);
+}
+
+void init_profiler_gui()
+{
+    g_profiler_graph = gfx_create_texture(
+        VK_FORMAT_B8G8R8A8_UNORM,
+        kProfilerGraphWidth,
+        kProfilerGraphHeight,
+        VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+    VulkanPipeline &pipeline = g_vulkan->pipelines[Pipeline_basic2d];
+
+    GfxDescriptorSet ds = gfx_create_descriptor(
+        VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+        pipeline.descriptor_layout_material);
+    ASSERT(ds.id != -1);
+
+    debug_add_texture("timers", g_profiler_graph, ds, Pipeline_basic2d, &g_game->overlay);
 }
 
 void profiler_begin_frame()

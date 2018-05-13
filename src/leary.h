@@ -45,7 +45,7 @@ struct DebugRenderItem {
 };
 
 struct DebugOverlayItem {
-    const char               *title;
+    StringView               title;
     Array<DebugOverlayItem*> children;
     bool                     collapsed;
     DebugOverlayItemType     type;
@@ -154,6 +154,14 @@ INTROSPECT struct Settings
 
 Entity entities_add(EntityData data);
 i32 physics_add(Entity entity);
+
+// TODO(jesper): this should be something like gui_icon or gui_texture API
+void debug_add_texture(
+    StringView name,
+    GfxTexture texture,
+    GfxDescriptorSet descriptor,
+    PipelineID pipeline,
+    DebugOverlay *overlay);
 
 #endif /* LEARY_H */
 

@@ -72,6 +72,43 @@ Physics        g_physics;
 VulkanDevice *g_vulkan;
 GameState    *g_game;
 
+
+// TODO(jesper): this should be something like gui_icon or gui_texture API
+void debug_add_texture(
+    StringView name,
+    GfxTexture texture,
+    GfxDescriptorSet descriptor,
+    PipelineID pipeline,
+    DebugOverlay *overlay)
+{
+    DebugOverlayItem item  = {};
+    item.title             = name;
+    item.type              = Debug_render_item;
+    item.u.ritem.pipeline  = pipeline;
+    item.u.ritem.constants = create_push_constants(pipeline);
+
+    Vector2 dim = Vector2{ (f32)texture.width, (f32)texture.height };
+    dim.x = dim.x / g_settings.video.resolution.width;
+    dim.y = dim.y / g_settings.video.resolution.height;
+
+    f32 vertices[] = {
+        0.0f, 0.0f,  0.0f, 0.0f,
+        dim.x, 0.0f,  1.0f, 0.0f,
+        dim.x, dim.y, 1.0f, 1.0f,
+
+        dim.x, dim.y, 1.0f, 1.0f,
+        0.0f,  dim.y, 0.0f, 1.0f,
+        0.0f,  0.0f,  0.0f, 0.0f,
+    };
+
+    item.u.ritem.vbo = create_vbo(vertices, sizeof(vertices));
+    item.u.ritem.vertex_count = 6;
+
+    init_array(&item.u.ritem.descriptors, g_heap, 1);
+    array_add(&item.u.ritem.descriptors, descriptor);
+    array_add(&overlay->items, item);
+}
+
 void debug_add_texture(const char *name,
                        AssetID tid,
                        Material material,
@@ -429,6 +466,8 @@ void game_init()
     init_debug_overlay();
 
     g_game->key_state = ialloc_array<i32>(g_persistent, 256, InputType_key_release);
+
+    init_profiler_gui();
 }
 
 void game_quit()
@@ -739,7 +778,7 @@ void process_debug_overlay(DebugOverlay *overlay, f32 dt)
     gui_textbox(&frame, buffer, &pos);
 
     for (auto &item : overlay->items) {
-        snprintf(buffer, buffer_size, "%s", item.title);
+        snprintf(buffer, buffer_size, "%s", item.title.bytes);
         GuiWidget widget = gui_textbox(&frame, buffer, &pos);
 
         if (is_pressed(widget)) {
@@ -760,14 +799,14 @@ void process_debug_overlay(DebugOverlay *overlay, f32 dt)
                     Allocator *a = (Allocator*)child.u.data;
                     snprintf(buffer, buffer_size,
                              "  %s: { sp: %p, size: %zd, remaining: %zd }",
-                             child.title, a->sp, a->size, a->remaining);
+                             child.title.bytes, a->sp, a->size, a->remaining);
                     gui_textbox(&frame, buffer, &pos);
                 } break;
                 case Debug_allocator_free_list: {
                     Allocator *a = (Allocator*)child.u.data;
                     snprintf(buffer, buffer_size,
                              "  %s: { size: %zd, remaining: %zd }",
-                             child.title, a->size, a->remaining);
+                             child.title.bytes, a->size, a->remaining);
                     gui_textbox(&frame, buffer, &pos);
                 } break;
                 default:

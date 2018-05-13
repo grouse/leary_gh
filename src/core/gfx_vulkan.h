@@ -76,6 +76,18 @@ struct GfxDescriptorSet
     VkDescriptorSet vk_set;
 };
 
+struct GfxTexture
+{
+    i32                     width;
+    i32                     height;
+    VkFormat                vk_format;
+    VkImage                 vk_image;
+    VkImageView             vk_view;
+    VkDeviceMemory          vk_memory;
+    VkImageLayout           vk_layout;
+    VkPipelineStageFlagBits vk_stage;
+};
+
 
 struct VulkanPipeline {
     PipelineID id;
@@ -237,6 +249,13 @@ void gfx_bind_descriptor(
     VkPipelineLayout layout,
     VkPipelineBindPoint bind_point,
     GfxDescriptorSet descriptor);
+
+GfxTexture gfx_create_texture(
+    VkFormat format,
+    i32 width,
+    i32 height,
+    u32 usage, // VkImageUsageFlagBits
+    VkMemoryPropertyFlags properties);
 
 Vector2 camera_from_screen(Vector2 v);
 Vector3 camera_from_screen(Vector3 v);

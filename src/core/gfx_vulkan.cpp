@@ -2617,6 +2617,77 @@ void gfx_end_frame()
     g_vulkan->semaphores_submit_signal.count = 0;
 }
 
+GfxTexture gfx_create_texture(
+    VkFormat format,
+    i32 width,
+    i32 height,
+    u32 usage, // VkImageUsageFlagBits
+    VkMemoryPropertyFlags properties)
+{
+    GfxTexture texture = {};
+    texture.width      = width;
+    texture.height     = height;
+    texture.vk_format  = format;
+    texture.vk_layout  = VK_IMAGE_LAYOUT_UNDEFINED;
+    texture.vk_stage   = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+
+    VkImageCreateInfo info = {};
+    info.sType         = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    info.imageType     = VK_IMAGE_TYPE_2D;
+    info.format        = format;
+    info.extent.width  = width;
+    info.extent.height = height;
+    info.extent.depth  = 1;
+    info.mipLevels     = 1;
+    info.arrayLayers   = 1;
+    info.samples       = VK_SAMPLE_COUNT_1_BIT;
+    // TODO(jesper): look into tiling options
+    info.tiling        = VK_IMAGE_TILING_LINEAR;
+    info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    info.usage         = usage;
+    info.sharingMode   = VK_SHARING_MODE_EXCLUSIVE;
+
+    VkResult result = vkCreateImage(g_vulkan->handle, &info, nullptr, &texture.vk_image);
+    ASSERT(result == VK_SUCCESS);
+
+    VkMemoryRequirements req;
+    vkGetImageMemoryRequirements(g_vulkan->handle, texture.vk_image, &req);
+
+    u32 memory_type = find_memory_type(
+        g_vulkan->physical_device,
+        req.memoryTypeBits,
+        properties);
+    ASSERT(memory_type != UINT32_MAX);
+
+    VkMemoryAllocateInfo ainfo = {};
+    ainfo.sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    ainfo.allocationSize  = req.size;
+    ainfo.memoryTypeIndex = memory_type;
+
+
+    // TODO(jesper): vulkan pool allocator
+    result = vkAllocateMemory(g_vulkan->handle, &ainfo, nullptr, &texture.vk_memory);
+    ASSERT(result == VK_SUCCESS);
+
+    vkBindImageMemory(g_vulkan->handle, texture.vk_image, texture.vk_memory, 0);
+
+    VkImageViewCreateInfo vinfo = {};
+    vinfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    vinfo.image = texture.vk_image;
+    vinfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    vinfo.format = texture.vk_format;
+	vinfo.subresourceRange.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
+    vinfo.subresourceRange.baseMipLevel   = 0;
+    vinfo.subresourceRange.levelCount     = 1;
+    vinfo.subresourceRange.baseArrayLayer = 0;
+    vinfo.subresourceRange.layerCount     = 1;
+
+    result = vkCreateImageView(g_vulkan->handle, &vinfo, nullptr, &texture.vk_view);
+    ASSERT(result == VK_SUCCESS);
+
+    return texture;
+}
+
 Vector2 screen_from_camera(Vector2 v)
 {
     Vector2 r;
