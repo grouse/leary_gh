@@ -8,6 +8,7 @@
 
 #include "profiler.h"
 #include "gfx_vulkan.h"
+#include "random.h"
 
 #define PROFILER_MAX_STACK_DEPTH (256)
 
@@ -73,7 +74,12 @@ void init_profiler_gui()
         kProfilerGraphWidth,
         kProfilerGraphHeight,
         VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+
+    gfx_transition_immediate(
+        &g_profiler_graph,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT );
 
     VulkanPipeline &pipeline = g_vulkan->pipelines[Pipeline_basic2d];
 
@@ -81,6 +87,8 @@ void init_profiler_gui()
         VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
         pipeline.descriptor_layout_material);
     ASSERT(ds.id != -1);
+
+    gfx_set_texture(ds, g_profiler_graph, ResourceSlot_diffuse, Pipeline_basic2d);
 
     debug_add_texture("timers", g_profiler_graph, ds, Pipeline_basic2d, &g_game->overlay);
 }
@@ -93,6 +101,49 @@ void profiler_begin_frame()
     g_profile_timers.count = 0;
 
     PROFILE_FUNCTION();
+
+    static u64 last_ticks = cpu_ticks();
+    static u32 max_duration = 0;
+
+    u64 ticks = cpu_ticks();
+    u32 duration = (u32)(ticks - last_ticks);
+
+    last_ticks = ticks;
+    max_duration = MAX(max_duration, duration);
+
+    f32 df = (f32)duration / (f32)max_duration;
+    i32 w = (i32)(df * kProfilerGraphWidth);
+
+    static u32 current_frame = 0;
+    current_frame = (current_frame + 1) % kProfilerGraphHeight;
+
+    struct BGRA8 {
+        u8 b, g, r, a;
+    };
+
+    Random r = create_random(0xdeadbeef);
+
+    i32 size = kProfilerGraphWidth * kProfilerGraphHeight * sizeof(BGRA8);
+    BGRA8 *pixels = (BGRA8*)alloc(g_frame, size);
+
+    for (i32 i = 0; i < kProfilerGraphHeight; i++) {
+        for (i32 j = 0; j < kProfilerGraphWidth; j++) {
+            pixels[i * kProfilerGraphWidth + j].r = 255;
+            pixels[i * kProfilerGraphWidth + j].g = 255;
+            pixels[i * kProfilerGraphWidth + j].b = 255;
+            pixels[i * kProfilerGraphWidth + j].a = 255;
+        }
+    }
+
+#if 1
+    for (i32 i = 0; i < w; i++) {
+        pixels[current_frame * kProfilerGraphWidth + i].r = 0;
+        pixels[current_frame * kProfilerGraphWidth + i].g = 0;
+        pixels[current_frame * kProfilerGraphWidth + i].b = 255;
+        pixels[current_frame * kProfilerGraphWidth + i].a = 255;
+    }
+#endif
+    gfx_update_texture(&g_profiler_graph, pixels, 0, size);
 
     i32 s = 0;
     i32 stack[PROFILER_MAX_STACK_DEPTH];

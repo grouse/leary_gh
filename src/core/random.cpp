@@ -3,13 +3,10 @@
  * created: 2017-03-08
  * authors: Jesper Stefansson (jesper.stefansson@gmail.com)
  *
- * Copyright (c) 2017 - all rights reserved
+ * Copyright (c) 2017-2018 - all rights reserved
  */
 
-struct Random {
-	u32 state;
-	u32 seed;
-};
+#include "random.h"
 
 
 // TODO(jesper): better random!

@@ -234,6 +234,12 @@ Material create_material(PipelineID pipeline_id, MaterialID id);
 void set_ubo(VulkanPipeline *pipeline, ResourceSlot slot, VulkanUniformBuffer *ubo);
 void set_texture(Material *material, ResourceSlot slot, Texture *texture);
 
+void gfx_set_texture(
+    GfxDescriptorSet descriptor,
+    GfxTexture texture,
+    ResourceSlot slot,
+    PipelineID pipeline);
+
 GfxDescriptorSet gfx_create_descriptor(
     VkDescriptorType type,
     VkDescriptorSetLayout layout);
@@ -256,6 +262,17 @@ GfxTexture gfx_create_texture(
     i32 height,
     u32 usage, // VkImageUsageFlagBits
     VkMemoryPropertyFlags properties);
+
+void gfx_transition_immediate(
+    GfxTexture *texture,
+    VkImageLayout layout,
+    VkPipelineStageFlagBits stage);
+
+void gfx_update_texture(
+    GfxTexture *texture,
+    void *data,
+    i32 offset,
+    i32 size);
 
 Vector2 camera_from_screen(Vector2 v);
 Vector3 camera_from_screen(Vector3 v);

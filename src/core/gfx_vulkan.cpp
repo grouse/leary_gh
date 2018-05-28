@@ -375,6 +375,9 @@ void transition_image(VkCommandBuffer command,
     case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
         barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_INPUT_ATTACHMENT_READ_BIT;
         break;
+    case VK_IMAGE_LAYOUT_GENERAL:
+        barrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT | VK_ACCESS_HOST_READ_BIT;
+        break;
     default:
         // TODO(jesper): unimplemented transfer
         ASSERT(false);
@@ -394,6 +397,9 @@ void transition_image(VkCommandBuffer command,
         break;
     case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
         barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+        break;
+    case VK_IMAGE_LAYOUT_GENERAL:
+        barrier.dstAccessMask = VK_ACCESS_HOST_WRITE_BIT | VK_ACCESS_HOST_READ_BIT;
         break;
     default:
         // TODO(jesper): unimplemented transfer
@@ -419,6 +425,23 @@ void im_transition_image(VkImage image, VkFormat format,
     transition_image(command, image, format, src, dst, psrc, pdst);
     end_cmd_buffer(command);
 }
+
+void gfx_transition_immediate(
+    GfxTexture *texture,
+    VkImageLayout layout,
+    VkPipelineStageFlagBits stage)
+{
+    im_transition_image(
+        texture->vk_image,
+        texture->vk_format,
+        texture->vk_layout, layout,
+        texture->vk_stage, stage);
+
+    texture->vk_layout = layout;
+    texture->vk_stage = stage;
+}
+
+
 
 VkImage image_create(VkFormat format,
                      u32 width,
@@ -2290,6 +2313,44 @@ void set_texture(Material *material, ResourceSlot slot, Texture *texture)
     vkUpdateDescriptorSets(g_vulkan->handle, 1, &writes, 0, nullptr);
 }
 
+void gfx_set_texture(
+    GfxDescriptorSet descriptor,
+    GfxTexture texture,
+    ResourceSlot slot,
+    PipelineID pipeline)
+{
+    VkDescriptorImageInfo image_info = {};
+    image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    image_info.imageView   = texture.vk_view;
+    // TODO(jesper): figure this one out based on ResourceSlot
+    // NOTE(jesper): there might be some merit to sticking the sampler inside
+    // the material, as this'd allow us to use different image samplers with
+    // different materials? would make sense I think
+    image_info.sampler     = g_vulkan->pipelines[pipeline].samplers[0];
+
+    VkWriteDescriptorSet writes = {};
+    writes.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    writes.dstSet          = descriptor.vk_set;
+
+    // TODO(jesper): the dstBinding depends on ResourceSlot and MaterialID
+    switch (slot) {
+    case ResourceSlot_diffuse:
+        writes.dstBinding      = 0;
+        break;
+    default:
+        LOG("unknown resource slot");
+        ASSERT(false);
+        break;
+    }
+
+    writes.dstArrayElement = 0;
+    writes.descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    writes.descriptorCount = 1;
+    writes.pImageInfo      = &image_info;
+
+    vkUpdateDescriptorSets(g_vulkan->handle, 1, &writes, 0, nullptr);
+}
+
 void set_ubo(PipelineID pipeline_id,
              ResourceSlot slot,
              VulkanUniformBuffer *ubo)
@@ -2676,7 +2737,7 @@ GfxTexture gfx_create_texture(
     vinfo.image = texture.vk_image;
     vinfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
     vinfo.format = texture.vk_format;
-	vinfo.subresourceRange.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
+    vinfo.subresourceRange.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
     vinfo.subresourceRange.baseMipLevel   = 0;
     vinfo.subresourceRange.levelCount     = 1;
     vinfo.subresourceRange.baseArrayLayer = 0;
@@ -2722,4 +2783,54 @@ Vector3 camera_from_screen(Vector3 v)
     return r;
 }
 
+void gfx_update_texture(
+    GfxTexture *texture,
+    void *data,
+    i32 offset,
+    i32 size)
+{
+    VkDeviceMemory staging_memory;
+    VkImage staging_image = image_create(
+        texture->vk_format,
+        texture->width,
+        texture->height,
+        VK_IMAGE_TILING_LINEAR,
+        VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+        VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        &staging_memory);
 
+    im_transition_image(staging_image, texture->vk_format,
+                        VK_IMAGE_LAYOUT_UNDEFINED,
+                        VK_IMAGE_LAYOUT_GENERAL,
+                        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                        VK_PIPELINE_STAGE_HOST_BIT);
+
+    void *mapped;
+    vkMapMemory(g_vulkan->handle, staging_memory, offset, size, 0, &mapped);
+    memcpy(mapped, data, size);
+    vkUnmapMemory(g_vulkan->handle, staging_memory);
+
+    im_transition_image(staging_image, texture->vk_format,
+                        VK_IMAGE_LAYOUT_GENERAL,
+                        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                        VK_PIPELINE_STAGE_HOST_BIT,
+                        VK_PIPELINE_STAGE_TRANSFER_BIT);
+
+
+
+    gfx_transition_immediate(
+        texture,
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        VK_PIPELINE_STAGE_TRANSFER_BIT);
+
+    image_copy(texture->width, texture->height, staging_image, texture->vk_image);
+
+    gfx_transition_immediate(
+        texture,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+
+    vkFreeMemory(g_vulkan->handle, staging_memory, nullptr);
+    vkDestroyImage(g_vulkan->handle, staging_image, nullptr);
+}

@@ -37,8 +37,7 @@ layout(location = 0) out vec4 out_color;
 
 void main()
 {
-	float r = texture(texture_sampler, texture_coordinate).r;
-	out_color = vec4(r, r, r, 1.0f);
+	out_color = texture(texture_sampler, texture_coordinate);
 }
 
 #endif // FRAGMENT_SHADER
