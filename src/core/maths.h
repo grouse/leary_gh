@@ -70,6 +70,38 @@ union Vector3 {
     };
 };
 
+union Vector2i {
+    i32 data[2];
+};
+
+union Vector3i {
+    i32 data[3];
+    struct {
+        i32 x, y, z;
+    };
+    struct {
+        i32 r, g, b;
+    };
+
+    struct {
+        Vector2i xy;
+        i32 DUMMY_VAR;
+    };
+    struct {
+        Vector2i rg;
+        i32 DUMMY_VAR;
+    };
+
+    struct {
+        i32 DUMMY_VAR;
+        Vector2i yz;
+    };
+    struct {
+        i32 DUMMY_VAR;
+        Vector2i gb;
+    };
+};
+
 union Vector4 {
     f32 data[4];
     struct {

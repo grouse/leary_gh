@@ -2783,54 +2783,73 @@ Vector3 camera_from_screen(Vector3 v)
     return r;
 }
 
-void gfx_update_texture(
-    GfxTexture *texture,
-    void *data,
-    i32 offset,
-    i32 size)
+GfxTexture gfx_create_staging_texture(
+    VkFormat format,
+    i32 width,
+    i32 height)
 {
-    VkDeviceMemory staging_memory;
-    VkImage staging_image = image_create(
-        texture->vk_format,
-        texture->width,
-        texture->height,
-        VK_IMAGE_TILING_LINEAR,
-        VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-        VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-        &staging_memory);
-
-    im_transition_image(staging_image, texture->vk_format,
-                        VK_IMAGE_LAYOUT_UNDEFINED,
-                        VK_IMAGE_LAYOUT_GENERAL,
-                        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-                        VK_PIPELINE_STAGE_HOST_BIT);
-
-    void *mapped;
-    vkMapMemory(g_vulkan->handle, staging_memory, offset, size, 0, &mapped);
-    memcpy(mapped, data, size);
-    vkUnmapMemory(g_vulkan->handle, staging_memory);
-
-    im_transition_image(staging_image, texture->vk_format,
-                        VK_IMAGE_LAYOUT_GENERAL,
-                        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                        VK_PIPELINE_STAGE_HOST_BIT,
-                        VK_PIPELINE_STAGE_TRANSFER_BIT);
-
-
+    // TODO(jesper): we could keep a large chunk of device memory for staging
+    // image purposes and sub-allocate out from that manually
+    GfxTexture staging = gfx_create_texture(
+        format,
+        width, height,
+        VK_IMAGE_USAGE_STORAGE_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT );
 
     gfx_transition_immediate(
-        texture,
+        &staging,
+        VK_IMAGE_LAYOUT_GENERAL,
+        VK_PIPELINE_STAGE_HOST_BIT);
+
+    return staging;
+}
+
+void gfx_copy_texture(
+    GfxTexture *src,
+    GfxTexture *dst,
+    Vector3i src_offset,
+    Vector3i dst_offset)
+{
+    gfx_transition_immediate(
+        src,
+        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        VK_PIPELINE_STAGE_TRANSFER_BIT);
+
+    gfx_transition_immediate(
+        dst,
         VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
         VK_PIPELINE_STAGE_TRANSFER_BIT);
 
-    image_copy(texture->width, texture->height, staging_image, texture->vk_image);
+    VkCommandBuffer command = begin_cmd_buffer();
+
+    // TODO(jesper): support mip layers
+    VkImageSubresourceLayers subresource = {};
+    subresource.aspectMask               = VK_IMAGE_ASPECT_COLOR_BIT;
+    subresource.baseArrayLayer           = 0;
+    subresource.mipLevel                 = 0;
+    subresource.layerCount               = 1;
+
+    VkImageCopy region = {};
+    region.srcSubresource = subresource;
+    region.dstSubresource = subresource;
+
+    region.srcOffset = { src_offset.x, src_offset.y, src_offset.z };
+    region.dstOffset = { dst_offset.x, dst_offset.y, dst_offset.z };
+
+    region.extent.width  = src->width;
+    region.extent.height = src->height;
+    region.extent.depth  = 1;
+
+    vkCmdCopyImage(command,
+                   src->vk_image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                   dst->vk_image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                   1, &region);
+
+    end_cmd_buffer(command);
 
     gfx_transition_immediate(
-        texture,
+        dst,
         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT );
 
-    vkFreeMemory(g_vulkan->handle, staging_memory, nullptr);
-    vkDestroyImage(g_vulkan->handle, staging_image, nullptr);
 }

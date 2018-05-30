@@ -37,8 +37,8 @@ Array<ProfileEvent> g_profile_events_prev;
 Array<ProfileTimer> g_profile_timers;
 
 GfxTexture g_profiler_graph;
-constexpr i32 kProfilerGraphWidth  = 512;
-constexpr i32 kProfilerGraphHeight = 128;
+constexpr i32 kProfilerGraphWidth  = 128;
+constexpr i32 kProfilerGraphHeight = 512;
 
 void profiler_start(const char *name)
 {
@@ -69,17 +69,15 @@ void init_profiler()
 
 void init_profiler_gui()
 {
+    // TODO(jesper): we should double buffer this texture in some way so we can
+    // transition the next frame's image for CPU access, avoiding
+    // synchronisation stalls
     g_profiler_graph = gfx_create_texture(
         VK_FORMAT_B8G8R8A8_UNORM,
         kProfilerGraphWidth,
         kProfilerGraphHeight,
-        VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-
-    gfx_transition_immediate(
-        &g_profiler_graph,
-        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT );
+        VK_IMAGE_USAGE_SAMPLED_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT );
 
     VulkanPipeline &pipeline = g_vulkan->pipelines[Pipeline_basic2d];
 
@@ -90,7 +88,22 @@ void init_profiler_gui()
 
     gfx_set_texture(ds, g_profiler_graph, ResourceSlot_diffuse, Pipeline_basic2d);
 
-    debug_add_texture("timers", g_profiler_graph, ds, Pipeline_basic2d, &g_game->overlay);
+    Vector2 dim = Vector2{ (f32)kProfilerGraphHeight, (f32)kProfilerGraphWidth };
+    dim.x = dim.x / g_settings.video.resolution.width;
+    dim.y = dim.y / g_settings.video.resolution.height;
+
+    f32 vertices[] = {
+        0.0f, 0.0f,  1.0f, 0.0f,
+        dim.x, 0.0f,  1.0f, 1.0f,
+        dim.x, dim.y, 0.0f, 1.0f,
+
+        dim.x, dim.y, 0.0f, 1.0f,
+        0.0f,  dim.y, 0.0f, 0.0f,
+        0.0f,  0.0f,  1.0f, 0.0f,
+    };
+
+    VulkanBuffer vbo = create_vbo(vertices, sizeof(vertices));
+    debug_add_texture("timers", vbo, ds, Pipeline_basic2d, &g_game->overlay);
 }
 
 void profiler_begin_frame()
@@ -123,27 +136,38 @@ void profiler_begin_frame()
 
     Random r = create_random(0xdeadbeef);
 
-    i32 size = kProfilerGraphWidth * kProfilerGraphHeight * sizeof(BGRA8);
-    BGRA8 *pixels = (BGRA8*)alloc(g_frame, size);
+    gfx_transition_immediate(
+        &g_profiler_graph,
+        VK_IMAGE_LAYOUT_GENERAL,
+        VK_PIPELINE_STAGE_HOST_BIT);
 
-    for (i32 i = 0; i < kProfilerGraphHeight; i++) {
-        for (i32 j = 0; j < kProfilerGraphWidth; j++) {
-            pixels[i * kProfilerGraphWidth + j].r = 255;
-            pixels[i * kProfilerGraphWidth + j].g = 255;
-            pixels[i * kProfilerGraphWidth + j].b = 255;
-            pixels[i * kProfilerGraphWidth + j].a = 255;
-        }
+    BGRA8 *pixels = nullptr;
+    vkMapMemory(
+        g_vulkan->handle,
+        g_profiler_graph.vk_memory,
+        current_frame * kProfilerGraphWidth * sizeof(BGRA8),
+        kProfilerGraphWidth * sizeof(BGRA8),
+        0,
+        (void**)&pixels);
+    ASSERT(pixels != nullptr);
+
+    for (i32 j = 0; j < kProfilerGraphWidth; j++) {
+        pixels[j].r = 255;
+        pixels[j].g = 255;
+        pixels[j].b = 255;
+        pixels[j].a = 255;
     }
 
 #if 1
     for (i32 i = 0; i < w; i++) {
-        pixels[current_frame * kProfilerGraphWidth + i].r = 0;
-        pixels[current_frame * kProfilerGraphWidth + i].g = 0;
-        pixels[current_frame * kProfilerGraphWidth + i].b = 255;
-        pixels[current_frame * kProfilerGraphWidth + i].a = 255;
+        pixels[i].r = 0;
+        pixels[i].g = 0;
+        pixels[i].b = 255;
+        pixels[i].a = 255;
     }
 #endif
-    gfx_update_texture(&g_profiler_graph, pixels, 0, size);
+
+    vkUnmapMemory(g_vulkan->handle, g_profiler_graph.vk_memory);
 
     i32 s = 0;
     i32 stack[PROFILER_MAX_STACK_DEPTH];

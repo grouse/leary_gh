@@ -81,12 +81,6 @@ void debug_add_texture(
     PipelineID pipeline,
     DebugOverlay *overlay)
 {
-    DebugOverlayItem item  = {};
-    item.title             = name;
-    item.type              = Debug_render_item;
-    item.u.ritem.pipeline  = pipeline;
-    item.u.ritem.constants = create_push_constants(pipeline);
-
     Vector2 dim = Vector2{ (f32)texture.width, (f32)texture.height };
     dim.x = dim.x / g_settings.video.resolution.width;
     dim.y = dim.y / g_settings.video.resolution.height;
@@ -101,7 +95,24 @@ void debug_add_texture(
         0.0f,  0.0f,  0.0f, 0.0f,
     };
 
-    item.u.ritem.vbo = create_vbo(vertices, sizeof(vertices));
+    VulkanBuffer vbo = create_vbo(vertices, sizeof(vertices));
+    debug_add_texture(name, vbo, descriptor, pipeline, overlay);
+}
+
+void debug_add_texture(
+    StringView name,
+    VulkanBuffer vbo,
+    GfxDescriptorSet descriptor,
+    PipelineID pipeline,
+    DebugOverlay *overlay)
+{
+    DebugOverlayItem item  = {};
+    item.title             = name;
+    item.type              = Debug_render_item;
+    item.u.ritem.pipeline  = pipeline;
+    item.u.ritem.constants = create_push_constants(pipeline);
+
+    item.u.ritem.vbo = vbo;
     item.u.ritem.vertex_count = 6;
 
     init_array(&item.u.ritem.descriptors, g_heap, 1);

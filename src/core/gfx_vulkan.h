@@ -268,11 +268,16 @@ void gfx_transition_immediate(
     VkImageLayout layout,
     VkPipelineStageFlagBits stage);
 
-void gfx_update_texture(
-    GfxTexture *texture,
-    void *data,
-    i32 offset,
-    i32 size);
+GfxTexture gfx_create_staging_texture(
+    VkFormat format,
+    i32 width,
+    i32 height);
+
+void gfx_copy_texture(
+    GfxTexture *src,
+    GfxTexture *dst,
+    Vector3i src_offset,
+    Vector3i dst_offset);
 
 Vector2 camera_from_screen(Vector2 v);
 Vector3 camera_from_screen(Vector3 v);

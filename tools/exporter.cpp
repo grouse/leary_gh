@@ -30,10 +30,6 @@ struct BlenderVertex {
     Vector3 normal;
 };
 
-struct Vector3i {
-    int x, y, z;
-};
-
 struct BlenderModel {
     const char *name;
     Vector3    scale;

@@ -163,5 +163,12 @@ void debug_add_texture(
     PipelineID pipeline,
     DebugOverlay *overlay);
 
+void debug_add_texture(
+    StringView name,
+    VulkanBuffer vbo,
+    GfxDescriptorSet descriptor,
+    PipelineID pipeline,
+    DebugOverlay *overlay);
+
 #endif /* LEARY_H */
 
