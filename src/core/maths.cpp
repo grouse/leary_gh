@@ -435,6 +435,13 @@ inline Vector3& operator += (Vector3 &lhs, Vector3 rhs)
 
 }
 
+inline Vector2& operator += (Vector2 &lhs, Vector2 rhs)
+{
+    lhs = lhs + rhs;
+    return lhs;
+
+}
+
 inline Vector3& operator += (Vector3 &lhs, f32 rhs)
 {
     lhs = lhs + rhs;

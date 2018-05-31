@@ -48,6 +48,8 @@ struct DebugOverlayItem {
     Array<DebugOverlayItem*> children;
     bool                     collapsed;
     DebugOverlayItemType     type;
+    Vector2                  size;
+
     union {
         void            *data;
         DebugRenderItem ritem;
@@ -167,6 +169,7 @@ void debug_add_texture(
 
 void debug_add_texture(
     StringView name,
+    Vector2 size,
     VulkanBuffer vbo,
     GfxDescriptorSet descriptor,
     PipelineID pipeline,

@@ -103,7 +103,13 @@ void init_profiler_gui()
     };
 
     VulkanBuffer vbo = create_vbo(vertices, sizeof(vertices));
-    debug_add_texture("timers", vbo, ds, Pipeline_basic2d, &g_game->overlay);
+    debug_add_texture(
+        "timers",
+        { (f32)kProfilerGraphHeight, (f32)kProfilerGraphWidth },
+        vbo,
+        ds,
+        Pipeline_basic2d,
+        &g_game->overlay);
 }
 
 void profiler_begin_frame()

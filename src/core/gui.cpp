@@ -242,14 +242,14 @@ GuiWidget gui_textbox(StringView text, Vector2 *pos)
 
 GuiWidget gui_textbox(GuiFrame *frame, StringView text, Vector2 *pos)
 {
-    GuiWidget widget = gui_textbox(text, pos);
+    GuiWidget w = gui_textbox(text, pos);
 
-    frame->position.x = min(frame->position.x, widget.position.x);
-    frame->position.y = min(frame->position.y, widget.position.y);
-    frame->width      = max(frame->width,      widget.position.x + widget.size.x);
-    frame->height     = max(frame->height,     widget.position.y + widget.size.y);
+    frame->position.x = min(frame->position.x, w.position.x);
+    frame->position.y = min(frame->position.y, w.position.y);
+    frame->width      = max(frame->width,      w.position.x + w.size.x);
+    frame->height     = max(frame->height,     w.position.y + w.size.y);
 
-    return widget;
+    return w;
 }
 
 bool is_pressed(GuiWidget widget)

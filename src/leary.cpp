@@ -106,11 +106,18 @@ void debug_add_texture(
     };
 
     VulkanBuffer vbo = create_vbo(vertices, sizeof(vertices));
-    debug_add_texture(name, vbo, descriptor, pipeline, overlay);
+    debug_add_texture(
+        name,
+        { (f32)texture.width, (f32)texture.height },
+        vbo,
+        descriptor,
+        pipeline,
+        overlay);
 }
 
 void debug_add_texture(
     StringView name,
+    Vector2 size,
     VulkanBuffer vbo,
     GfxDescriptorSet descriptor,
     PipelineID pipeline,
@@ -126,8 +133,9 @@ void debug_add_texture(
     array_add(&g_overlay_textures, texture);
 #else
     DebugOverlayItem item  = {};
-    item.title             = name;
-    item.type              = Debug_render_item;
+    item.title = name;
+    item.type  = Debug_render_item;
+    item.size  = size;
     item.u.ritem.pipeline  = pipeline;
     item.u.ritem.constants = create_push_constants(pipeline);
 
@@ -140,26 +148,29 @@ void debug_add_texture(
 #endif
 }
 
-void debug_add_texture(const char *name,
-                       AssetID tid,
-                       Material material,
-                       PipelineID pipeline,
-                       DebugOverlay *overlay)
+void debug_add_texture(
+    const char *name,
+    AssetID tid,
+    Material material,
+    PipelineID pipeline,
+    DebugOverlay *overlay)
 {
     Texture *texture = find_texture(tid);
     if (texture == nullptr) {
         return;
     }
 
-    DebugOverlayItem item = {};
-    item.title            = name;
-    item.type             = Debug_render_item;
-    item.u.ritem.pipeline   = pipeline;
-    item.u.ritem.constants  = create_push_constants(pipeline);
-
     Vector2 dim = Vector2{ (f32)texture->width, (f32)texture->height };
     dim.x = dim.x / g_settings.video.resolution.width;
     dim.y = dim.y / g_settings.video.resolution.height;
+
+    DebugOverlayItem item = {};
+    item.title = name;
+    item.type  = Debug_render_item;
+    item.size  = { (f32)texture->width, (f32)texture->height };
+    item.u.ritem.pipeline   = pipeline;
+    item.u.ritem.constants  = create_push_constants(pipeline);
+
 
     f32 vertices[] = {
         0.0f, 0.0f,  0.0f, 0.0f,
@@ -873,17 +884,31 @@ void process_debug_overlay(DebugOverlay *overlay, f32 dt)
 
         switch (item.type) {
         case Debug_render_item: {
-            item.u.ritem.position = camera_from_screen(pos + Vector2{10.0f, 0.0f});
+            GuiRenderItem ritem;
+            ritem.position     = item.u.ritem.position;
+            ritem.vbo          = item.u.ritem.vbo;
+            ritem.vbo_offset   = 0;
+            ritem.vertex_count = item.u.ritem.vertex_count;
+            ritem.descriptors  = item.u.ritem.descriptors;
+            ritem.pipeline_id  = item.u.ritem.pipeline;
 
-            Matrix4 t = translate(Matrix4::identity(), item.u.ritem.position);
-            set_push_constant(&item.u.ritem.constants, t);
+            Matrix4 t = translate(Matrix4::identity(), camera_from_screen(pos));
 
-            array_add(&overlay->render_queue, item.u.ritem);
+            ritem.constants.offset = 0;
+            ritem.constants.size   = sizeof t;
+            ritem.constants.data   = alloc(g_frame, ritem.constants.size);
+            memcpy(ritem.constants.data, &t, sizeof t);
+
+            array_add(&g_gui_render_queue, ritem);
         } break;
         default:
             LOG("unknown debug menu type: %d", item.type);
             break;
         }
+
+        frame.width  = max(frame.width,  pos.x + item.size.x);
+        frame.height = max(frame.height, pos.y + item.size.y);
+        pos.y += item.size.y / 2.0f;
     }
 
     gui_frame_end(frame);
