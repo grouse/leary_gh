@@ -136,6 +136,8 @@ void profiler_begin_frame()
 
     Random r = create_random(0xdeadbeef);
 
+
+    // TODO(jesper): look into persistent mapping of this texture memory
     gfx_transition_immediate(
         &g_profiler_graph,
         VK_IMAGE_LAYOUT_GENERAL,
@@ -158,14 +160,12 @@ void profiler_begin_frame()
         pixels[j].a = 255;
     }
 
-#if 1
     for (i32 i = 0; i < w; i++) {
         pixels[i].r = 0;
         pixels[i].g = 0;
         pixels[i].b = 255;
         pixels[i].a = 255;
     }
-#endif
 
     vkUnmapMemory(g_vulkan->handle, g_profiler_graph.vk_memory);
 

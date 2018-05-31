@@ -31,7 +31,6 @@ enum DebugOverlayItemType {
     Debug_allocator_stack,
     Debug_allocator_free_list,
     Debug_render_item,
-    Debug_profile_timers,
     Debug_allocators
 };
 
@@ -56,6 +55,9 @@ struct DebugOverlayItem {
 };
 
 struct DebugOverlay {
+    bool show_allocators = true;
+    bool show_profiler   = true;
+
     struct {
         VulkanBuffer vbo;
         i32          vertex_count;

@@ -60,6 +60,8 @@ struct GameReloadState {
     DebugCollision debug_collision;
 };
 
+DebugOverlay g_debug_overlay;
+
 
 // NOTE(jesper): don't keep an address to these globals!!!!
 extern Settings      g_settings;
@@ -71,6 +73,14 @@ Physics        g_physics;
 
 VulkanDevice *g_vulkan;
 GameState    *g_game;
+
+
+struct GuiTexture {
+    StringView name;
+    GfxTexture gfx_texture;
+};
+
+Array<GuiTexture> g_overlay_textures;
 
 
 // TODO(jesper): this should be something like gui_icon or gui_texture API
@@ -106,6 +116,15 @@ void debug_add_texture(
     PipelineID pipeline,
     DebugOverlay *overlay)
 {
+#if 0
+    GuiTexture texture = {};
+    texture.name = name;
+    texture.vbo = vbo;
+    texture.descriptor = descriptor;
+    texture.pipeline = pipeline;
+
+    array_add(&g_overlay_textures, texture);
+#else
     DebugOverlayItem item  = {};
     item.title             = name;
     item.type              = Debug_render_item;
@@ -118,6 +137,7 @@ void debug_add_texture(
     init_array(&item.u.ritem.descriptors, g_heap, 1);
     array_add(&item.u.ritem.descriptors, descriptor);
     array_add(&overlay->items, item);
+#endif
 }
 
 void debug_add_texture(const char *name,
@@ -320,51 +340,10 @@ void init_terrain()
 
 void init_debug_overlay()
 {
+    init_array(&g_overlay_textures, g_heap);
+
     g_game->overlay.items        = create_array<DebugOverlayItem>(g_heap);
     g_game->overlay.render_queue = create_array<DebugRenderItem>(g_heap);
-
-    DebugOverlayItem allocators = {};
-    allocators.title    = "Allocators";
-    allocators.children = create_array<DebugOverlayItem*>(g_heap);
-    allocators.type     = Debug_allocators;
-
-    auto stack = ialloc<DebugOverlayItem>(g_heap);
-    stack->type  = Debug_allocator_stack;
-    stack->title = "stack";
-    stack->u.data  = (void*)g_stack;
-    array_add(&allocators.children, stack);
-
-    auto frame = ialloc<DebugOverlayItem>(g_heap);
-    frame->type  = Debug_allocator_stack;
-    frame->title = "frame";
-    frame->u.data  = (void*)g_frame;
-    array_add(&allocators.children, frame);
-
-    auto persistent = ialloc<DebugOverlayItem>(g_heap);
-    persistent->type  = Debug_allocator_stack;
-    persistent->title = "persistent";
-    persistent->u.data  = (void*)g_persistent;
-    array_add(&allocators.children, persistent);
-
-    auto debug_frame = ialloc<DebugOverlayItem>(g_heap);
-    debug_frame->type  = Debug_allocator_stack;
-    debug_frame->title = "debug_frame";
-    debug_frame->u.data  = (void*)g_debug_frame;
-    array_add(&allocators.children, debug_frame);
-
-    auto free_list = ialloc<DebugOverlayItem>(g_heap);
-    free_list->type  = Debug_allocator_free_list;
-    free_list->title = "free list";
-    free_list->u.data  = (void*)g_heap;
-    array_add(&allocators.children, free_list);
-
-    array_add(&g_game->overlay.items, allocators);
-
-
-    DebugOverlayItem timers = {};
-    timers.title = "Profile Timers";
-    timers.type  = Debug_profile_timers;
-    array_add(&g_game->overlay.items, timers);
 
     AssetID hmt = find_asset_id("terrain.bmp");
     debug_add_texture("Terrain", hmt, g_game->materials.heightmap,
@@ -763,14 +742,16 @@ void game_input(InputEvent event)
 
 void process_debug_overlay(DebugOverlay *overlay, f32 dt)
 {
+    (void)overlay;
     PROFILE_FUNCTION();
 
     void *sp = g_stack->sp;
     defer { reset(g_stack, sp); };
 
+    GuiWidget widget;
 
-    Vector4 bg = unpack_rgba(0x2A282ACC);
-
+    f32 margin  = 10.0f;
+    Vector4 bg  = unpack_rgba(0x2A282ACC);
     Vector2 pos = screen_from_camera( Vector2{ -1.0f, -1.0f });
 
     isize buffer_size = 1024*1024;
@@ -788,11 +769,101 @@ void process_debug_overlay(DebugOverlay *overlay, f32 dt)
              g_vulkan->gpu_time, 1000.0f / g_vulkan->gpu_time);
     gui_textbox(&frame, buffer, &pos);
 
+
+    widget = gui_textbox(&frame, "Profiler", &pos);
+    if (is_pressed(widget)) {
+        g_debug_overlay.show_profiler = !g_debug_overlay.show_profiler;
+    }
+
+    if (g_debug_overlay.show_profiler) {
+        f32 base_x = pos.x;
+        f32 base_y = pos.y + 20.0f;
+
+        Vector2 c0, c1, c2;
+        c0.x = c1.x = c2.x = pos.x + margin;
+        c0.y = c1.y = c2.y = pos.y;
+
+        pos.x = c0.x;
+        pos.y = base_y;
+
+        Array<ProfileTimer> &timers = g_profile_timers;
+        for (i32 i = 0; i < timers.count; i++) {
+            snprintf(buffer, buffer_size, "%s: ", timers[i].name);
+            GuiWidget w = gui_textbox(&frame, buffer, &pos);
+
+            c1.x = max(c1.x, w.size.x);
+        }
+        c1.x  = max(c0.x + 250.0f, c1.x) + margin;
+
+        pos.x = c1.x;
+        pos.y = base_y;
+
+        for (i32 i = 0; i < timers.count; i++) {
+            snprintf(buffer, buffer_size, "%" PRIu64, timers[i].duration);
+            GuiWidget w = gui_textbox(&frame, buffer, &pos);
+
+            c2.x = max(c2.x, w.size.x);
+        }
+        c2.x = max(c1.x + 250.0f, c2.x) + margin;
+
+        pos.x = c2.x;
+        pos.y = base_y;
+
+        for (i32 i = 0; i < timers.count; i++) {
+            snprintf(buffer, buffer_size, "%" PRIu64, timers[i].calls);
+            gui_textbox(&frame, buffer, &pos);
+        }
+
+        gui_textbox(&frame, "name",          &c0);
+        gui_textbox(&frame, "duration (cy)", &c1);
+        gui_textbox(&frame, "calls (#)",     &c2);
+
+        pos.x = base_x;
+    }
+
+    widget = gui_textbox(&frame, "Allocators", &pos);
+    if (is_pressed(widget)) {
+        g_debug_overlay.show_allocators = !g_debug_overlay.show_allocators;
+    }
+
+    if (g_debug_overlay.show_allocators) {
+        f32 base_x = pos.x;
+        pos.x += margin;
+
+        snprintf(buffer, buffer_size,
+                 "g_stack: { sp: %p, size: %zd, remaining: %zd }",
+                 g_stack->sp, g_stack->size, g_stack->remaining);
+        gui_textbox(&frame, buffer, &pos);
+
+        snprintf(buffer, buffer_size,
+                 "g_frame: { sp: %p, size: %zd, remaining: %zd }",
+                 g_frame->sp, g_frame->size, g_frame->remaining);
+        gui_textbox(&frame, buffer, &pos);
+
+        snprintf(buffer, buffer_size,
+                 "g_debug_frame: { sp: %p, size: %zd, remaining: %zd }",
+                 g_debug_frame->sp, g_debug_frame->size, g_debug_frame->remaining);
+        gui_textbox(&frame, buffer, &pos);
+
+        snprintf(buffer, buffer_size,
+                 "g_persistent: { sp: %p, size: %zd, remaining: %zd }",
+                 g_persistent->sp, g_persistent->size, g_persistent->remaining);
+        gui_textbox(&frame, buffer, &pos);
+
+        snprintf(buffer, buffer_size,
+                 "g_heap: { size: %zd, remaining: %zd }",
+                 g_heap->size, g_heap->remaining);
+        gui_textbox(&frame, buffer, &pos);
+
+        pos.x = base_x;
+    }
+
+
     for (auto &item : overlay->items) {
         snprintf(buffer, buffer_size, "%s", item.title.bytes);
-        GuiWidget widget = gui_textbox(&frame, buffer, &pos);
+        GuiWidget w = gui_textbox(&frame, buffer, &pos);
 
-        if (is_pressed(widget)) {
+        if (is_pressed(w)) {
             item.collapsed = !item.collapsed;
         }
 
@@ -801,78 +872,6 @@ void process_debug_overlay(DebugOverlay *overlay, f32 dt)
         }
 
         switch (item.type) {
-        case Debug_allocators: {
-            for (int c = 0; c < item.children.count; c++) {
-                DebugOverlayItem &child = *item.children[c];
-
-                switch (child.type) {
-                case Debug_allocator_stack: {
-                    Allocator *a = (Allocator*)child.u.data;
-                    snprintf(buffer, buffer_size,
-                             "  %s: { sp: %p, size: %zd, remaining: %zd }",
-                             child.title.bytes, a->sp, a->size, a->remaining);
-                    gui_textbox(&frame, buffer, &pos);
-                } break;
-                case Debug_allocator_free_list: {
-                    Allocator *a = (Allocator*)child.u.data;
-                    snprintf(buffer, buffer_size,
-                             "  %s: { size: %zd, remaining: %zd }",
-                             child.title.bytes, a->size, a->remaining);
-                    gui_textbox(&frame, buffer, &pos);
-                } break;
-                default:
-                    LOG("unhandled case: %d", item.type);
-                    break;
-                }
-            }
-        } break;
-        case Debug_profile_timers: {
-            f32 margin = 10.0f;
-
-            f32 base_x = pos.x;
-            f32 base_y = pos.y + 20.0f;
-
-            Vector2 c0, c1, c2;
-            c0.x = c1.x = c2.x = pos.x + margin;
-            c0.y = c1.y = c2.y = pos.y;
-
-            pos.x = c0.x;
-            pos.y = base_y;
-
-            Array<ProfileTimer> &timers = g_profile_timers;
-            for (i32 i = 0; i < timers.count; i++) {
-                snprintf(buffer, buffer_size, "%s: ", timers[i].name);
-                GuiWidget w = gui_textbox(&frame, buffer, &pos);
-
-                c1.x = max(c1.x, w.size.x);
-            }
-            c1.x  = max(c0.x + 250.0f, c1.x) + margin;
-
-            pos.x = c1.x;
-            pos.y = base_y;
-
-            for (i32 i = 0; i < timers.count; i++) {
-                snprintf(buffer, buffer_size, "%" PRIu64, timers[i].duration);
-                GuiWidget w = gui_textbox(&frame, buffer, &pos);
-
-                c2.x = max(c2.x, w.size.x);
-            }
-            c2.x = max(c1.x + 250.0f, c2.x) + margin;
-
-            pos.x = c2.x;
-            pos.y = base_y;
-
-            for (i32 i = 0; i < timers.count; i++) {
-                snprintf(buffer, buffer_size, "%" PRIu64, timers[i].calls);
-                gui_textbox(&frame, buffer, &pos);
-            }
-
-            gui_textbox(&frame, "name",          &c0);
-            gui_textbox(&frame, "duration (cy)", &c1);
-            gui_textbox(&frame, "calls (#)",     &c2);
-
-            pos.x = base_x;
-        } break;
         case Debug_render_item: {
             item.u.ritem.position = camera_from_screen(pos + Vector2{10.0f, 0.0f});
 

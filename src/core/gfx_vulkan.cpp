@@ -2599,7 +2599,7 @@ GfxFrame gfx_begin_frame()
 
     vkCmdWriteTimestamp(
         frame.cmd,
-        VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT,
+        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
         frame.timestamps,
         frame.current_timestamp++);
 
@@ -2630,7 +2630,7 @@ void gfx_end_frame()
 
     vkCmdWriteTimestamp(
         frame.cmd,
-        VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT,
+        VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
         frame.timestamps,
         frame.current_timestamp++);
 
