@@ -36,7 +36,8 @@ Array<ProfileEvent> g_profile_events;
 Array<ProfileEvent> g_profile_events_prev;
 Array<ProfileTimer> g_profile_timers;
 
-GfxTexture g_profiler_graph;
+GfxTexture g_profiler_cpu_graph;
+GfxTexture g_profiler_gpu_graph;
 constexpr i32 kProfilerGraphWidth  = 128;
 constexpr i32 kProfilerGraphHeight = 512;
 
@@ -69,24 +70,7 @@ void init_profiler()
 
 void init_profiler_gui()
 {
-    // TODO(jesper): we should double buffer this texture in some way so we can
-    // transition the next frame's image for CPU access, avoiding
-    // synchronisation stalls
-    g_profiler_graph = gfx_create_texture(
-        VK_FORMAT_B8G8R8A8_UNORM,
-        kProfilerGraphWidth,
-        kProfilerGraphHeight,
-        VK_IMAGE_USAGE_SAMPLED_BIT,
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT );
-
     VulkanPipeline &pipeline = g_vulkan->pipelines[Pipeline_basic2d];
-
-    GfxDescriptorSet ds = gfx_create_descriptor(
-        VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-        pipeline.descriptor_layout_material);
-    ASSERT(ds.id != -1);
-
-    gfx_set_texture(ds, g_profiler_graph, ResourceSlot_diffuse, Pipeline_basic2d);
 
     Vector2 dim = Vector2{ (f32)kProfilerGraphHeight, (f32)kProfilerGraphWidth };
     dim.x = dim.x / g_settings.video.resolution.width;
@@ -101,15 +85,58 @@ void init_profiler_gui()
         0.0f,  dim.y, 0.0f, 0.0f,
         0.0f,  0.0f,  1.0f, 0.0f,
     };
-
     VulkanBuffer vbo = create_vbo(vertices, sizeof(vertices));
-    debug_add_texture(
-        "timers",
-        { (f32)kProfilerGraphHeight, (f32)kProfilerGraphWidth },
-        vbo,
-        ds,
-        Pipeline_basic2d,
-        &g_game->overlay);
+
+    // TODO(jesper): we should double buffer this texture in some way so we can
+    // transition the next frame's image for CPU access, avoiding
+    // synchronisation stalls
+    {
+        g_profiler_cpu_graph = gfx_create_texture(
+            VK_FORMAT_B8G8R8A8_UNORM,
+            kProfilerGraphWidth,
+            kProfilerGraphHeight,
+            VK_IMAGE_USAGE_SAMPLED_BIT,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT );
+
+        GfxDescriptorSet ds = gfx_create_descriptor(
+            VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+            pipeline.descriptor_layout_material);
+        ASSERT(ds.id != -1);
+
+        gfx_set_texture(ds, g_profiler_cpu_graph, ResourceSlot_diffuse, Pipeline_basic2d);
+
+        debug_add_texture(
+            "CPU",
+            { (f32)kProfilerGraphHeight, (f32)kProfilerGraphWidth },
+            vbo,
+            ds,
+            Pipeline_basic2d,
+            &g_game->overlay);
+    }
+
+    {
+        g_profiler_gpu_graph = gfx_create_texture(
+            VK_FORMAT_B8G8R8A8_UNORM,
+            kProfilerGraphWidth,
+            kProfilerGraphHeight,
+            VK_IMAGE_USAGE_SAMPLED_BIT,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT );
+
+        GfxDescriptorSet ds = gfx_create_descriptor(
+            VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+            pipeline.descriptor_layout_material);
+        ASSERT(ds.id != -1);
+
+        gfx_set_texture(ds, g_profiler_gpu_graph, ResourceSlot_diffuse, Pipeline_basic2d);
+
+        debug_add_texture(
+            "GPU",
+            { (f32)kProfilerGraphHeight, (f32)kProfilerGraphWidth },
+            vbo,
+            ds,
+            Pipeline_basic2d,
+            &g_game->overlay);
+    }
 }
 
 void profiler_begin_frame()
@@ -130,9 +157,6 @@ void profiler_begin_frame()
     last_ticks = ticks;
     max_duration = MAX(max_duration, duration);
 
-    f32 df = (f32)duration / (f32)max_duration;
-    i32 w = (i32)(df * kProfilerGraphWidth);
-
     static u32 current_frame = 0;
     current_frame = (current_frame + 1) % kProfilerGraphHeight;
 
@@ -140,40 +164,87 @@ void profiler_begin_frame()
         u8 b, g, r, a;
     };
 
-    Random r = create_random(0xdeadbeef);
+    {
+        PROFILE_SCOPE(profile_timer_cpu_graph);
 
+        f32 df = (f32)duration / (f32)max_duration;
+        i32 w = (i32)(df * kProfilerGraphWidth);
 
-    // TODO(jesper): look into persistent mapping of this texture memory
-    gfx_transition_immediate(
-        &g_profiler_graph,
-        VK_IMAGE_LAYOUT_GENERAL,
-        VK_PIPELINE_STAGE_HOST_BIT);
+        // TODO(jesper): look into persistent mapping of this texture memory
+        gfx_transition_immediate(
+            &g_profiler_cpu_graph,
+            VK_IMAGE_LAYOUT_GENERAL,
+            VK_PIPELINE_STAGE_HOST_BIT);
 
-    BGRA8 *pixels = nullptr;
-    vkMapMemory(
-        g_vulkan->handle,
-        g_profiler_graph.vk_memory,
-        current_frame * kProfilerGraphWidth * sizeof(BGRA8),
-        kProfilerGraphWidth * sizeof(BGRA8),
-        0,
-        (void**)&pixels);
-    ASSERT(pixels != nullptr);
+        BGRA8 *pixels = nullptr;
+        vkMapMemory(
+            g_vulkan->handle,
+            g_profiler_cpu_graph.vk_memory,
+            current_frame * kProfilerGraphWidth * sizeof(BGRA8),
+            kProfilerGraphWidth * sizeof(BGRA8),
+            0,
+            (void**)&pixels);
+        ASSERT(pixels != nullptr);
 
-    for (i32 j = 0; j < kProfilerGraphWidth; j++) {
-        pixels[j].r = 255;
-        pixels[j].g = 255;
-        pixels[j].b = 255;
-        pixels[j].a = 255;
+        for (i32 j = 0; j < kProfilerGraphWidth; j++) {
+            pixels[j].r = 255;
+            pixels[j].g = 255;
+            pixels[j].b = 255;
+            pixels[j].a = 255;
+        }
+
+        for (i32 i = 0; i < w; i++) {
+            pixels[i].r = 0;
+            pixels[i].g = 0;
+            pixels[i].b = 255;
+            pixels[i].a = 255;
+        }
+
+        vkUnmapMemory(g_vulkan->handle, g_profiler_cpu_graph.vk_memory);
     }
 
-    for (i32 i = 0; i < w; i++) {
-        pixels[i].r = 0;
-        pixels[i].g = 0;
-        pixels[i].b = 255;
-        pixels[i].a = 255;
-    }
+    {
+        PROFILE_SCOPE(profile_timer_gpu_graph);
 
-    vkUnmapMemory(g_vulkan->handle, g_profiler_graph.vk_memory);
+        static f32 max_gpu_time = 0.0f;
+        max_gpu_time = MAX(max_gpu_time, g_vulkan->gpu_time);
+
+        f32 df = g_vulkan->gpu_time/ max_gpu_time;
+        i32 w = (i32)(df * kProfilerGraphWidth);
+
+
+        // TODO(jesper): look into persistent mapping of this texture memory
+        gfx_transition_immediate(
+            &g_profiler_gpu_graph,
+            VK_IMAGE_LAYOUT_GENERAL,
+            VK_PIPELINE_STAGE_HOST_BIT);
+
+        BGRA8 *pixels = nullptr;
+        vkMapMemory(
+            g_vulkan->handle,
+            g_profiler_gpu_graph.vk_memory,
+            current_frame * kProfilerGraphWidth * sizeof(BGRA8),
+            kProfilerGraphWidth * sizeof(BGRA8),
+            0,
+            (void**)&pixels);
+        ASSERT(pixels != nullptr);
+
+        for (i32 j = 0; j < kProfilerGraphWidth; j++) {
+            pixels[j].r = 255;
+            pixels[j].g = 255;
+            pixels[j].b = 255;
+            pixels[j].a = 255;
+        }
+
+        for (i32 i = 0; i < w; i++) {
+            pixels[i].r = 0;
+            pixels[i].g = 0;
+            pixels[i].b = 255;
+            pixels[i].a = 255;
+        }
+
+        vkUnmapMemory(g_vulkan->handle, g_profiler_gpu_graph.vk_memory);
+    }
 
     i32 s = 0;
     i32 stack[PROFILER_MAX_STACK_DEPTH];
