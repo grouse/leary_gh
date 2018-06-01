@@ -183,7 +183,7 @@ void array_clear(Array<T> *a)
 }
 
 template<typename T, typename F>
-void array_ins_sort(Array<T> *a, F cmp)
+void array_insertion_sort(Array<T> *a, F cmp)
 {
     for (i32 i = 0; i < a->count; i++) {
         for (i32 j = i;

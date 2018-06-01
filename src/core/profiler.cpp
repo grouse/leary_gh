@@ -246,56 +246,60 @@ void profiler_begin_frame()
         vkUnmapMemory(g_vulkan->handle, g_profiler_gpu_graph.vk_memory);
     }
 
-    i32 s = 0;
-    i32 stack[PROFILER_MAX_STACK_DEPTH];
+    {
+        PROFILE_SCOPE(profile_timer_gather);
 
-    for (i32 i = 0; i < PROFILER_MAX_STACK_DEPTH; i++) {
-        stack[i] = -1;
-    }
+        i32 s = 0;
+        i32 stack[PROFILER_MAX_STACK_DEPTH];
 
-    // TODO(jesper): thread local g_profile_events
-    for (i32 i = 0; i < g_profile_events_prev.count; i++) {
-        ProfileEvent event = g_profile_events_prev[i];
+        for (i32 i = 0; i < PROFILER_MAX_STACK_DEPTH; i++) {
+            stack[i] = -1;
+        }
 
-        if (event.type == ProfileEvent_start) {
-            stack[s++] = i;
-            ASSERT(s < PROFILER_MAX_STACK_DEPTH);
-        } else if (event.type == ProfileEvent_end) {
-            i32 pid = stack[--s];
-            ASSERT(pid != -1);
+        // TODO(jesper): thread local g_profile_events
+        for (i32 i = 0; i < g_profile_events_prev.count; i++) {
+            ProfileEvent event = g_profile_events_prev[i];
 
-            ProfileEvent parent = g_profile_events_prev[pid];
-            ASSERT(event.name == parent.name || strcmp(event.name, parent.name) == 0);
+            if (event.type == ProfileEvent_start) {
+                stack[s++] = i;
+                ASSERT(s < PROFILER_MAX_STACK_DEPTH);
+            } else if (event.type == ProfileEvent_end) {
+                i32 pid = stack[--s];
+                ASSERT(pid != -1);
 
-            ProfileTimer timer;
-            timer.name = event.name;
-            timer.duration = event.timestamp - parent.timestamp;
-            timer.calls = 1;
+                ProfileEvent parent = g_profile_events_prev[pid];
+                ASSERT(event.name == parent.name || strcmp(event.name, parent.name) == 0);
 
-            i32 j = 0;
-            for (j = 0; j < g_profile_timers.count; j++) {
-                ProfileTimer exist = g_profile_timers[j];
+                ProfileTimer timer;
+                timer.name = event.name;
+                timer.duration = event.timestamp - parent.timestamp;
+                timer.calls = 1;
 
-                if (exist.name == timer.name ||
-                    strcmp(exist.name, timer.name) == 0)
-                {
-                    goto merge_existing;
+                i32 j = 0;
+                for (j = 0; j < g_profile_timers.count; j++) {
+                    ProfileTimer exist = g_profile_timers[j];
+
+                    if (exist.name == timer.name ||
+                        strcmp(exist.name, timer.name) == 0)
+                    {
+                        goto merge_existing;
+                    }
                 }
+
+                array_add(&g_profile_timers, timer);
+                continue;
+
+    merge_existing:
+                ProfileTimer &existing = g_profile_timers[j];
+                existing.calls++;
+                existing.duration += timer.duration;
             }
-
-            array_add(&g_profile_timers, timer);
-            continue;
-
-merge_existing:
-            ProfileTimer &existing = g_profile_timers[j];
-            existing.calls++;
-            existing.duration += timer.duration;
         }
     }
 
     {
         PROFILE_SCOPE(profiler_timer_sort);
-        array_ins_sort(
+        array_insertion_sort(
             &g_profile_timers,
             [](ProfileTimer *lhs, ProfileTimer *rhs) {
                 return lhs->duration < rhs->duration;
