@@ -892,7 +892,6 @@ void process_debug_overlay(DebugOverlay *overlay, f32 dt)
             ritem.descriptors  = item.u.ritem.descriptors;
             ritem.pipeline_id  = item.u.ritem.pipeline;
 
-            Matrix4 t = translate(Matrix4::identity(), camera_from_screen(pos));
 
             ritem.constants.offset = 0;
             ritem.constants.size   = sizeof t;
