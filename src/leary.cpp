@@ -155,19 +155,25 @@ void debug_add_texture(
     PipelineID pipeline,
     DebugOverlay *overlay)
 {
-    Texture *texture = find_texture(tid);
+    TextureAsset *texture = find_texture(tid);
     if (texture == nullptr) {
         return;
     }
 
-    Vector2 dim = Vector2{ (f32)texture->width, (f32)texture->height };
-    dim.x = dim.x / g_settings.video.resolution.width;
-    dim.y = dim.y / g_settings.video.resolution.height;
+    Vector2 dim = Vector2{
+        (f32)texture->gfx_texture.width / g_settings.video.resolution.width,
+        (f32)texture->gfx_texture.height / g_settings.video.resolution.height
+    };
 
     DebugOverlayItem item = {};
     item.title = name;
     item.type  = Debug_render_item;
-    item.size  = { (f32)texture->width, (f32)texture->height };
+
+    item.size  = {
+        (f32)texture->gfx_texture.width,
+        (f32)texture->gfx_texture.height
+    };
+
     item.u.ritem.pipeline   = pipeline;
     item.u.ritem.constants  = create_push_constants(pipeline);
 
@@ -216,14 +222,16 @@ void init_entity_system()
 
 void init_terrain()
 {
-    Texture *hm = find_texture("terrain.bmp");
-    ASSERT(hm != nullptr);
+    TextureData td = load_texture_bmp(
+        resolve_file_path(GamePath_textures, "terrain.bmp", g_frame),
+        g_frame);
+    ASSERT(td.pixels != nullptr);
 
     struct Texel {
         u8 r, g, b, a;
     };
 
-    u32  vc       = hm->height * hm->width;
+    u32  vc       = td.height * td.width;
     auto vertices = create_array<Vertex>(g_persistent, vc);
 
     // TODO(jesper): move to settings/asset info/something
@@ -233,23 +241,23 @@ void init_terrain()
     f32 zz = w.z * 2.0f;
 
     Matrix4 to_world = Matrix4::identity();
-    to_world[0].x = xx / (f32)hm->width;
+    to_world[0].x = xx / (f32)td.width;
     to_world[3].x = -w.x;
 
     to_world[1].y = zz / 255.0f;
     to_world[3].y = -w.z;
 
-    to_world[2].z = yy / (f32)hm->height;
+    to_world[2].z = yy / (f32)td.height;
     to_world[3].z = -w.y;
 
     Vector2 uv_scale = { 1.0f, 1.0f };
 
-    for (u32 i = 0; i < hm->height-1; i++) {
-        for (u32 j = 0; j < hm->width-1; j++) {
-            Texel t0   = ((Texel*)hm->data)[i     * hm->width + j];
-            Texel t1   = ((Texel*)hm->data)[i     * hm->width + j+1];
-            Texel t2   = ((Texel*)hm->data)[(i+1) * hm->width + j+1];
-            Texel t3   = ((Texel*)hm->data)[(i+1) * hm->width + j];
+    for (i32 i = 0; i < td.height-1; i++) {
+        for (i32 j = 0; j < td.width-1; j++) {
+            Texel t0   = ((Texel*)td.pixels)[i     * td.width + j];
+            Texel t1   = ((Texel*)td.pixels)[i     * td.width + j+1];
+            Texel t2   = ((Texel*)td.pixels)[(i+1) * td.width + j+1];
+            Texel t3   = ((Texel*)td.pixels)[(i+1) * td.width + j];
 
             Vector3 v0 = to_world * Vector3{ (f32)j,   (f32)t0.r, (f32)i   };
             Vector3 v1 = to_world * Vector3{ (f32)j+1, (f32)t1.r, (f32)i   };
@@ -336,17 +344,15 @@ void init_terrain()
 
     g_terrain = t;
     destroy_array(&vertices);
-#if 0
-    RenderObject ro = {};
-    ro.pipeline       = g_game->pipelines.terrain;
 
-    usize vertex_size = vertices.count * sizeof(vertices[0]);
-    ro.vertex_count   = vertices.count;
-    ro.vertices       = create_vbo(vertices.data, vertex_size);
+    TextureAsset *ta = find_texture("terrain.bmp");
+    ASSERT(ta != nullptr);
 
-    array_add(&g_game->render_objects, ro);
-#endif
-    set_texture(&g_game->materials.heightmap, ResourceSlot_diffuse, hm);
+    gfx_set_texture(
+        g_game->materials.heightmap.descriptor_set,
+        ta->gfx_texture,
+        ResourceSlot_diffuse,
+        g_game->materials.heightmap.pipeline);
 }
 
 void init_debug_overlay()
@@ -450,17 +456,33 @@ void game_init()
         set_ubo(Pipeline_wireframe,       ResourceSlot_mvp, &g_game->fp_camera.ubo);
         set_ubo(Pipeline_wireframe_lines, ResourceSlot_mvp, &g_game->fp_camera.ubo);
 
-        Texture *greybox = find_texture("greybox.bmp");
-        Texture *font   = find_texture("font-regular");
-        Texture *player = find_texture("player.bmp");
+        TextureAsset *greybox = find_texture("greybox.bmp");
+        TextureAsset *font   = find_texture("font-regular");
+        TextureAsset *player = find_texture("player.bmp");
 
-        set_texture(&g_game->materials.terrain, ResourceSlot_diffuse, greybox);
-        set_texture(&g_game->materials.font,    ResourceSlot_diffuse, font);
-        set_texture(&g_game->materials.phong,   ResourceSlot_diffuse, greybox);
-        set_texture(&g_game->materials.player,  ResourceSlot_diffuse, player);
-    }
+        gfx_set_texture(
+            g_game->materials.terrain.descriptor_set,
+            greybox->gfx_texture,
+            ResourceSlot_diffuse,
+            g_game->materials.terrain.pipeline);
 
-    {
+        gfx_set_texture(
+            g_game->materials.font.descriptor_set,
+            font->gfx_texture,
+            ResourceSlot_diffuse,
+            g_game->materials.font.pipeline);
+
+        gfx_set_texture(
+            g_game->materials.phong.descriptor_set,
+            greybox->gfx_texture,
+            ResourceSlot_diffuse,
+            g_game->materials.phong.pipeline);
+
+        gfx_set_texture(
+            g_game->materials.player.descriptor_set,
+            player->gfx_texture,
+            ResourceSlot_diffuse,
+            g_game->materials.player.pipeline);
     }
 
     init_terrain();
@@ -497,7 +519,7 @@ void game_quit()
     }
 
     for (auto &it : g_textures) {
-        destroy_texture(&it);
+        gfx_destroy_texture(it.gfx_texture);
     }
 
     destroy_buffer(g_game->overlay.texture.vbo);
@@ -892,6 +914,7 @@ void process_debug_overlay(DebugOverlay *overlay, f32 dt)
             ritem.descriptors  = item.u.ritem.descriptors;
             ritem.pipeline_id  = item.u.ritem.pipeline;
 
+            Matrix4 t = translate(Matrix4::identity(), camera_from_screen(pos));
 
             ritem.constants.offset = 0;
             ritem.constants.size   = sizeof t;

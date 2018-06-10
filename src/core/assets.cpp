@@ -21,7 +21,7 @@ bool operator == (Vertex &lhs, Vertex &rhs)
 }
 
 
-Array<Texture> g_textures;
+Array<TextureAsset> g_textures;
 Array<Mesh>    g_meshes;
 Array<Entity>  g_entities;
 Catalog        g_catalog;
@@ -50,21 +50,20 @@ PACKED(struct BitmapHeader {
 });
 
 
-Texture load_texture_bmp(const char *path)
+TextureData load_texture_bmp(FilePathView path, Allocator *allocator)
 {
     // TODO(jesper): make this path work with String struct
-    Texture texture = {};
+    TextureData texture = {};
 
     usize size;
     char *file = read_file(path, &size, g_frame);
-    defer { dealloc(g_frame, file); };
 
     if (file == nullptr) {
         LOG("unable to read file: %s", path);
         return texture;
     }
 
-    LOG("Loading bmp: %s", path);
+    LOG("Loading bmp: %s", path.absolute.bytes);
     LOG("-- file size: %llu bytes", size);
 
 
@@ -76,7 +75,7 @@ Texture load_texture_bmp(const char *path)
     if (fh->type != 0x4d42) {
         // TODO(jesper): support other bmp versions
         LOG_UNIMPLEMENTED();
-        return Texture{};
+        return {};
     }
 
     ptr += sizeof(BitmapFileHeader);
@@ -86,7 +85,7 @@ Texture load_texture_bmp(const char *path)
     if (h->header_size != 40) {
         // TODO(jesper): support other bmp versions
         LOG_UNIMPLEMENTED();
-        return Texture{};
+        return {};
     }
 
     if (h->header_size == 40) {
@@ -99,7 +98,7 @@ Texture load_texture_bmp(const char *path)
     if (h->compression != 0) {
         // TODO(jesper): support compression
         LOG_UNIMPLEMENTED();
-        return Texture{};
+        return {};
     }
 
     if (h->compression == 0) {
@@ -130,7 +129,7 @@ Texture load_texture_bmp(const char *path)
     if (h->bpp != 24) {
         // TODO(jesper): only 24 bpp is tested and supported
         LOG_UNIMPLEMENTED();
-        return Texture{};
+        return {};
     }
 
     u8 channels = 4;
@@ -139,12 +138,12 @@ Texture load_texture_bmp(const char *path)
     texture.width  = h->width;
     texture.height = h->height;
     texture.size   = h->width * h->height * channels;
-    texture.data   = malloc(texture.size);
+    texture.pixels = alloc(allocator, texture.size);
 
     bool alpha = false;
 
     u8 *src = (u8*)ptr;
-    u8 *dst = (u8*)texture.data;
+    u8 *dst = (u8*)texture.pixels;
 
     for (i32 i = 0; i < h->height; i++) {
         for (i32 j = 0; j < h->width; j++) {
@@ -162,7 +161,7 @@ Texture load_texture_bmp(const char *path)
 
     // NOTE(jesper): flip bottom-up textures
     if (flip) {
-        dst = (u8*)texture.data;
+        dst = (u8*)texture.pixels;
         for (i32 i = 0; i < h->height >> 1; i++) {
             u8 *p1 = &dst[i * h->width * channels];
             u8 *p2 = &dst[(h->height - 1 - i) * h->width * channels];
@@ -1013,63 +1012,46 @@ Mesh load_mesh_obj(FilePathView path)
 
 extern Catalog g_catalog;
 
-Texture load_texture(FilePath path)
+TextureAsset* add_texture(
+    StringView name,
+    u32 width,
+    u32 height,
+    VkFormat format,
+    void *pixels,
+    VkComponentMapping components)
 {
-    Texture t = {};
-    u32 ehash = hash32(path.extension);
+    TextureAsset ta = {};
+    ta.asset_id = g_catalog.next_asset_id++;
+    ta.gfx_texture = gfx_create_texture(width, height, format, components, pixels);
 
-    // TODO(jesper): this isn't constexpr because C++ constexpr is like the
-    // village idiot everyone smiles at and tries to ignore and go on about
-    // their day.
-    u32 bmp_hash = hash32("bmp");
-    // This is also why this isn't a switch case.
-    if (ehash == bmp_hash) {
-        t = load_texture_bmp(path.absolute.bytes);
-    } else {
-        LOG("unknown texture extension: %s", path.extension.bytes);
-    }
+    TextureID texture_id = (TextureID)array_add(&g_textures, ta);
 
-    return t;
-}
-
-
-Texture* add_texture(StringView name,
-                     u32 width, u32 height,
-                     VkFormat format, void *pixels,
-                     VkComponentMapping components)
-{
-    Texture t = {};
-    t.width    = width;
-    t.height   = height;
-    t.format   = format;
-    t.data     = pixels;
-    t.asset_id = g_catalog.next_asset_id++;
-
-    init_vk_texture(&t, components);
-
-    TextureID texture_id = (TextureID)array_add(&g_textures, t);
-
-    map_add(&g_catalog.assets,   name,       t.asset_id);
-    map_add(&g_catalog.textures, t.asset_id, texture_id);
+    map_add(&g_catalog.assets,   name,        ta.asset_id);
+    map_add(&g_catalog.textures, ta.asset_id, texture_id);
 
     return &g_textures[texture_id];
 }
 
-Texture* add_texture(FilePath path)
+TextureAsset* add_texture_bmp(FilePath path)
 {
-    Texture t = load_texture(path);
-    if (t.data == nullptr) {
+    TextureData t = load_texture_bmp(path, g_frame);
+    if (t.pixels == nullptr) {
         return nullptr;
     }
 
-    t.asset_id = g_catalog.next_asset_id++;
+    TextureAsset ta = {};
+    ta.asset_id = g_catalog.next_asset_id++;
+    ta.gfx_texture = gfx_create_texture(
+        t.width,
+        t.height,
+        t.format,
+        VkComponentMapping{},
+        t.pixels);
 
-    init_vk_texture(&t, VkComponentMapping{});
+    TextureID texture_id = (TextureID)array_add(&g_textures, ta);
 
-    TextureID texture_id = (TextureID)array_add(&g_textures, t);
-
-    map_add(&g_catalog.assets,   path.filename, t.asset_id);
-    map_add(&g_catalog.textures, t.asset_id,    texture_id);
+    map_add(&g_catalog.assets,   path.filename, ta.asset_id);
+    map_add(&g_catalog.textures, ta.asset_id,   texture_id);
 
     return &g_textures[texture_id];
 }
@@ -1116,7 +1098,7 @@ AssetID find_asset_id(StringView name)
     return *id;
 }
 
-Texture* find_texture(AssetID id)
+TextureAsset* find_texture(AssetID id)
 {
     if (id == ASSET_INVALID_ID) {
         LOG(Log_error, "invalid texture id: %d", id);
@@ -1137,7 +1119,7 @@ Texture* find_texture(AssetID id)
     return &g_textures[*tid];
 }
 
-Texture* find_texture(StringView name)
+TextureAsset* find_texture(StringView name)
 {
     AssetID *id = map_find(&g_catalog.assets, name);
     if (id == nullptr || *id == ASSET_INVALID_ID) {
@@ -1429,15 +1411,24 @@ CATALOG_PROCESS_FUNC(catalog_process_bmp)
 {
     AssetID id = find_asset_id(path.filename.bytes);
     if (id == ASSET_INVALID_ID) {
-        add_texture(path);
+        add_texture_bmp(path);
         return;
     }
 
-    Texture *t = find_texture(id);
+    TextureAsset *t = find_texture(id);
     if (t != nullptr) {
-        Texture n = load_texture(path);
-        if (n.data != nullptr) {
-            update_vk_texture(t, n);
+        TextureData n = load_texture_bmp(path, g_frame);
+        if (n.pixels != nullptr) {
+            // TODO(jesper): function to copy straight from staging texture
+            // into destination texture instead of what we're doing here
+            GfxTexture texture = gfx_create_texture(
+                n.width,
+                n.height,
+                n.format,
+                VkComponentMapping{},
+                n.pixels);
+            gfx_copy_texture(&t->gfx_texture, &texture, {}, {});
+            gfx_destroy_texture(texture);
         }
     }
 }

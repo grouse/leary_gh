@@ -26,6 +26,7 @@
 #include "core/allocator.h"
 #include "core/maths.h"
 #include "core/gfx_vulkan.h"
+#include "core/assets.h"
 
 enum DebugOverlayItemType {
     Debug_allocator_stack,

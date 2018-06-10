@@ -10,6 +10,7 @@
 #define LEARY_ASSETS_H
 
 #include "core.h"
+#include "gfx_vulkan.h"
 
 #define ASSET_INVALID_ID (-1)
 
@@ -26,6 +27,19 @@ struct Mesh {
 
     Array<f32> vertices;
     Array<u32> indices;
+};
+
+struct TextureData {
+    i32      width;
+    i32      height;
+    VkFormat format;
+    isize    size;
+    void     *pixels;
+};
+
+struct TextureAsset {
+    AssetID asset_id = ASSET_INVALID_ID;
+    GfxTexture gfx_texture;
 };
 
 struct Texture {

@@ -378,6 +378,9 @@ void transition_image(VkCommandBuffer command,
     case VK_IMAGE_LAYOUT_GENERAL:
         barrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT | VK_ACCESS_HOST_READ_BIT;
         break;
+    case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+        barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+        break;
     default:
         // TODO(jesper): unimplemented transfer
         ASSERT(false);
@@ -1228,13 +1231,13 @@ void image_copy(u32 width, u32 height,
     end_cmd_buffer(command);
 }
 
-
-void update_vk_texture(Texture *texture, Texture ntexture)
+#if 0
+void update_vk_texture(Texture *texture, Texture *ntexture)
 {
-    if (texture->format != ntexture.format ||
-        texture->width  != ntexture.width ||
-        texture->height != ntexture.height ||
-        texture->size   != ntexture.size)
+    if (texture->format != ntexture->format ||
+        texture->width  != ntexture->width ||
+        texture->height != ntexture->height ||
+        texture->size   != ntexture->size)
     {
         LOG("updating of vulkan texture with non-matching format, width, height, or size is currently unsupported");
         return;
@@ -1307,10 +1310,10 @@ void update_vk_texture(Texture *texture, Texture ntexture)
 
     u32 row_pitch = texture->width * num_channels * bytes_per_channel;
     if (staging_image_layout.rowPitch == row_pitch) {
-        memcpy(mapped, ntexture.data, (usize)size);
+        memcpy(mapped, ntexture->data, (usize)size);
     } else {
         u8 *bytes = (u8*)mapped;
-        u8 *pixel_bytes = (u8*)ntexture.data;
+        u8 *pixel_bytes = (u8*)ntexture->data;
         for (i32 y = 0; y < (i32)texture->height; y++) {
             memcpy(&bytes[y * num_channels * staging_image_layout.rowPitch],
                    &pixel_bytes[y * texture->width * num_channels * bytes_per_channel],
@@ -1344,7 +1347,6 @@ void update_vk_texture(Texture *texture, Texture ntexture)
     vkFreeMemory(g_vulkan->handle, staging_memory, nullptr);
     vkDestroyImage(g_vulkan->handle, staging_image, nullptr);
 }
-
 
 void init_vk_texture(Texture *texture, VkComponentMapping components)
 {
@@ -1475,6 +1477,7 @@ void init_vk_texture(Texture *texture, VkComponentMapping components)
     vkFreeMemory(g_vulkan->handle, staging_memory, nullptr);
     vkDestroyImage(g_vulkan->handle, staging_image, nullptr);
 }
+#endif
 
 void vkdebug_create()
 {
@@ -2272,6 +2275,7 @@ void destroy_material(Material material)
     (void)material;
 }
 
+#if 0
 void set_texture(Material *material, ResourceSlot slot, Texture *texture)
 {
     if (texture == nullptr) {
@@ -2312,6 +2316,7 @@ void set_texture(Material *material, ResourceSlot slot, Texture *texture)
 
     vkUpdateDescriptorSets(g_vulkan->handle, 1, &writes, 0, nullptr);
 }
+#endif
 
 void gfx_set_texture(
     GfxDescriptorSet descriptor,
@@ -2678,19 +2683,16 @@ void gfx_end_frame()
     g_vulkan->semaphores_submit_signal.count = 0;
 }
 
-GfxTexture gfx_create_texture(
-    VkFormat format,
+void gfx_create_image(
     i32 width,
     i32 height,
+    VkFormat format,
+    VkImage *vk_image,
+    VkDeviceMemory *vk_memory,
     u32 usage, // VkImageUsageFlagBits
     VkMemoryPropertyFlags properties)
 {
-    GfxTexture texture = {};
-    texture.width      = width;
-    texture.height     = height;
-    texture.vk_format  = format;
-    texture.vk_layout  = VK_IMAGE_LAYOUT_UNDEFINED;
-    texture.vk_stage   = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+    VkResult result;
 
     VkImageCreateInfo info = {};
     info.sType         = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -2708,11 +2710,11 @@ GfxTexture gfx_create_texture(
     info.usage         = usage;
     info.sharingMode   = VK_SHARING_MODE_EXCLUSIVE;
 
-    VkResult result = vkCreateImage(g_vulkan->handle, &info, nullptr, &texture.vk_image);
+    result = vkCreateImage(g_vulkan->handle, &info, nullptr, vk_image);
     ASSERT(result == VK_SUCCESS);
 
     VkMemoryRequirements req;
-    vkGetImageMemoryRequirements(g_vulkan->handle, texture.vk_image, &req);
+    vkGetImageMemoryRequirements(g_vulkan->handle, *vk_image, &req);
 
     u32 memory_type = find_memory_type(
         g_vulkan->physical_device,
@@ -2725,18 +2727,44 @@ GfxTexture gfx_create_texture(
     ainfo.allocationSize  = req.size;
     ainfo.memoryTypeIndex = memory_type;
 
-
     // TODO(jesper): vulkan pool allocator
-    result = vkAllocateMemory(g_vulkan->handle, &ainfo, nullptr, &texture.vk_memory);
+    result = vkAllocateMemory(g_vulkan->handle, &ainfo, nullptr, vk_memory);
     ASSERT(result == VK_SUCCESS);
 
-    vkBindImageMemory(g_vulkan->handle, texture.vk_image, texture.vk_memory, 0);
+    vkBindImageMemory(g_vulkan->handle, *vk_image, *vk_memory, 0);
+}
+
+
+GfxTexture gfx_create_texture(
+    i32 width,
+    i32 height,
+    VkFormat format,
+    VkComponentMapping components,
+    u32 usage, // VkImageUsageFlagBits
+    VkMemoryPropertyFlags properties)
+{
+    VkResult result;
+
+    GfxTexture texture = {};
+    texture.width      = width;
+    texture.height     = height;
+    texture.vk_format  = format;
+
+    gfx_create_image(
+        width,
+        height,
+        format,
+        &texture.vk_image,
+        &texture.vk_memory,
+        usage,
+        properties);
 
     VkImageViewCreateInfo vinfo = {};
-    vinfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    vinfo.image = texture.vk_image;
-    vinfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-    vinfo.format = texture.vk_format;
+    vinfo.sType      = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    vinfo.image      = texture.vk_image;
+    vinfo.viewType   = VK_IMAGE_VIEW_TYPE_2D;
+    vinfo.format     = texture.vk_format;
+    vinfo.components = components;
     vinfo.subresourceRange.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
     vinfo.subresourceRange.baseMipLevel   = 0;
     vinfo.subresourceRange.levelCount     = 1;
@@ -2747,6 +2775,125 @@ GfxTexture gfx_create_texture(
     ASSERT(result == VK_SUCCESS);
 
     return texture;
+}
+
+GfxTexture gfx_create_texture(
+    u32 width,
+    u32 height,
+    VkFormat format,
+    VkComponentMapping components,
+    void *pixels)
+{
+    GfxTexture staging = gfx_create_staging_texture(format, width, height);
+
+    i32 num_channels;
+    i32 bytes_per_channel;
+
+    switch (format) {
+    case VK_FORMAT_R8_UNORM:
+    case VK_FORMAT_R8_UINT:
+        num_channels      = 1;
+        bytes_per_channel = 1;
+        break;
+    case VK_FORMAT_R8G8B8A8_UNORM:
+    case VK_FORMAT_B8G8R8A8_UNORM:
+        num_channels      = 4;
+        bytes_per_channel = 1;
+        break;
+    case VK_FORMAT_R16_UNORM:
+    case VK_FORMAT_R16_SNORM:
+    case VK_FORMAT_R16_SFLOAT:
+    case VK_FORMAT_R16_SINT:
+        num_channels      = 1;
+        bytes_per_channel = 2;
+        break;
+    case VK_FORMAT_R32_SFLOAT:
+    case VK_FORMAT_R32_UINT:
+    case VK_FORMAT_R32_SINT:
+        num_channels      = 1;
+        bytes_per_channel = 4;
+        break;
+    case VK_FORMAT_R32G32_SFLOAT:
+        num_channels      = 2;
+        bytes_per_channel = 4;
+        break;
+    case VK_FORMAT_R16G16_SFLOAT:
+        num_channels      = 2;
+        bytes_per_channel = 2;
+        break;
+    default:
+        ASSERT(false);
+        num_channels      = 1;
+        bytes_per_channel = 2;
+        break;
+    }
+
+    VkDeviceSize size = width * height * num_channels * bytes_per_channel;
+
+    void *mapped = nullptr;
+    vkMapMemory(g_vulkan->handle, staging.vk_memory, 0, size, 0, &mapped);
+
+    VkImageSubresource subresource = {};
+    subresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    subresource.mipLevel   = 0;
+    subresource.arrayLayer = 0;
+
+    VkSubresourceLayout staging_image_layout;
+    vkGetImageSubresourceLayout(
+            g_vulkan->handle,
+            staging.vk_image,
+            &subresource,
+            &staging_image_layout);
+
+    u32 row_pitch = width * num_channels * bytes_per_channel;
+    if (staging_image_layout.rowPitch == row_pitch) {
+        memcpy(mapped, pixels, (usize)size);
+    } else {
+        u8 *dst = (u8*)mapped;
+        u8 *src = (u8*)pixels;
+        for (i32 y = 0; y < (i32)height; y++) {
+            memcpy(&dst[y * num_channels * staging_image_layout.rowPitch],
+                   &src[y * width * num_channels * bytes_per_channel],
+                   width* num_channels * bytes_per_channel);
+        }
+    }
+
+    vkUnmapMemory(g_vulkan->handle, staging.vk_memory);
+
+    GfxTexture texture = gfx_create_texture(
+        width,
+        height,
+        format,
+        components,
+        VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT );
+
+    gfx_transition_immediate(
+        &staging,
+        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        VK_PIPELINE_STAGE_TRANSFER_BIT);
+
+    gfx_transition_immediate(
+        &texture,
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        VK_PIPELINE_STAGE_TRANSFER_BIT);
+
+    gfx_copy_texture(&texture, &staging, {}, {});
+
+    gfx_transition_immediate(
+        &texture,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+
+    gfx_destroy_texture(staging);
+
+    return texture;
+}
+
+void gfx_destroy_texture(GfxTexture texture)
+{
+    vkFreeMemory(g_vulkan->handle, texture.vk_memory, nullptr);
+    vkDestroyImage(g_vulkan->handle, texture.vk_image, nullptr);
 }
 
 Vector2 screen_from_camera(Vector2 v)
@@ -2788,13 +2935,21 @@ GfxTexture gfx_create_staging_texture(
     i32 width,
     i32 height)
 {
+    GfxTexture staging = {};
+    staging.width     = width;
+    staging.height    = height;
+    staging.vk_format = format;
+
     // TODO(jesper): we could keep a large chunk of device memory for staging
     // image purposes and sub-allocate out from that manually
-    GfxTexture staging = gfx_create_texture(
+    gfx_create_image(
+        width,
+        height,
         format,
-        width, height,
-        VK_IMAGE_USAGE_STORAGE_BIT,
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT );
+        &staging.vk_image,
+        &staging.vk_memory,
+        VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
     gfx_transition_immediate(
         &staging,
@@ -2805,11 +2960,17 @@ GfxTexture gfx_create_staging_texture(
 }
 
 void gfx_copy_texture(
-    GfxTexture *src,
     GfxTexture *dst,
-    Vector3i src_offset,
-    Vector3i dst_offset)
+    GfxTexture *src,
+    Vector3i dst_offset,
+    Vector3i src_offset)
 {
+    VkPipelineStageFlagBits src_stage  = src->vk_stage;
+    VkImageLayout           src_layout = src->vk_layout;
+
+    VkPipelineStageFlagBits dst_stage  = dst->vk_stage;
+    VkImageLayout           dst_layout = dst->vk_layout;
+
     gfx_transition_immediate(
         src,
         VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
@@ -2824,10 +2985,10 @@ void gfx_copy_texture(
 
     // TODO(jesper): support mip layers
     VkImageSubresourceLayers subresource = {};
-    subresource.aspectMask               = VK_IMAGE_ASPECT_COLOR_BIT;
-    subresource.baseArrayLayer           = 0;
-    subresource.mipLevel                 = 0;
-    subresource.layerCount               = 1;
+    subresource.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
+    subresource.baseArrayLayer = 0;
+    subresource.mipLevel       = 0;
+    subresource.layerCount     = 1;
 
     VkImageCopy region = {};
     region.srcSubresource = subresource;
@@ -2847,9 +3008,6 @@ void gfx_copy_texture(
 
     end_cmd_buffer(command);
 
-    gfx_transition_immediate(
-        dst,
-        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT );
-
+    gfx_transition_immediate( dst, dst_layout, dst_stage );
+    gfx_transition_immediate( src, src_layout, src_stage );
 }

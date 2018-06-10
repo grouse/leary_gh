@@ -10,7 +10,6 @@
 #define VULKAN_DEVICE_H
 
 #include "platform/platform.h"
-#include "core/assets.h"
 
 enum ShaderStage {
     ShaderStage_vertex,
@@ -84,8 +83,8 @@ struct GfxTexture
     VkImage                 vk_image;
     VkImageView             vk_view;
     VkDeviceMemory          vk_memory;
-    VkImageLayout           vk_layout;
-    VkPipelineStageFlagBits vk_stage;
+    VkImageLayout           vk_layout = VK_IMAGE_LAYOUT_UNDEFINED;
+    VkPipelineStageFlagBits vk_stage  = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
 };
 
 
@@ -216,8 +215,11 @@ struct PushConstants {
     void *data;
 };
 
-void update_vk_texture(Texture *texture, Texture ntexture);
+#if 0
+struct Texture;
+void update_vk_texture(Texture *texture, Texture *ntexture);
 void init_vk_texture(Texture *texture, VkComponentMapping components);
+#endif
 
 VulkanBuffer create_vbo(void *data, usize size);
 VulkanBuffer create_vbo(usize size);
@@ -232,7 +234,9 @@ void buffer_data(VulkanUniformBuffer ubo, void *data, usize offset, usize size);
 Material create_material(PipelineID pipeline_id, MaterialID id);
 
 void set_ubo(VulkanPipeline *pipeline, ResourceSlot slot, VulkanUniformBuffer *ubo);
+#if 0
 void set_texture(Material *material, ResourceSlot slot, Texture *texture);
+#endif
 
 void gfx_set_texture(
     GfxDescriptorSet descriptor,
@@ -257,11 +261,21 @@ void gfx_bind_descriptor(
     GfxDescriptorSet descriptor);
 
 GfxTexture gfx_create_texture(
-    VkFormat format,
     i32 width,
     i32 height,
+    VkFormat format,
+    VkComponentMapping components,
     u32 usage, // VkImageUsageFlagBits
     VkMemoryPropertyFlags properties);
+
+GfxTexture gfx_create_texture(
+    u32 width,
+    u32 height,
+    VkFormat format,
+    VkComponentMapping components,
+    void *pixels);
+
+void gfx_destroy_texture(GfxTexture texture);
 
 void gfx_transition_immediate(
     GfxTexture *texture,
@@ -274,10 +288,10 @@ GfxTexture gfx_create_staging_texture(
     i32 height);
 
 void gfx_copy_texture(
-    GfxTexture *src,
     GfxTexture *dst,
-    Vector3i src_offset,
-    Vector3i dst_offset);
+    GfxTexture *src,
+    Vector3i dst_offset,
+    Vector3i src_offset);
 
 Vector2 camera_from_screen(Vector2 v);
 Vector3 camera_from_screen(Vector3 v);

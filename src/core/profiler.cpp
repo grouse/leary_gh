@@ -92,9 +92,10 @@ void init_profiler_gui()
     // synchronisation stalls
     {
         g_profiler_cpu_graph = gfx_create_texture(
-            VK_FORMAT_B8G8R8A8_UNORM,
             kProfilerGraphWidth,
             kProfilerGraphHeight,
+            VK_FORMAT_B8G8R8A8_UNORM,
+            VkComponentMapping{},
             VK_IMAGE_USAGE_SAMPLED_BIT,
             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT );
 
@@ -116,9 +117,10 @@ void init_profiler_gui()
 
     {
         g_profiler_gpu_graph = gfx_create_texture(
-            VK_FORMAT_B8G8R8A8_UNORM,
             kProfilerGraphWidth,
             kProfilerGraphHeight,
+            VK_FORMAT_B8G8R8A8_UNORM,
+            VkComponentMapping{},
             VK_IMAGE_USAGE_SAMPLED_BIT,
             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT );
 
