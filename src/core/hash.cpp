@@ -6,9 +6,6 @@
  * Copyright (c) 2017 - all rights reserved
  */
 
-#include "core.h"
-#include "string.h"
-
 #define MURMUR_SEED (0xdeadbeef)
 u32 hash32(void *key, i32 length)
 {
@@ -49,7 +46,7 @@ u32 hash32(void *key, i32 length)
 
 u32 hash32(const char *str)
 {
-    return hash32((u8*)str, utf8_size(str));
+    return hash32((u8*)str, strlen(str));
 }
 
 u32 hash32(u32 i)
@@ -72,11 +69,11 @@ u32 hash32(T t)
 template<>
 u32 hash32(StringView *str)
 {
-    return hash32((void*)str->bytes, str->size);
+    return hash32((void*)str->bytes, str->size - 1);
 }
 
 template<>
 u32 hash32(StringView str)
 {
-    return hash32((void*)str.bytes, str.size);
+    return hash32((void*)str.bytes, str.size - 1);
 }

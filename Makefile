@@ -8,8 +8,8 @@ BUILD = $(ROOT)/build
 
 SPV_SRC = $(ROOT)/src/shaders
 SPV_DST = $(BUILD)/data/shaders
-SPV_VERT = $(addprefix $(SPV_DST)/,$(addsuffix .vert.spv,generic font basic2d mesh terrain))
-SPV_FRAG = $(addprefix $(SPV_DST)/,$(addsuffix .frag.spv,generic font basic2d mesh terrain))
+SPV_VERT = $(addprefix $(SPV_DST)/,$(addsuffix .vert.spv,generic wireframe gui_basic font basic2d mesh terrain))
+SPV_FRAG = $(addprefix $(SPV_DST)/,$(addsuffix .frag.spv,generic wireframe gui_basic font basic2d mesh terrain))
 
 $(SPV_DST)/%.vert.spv: $(SPV_SRC)/%.glsl
 	glslangValidator -V -g -S vert -DVERTEX_SHADER $< -o $@
@@ -21,7 +21,7 @@ shaders: | $(SPV_DST) $(SPV_VERT) $(SPV_FRAG)
 
 FLAGS = -std=c++14 -g -fno-exceptions
 
-NOWARNINGS = -Wno-int-to-void-pointer-cast -Wno-nested-anon-types -Wno-unused-function
+NOWARNINGS = -Wno-int-to-void-pointer-cast -Wno-nested-anon-types -Wno-unused-function -Wno-gnu-anonymous-struct -Wno-missing-braces
 WARNINGS   = -Wall -Wextra -Wpedantic $(NOWARNINGS)
 
 INCLUDE_DIR = -I$(ROOT)/src -I$(ROOT)
@@ -57,7 +57,7 @@ $(BUILD)/benchmarks: FORCE
 	$(CXX) $(TOOLS_FLAGS) -O3 $(ROOT)/benchmarks/main.cpp -o $@
 benchmarks: $(BUILD)/benchmarks
 
-all: shaders tools leary tests benchmarks
+all: shaders leary
 
 $(SPV_DST):
 	mkdir -p $(SPV_DST)

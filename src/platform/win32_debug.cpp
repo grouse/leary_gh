@@ -1,89 +1,16 @@
 /**
- * @file:   win32_debug.cpp
- * @author: Jesper Stefansson (grouse)
- * @email:  jesper.stefansson@gmail.com
+ * file:    win32_debug.cpp
+ * created: 2016-09-23
+ * authors: Jesper Stefansson (jesper.stefansson@gmail.com)
  *
- * Copyright (c) 2016-2017 Jesper Stefansson
- *
- * This software is provided 'as-is', without any express or implied
- * warranty. In no event will the authors be held liable for any damages
- * arising from the use of this software.
- *
- * Permission is granted to anyone to use this software for any purpose,
- * including commercial applications, and to alter it and redistribute it
- * freely, subject to the following restrictions:
- *
- * 1. The origin of this software must not be misrepresented; you must not
- *    claim that you wrote the original software. If you use this software
- *    in a product, an acknowledgement in the product documentation would be
- *    appreciated but is not required.
- * 2. Altered source versions must be plainly marked as such, and must not be
- *    misrepresented as being the original software.
- * 3. This notice may not be removed or altered from any source distribution.
-**/
+ * Copyright (c) 2017-2018 - all rights reserved
+ */
 
-#include "platform_debug.h"
-
-#if LEARY_ENABLE_LOGGING
-#define DEBUG_BUFFER_SIZE (2048)
-
-const char *log_channel_string(LogChannel channel)
+void platform_output_debug_string(const char *str)
 {
-    switch (channel) {
-    case Log_info:          return "info";
-    case Log_error:         return "error";
-    case Log_warning:       return "warning";
-    case Log_assert:        return "ASSERT";
-    case Log_unimplemented: return "unimplemented";
-    default:                return "";
-    }
+    // TODO(jesper): unicode
+    OutputDebugString(str);
 }
-
-void platform_debug_print(const char *file,
-                          u32 line,
-                          const char *function,
-                          LogChannel channel,
-                          const char *fmt, ...)
-{
-    const char *channel_str = log_channel_string(channel);
-
-    va_list args;
-    char message[DEBUG_BUFFER_SIZE];
-    char buffer[DEBUG_BUFFER_SIZE];
-
-    va_start(args, fmt);
-    i32 length = vsnprintf(message, DEBUG_BUFFER_SIZE, fmt, args);
-    va_end(args);
-    ASSERT(length < DEBUG_BUFFER_SIZE);
-
-    length = snprintf(buffer, DEBUG_BUFFER_SIZE, "%s:%d: %s: [%s] %s\n",
-                      file, line, channel_str, function, message);
-    ASSERT(length < DEBUG_BUFFER_SIZE);
-    OutputDebugString(buffer);
-}
-
-void platform_debug_print(const char *file,
-                          u32 line,
-                          const char *function,
-                          const char *fmt, ...)
-{
-    const char *channel_str = log_channel_string(Log_info);
-
-    va_list args;
-    char message[DEBUG_BUFFER_SIZE];
-    char buffer[DEBUG_BUFFER_SIZE];
-
-    va_start(args, fmt);
-    i32 length = vsnprintf(message, DEBUG_BUFFER_SIZE, fmt, args);
-    va_end(args);
-    ASSERT(length < DEBUG_BUFFER_SIZE);
-
-    length = snprintf(buffer, DEBUG_BUFFER_SIZE, "%s:%d: %s: [%s] %s\n",
-                      file, line, channel_str, function, message);
-    ASSERT(length < DEBUG_BUFFER_SIZE);
-    OutputDebugString(buffer);
-}
-
 
 char* win32_system_error_message(DWORD error)
 {
@@ -100,6 +27,3 @@ char* win32_system_error_message(DWORD error)
 
     return buffer;
 }
-
-
-#endif // LEARY_ENABLE_LOGGING

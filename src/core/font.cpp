@@ -6,14 +6,6 @@
  * Copyright (c) 2017 - all rights reserved
  */
 
-#include "font.h"
-
-#define STB_TRUETYPE_IMPLEMENTATION
-#define STBTT_ASSERT ASSERT
-#include "external/stb/stb_truetype.h"
-
-#include "gfx_vulkan.h"
-
 FontData g_font = {};
 extern VulkanDevice *g_vulkan;
 
@@ -27,7 +19,7 @@ void init_fonts()
 
     u8 *font_data = (u8*)read_file(font_path, &font_size, g_frame);
 
-    u8 *bitmap = alloc_array<u8>(g_frame, 1024*1024);
+    u8 *bitmap = alloc_array(g_frame, u8, 1024*1024);
     stbtt_BakeFontBitmap(font_data, 0, 20.0f, bitmap,
                          1024, 1024, 0, 256, g_font.atlas);
 

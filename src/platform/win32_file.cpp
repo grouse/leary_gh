@@ -1,48 +1,18 @@
 /**
- * @file:   win32_file.cpp
- * @author: Jesper Stefansson (grouse)
- * @email:  jesper.stefansson@gmail.com
+ * file:    win32_file.cpp
+ * authors: Jesper Stefansson (jesper.stefansson@gmail.com)
  *
- * Copyright (c) 2016-2017 Jesper Stefansson
- *
- * This software is provided 'as-is', without any express or implied
- * warranty. In no event will the authors be held liable for any damages
- * arising from the use of this software.
- *
- * Permission is granted to anyone to use this software for any purpose,
- * including commercial applications, and to alter it and redistribute it
- * freely, subject to the following restrictions:
- *
- * 1. The origin of this software must not be misrepresented; you must not
- *    claim that you wrote the original software. If you use this software
- *    in a product, an acknowledgement in the product documentation would be
- *    appreciated but is not required.
- * 2. Altered source versions must be plainly marked as such, and must not be
- *    misrepresented as being the original software.
- * 3. This notice may not be removed or altered from any source distribution.
+ * Copyright (c) 2016-2018 - all rights reserved
  */
 
-#include "core/file.h"
-
-#include "core/maths.h"
-#include "platform.h"
-#include "leary_macros.h"
-
 extern Allocator *g_system_alloc;
-
-struct PlatformPaths {
-    FolderPath preferences;
-    FolderPath data;
-    FolderPath exe;
-    FolderPath shaders;
-    FolderPath textures;
-    FolderPath models;
-};
 
 PlatformPaths g_paths;
 
 void init_paths(Allocator *a)
 {
+    static_assert(sizeof(WCHAR) == sizeof(u16));
+
     g_paths = {};
 
     HRESULT result;
@@ -57,7 +27,7 @@ void init_paths(Allocator *a)
             module_length = (DWORD) wcslen(buffer);
 
         buffer[module_length] = '\0';
-        g_paths.exe = create_folder_path(a, buffer, "\\");
+        g_paths.exe = create_folder_path(a, { string_from_utf16((u16*)buffer, module_length), "\\" });
     }
 
     // --- app data dir
@@ -66,20 +36,20 @@ void init_paths(Allocator *a)
 
     if (env_length != 0) {
         buffer[env_length-1] = '\0';
-        g_paths.data = create_folder_path(a, buffer);
+        g_paths.data = create_folder_path(a, string_from_utf16((u16*)buffer, env_length-1));
     } else {
-        g_paths.data = create_folder_path(a, g_paths.exe, "..\\assets\\");
+        g_paths.data = create_folder_path(a, { g_paths.exe.absolute, "..\\assets\\" });
     }
 
     // --- app preferences dir
     result = SHGetFolderPathW(NULL, CSIDL_LOCAL_APPDATA, NULL, SHGFP_TYPE_CURRENT, buffer);
     if (result == S_OK) {
-        g_paths.preferences = create_folder_path(a, buffer, "\\leary\\");
+        g_paths.preferences = create_folder_path(a, { string_from_utf16((u16*)buffer, wcslen(buffer)), "\\leary\\" });
     }
 
-    g_paths.shaders  = create_folder_path(a, g_paths.exe, "data\\shaders\\");
-    g_paths.textures = create_folder_path(a, g_paths.data, "textures\\");
-    g_paths.models   = create_folder_path(a, g_paths.data, "models\\");
+    g_paths.shaders  = create_folder_path(a, { g_paths.data.absolute, "shaders\\" });
+    g_paths.textures = create_folder_path(a, { g_paths.data.absolute, "textures\\" });
+    g_paths.models   = create_folder_path(a, { g_paths.data.absolute, "models\\" });
 }
 
 Array<FilePath> list_files(FolderPath folder, Allocator *allocator)
@@ -97,7 +67,7 @@ Array<FilePath> list_files(FolderPath folder, Allocator *allocator)
     WIN32_FIND_DATA fd;
     h = FindFirstFile(path, &fd);
     if (h == INVALID_HANDLE_VALUE) {
-        LOG(Log_error, "could not find file in folder: %s", folder);
+        LOG_ERROR("could not find file in folder: %s", folder);
         return {};
     }
 
@@ -107,13 +77,13 @@ Array<FilePath> list_files(FolderPath folder, Allocator *allocator)
         }
         if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
             // TODO(jesper): handle sub-folders
-            LOG(Log_warning, "sub-folders are unimplemented");
+            LOG_WARNING("sub-folders are unimplemented");
         } else {
             FilePath p = {};
             if (!eslash) {
-                p = create_file_path(allocator, folder, "\\", fd.cFileName);
+                p = create_file_path(allocator, { folder.absolute, "\\", fd.cFileName });
             } else {
-                p = create_file_path(allocator, folder, fd.cFileName);
+                p = create_file_path(allocator, { folder.absolute, fd.cFileName });
             }
 
             LOG("adding file: %s", p.absolute.bytes);
@@ -171,12 +141,12 @@ FilePath resolve_file_path(GamePath rp, StringView path, Allocator *a)
         root = g_paths.preferences;
         break;
     default:
-        LOG(Log_error, "unknown path root: %d", rp);
+        LOG_ERROR("unknown path root: %d", rp);
         ASSERT(false);
         return {};
     }
 
-    FilePath resolved = create_file_path(a, root, path);
+    FilePath resolved = create_file_path(a, { root.absolute, path });
     for (i32 i = 0; i < resolved.absolute.size; i++) {
         if (resolved[i] == '/') {
             resolved[i] = '\\';
@@ -210,12 +180,12 @@ FolderPath resolve_folder_path(GamePath rp, StringView path, Allocator *a)
         root = g_paths.preferences;
         break;
     default:
-        LOG(Log_error, "unknown path root: %d", rp);
+        LOG_ERROR("unknown path root: %d", rp);
         ASSERT(false);
         return {};
     }
 
-    FolderPath resolved = create_folder_path(a, root, path);
+    FolderPath resolved = create_folder_path(a, { root.absolute, path });
     for (i32 i = 0; i < resolved.absolute.size; i++) {
         if (resolved[i] == '/') {
             resolved[i] = '\\';
@@ -246,7 +216,7 @@ bool create_file(FilePathView p, bool create_folders = false)
         if (!folder_exists(folder)) {
             int result = SHCreateDirectoryEx(NULL, folder, NULL);
             if (result != ERROR_SUCCESS) {
-                LOG(Log_error, "couldn't create folders: %s", folder);
+                LOG_ERROR("couldn't create folders: %s", folder);
                 return false;
             }
         }
@@ -325,10 +295,9 @@ char* read_file(FilePathView filename, usize *o_size, Allocator *a)
         NULL);
 
     if (file == INVALID_HANDLE_VALUE) {
-        LOG(Log_error,
-            "failed to open file %s - %s",
-            filename.absolute.bytes,
-            win32_system_error_message(GetLastError()));
+        LOG_ERROR("failed to open file %s - %s",
+                  filename.absolute.bytes,
+                  win32_system_error_message(GetLastError()));
         return nullptr;
     }
 
@@ -340,9 +309,8 @@ char* read_file(FilePathView filename, usize *o_size, Allocator *a)
 
         buffer = (char*)alloc(a, file_size.QuadPart);
         if (buffer == nullptr) {
-            LOG(Log_error,
-                "failed to alloc %d bytes from allocator for file %s",
-                file_size.QuadPart, filename);
+            LOG_ERROR("failed to alloc %d bytes from allocator for file %s",
+                      file_size.QuadPart, filename.absolute.bytes);
             return nullptr;
         }
 

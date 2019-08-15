@@ -6,9 +6,6 @@
  * Copyright (c) 2017-2018 - all rights reserved
  */
 
-#include "random.h"
-
-
 // TODO(jesper): better random!
 u32 next_u32(Random *r)
 {

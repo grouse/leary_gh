@@ -6,83 +6,38 @@
  * Copyright (c) 2016-2017 Jesper Stefansson
  */
 
-#include "maths.h"
-#include <cmath>
-
 inline constexpr f32 radians(f32 degrees)
 {
     return degrees * PI / 180;
 }
 
 
-/*******************************************************************************
- * Vector3 function declarations
- ******************************************************************************/
-inline f32      length    (Vector3 vec);
-inline f32      dot       (Vector3 lhs, Vector3 rhs);
-inline Vector3 cross     (Vector3 lhs, Vector3 rhs);
-inline Vector3 normalise (Vector3 v);
-
-/*******************************************************************************
- * Vector3 operator declarations
- ******************************************************************************/
-inline Vector3  operator - (Vector3 v);
-
-inline Vector3  operator +  (Vector3 lhs,  Vector3 rhs);
-inline Vector3  operator +  (Vector3 lhs,  f32      rhs);
-inline Vector3  operator +  (f32      lhs,  Vector3 rhs);
-inline Vector3& operator += (Vector3 &lhs, Vector3 rhs);
-inline Vector3& operator += (Vector3 &lhs, f32      rhs);
-
-inline Vector3  operator -  (Vector3 lhs,  Vector3 rhs);
-inline Vector3  operator -  (Vector3 lhs,  f32      rhs);
-inline Vector3  operator -  (f32      lhs,  Vector3 rhs);
-inline Vector3& operator -= (Vector3 &lhs, Vector3 rhs);
-inline Vector3& operator -= (Vector3 &lhs, f32      rhs);
-
-inline Vector3  operator *  (Vector3 lhs,  f32      rhs);
-inline Vector3  operator *  (f32      lhs,  Vector3 rhs);
-inline Vector3& operator *= (Vector3 &lhs, f32      rhs);
-
-/*******************************************************************************
- * Vector4 operator declarations
- ******************************************************************************/
-inline Vector4  operator +  (Vector4 lhs,  Vector4 rhs);
-inline Vector4  operator +  (Vector4 lhs,  f32      rhs);
-inline Vector4  operator +  (f32      lhs,  Vector4 rhs);
-inline Vector4& operator += (Vector4 &lhs, Vector4 rhs);
-inline Vector4& operator += (Vector4 &lhs, f32      rhs);
-
-inline Vector4  operator -  (Vector4 lhs,  Vector4 rhs);
-inline Vector4  operator -  (Vector4 lhs,  f32      rhs);
-inline Vector4  operator -  (f32      lhs,  Vector4 rhs);
-inline Vector4& operator -= (Vector4 &lhs, Vector4 rhs);
-inline Vector4& operator -= (Vector4 &lhs, f32      rhs);
-
-inline Vector4  operator *  (Vector4 lhs,  f32      rhs);
-inline Vector4  operator *  (f32      lhs,  Vector4 rhs);
-inline Vector4& operator *= (Vector4 &lhs, f32      rhs);
-
-/*******************************************************************************
- * Matrix4 function declarations
- ******************************************************************************/
+inline f32 length(Vector3 vec);
+inline f32 dot(Vector3 lhs, Vector3 rhs);
+inline Vector3 cross(Vector3 lhs, Vector3 rhs);
+inline Vector3 normalise(Vector3 v);
 inline Matrix4 translate(Matrix4 mat, Vector3 v);
-inline Matrix4 rotate(Matrix4 m, f32 theta, Vector3 axis);
-inline Matrix4 rotate_x(Matrix4 m, f32 theta);
-inline Matrix4 rotate_y(Matrix4 m, f32 theta);
-inline Matrix4 rotate_z(Matrix4 m, f32 theta);
-inline Matrix4 look_at(Vector3 eye, Vector3 origin, Vector3 up);
 
-/*******************************************************************************
- * Matrix4 operator declarations
- ******************************************************************************/
-inline Vector3 operator * (Matrix4 lhs, Vector3 rhs);
-inline Matrix4 operator * (Matrix4 lhs, Matrix4 rhs);
+inline Vector3 operator-(Vector3 v);
+inline Vector3 operator+(Vector3 lhs, Vector3 rhs);
+inline Vector3& operator+=(Vector3 &lhs, Vector3 rhs);
+inline Vector3 operator-(Vector3 lhs, Vector3 rhs);
+inline Vector3& operator-=(Vector3 &lhs, Vector3 rhs);
+inline Vector3 operator*(Vector3 lhs, f32 rhs);
+inline Vector3 operator*(f32 lhs, Vector3 rhs);
+inline Vector3& operator*=(Vector3 &lhs, f32 rhs);
+inline Vector3 operator*(Matrix4 lhs, Vector3 rhs);
 
+inline Vector4 operator+(Vector4 lhs, Vector4 rhs);
+inline Vector4& operator+=(Vector4 &lhs, Vector4 rhs);
+inline Vector4 operator-(Vector4 lhs, Vector4 rhs);
+inline Vector4& operator-=(Vector4 &lhs, Vector4 rhs);
+inline Vector4 operator*(Vector4 lhs, f32 rhs);
+inline Vector4 operator*(f32 lhs, Vector4 rhs);
+inline Vector4& operator*=(Vector4 &lhs, f32 rhs);
 
-/*******************************************************************************
- * Vector3 function definitions
- ******************************************************************************/
+inline Matrix4 operator*(Matrix4 lhs, Matrix4 rhs);
+
 inline f32 length(Vector3 vec)
 {
     return lry::sqrt(vec.x * vec.x + vec.y * vec.y + vec.z * vec.z);
@@ -191,144 +146,12 @@ inline Matrix4 translate(Matrix4 m, Vector2 v)
     return result;
 }
 
-inline Matrix4 rotate(Matrix4 m, f32 theta, Vector3 axis)
+inline Vector3 operator*(Matrix4 lhs, Vector3 rhs)
 {
-    f32 c = lry::cos(theta);
-    f32 s = lry::cos(theta);
-
-    Vector3 tmp = (1.0f - c) * axis;
-
-    Matrix4 r;
-    r[0].x = c + tmp.x * axis.x;
-    r[0].y = tmp.x * axis.y + s * axis.z;
-    r[0].z = tmp.x * axis.z - s * axis.y;
-
-    r[1].x = tmp.y * axis.x - s * axis.z;
-    r[1].y = c + tmp.y * axis.y;
-    r[1].z = tmp.y * axis.z + s * axis.x;
-
-    r[2].x = tmp.z * axis.x + s * axis.y;
-    r[2].y = tmp.z * axis.y - s * axis.x;
-    r[2].z = c + tmp.z * axis.z;
-
-    Matrix4 result;
-    result[0] = m[0] * r[0].x + m[1] * r[0].y + m[2] * r[0].z;
-    result[1] = m[0] * r[1].x + m[1] * r[1].y + m[2] * r[1].z;
-    result[2] = m[0] * r[2].x + m[1] * r[2].y + m[2] * r[2].z;
-    result[3] = m[3];
-    return result;
-}
-
-inline Matrix4 rotate_x(Matrix4 m, f32 theta)
-{
-    f32 c = lry::cos(theta);
-    f32 s = lry::cos(theta);
-
-    Matrix4 r;
-    r[0].x = 1;
-    r[0].y = 0;
-    r[0].z = 0;
-
-    r[1].x = 0;
-    r[1].y = c;
-    r[1].z = s;
-
-    r[2].x = 0;
-    r[2].y = -s;
-    r[2].z = c;
-
-    Matrix4 result;
-    result[0] = m[0] * r[0].x;
-    result[1] = m[1] * r[1].y + m[2] * r[1].z;
-    result[2] = m[1] * r[2].y + m[2] * r[2].z;
-    result[3] = m[3];
-    return result;
-}
-
-inline Matrix4 rotate_y(Matrix4 m, f32 theta)
-{
-    f32 c = lry::cos(theta);
-    f32 s = lry::cos(theta);
-
-    Matrix4 r;
-    r[0].x = c;
-    r[0].y = 0;
-    r[0].z = s;
-
-    r[1].x = 0;
-    r[1].y = 1;
-    r[1].z = 0;
-
-    r[2].x = -s;
-    r[2].y = 0;
-    r[2].z = c;
-
-    Matrix4 result;
-    result[0] = m[0] * r[0].x + m[2] * r[0].z;
-    result[1] = m[1] * r[1].y;
-    result[2] = m[0] * r[2].x + m[2] * r[2].z;
-    result[3] = m[3];
-    return result;
-}
-
-inline Matrix4 rotate_z(Matrix4 m, f32 theta)
-{
-    f32 c = lry::cos(theta);
-    f32 s = lry::cos(theta);
-
-    Matrix4 r;
-    r[0].x = c;
-    r[0].y = s;
-    r[0].z = 0;
-
-    r[1].x = -s;
-    r[1].y = c;
-    r[1].z = 0;
-
-    r[2].x = 0;
-    r[2].y = 0;
-    r[2].z = 1;
-
-    Matrix4 result;
-    result[0] = m[0] * r[0].x + m[1] * r[0].y;
-    result[1] = m[0] * r[1].x + m[1] * r[1].y;
-    result[2] = m[2] * r[2].z;
-    result[3] = m[3];
-
-    return result;
-}
-
-inline Matrix4 look_at(Vector3 eye, Vector3 origin, Vector3 up)
-{
-    Vector3 f = normalise(origin - eye);
-    Vector3 s = normalise(cross(f, up));
-    Vector3 u = cross(s, f);
-
-    Matrix4 result = Matrix4::identity();
-    result[0].x = s.x;
-    result[1].x = s.y;
-    result[2].x = s.z;
-    result[0].y = u.x;
-    result[1].y = u.y;
-    result[2].y = u.z;
-    result[0].z = -f.x;
-    result[1].z = -f.y;
-    result[2].z = -f.z;
-    result[3].x = -dot(s, eye);
-    result[3].y = -dot(u, eye);
-    result[3].z =  dot(f, eye);
-    return result;
-}
-
-/*******************************************************************************
- * Matrix4 operator definitions
- ******************************************************************************/
-inline Vector3 operator * (Matrix4 lhs, Vector3 rhs)
-{
-    Vector3 result = {};
-    result.x = lhs[0].x * rhs.x + lhs[0].y * rhs.y + lhs[0].z * rhs.z + lhs[3].x;
-    result.y = lhs[1].x * rhs.x + lhs[1].y * rhs.y + lhs[1].z * rhs.z + lhs[3].y;
-    result.z = lhs[2].x * rhs.x + lhs[2].y * rhs.y + lhs[2].z * rhs.z + lhs[3].z;
+    Vector3 result;
+    result.x = lhs[0].x * rhs.x + lhs[1].x * rhs.y + lhs[2].x * rhs.z;
+    result.y = lhs[0].y * rhs.x + lhs[1].y * rhs.y + lhs[2].y * rhs.z;
+    result.z = lhs[0].z * rhs.x + lhs[1].z * rhs.y + lhs[2].z * rhs.z;
     return result;
 }
 
@@ -341,22 +164,22 @@ inline Vector3 operator/(Vector3 lhs, f32 rhs)
     return v;
 }
 
-inline Vector2 operator * (Matrix4 lhs, Vector2 rhs)
+inline Vector2 operator*(Matrix4 lhs, Vector2 rhs)
 {
-    Vector2 result = {};
-    result.x = lhs[0].x * rhs.x + lhs[0].y * rhs.y + lhs[3].x;
-    result.y = lhs[1].x * rhs.x + lhs[1].y * rhs.y + lhs[3].y;
+    Vector2 result;
+    result.x = lhs[0].x * rhs.x + lhs[1].x * rhs.y;
+    result.y = lhs[0].y * rhs.x + lhs[1].y * rhs.y;
     return result;
 }
 
-inline Vector2& operator *=(Vector2 &lhs, f32 rhs)
+inline Vector2& operator*=(Vector2 &lhs, f32 rhs)
 {
     lhs.x *= rhs;
     lhs.y *= rhs;
     return lhs;
 }
 
-inline Vector2 operator+ (Vector2 lhs, Vector2 rhs)
+inline Vector2 operator+(Vector2 lhs, Vector2 rhs)
 {
     Vector2 result = {};
     result.x = lhs.x + rhs.x;
@@ -364,14 +187,15 @@ inline Vector2 operator+ (Vector2 lhs, Vector2 rhs)
     return result;
 }
 
-inline Vector2& operator+=(Vector2 &lhs, f32 rhs)
+inline Vector2 operator-(Vector2 lhs, Vector2 rhs)
 {
-    lhs.x += rhs;
-    lhs.y += rhs;
-    return lhs;
+    Vector2 result = {};
+    result.x = lhs.x - rhs.x;
+    result.y = lhs.y - rhs.y;
+    return result;
 }
 
-inline Matrix4 operator * (Matrix4 lhs, Matrix4 rhs)
+inline Matrix4 operator*(Matrix4 lhs, Matrix4 rhs)
 {
     Matrix4 result = {};
     result[0].x = lhs[0].x * rhs[0].x + lhs[1].x * rhs[0].y + lhs[2].x * rhs[0].z + lhs[3].x * rhs[0].w;
@@ -396,16 +220,12 @@ inline Matrix4 operator * (Matrix4 lhs, Matrix4 rhs)
     return result;
 }
 
-
-/*******************************************************************************
- * Vector3 operator definitions
- ******************************************************************************/
-inline Vector3  operator - (Vector3 v)
+inline Vector3 operator-(Vector3 v)
 {
     return { -v.x, -v.y, -v.z };
 }
 
-inline Vector3 operator + (Vector3 lhs, Vector3 rhs)
+inline Vector3 operator+(Vector3 lhs, Vector3 rhs)
 {
     Vector3 vec;
     vec.x = lhs.x + rhs.x;
@@ -414,41 +234,21 @@ inline Vector3 operator + (Vector3 lhs, Vector3 rhs)
     return vec;
 }
 
-inline Vector3 operator + (Vector3 lhs, f32 rhs)
-{
-    Vector3 vec;
-    vec.x = lhs.x + rhs;
-    vec.y = lhs.y + rhs;
-    vec.z = lhs.z + rhs;
-    return vec;
-}
-
-inline Vector3 operator + (f32 lhs, Vector3 rhs)
-{
-    return rhs + lhs;
-}
-
-inline Vector3& operator += (Vector3 &lhs, Vector3 rhs)
+inline Vector3& operator+=(Vector3 &lhs, Vector3 rhs)
 {
     lhs = lhs + rhs;
     return lhs;
 
 }
 
-inline Vector2& operator += (Vector2 &lhs, Vector2 rhs)
+inline Vector2& operator+=(Vector2 &lhs, Vector2 rhs)
 {
     lhs = lhs + rhs;
     return lhs;
 
 }
 
-inline Vector3& operator += (Vector3 &lhs, f32 rhs)
-{
-    lhs = lhs + rhs;
-    return lhs;
-}
-
-inline Vector3 operator - (Vector3 lhs, Vector3 rhs)
+inline Vector3 operator-(Vector3 lhs, Vector3 rhs)
 {
     Vector3 vec;
     vec.x = lhs.x - rhs.x;
@@ -457,33 +257,13 @@ inline Vector3 operator - (Vector3 lhs, Vector3 rhs)
     return vec;
 }
 
-inline Vector3 operator - (Vector3 lhs, f32 rhs)
-{
-    Vector3 vec;
-    vec.x = lhs.x - rhs;
-    vec.y = lhs.y - rhs;
-    vec.z = lhs.z - rhs;
-    return vec;
-}
-
-inline Vector3 operator - (f32 lhs, Vector3 rhs)
-{
-    return rhs - lhs;
-}
-
-inline Vector3& operator -= (Vector3 &lhs, Vector3 rhs)
+inline Vector3& operator-=(Vector3 &lhs, Vector3 rhs)
 {
     lhs = lhs - rhs;
     return lhs;
 }
 
-inline Vector3& operator -= (Vector3 &lhs, f32 rhs)
-{
-    lhs = lhs - rhs;
-    return lhs;
-}
-
-inline Vector3 operator * (Vector3 lhs, f32 rhs)
+inline Vector3 operator*(Vector3 lhs, f32 rhs)
 {
     Vector3 vec;
     vec.x = lhs.x * rhs;
@@ -492,21 +272,18 @@ inline Vector3 operator * (Vector3 lhs, f32 rhs)
     return vec;
 }
 
-inline Vector3 operator * (f32 lhs, Vector3 rhs)
+inline Vector3 operator*(f32 lhs, Vector3 rhs)
 {
     return rhs * lhs;
 }
 
-inline Vector3& operator *= (Vector3 &lhs, f32 rhs)
+inline Vector3& operator*=(Vector3 &lhs, f32 rhs)
 {
     lhs = lhs * rhs;
     return lhs;
 }
 
-/*******************************************************************************
- * Vector4 operator definitions
- ******************************************************************************/
-inline Vector4 operator + (Vector4 lhs, Vector4 rhs)
+inline Vector4 operator+(Vector4 lhs, Vector4 rhs)
 {
     Vector4 vec;
     vec.x = lhs.x + rhs.x;
@@ -516,34 +293,13 @@ inline Vector4 operator + (Vector4 lhs, Vector4 rhs)
     return vec;
 }
 
-inline Vector4 operator + (Vector4 lhs, f32 rhs)
-{
-    Vector4 vec;
-    vec.x = lhs.x + rhs;
-    vec.y = lhs.y + rhs;
-    vec.z = lhs.z + rhs;
-    vec.w = lhs.w + rhs;
-    return vec;
-}
-
-inline Vector4  operator + (f32 lhs, Vector4 rhs)
-{
-    return rhs + lhs;
-}
-
-inline Vector4& operator += (Vector4 &lhs, Vector4 rhs)
+inline Vector4& operator+=(Vector4 &lhs, Vector4 rhs)
 {
     lhs = lhs + rhs;
     return lhs;
 }
 
-inline Vector4& operator += (Vector4 &lhs, f32 rhs)
-{
-    lhs = lhs + rhs;
-    return lhs;
-}
-
-inline Vector4 operator - (Vector4 lhs, Vector4 rhs)
+inline Vector4 operator-(Vector4 lhs, Vector4 rhs)
 {
     Vector4 vec;
     vec.x = lhs.x - rhs.x;
@@ -553,34 +309,13 @@ inline Vector4 operator - (Vector4 lhs, Vector4 rhs)
     return vec;
 }
 
-inline Vector4 operator - (Vector4 lhs, f32 rhs)
-{
-    Vector4 vec;
-    vec.x = lhs.x - rhs;
-    vec.y = lhs.y - rhs;
-    vec.z = lhs.z - rhs;
-    vec.w = lhs.w - rhs;
-    return vec;
-}
-
-inline Vector4 operator - (f32 lhs, Vector4 rhs)
-{
-    return rhs - lhs;
-}
-
-inline Vector4& operator -= (Vector4 &lhs, Vector4 rhs)
+inline Vector4& operator-=(Vector4 &lhs, Vector4 rhs)
 {
     lhs = lhs - rhs;
     return lhs;
 }
 
-inline Vector4& operator -= (Vector4 &lhs, f32 rhs)
-{
-    lhs = lhs - rhs;
-    return lhs;
-}
-
-inline Vector4 operator * (Vector4 lhs, f32 rhs)
+inline Vector4 operator*(Vector4 lhs, f32 rhs)
 {
     Vector4 vec;
     vec.x = lhs.x * rhs;
@@ -590,20 +325,17 @@ inline Vector4 operator * (Vector4 lhs, f32 rhs)
     return vec;
 }
 
-inline Vector4 operator * (f32 lhs, Vector4 rhs)
+inline Vector4 operator*(f32 lhs, Vector4 rhs)
 {
     return rhs * lhs;
 }
 
-inline Vector4& operator *= (Vector4 &lhs, f32 rhs)
+inline Vector4& operator*=(Vector4 &lhs, f32 rhs)
 {
     lhs = lhs * rhs;
     return lhs;
 }
 
-/*******************************************************************************
- * Quaternion operations
- ******************************************************************************/
 inline f32 length(Quaternion q)
 {
     return lry::sqrt(q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w);
@@ -625,7 +357,7 @@ inline Quaternion inverse(Quaternion q)
     return r;
 }
 
-inline Quaternion operator* (Quaternion p, Quaternion q)
+inline Quaternion operator*(Quaternion p, Quaternion q)
 {
     Quaternion r;
     r.x = p.w * q.x + p.x * q.w + p.y * q.z - p.z * q.y;
@@ -656,7 +388,6 @@ i32 factorial(i32 x)
 }
 
 #if LEARY_ENABLE_SSE2
-#include <emmintrin.h>
 
 #if defined(_MSC_VER)
 #define ALIGN16_BEG _declspec(align(16))
@@ -866,8 +597,8 @@ Quaternion quat_from_euler(Vector3 v)
     Quaternion q;
 
     f32 pitch = v.x;
-    f32 roll  = v.y;
-    f32 yaw   = v.z;
+    f32 yaw   = v.y;
+    f32 roll  = v.z;
 
     f32 cy = lry::cos(yaw * 0.5f);
     f32 sy = lry::sin(yaw * 0.5f);
@@ -876,9 +607,9 @@ Quaternion quat_from_euler(Vector3 v)
     f32 cp = lry::cos(pitch * 0.5f);
     f32 sp = lry::sin(pitch * 0.5f);
 
-    q.x = cy * sr * cp - sy * cr * sp;
-    q.y = cy * cr * sp + sy * sr * cp;
-    q.z = sy * cr * cp - cy * sr * sp;
+    q.z = cy * sr * cp - sy * cr * sp;
+    q.x = cy * cr * sp + sy * sr * cp;
+    q.y = sy * cr * cp - cy * sr * sp;
     q.w = cy * cr * cp + sy * sr * sp;
 
     return q;
@@ -887,4 +618,189 @@ Quaternion quat_from_euler(Vector3 v)
 f32 radian_from_degree(f32 d)
 {
     return d * PI / 180.0f;
+}
+
+Vector4 vector4(Vector3 xyz, f32 w)
+{
+    return Vector4{ xyz.x, xyz.y, xyz.z, w };
+}
+
+f32 sRGB_from_linear(f32 l)
+{
+    if (l > 1.0f) {
+        return 1.0f;
+    } else if (l < 0.0f) {
+        return 0.0f;
+    }
+
+    f32 s = l*12.92f;
+    if (l > 0.0031308f) {
+        s = 1.055f*powf(l, 1.0f/2.4f) - 0.055f;
+    }
+
+    return s;
+}
+
+f32 linear_from_sRGB(f32 s)
+{
+    if (s <= 0.04045f) {
+        return s / 12.92f;
+    } else {
+        return powf((s + 0.055f) / (1.055f), 2.4f);
+    }
+}
+
+Vector4 sRGB_from_linear(Vector4 l)
+{
+    Vector4 s;
+    s.r = sRGB_from_linear(l.r);
+    s.g = sRGB_from_linear(l.g);
+    s.b = sRGB_from_linear(l.b);
+    s.a = sRGB_from_linear(l.a);
+    return s;
+}
+
+Vector4 linear_from_sRGB(Vector4 l)
+{
+    Vector4 s;
+    s.r = linear_from_sRGB(l.r);
+    s.g = linear_from_sRGB(l.g);
+    s.b = linear_from_sRGB(l.b);
+    s.a = linear_from_sRGB(l.a);
+    return s;
+}
+
+void calc_tangent_and_bitangent(
+    Vector3 *tangent,
+    Vector3 *bitangent,
+    Vector3 e0,
+    Vector3 e1,
+    Vector2 duv0,
+    Vector2 duv1)
+{
+    f32 denom = duv0.x*duv1.y - duv1.x*duv0.y;
+    f32 inv_denom = 1.0f / denom;
+
+    Vector3 t, b;
+    t.x = inv_denom * (duv1.v * e0.x - duv0.v * e1.x);
+    t.y = inv_denom * (duv1.v * e0.y - duv0.v * e1.y);
+    t.z = inv_denom * (duv1.v * e0.z - duv0.v * e1.z);
+    t = normalise(t);
+
+    b.x = inv_denom * (-duv1.u * e0.x + duv0.u * e1.x);
+    b.y = inv_denom * (-duv1.u * e0.y + duv0.u * e1.y);
+    b.z = inv_denom * (-duv1.u * e0.z + duv0.u * e1.z);
+    b = normalise(b);
+
+    *tangent   = t;
+    *bitangent = b;
+}
+
+
+Vector3 tangent(Vector3 e0, Vector3 e1, Vector2 duv0, Vector2 duv1)
+{
+    f32 denom = duv0.x*duv1.y - duv1.x*duv0.y;
+    f32 inv_denom = 1.0f / denom;
+    
+    Vector3 t;
+    t.x = inv_denom * (duv1.v * e0.x - duv0.v * e1.x);
+    t.y = inv_denom * (duv1.v * e0.y - duv0.v * e1.y);
+    t.z = inv_denom * (duv1.v * e0.z - duv0.v * e1.z);
+    t = normalise(t);
+    return t;
+}
+
+Vector3 bitangent(Vector3 e0, Vector3 e1, Vector2 duv0, Vector2 duv1)
+{
+    f32 denom = duv0.x*duv1.y - duv1.x*duv0.y;
+    f32 inv_denom = 1.0f / denom;
+    
+    Vector3 b;
+    b.x = inv_denom * (-duv1.u * e0.x + duv0.u * e1.x);
+    b.y = inv_denom * (-duv1.u * e0.y + duv0.u * e1.y);
+    b.z = inv_denom * (-duv1.u * e0.z + duv0.u * e1.z);
+    b = normalise(b);
+    return b;
+}
+
+static bool ray_vs_sphere(
+    Vector3 ray_origin,
+    Vector3 ray_direction,
+    Vector3 sphere_pos,
+    f32 sphere_radius)
+{
+    Vector3 e = sphere_pos - ray_origin;
+    f32 a = dot(e, ray_direction);
+    
+    f32 root = sphere_radius*sphere_radius - dot(e, e) + a*a;
+    if (root < 0.0f) return false;
+    return true;
+}
+
+static Matrix4 perspective(f32 vertical_fov, f32 aspect)
+{
+    Matrix4 result = {};
+    
+    f32 near_z = 0.001f;
+    f32 far_z = 10000.0f;
+    
+    f32 inv_tan_half_vfov = 1.0f / lry::tan(0.5f * vertical_fov);
+    
+    result[0][0] = inv_tan_half_vfov / aspect;
+    result[1][1] = -inv_tan_half_vfov;
+    //result[2][2] = (near_z + far_z) / (near_z - far_z);
+    //result[2][3] = -1.0f;
+    //result[3][2] = 2.0f * near_z * far_z / (near_z - far_z);
+    
+    result[2][2] = far_z / (near_z - far_z);
+    result[2][3] = -1.0f;
+    result[3][2] = (near_z * far_z) / (near_z - far_z);
+    
+    
+    return result;
+}
+
+static Matrix4 matrix4(Quaternion q)
+{
+    Matrix4 r;
+    
+    f32 qxx = q.x * q.x;
+    f32 qyy = q.y * q.y;
+    f32 qzz = q.z * q.z;
+    f32 qxz = q.x * q.z;
+    f32 qxy = q.x * q.y;
+    f32 qyz = q.y * q.z;
+    f32 qwx = q.w * q.x;
+    f32 qwy = q.w * q.y;
+    f32 qwz = q.w * q.z;
+    
+    r[0].x = 1.0f - 2.0f * (qyy +  qzz);
+    r[0].y = 2.0f * (qxy + qwz);
+    r[0].z = 2.0f * (qxz - qwy);
+    r[0].w = 0.0f;
+    
+    r[1].x = 2.0f * (qxy - qwz);
+    r[1].y = 1.0f - 2.0f * (qxx +  qzz);
+    r[1].z = 2.0f * (qyz + qwx);
+    r[1].w = 0.0f;
+    
+    r[2].x = 2.0f * (qxz + qwy);
+    r[2].y = 2.0f * (qyz - qwx);
+    r[2].z = 1.0f - 2.0f * (qxx +  qyy);
+    r[2].w = 0.0f;
+    
+    r[3] = { 0.0f, 0.0f, 0.0f, 1.0f };
+    
+    return r;
+}
+
+
+static Matrix4 matrix4_identity()
+{
+    Matrix4 identity = {};
+    identity[0].x = 1.0f;
+    identity[1].y = 1.0f;
+    identity[2].z = 1.0f;
+    identity[3].w = 1.0f;
+    return identity;
 }

@@ -3,7 +3,7 @@
  * created: 2017-08-22
  * authors: Jesper Stefansson (jesper.stefansson@gmail.com)
  *
- * Copyright (c) 2017 - all rights reserved
+ * Copyright (c) 2017-2018 - all rights reserved
  */
 
 BENCHMARK_FUNC(array_remove_front)

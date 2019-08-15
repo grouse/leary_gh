@@ -6,27 +6,9 @@
  * Copyright (c) 2017-2018 - all rights reserved
  */
 
-#ifndef LEARY_H
-#define LEARY_H
-
-#include "build_config.h"
-
 #ifndef INTROSPECT
 #define INTROSPECT
 #endif
-
-#include <utility>
-
-#include "external/stb/stb_truetype.h"
-
-#include "platform/platform_debug.h"
-#include "leary_macros.h"
-
-#include "core/profiler.h"
-#include "core/allocator.h"
-#include "core/maths.h"
-#include "core/gfx_vulkan.h"
-#include "core/assets.h"
 
 enum DebugOverlayItemType {
     Debug_allocator_stack,
@@ -58,31 +40,32 @@ struct DebugOverlayItem {
 };
 
 struct DebugOverlay {
-    bool show_allocators = true;
-    bool show_profiler   = true;
-
-    struct {
-        VulkanBuffer vbo;
-        i32          vertex_count;
-        Vector3      position;
-    } texture;
+    bool show_allocators = false;
+    bool show_profiler   = false;
 
     Array<DebugOverlayItem> items;
     Array<DebugRenderItem>  render_queue;
 };
 
 struct Entity {
-    i32        id;
-    i32        index;
+    EntityID   id;
     Vector3    position;
     Vector3    scale;
     Quaternion rotation = Quaternion::make( Vector3{ 0.0f, 1.0f, 0.0f });
+    MeshID mesh_id = ASSET_INVALID_ID;
+    GfxDescriptorSet descriptor_set;
 };
 
 struct IndexRenderObject {
-    i32            entity_id;
+    i32            entity_id = -1;
     PipelineID     pipeline;
-    VulkanBuffer   vbo;
+    struct {
+        VulkanBuffer points;
+        VulkanBuffer normals;
+        VulkanBuffer tangents;
+        VulkanBuffer bitangents;
+        VulkanBuffer uvs;
+    } vbo;
     VulkanBuffer   ibo;
     i32            index_count;
     //Matrix4        transform;
@@ -92,27 +75,33 @@ struct IndexRenderObject {
 // TODO(jesper): stick these in the pipeline so that we reduce the number of
 // pipeline binds
 struct RenderObject {
+    i32            entity_id = -1;
     PipelineID     pipeline;
-    VulkanBuffer   vbo;
+    struct {
+        VulkanBuffer points;
+        VulkanBuffer normals;
+        VulkanBuffer tangents;
+        VulkanBuffer bitangents;
+        VulkanBuffer uvs;
+    } vbo;
     i32            vertex_count;
     Matrix4        transform;
     Material       *material;
 };
 
-struct Physics {
-    Array<Vector3> velocities;
-    Array<i32>     entities;
+struct Camera {
+    Matrix4 projection;
+
+    Vector3 position    = { 0.0f, 0.0f, 10.0f };
+    Quaternion rotation = quat_from_euler({ 0.0f, 0.0f, 0.0f });
+
+    VulkanUniformBuffer ubo;
 };
 
-struct Camera {
-    Matrix4             view;
-    Matrix4             projection;
-    VulkanUniformBuffer ubo;
-
-    Vector3             position;
-    f32 yaw   = 0.0f;
-    f32 pitch = 0.0f;
-    Quaternion rotation = Quaternion::make({ 1.0f, 0.0f, 0.0f }, 2.2f * PI);
+enum CameraId {
+    CAMERA_PLAYER,
+    CAMERA_DEBUG,
+    CAMERA_COUNT
 };
 
 struct GameState {
@@ -124,9 +113,14 @@ struct GameState {
         Material player;
     } materials;
 
+    // TODO(jesper): I don't like this
+    bool middle_mouse_pressed = false;
+    bool right_mouse_pressed = false;
+
     DebugOverlay overlay;
 
-    Camera fp_camera = {};
+    Camera cameras[CAMERA_COUNT] = {};
+    CameraId active_camera = CAMERA_DEBUG;
 
     Array<RenderObject> render_objects;
     Array<IndexRenderObject> index_render_objects;
@@ -158,7 +152,6 @@ INTROSPECT struct Settings
 };
 
 Entity entities_add(EntityData data);
-i32 physics_add(Entity entity);
 
 // TODO(jesper): this should be something like gui_icon or gui_texture API
 void debug_add_texture(
@@ -176,5 +169,11 @@ void debug_add_texture(
     PipelineID pipeline,
     DebugOverlay *overlay);
 
-#endif /* LEARY_H */
+void game_init();
+void game_quit();
+void* game_pre_reload();
+void game_reload(void *game_state);
+void game_input(InputEvent event);
+void game_update_and_render(f32 dt);
+void game_begin_frame();
 

@@ -6,27 +6,79 @@
  * Copyright (c) 2017 - all rights reserved
  */
 
-#ifndef LEARY_ASSETS_H
-#define LEARY_ASSETS_H
-
-#include "core.h"
-#include "gfx_vulkan.h"
-
 #define ASSET_INVALID_ID (-1)
 
 #define CATALOG_PROCESS_FUNC(fname) void fname(FilePath path)
 typedef CATALOG_PROCESS_FUNC(catalog_process_t);
 
-typedef i32 AssetID;
-typedef i32 TextureID;
-typedef i32 EntityID;
-typedef i32 MeshID;
+#define DEFINE_ID_TYPE(name, type)\
+    struct name {\
+        type id;\
+        name() {}\
+        name(const type other)\
+        {\
+            id = other;\
+        }\
+        name(const name &other)\
+        {\
+            id = other.id;\
+        }\
+        name(const name &&other)\
+        {\
+            id = other.id;\
+        }\
+        name& operator=(const name &other)\
+        {\
+            id = other.id;\
+            return *this;\
+        }\
+        name& operator=(const name &&other)\
+        {\
+            id = other.id;\
+            return *this;\
+        }\
+        name& operator++()\
+        {\
+            id += 1;\
+            return *this;\
+        }\
+        name operator++(int)\
+        {\
+            name tmp(*this);\
+            id += 1;\
+            return tmp;\
+        }\
+        operator int()\
+        {\
+            return id;\
+        }\
+    }
+
+DEFINE_ID_TYPE(AssetID,   i32);
+DEFINE_ID_TYPE(TextureID, i32);
+DEFINE_ID_TYPE(EntityID,  i32);
+DEFINE_ID_TYPE(MeshID,    i32);
 
 struct Mesh {
     AssetID asset_id = ASSET_INVALID_ID;
 
-    Array<f32> vertices;
+    Array<Vector3> points;
+    Array<Vector3> normals;
+    Array<Vector3> tangents;
+    Array<Vector3> bitangents;
+    Array<Vector2> uvs;
     Array<u32> indices;
+
+    struct {
+        VulkanBuffer points;
+        VulkanBuffer normals;
+        VulkanBuffer tangents;
+        VulkanBuffer bitangents;
+        VulkanBuffer uvs;
+    } vbo;
+
+    VulkanBuffer ibo;
+    u32 element_count;
 };
 
 struct TextureData {
@@ -35,6 +87,20 @@ struct TextureData {
     VkFormat format;
     isize    size;
     void     *pixels;
+};
+
+struct SoundSample {
+    i16 left  = 0;
+    i16 right = 0;
+};
+
+
+struct SoundData {
+    i32 sample_rate;
+    i32 num_channels;
+    i32 bits_per_sample;
+    i32 num_samples;
+    i16 *samples;
 };
 
 struct TextureAsset {
@@ -65,7 +131,9 @@ struct EntityData {
     Vector3    position = {};
     Vector3    scale    = {};
     Quaternion rotation = {};
+    MeshID     mesh_id = ASSET_INVALID_ID;
     String     mesh     = {};
+    Array<String> textures;
 };
 
 struct Catalog {
@@ -83,6 +151,10 @@ struct Catalog {
     Array<FilePath> process_queue;
 };
 
+Mesh* find_mesh(MeshID mesh_id);
+Mesh* find_mesh(StringView name);
 
-#endif /* LEARY_ASSETS_H */
+#define CATALOG_CALLBACK(fname)  void fname(FilePath path)
+typedef CATALOG_CALLBACK(catalog_callback_t);
 
+void create_catalog_thread(Array<FolderPath> folders, catalog_callback_t *callback);

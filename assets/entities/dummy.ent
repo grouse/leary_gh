@@ -1,4 +1,6 @@
-#version 2
+#version 5
 
-position 21.0, 1.5, 9.0;
-mesh cube.obj;
+position 0.0, 0.0, 0.0;
+mesh cube_cube.msh;
+texture cobble_col.bmp;
+texture cobble_nrm.bmp;

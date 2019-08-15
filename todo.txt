@@ -1,0 +1,58 @@
+movement system
+
+[gfx] 3D skeleton animation
+[gfx] hot-reload shaders
+[gfx] terrain LOD
+[gfx] terrain frustum clipping
+[gfx] data driven vulkan pipeline
+[gfx] glsl -> spirv compiler in engine at runtime
+[gfx] explicit flushing of transfer operations
+[gfx] track and clean up all memory in vulkan
+[gfx] shadow mapping
+[gfx] physically based rendering?
+
+ray intersection tests
+entity browser
+entity selector
+entity nudger
+terrain collision
+
+[gui] movable window
+
+[profiler] pause profiling
+[profiler] store and select frames
+
+[techdebt] consider moving code from win32_leary to win32_main
+
+[snd] resampling
+[snd] panning
+[snd] pitch shift
+[snd] playback speed
+[snd][alsa] feature parity with wasapi
+[snd][pulseaudio] investigate
+[snd][oss] investigate
+[snd][jack] investigate
+[snd] support different bits per sample
+[snd] volume control
+[snd] per sound asset properties
+[snd] audio debugging play/write cursor
+
+[debug] panic crash handling
+[debug] clean up overlay rendering and processing
+[debug] file log
+[debug] optimize/investigate vsnprintf alternative
+
+// FINISHED TODOs
+[tools] fbx mesh convert
+[profiler] profiler 1.0
+[snd] audio 1.0
+[gui] gui_push_textbox
+[gui] font color
+[gui] gui_textbox highlight color
+[gfx] transfer queue
+[snd][wasapi] double-check latency buffering
+[snd] clipping
+[profiler] optimise graph
+[snd] channel mixing
+[assets] clean up asset system so meshes can be hot reloaded
+[debug] clean up logging system, look into optimisation

@@ -6,12 +6,6 @@
  * Copyright (c) 2017 - all rights reserved
  */
 
-
-#ifndef LEARY_FILE_H
-#define LEARY_FILE_H
-
-#include "string.h"
-
 enum FileAccess {
     FileAccess_read,
     FileAccess_write,
@@ -63,9 +57,9 @@ struct FolderPathView {
         absolute = { str };
     }
 
-    FolderPathView(i32 size, const char *str)
+    FolderPathView(const char *str, i32 size)
     {
-        absolute = { size, str };
+        absolute = { str, size };
     }
 
     const char& operator[] (i32 i)
@@ -93,7 +87,7 @@ struct FilePathView {
     template<i32 N>
     FilePathView(const char (&str)[N])
     {
-        absolute = { N, byte };
+        absolute = { N, str };
         resolve_filename_ext(absolute, &filename, &extension);
     }
 
@@ -110,9 +104,9 @@ struct FilePathView {
         extension = other.extension;
     }
 
-    FilePathView(i32 size, const char *str)
+    FilePathView(const char *str, i32 size)
     {
-        absolute = { size, str };
+        absolute = { str, size };
         resolve_filename_ext(absolute, &filename, &extension);
     }
 
@@ -122,26 +116,56 @@ struct FilePathView {
     }
 };
 
+struct PlatformPaths {
+    FolderPath preferences;
+    FolderPath data;
+    FolderPath exe;
+    FolderPath shaders;
+    FolderPath textures;
+    FolderPath models;
+};
+
 bool operator==(FilePath lhs, FilePath rhs);
 bool operator==(FolderPath lhs, FolderPath rhs);
 
-template<typename... Args>
-FilePath create_file_path(Allocator *a, Args... args)
+
+FilePath create_file_path(Allocator *a, std::initializer_list<StringView> args)
 {
     FilePath p = {};
-    p.absolute = create_string(a, args...);
+    p.absolute = create_string(a, args);
     resolve_filename_ext(p.absolute, &p.filename, &p.extension);
-
     return p;
 }
 
-template<typename... Args>
-FolderPath create_folder_path(Allocator *a, Args... args)
+FilePath create_file_path(Allocator *a, StringView args)
+{
+    FilePath p = {};
+    p.absolute = create_string(a, args);
+    resolve_filename_ext(p.absolute, &p.filename, &p.extension);
+    return p;
+}
+
+FolderPath create_folder_path(Allocator *a, std::initializer_list<StringView> args)
 {
     FolderPath p = {};
-    p.absolute = create_string(a, args...);
+    p.absolute = create_string(a, args);
     return p;
 }
+
+FolderPath create_folder_path(Allocator *a, const char *str)
+{
+    FolderPath p = {};
+    p.absolute = create_string(a, str);
+    return p;
+}
+
+FolderPath create_folder_path(Allocator *a, StringView str)
+{
+    FolderPath p = {};
+    p.absolute = create_string(a, str);
+    return p;
+}
+
 
 // NOTE(jesper): platform specific implementation
 FilePath resolve_file_path(GamePath rp, StringView path, Allocator *a);
@@ -156,15 +180,3 @@ FilePath resolve_file_path(GamePath rp, const char (&str)[N], Allocator *a)
 {
     return resolve_file_path(rp, StringView{str}, a);
 }
-
-i32 utf8_size(FilePath file);
-i32 utf8_size(FilePathView file);
-i32 utf8_size(FolderPath folder);
-i32 utf8_size(FolderPathView folder);
-
-void string_concat(String *str, FilePath file);
-void string_concat(String *str, FilePathView file);
-void string_concat(String *str, FolderPath folder);
-void string_concat(String *str, FolderPathView folder);
-
-#endif // LEARY_FILE_H

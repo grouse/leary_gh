@@ -6,9 +6,6 @@
  * Copyright (c) 2017-2018 - all rights reserved
  */
 
-#include "hash_table.h"
-#include "string.h"
-
 template <typename K, typename V>
 void init_table(HashTable<K, V> *table, Allocator *a)
 {

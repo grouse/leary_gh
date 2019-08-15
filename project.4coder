@@ -1,0 +1,26 @@
+version(1);
+project_name = "leary";
+
+patterns = {
+"*.cpp",
+"*.h",
+"*.c",
+"*.hpp",
+"*.txt",
+"*.4coder",
+"*.sh",
+"*.bat",
+"*.ent",
+"*.glsl",
+};
+
+blacklist_patterns = {
+".*"
+};
+
+load_paths = {
+    { {
+        { ".", .relative = true, .recursive = true, },
+    }, .os = "win" },
+};
+

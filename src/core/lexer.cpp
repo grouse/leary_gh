@@ -6,9 +6,6 @@
  * Copyright (c) 2016-2017 - all rights reserved
  */
 
-#include <cstring>
-#include <cstdio>
-
 struct Lexer {
     char *at;
     char *end;
@@ -269,6 +266,7 @@ Token peek_token(Lexer *l)
 
 bool eat_until_newline(FilePathView path, Lexer *lexer)
 {
+    (void)path;
     while (lexer->at < lexer->end) {
         if (is_newline(lexer->at[0])) {
             return true;
@@ -281,6 +279,8 @@ bool eat_until_newline(FilePathView path, Lexer *lexer)
 
 bool eat_until(FilePathView path, Lexer *lexer, Token::Type type)
 {
+    (void)path;
+    
     Token t;
     do {
         t = next_token(lexer);

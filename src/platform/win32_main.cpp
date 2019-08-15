@@ -5,16 +5,6 @@
  * Copyright (c) 2015-2018 Jesper Stefansson
  */
 
-#include <cstdio>
-#include <cstdint>
-#include <cinttypes>
-
-#include "platform.h"
-
-#if LEARY_DYNAMIC
-#include "win32_debug.cpp"
-#include "win32_thread.cpp"
-
 typedef PLATFORM_INIT_FUNC(platform_init_t);
 typedef PLATFORM_PRE_RELOAD_FUNC(platform_pre_reload_t);
 typedef PLATFORM_RELOAD_FUNC(platform_reload_t);
@@ -57,11 +47,15 @@ HMODULE reload_code(PlatformState *platform, HMODULE current)
         FreeLibrary(current);
     }
 
-    DeleteFile(".\\game_loaded.dll");
-    BOOL result = CopyFile(".\\game.dll", ".\\game_loaded.dll", true);
-    ASSERT(result != FALSE);
+    //DeleteFile(".\\leary_loaded.dll");
+    //BOOL result = CopyFile(".\\game.dll", ".\\game_loaded.dll", true);
+    //result = CopyFile(".\\game.pdb", ".\\game_loaded.pdb", true);
+    //(void)result;
+    
+    // NOTE(jesper): commented out because it is the only place using assert in the main layer. do something else here?
+    //ASSERT(result != FALSE);
 
-    HMODULE lib = LoadLibrary(".\\game_loaded.dll");
+    HMODULE lib = LoadLibrary(".\\game.dll");
     if (lib != NULL) {
         platform_init       = (platform_init_t*)GetProcAddress(lib, "platform_init");
         platform_pre_reload = (platform_pre_reload_t*)GetProcAddress(lib, "platform_pre_reload");
@@ -80,17 +74,6 @@ HMODULE reload_code(PlatformState *platform, HMODULE current)
 
     return lib;
 }
-#else
-
-#include "win32_leary.cpp"
-
-// TODO(jesper): include the game code .cpp files directly
-HMODULE reload_code(PlatformState *, HMODULE)
-{
-    return NULL;
-}
-
-#endif
 
 int WINAPI
 WinMain(HINSTANCE instance,
@@ -112,6 +95,7 @@ WinMain(HINSTANCE instance,
 
     constexpr f32 code_reload_rate = 1.0f;
     f32 code_reload_timer = code_reload_rate;
+    (void)code_reload_timer;
 
     while(true) {
         LARGE_INTEGER current_time;
@@ -121,11 +105,14 @@ WinMain(HINSTANCE instance,
 
         f32 dt = (f32)elapsed / frequency.QuadPart;
 
+        // TODO(jesper) let's re-introduce this with a file watcher later
+        #if 0
         code_reload_timer += dt;
         if (code_reload_timer >= code_reload_rate) {
             reload_code(&platform, lib);
             code_reload_timer = 0.0f;
         }
+        #endif
 
 
         platform_update(&platform, dt);

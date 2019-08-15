@@ -6,8 +6,6 @@
  * Copyright (c) 2017 - all rights reserved
  */
 
-#include "collision.h"
-
 Collision g_collision = {};
 DebugCollision g_debug_collision = {};
 
@@ -66,11 +64,12 @@ void init_collision()
 
     // debug sphere wireframe
     {
-        Mesh *sphere = find_mesh("unit_sphere.obj");
-        ASSERT(sphere != nullptr);
-        g_debug_collision.sphere.index_count = sphere->indices.count;
-        g_debug_collision.sphere.vbo = create_vbo(sphere->vertices.data, sphere->vertices.count * sizeof sphere->vertices[0]);
-        g_debug_collision.sphere.ibo = create_ibo(sphere->indices.data, sphere->indices.count * sizeof sphere->indices[0]);
+        Mesh *mesh = find_mesh("unit_sphere.obj");
+        ASSERT(mesh != nullptr);
+
+        g_debug_collision.sphere.vbo = mesh->vbo.points;
+        g_debug_collision.sphere.ibo = mesh->ibo;
+        g_debug_collision.sphere.vertex_count = mesh->element_count;
     }
 
     CollidableAABB test = {};

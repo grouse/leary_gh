@@ -3,11 +3,8 @@
  * created: 2017-03-18
  * authors: Jesper Stefansson (jesper.stefansson@gmail.com)
  *
- * Copyright (c) 2017 - all rights reserved
+ * Copyright (c) 2017-2018 - all rights reserved
  */
-
-#ifndef PLATFORM_INPUT_H
-#define PLATFORM_INPUT_H
 
 enum Key {
     Key_escape,
@@ -94,8 +91,14 @@ enum Key {
 enum InputType {
     InputType_key_release,
     InputType_key_press,
+    InputType_mouse_wheel,
     InputType_mouse_move,
-    InputType_mouse_press
+    InputType_mouse_press,
+    InputType_mouse_release,
+    InputType_middle_mouse_press,
+    InputType_middle_mouse_release,
+    InputType_right_mouse_press,
+    InputType_right_mouse_release,
 };
 
 struct InputEvent {
@@ -110,9 +113,6 @@ struct InputEvent {
             f32 x, y;
             i32 button;
         } mouse;
+        f32 mouse_wheel;
     };
 };
-
-
-#endif /* PLATFORM_INPUT_H */
-

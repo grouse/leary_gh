@@ -6,9 +6,6 @@
  * Copyright (c) 2016-2017 - all rights reserved
  */
 
-#include <inttypes.h>
-#include "generated/type_info.h"
-
 i32
 member_to_string(StructMemberInfo &member,
                  void *ptr,
@@ -206,7 +203,8 @@ member_from_string(char **ptr,
                                child);
         } break;
         default:
-            LOG(Log_unimplemented, "unhandled case: %d", member->type);
+            LOG_UNIMPLEMENTED();
+            //Log_unimplemented, "unhandled case: %d", member->type);
         }
 
         do token = next_token(&lexer);
@@ -220,7 +218,7 @@ void
 serialize_load_conf(FilePathView path, StructMemberInfo *members, i32 num_members, void *out)
 {
     if (!file_exists(path)) {
-        LOG(Log_warning, "path does not exist: %s", path);
+        LOG_WARNING("path does not exist: %s", path.absolute.bytes);
         return;
     }
 
@@ -234,8 +232,8 @@ void
 serialize_save_conf(FilePathView path, StructMemberInfo *members, i32 num_members, void *ptr)
 {
     if (!file_exists(path) && !create_file(path, true)) {
-        LOG(Log_warning, "path does not exist or can't be created: %s",
-                  path);
+        LOG_WARNING("path does not exist or can't be created: %s",
+                    path.absolute.bytes);
         ASSERT(false);
         return;
     }

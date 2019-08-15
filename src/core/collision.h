@@ -1,6 +1,3 @@
-#ifndef LEARY_COLLISION_H
-#define LEARY_COLLISION_H
-
 struct CollidableAABB {
     Vector3 position;
     Vector3 scale;
@@ -33,8 +30,6 @@ struct DebugCollision {
     struct {
         VulkanBuffer vbo;
         VulkanBuffer ibo;
-        i32 index_count = 0;
+        i32 vertex_count = 0;
     } sphere;
 };
-
-#endif // LEARY_COLLISION_H

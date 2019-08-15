@@ -6,10 +6,30 @@
  * Copyright (c) 2018 - all rights reserved
  */
 
-#ifndef LEARY_GUI_H
-#define LEARY_GUI_H
+struct DebugInfo
+{
+    const char* file;
+    u32         line;
+};
 
-struct GuiFrame {
+struct GuiRenderItem
+{
+    Vector2                position;
+    VulkanBuffer           vbo;
+    VkDeviceSize           vbo_offset;
+    i32                    vertex_count;
+
+    PipelineID              pipeline_id;
+    Array<GfxDescriptorSet> descriptors;
+    PushConstants           constants;
+
+#if LEARY_DEBUG
+    DebugInfo              debug_info;
+#endif
+};
+
+struct GuiFrame
+{
     i32 render_index;
     Vector2 position;
     f32 width;
@@ -17,4 +37,25 @@ struct GuiFrame {
     Vector4 color;
 };
 
-#endif // LEARY_GUI_H
+struct GuiWidget
+{
+    Vector2 size     = { 0.0f, 0.0f };
+    Vector2 position = { 0.0f, 0.0f };
+};
+
+struct GuiTextbox
+{
+    struct Vertex {
+        Vector2 position;
+        Vector2 uv;
+        Vector4 color;
+    };
+
+    Vector2 size     = { 0.0f, 0.0f };
+    Vector2 position = { 0.0f, 0.0f };
+    Vertex *vertices;
+    i32 vertices_count = 0;
+    i32 vertices_cap = 0;
+};
+
+bool is_mouse_over(GuiTextbox textbox);

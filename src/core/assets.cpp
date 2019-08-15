@@ -6,9 +6,6 @@
  * Copyright (c) 2017-2018 - all rights reserved
  */
 
-#include "gfx_vulkan.h"
-
-
 struct Vertex {
     Vector3 p;
     Vector3 n;
@@ -49,6 +46,50 @@ PACKED(struct BitmapHeader {
     u32 colors_important;
 });
 
+PACKED(struct WAVHeader {
+       char chunk_id[4];
+       u32  chunk_size;
+       char format[4];
+       char subchunk1_id[4];
+       u32  subchunk1_size;
+       u16  audio_format;
+       u16  num_channels;
+       u32  sample_rate;
+       u32  byte_rate;
+       u16  block_align;
+       u16  bits_per_sample;
+       char subchunk2_id[4];
+       u32  subchunk2_size;
+});
+
+SoundData load_sound_wav(FilePathView path, Allocator *allocator)
+{
+    SoundData sound = {};
+
+    usize size;
+    char *file = read_file(path, &size, g_frame);
+
+    WAVHeader *header = (WAVHeader*)file;
+
+    sound.sample_rate = header->sample_rate;
+    sound.num_channels = header->num_channels;
+    sound.bits_per_sample = header->bits_per_sample;
+    sound.samples = (i16*)alloc(allocator, header->subchunk2_size);
+    sound.num_samples = header->subchunk2_size / ((sound.num_channels * sound.bits_per_sample) / 8);
+    memcpy(sound.samples, file + sizeof *header, header->subchunk2_size);
+
+    if (sound.sample_rate != 48000) {
+        LOG("unsupported sample rate: %d", sound.sample_rate);
+        return {};
+    }
+
+    if (sound.bits_per_sample != 16) {
+        LOG("unsupported bits per sample: %d", sound.bits_per_sample);
+        return {};
+    }
+
+    return sound;
+}
 
 TextureData load_texture_bmp(FilePathView path, Allocator *allocator)
 {
@@ -56,10 +97,11 @@ TextureData load_texture_bmp(FilePathView path, Allocator *allocator)
     TextureData texture = {};
 
     usize size;
-    char *file = read_file(path, &size, g_frame);
+    char *file = read_file(path, &size, g_heap);
+    defer { dealloc(g_heap, file); };
 
     if (file == nullptr) {
-        LOG("unable to read file: %s", path);
+        LOG("unable to read file: %s", path.absolute.bytes);
         return texture;
     }
 
@@ -134,7 +176,7 @@ TextureData load_texture_bmp(FilePathView path, Allocator *allocator)
 
     u8 channels = 4;
 
-    texture.format = VK_FORMAT_B8G8R8A8_UNORM;
+    texture.format = VK_FORMAT_B8G8R8A8_SRGB;
     texture.width  = h->width;
     texture.height = h->height;
     texture.size   = h->width * h->height * channels;
@@ -197,602 +239,6 @@ void add_vertex(Array<f32> *vertices, Vector3 p)
     array_add(vertices, p.z);
 }
 
-struct FBXHeader {
-    u32 header_version;
-    u32 version;
-};
-
-enum FbxMappingInformationType {
-    FbxMit_unknown,
-    FbxMit_ByPolygonVertex,
-    FbxMit_AllSame
-};
-
-enum FbxReferenceInformationType {
-    FbxRit_unknown,
-    FbxRit_IndexToDirect,
-    FbxRit_Direct
-};
-
-struct FbxModel {
-    StringView name;
-    Array<f32> vertices;
-    Array<i32> vertex_indices;
-
-    Array<f32> normals;
-    FbxReferenceInformationType normals_rit = FbxRit_unknown;
-    FbxMappingInformationType   normals_mit = FbxMit_unknown;
-
-    Array<f32> uvs;
-    Array<i32> uv_indices;
-    FbxReferenceInformationType uvs_rit = FbxRit_unknown;
-    FbxMappingInformationType   uvs_mit = FbxMit_unknown;
-
-    bool valid = false;
-};
-
-
-static bool fbx_skip_block(FilePathView path, Lexer *lexer, Token *token)
-{
-    Token t = next_token(lexer);
-    defer { *token = t; };
-
-    while (t.type != Token::close_curly_brace) {
-        if (t.type == Token::eof) {
-            return false;
-        }
-
-        if (t.type == Token::open_curly_brace) {
-            if (fbx_skip_block(path, lexer, &t) == false) {
-                return false;
-            }
-        } else {
-            t = next_token(lexer);
-        }
-
-    }
-
-    t = next_token(lexer);
-    return true;
-}
-
-static FBXHeader fbx_read_header(FilePathView path, Lexer *lexer, Token *token)
-{
-    FBXHeader header = {};
-    if (eat_until(path, lexer, Token::open_curly_brace) == false ) {
-        return {};
-    }
-
-    i32 cblevel = 0;
-    i32 header_end = cblevel++;
-
-    Token t = next_token(lexer);
-    defer { *token = t; };
-
-    while (lexer->at < lexer->end) {
-        if (is_identifier(t, "FBXHeaderVersion")) {
-            t = next_token(lexer);
-            t = next_token(lexer);
-
-            header.header_version = (u32)read_u64(t);
-        } else if (is_identifier(t, "FBXVersion")) {
-            t = next_token(lexer);
-            t = next_token(lexer);
-
-            header.version = (u32)read_u64(t);
-        } else if (t.type == Token::open_curly_brace) {
-            cblevel++;
-        } else if (t.type == Token::close_curly_brace) {
-            cblevel--;
-            if (cblevel == header_end) {
-                t = next_token(lexer);
-                break;
-            }
-        }
-
-        t = next_token(lexer);
-    }
-
-    return header;
-}
-
-static bool fbx_list_skip_to_next(Lexer *lexer, Token *token)
-{
-    Token t = next_token(lexer);
-    defer { *token = t; };
-
-    while (true) {
-        if (t.type == Token::comma) {
-            break;
-        }
-
-        if (t.type == Token::identifier ||
-            t.type == Token::close_curly_brace)
-        {
-            return false;
-        }
-
-        t = next_token(lexer);
-    }
-
-    return true;
-}
-
-
-// NOTE(jesper): after returning, token will be the next token to be processed
-static bool fbx_read_f32_list(
-    FilePathView path,
-    Lexer *lexer,
-    Token *token,
-    Array<f32> *values)
-{
-    Token t = next_token(lexer);
-    defer {
-        *token = t;
-    };
-
-    t = next_token(lexer);
-    while (t.type != Token::identifier &&
-           t.type != Token::close_curly_brace)
-    {
-        f32 f = read_f32(t);
-        array_add(values, f);
-
-        if (fbx_list_skip_to_next(lexer, &t) == false) {
-            return true;
-        }
-
-        t = next_token(lexer);
-    }
-
-    return true;
-}
-
-// NOTE(jesper): after returning, token will be the next token to be processed
-static bool fbx_read_i32_list(
-    FilePathView path,
-    Lexer *lexer,
-    Token *token,
-    Array<i32> *values)
-{
-    Token t = next_token(lexer);
-    defer { *token = t; };
-
-    t = next_token(lexer);
-    while (t.type != Token::identifier &&
-           t.type != Token::close_curly_brace)
-    {
-        bool negate = false;
-        if (t.type == Token::hyphen) {
-            negate = true;
-            t = next_token(lexer);
-        }
-
-        i32 i = (i32)read_i64(t);
-        if (negate) {
-            i = -i;
-        }
-
-        array_add(values, i);
-
-        if (fbx_list_skip_to_next(lexer, &t) == false) {
-            return true;
-        }
-
-        t = next_token(lexer);
-    }
-
-    return true;
-}
-
-
-static FbxMappingInformationType
-fbx_read_mapping_information_type(
-    FilePathView path,
-    Lexer *lexer,
-    Token *token )
-{
-    FbxMappingInformationType mit = FbxMit_unknown;
-
-    Token t = next_token(lexer);
-    defer { *token = t; };
-
-    t = next_token(lexer);
-    if (t.type == Token::double_quote) {
-        t = next_token(lexer);
-    }
-
-    if (is_identifier(t, "ByPolygonVertex")) {
-        mit = FbxMit_ByPolygonVertex;
-    } else if (is_identifier(t, "AllSame")) {
-        mit = FbxMit_AllSame;
-    } else {
-        PARSE_ERROR(path, *lexer, "unknown MappingInformationType");
-        return FbxMit_unknown;
-    }
-
-    t = next_token(lexer);
-    if (t.type == Token::double_quote) {
-        t = next_token(lexer);
-    }
-
-    return mit;
-}
-
-static FbxReferenceInformationType
-fbx_read_reference_information_type(
-    FilePathView path,
-    Lexer *lexer,
-    Token *token)
-{
-    FbxReferenceInformationType rit = FbxRit_unknown;
-
-    Token t = next_token(lexer);
-    defer { *token = t; };
-
-    t = next_token(lexer);
-    if (t.type == Token::double_quote) {
-        t = next_token(lexer);
-    }
-
-    if (is_identifier(t, "Direct")) {
-        rit = FbxRit_Direct;
-    } else if (is_identifier(t, "IndexToDirect")) {
-        rit = FbxRit_IndexToDirect;
-    } else {
-        PARSE_ERROR(path, *lexer, "unknown ReferenceInformationType");
-        return FbxRit_unknown;
-    }
-
-    t = next_token(lexer);
-    if (t.type == Token::double_quote) {
-        t = next_token(lexer);
-    }
-
-    return rit;
-}
-
-static FbxModel fbx_read_model(FilePathView path, Lexer *lexer, Token *token)
-{
-    FbxModel model = {};
-    init_array(&model.vertices,       g_frame);
-    init_array(&model.vertex_indices, g_frame);
-    init_array(&model.normals,        g_frame);
-    init_array(&model.uvs,            g_frame);
-    init_array(&model.uv_indices,     g_frame);
-
-    Token t = next_token(lexer); ASSERT(t.type == Token::colon);
-    defer { *token = t; };
-
-    Token model_type = {};
-
-    t = next_token(lexer); ASSERT(t.type == Token::double_quote);
-    t = next_token(lexer); ASSERT(is_identifier(t, "Model"));
-    t = next_token(lexer); ASSERT(t.type == Token::colon);
-    t = next_token(lexer); ASSERT(t.type == Token::colon);
-
-    t = next_token(lexer); ASSERT(t.type == Token::identifier);
-    Token name = t;
-
-    if (eat_until(path, lexer, Token::double_quote) == false ) {
-        return {};
-    }
-
-    model.name = { (i32)(lexer->at - name.str), t.str };
-
-    t = next_token(lexer); ASSERT(t.type == Token::comma);
-    t = next_token(lexer); ASSERT(t.type == Token::double_quote);
-
-    t = next_token(lexer); ASSERT(t.type == Token::identifier);
-    model_type = t;
-
-    t = next_token(lexer); ASSERT(t.type == Token::double_quote);
-
-    if (eat_until(path, lexer, Token::open_curly_brace) == false ) {
-        return {};
-    }
-
-    t = next_token(lexer);
-    while (t.type != Token::eof) {
-        if (is_identifier(t, "Vertices")) {
-            if (fbx_read_f32_list(path, lexer, &t, &model.vertices) == false) {
-                return {};
-            }
-            continue;
-        }
-
-        if (is_identifier(t, "PolygonVertexIndex")) {
-           if (fbx_read_i32_list(path, lexer, &t, &model.vertex_indices) == false ) {
-               return {};
-           }
-           continue;
-        }
-
-        if (is_identifier(t, "LayerElementNormal")) {
-            if (eat_until(path, lexer, Token::open_curly_brace) == false ) {
-                return {};
-            }
-
-            t = next_token(lexer);
-            while (t.type != Token::eof) {
-                if (is_identifier(t, "Normals")) {
-                    if (fbx_read_f32_list(path, lexer, &t, &model.normals) == false) {
-                        return {};
-                    }
-                    continue;
-                }
-
-                if (is_identifier(t, "MappingInformationType")) {
-                    model.normals_mit = fbx_read_mapping_information_type(path, lexer, &t);
-                    continue;
-                }
-
-                if (is_identifier(t, "ReferenceInformationType")) {
-                    model.normals_rit = fbx_read_reference_information_type(path, lexer, &t);
-                    continue;
-                }
-
-                if (t.type == Token::open_curly_brace) {
-                    if (fbx_skip_block(path, lexer, &t) == false) {
-                        return {};
-                    }
-                    continue;
-                }
-
-                if (t.type == Token::close_curly_brace) {
-                    t = next_token(lexer);
-                    break;
-                }
-
-                t = next_token(lexer);
-            }
-
-            continue;
-        }
-
-        if (is_identifier(t, "LayerElementUV")) {
-            if (eat_until(path, lexer, Token::open_curly_brace) == false ) {
-                return {};
-            }
-
-            t = next_token(lexer);
-            while (t.type != Token::eof) {
-                if (is_identifier(t, "UV")) {
-                    if (fbx_read_f32_list(path, lexer, &t, &model.uvs) == false) {
-                        return {};
-                    }
-                    continue;
-                }
-
-                if (is_identifier(t, "UVIndex")) {
-                    if (fbx_read_i32_list(path, lexer, &t, &model.uv_indices) == false) {
-                        return {};
-                    }
-                    continue;
-                }
-
-                if (is_identifier(t, "MappingInformationType")) {
-                    model.uvs_mit = fbx_read_mapping_information_type(path, lexer, &t);
-                    continue;
-                }
-
-                if (is_identifier(t, "ReferenceInformationType")) {
-                    model.uvs_rit = fbx_read_reference_information_type(path, lexer, &t);
-                    continue;
-                }
-
-                if (t.type == Token::open_curly_brace) {
-                    if (fbx_skip_block(path, lexer, &t) == false) {
-                        return {};
-                    }
-                    continue;
-                }
-
-                if (t.type == Token::close_curly_brace) {
-                    t = next_token(lexer);
-                    break;
-                }
-
-                t = next_token(lexer);
-            }
-        }
-
-        if (t.type == Token::open_curly_brace) {
-            if (fbx_skip_block(path, lexer, &t) == false) {
-                return {};
-            }
-            continue;
-        }
-
-        if (t.type == Token::close_curly_brace) {
-            t = next_token(lexer);
-            break;
-        }
-
-        t = next_token(lexer);
-    }
-
-    model.valid = true;
-    return model;
-}
-
-
-
-Mesh load_mesh_fbx(FilePathView path)
-{
-    Mesh mesh = {};
-
-    usize size;
-    char *file = read_file(path, &size, g_frame);
-    if (file == nullptr) {
-        LOG("unable to read file: %s", path);
-        return mesh;
-    }
-
-    FBXHeader header = {};
-    auto models = create_array<FbxModel>(g_frame);
-
-    Lexer l = create_lexer(file, size);
-    Token t = next_token(&l);
-    while (l.at < l.end) {
-        if (t.type == Token::semicolon) {
-            if (eat_until_newline(path, &l) == false ) {
-                return {};
-            }
-            t = next_token(&l);
-            continue;
-        }
-
-        if (is_identifier(t, "FBXHeaderExtension")) {
-            header = fbx_read_header(path, &l, &t);
-            continue;
-        }
-
-        if (is_identifier(t, "Objects")) {
-            if (eat_until(path, &l, Token::open_curly_brace) == false ) {
-                return {};
-            }
-
-            t = next_token(&l);
-            while (l.at < l.end) {
-                if (is_identifier(t, "Model")) {
-                    FbxModel model = fbx_read_model(path, &l, &t);
-
-                    if (model.valid &&
-                        model.vertices.count > 0 &&
-                        model.uvs.count > 0)
-                    {
-                        array_add(&models, model);
-                    }
-                    continue;
-                }
-
-                if (t.type == Token::open_curly_brace) {
-                    if (fbx_skip_block(path, &l, &t) == false) {
-                        return {};
-                    }
-                    continue;
-                }
-
-                if (t.type == Token::close_curly_brace) {
-                    t = next_token(&l);
-                    break;
-                }
-
-                t = next_token(&l);
-            }
-
-            continue;
-        }
-
-        t = next_token(&l);
-    }
-
-    init_array(&mesh.vertices, g_persistent);
-    init_array(&mesh.indices,  g_persistent);
-
-    auto vertex_indices = create_array<i32>(g_frame);
-    auto uv_indices     = create_array<i32>(g_frame);
-
-    u32 index = 0;
-    for (FbxModel m : models) {
-        // TODO(jesper): don't know what to do with uvs if this isn't true
-        //ASSERT(m.vertex_indices.count == m.uv_indices.count);
-
-        // TODO(jesper): unsupported reference index types
-        ASSERT(m.uvs_rit     == FbxRit_IndexToDirect);
-        ASSERT(m.normals_rit == FbxRit_Direct);
-
-        for (int i = 0; i < m.vertex_indices.count; ) {
-            if (m.vertex_indices[i+2] < 0) {
-                array_add(&vertex_indices, m.vertex_indices[i]);
-                array_add(&vertex_indices, m.vertex_indices[i+1]);
-                array_add(&vertex_indices, -(m.vertex_indices[i+2] + 1));
-                i += 3;
-            } else if (m.vertex_indices[i+3] < 0) {
-                array_add(&vertex_indices, m.vertex_indices[i]);
-                array_add(&vertex_indices, m.vertex_indices[i+1]);
-                array_add(&vertex_indices, m.vertex_indices[i+2]);
-                array_add(&vertex_indices, m.vertex_indices[i+2]);
-                array_add(&vertex_indices, -(m.vertex_indices[i+3] + 1));
-                array_add(&vertex_indices, m.vertex_indices[i]);
-                i += 4;
-            } else {
-                LOG(Log_error, "only triangles and quads are supported");
-                return {};
-            }
-        }
-
-        if (m.uvs_rit == FbxRit_IndexToDirect) {
-            for (int i = 0; i < m.vertex_indices.count; ) {
-                if (m.vertex_indices[i+2] < 0) {
-                    array_add(&uv_indices, m.uv_indices[i]);
-                    array_add(&uv_indices, m.uv_indices[i+1]);
-                    array_add(&uv_indices, m.uv_indices[i+2]);
-                    i += 3;
-                } else if (m.vertex_indices[i+3] < 0) {
-                    array_add(&uv_indices, m.uv_indices[i]);
-                    array_add(&uv_indices, m.uv_indices[i+1]);
-                    array_add(&uv_indices, m.uv_indices[i+2]);
-                    array_add(&uv_indices, m.uv_indices[i+2]);
-                    array_add(&uv_indices, m.uv_indices[i+3]);
-                    array_add(&uv_indices, m.uv_indices[i]);
-                    i += 4;
-                } else {
-                    LOG(Log_error, "only triangles and quads are supported");
-                    return {};
-                }
-            }
-        }
-
-        for (int i = 0; i < vertex_indices.count;) {
-            i32 v0 = vertex_indices[i+0] * 3;
-            i32 v1 = vertex_indices[i+1] * 3;
-            i32 v2 = vertex_indices[i+2] * 3;
-
-            Vector3 p0 = { m.vertices[v0], m.vertices[v0+1], m.vertices[v0+2] };
-            Vector3 p1 = { m.vertices[v1], m.vertices[v1+1], m.vertices[v1+2] };
-            Vector3 p2 = { m.vertices[v2], m.vertices[v2+1], m.vertices[v2+2] };
-
-            Vector3 n0, n1, n2;
-            if (m.normals_rit == FbxRit_Direct) {
-                n0 = { m.normals[v0], m.normals[v0+1], m.normals[v0+2] };
-                n1 = { m.normals[v1], m.normals[v1+1], m.normals[v1+2] };
-                n2 = { m.normals[v2], m.normals[v2+1], m.normals[v2+2] };
-            } else {
-                n0 = n1 = n2 = {};
-            }
-
-            Vector2 uv0, uv1, uv2;
-            if (m.uvs_rit == FbxRit_IndexToDirect) {
-                i32 uvi0 = uv_indices[i+0] * 2;
-                i32 uvi1 = uv_indices[i+1] * 2;
-                i32 uvi2 = uv_indices[i+2] * 2;
-
-                uv0 = { m.uvs[uvi0], m.uvs[uvi0 + 1] };
-                uv1 = { m.uvs[uvi1], m.uvs[uvi1 + 1] };
-                uv2 = { m.uvs[uvi2], m.uvs[uvi2 + 1] };
-            } else {
-                uv0 = uv1 = uv2 = {};
-            }
-
-            array_add(&mesh.indices, index++);
-            array_add(&mesh.indices, index++);
-            array_add(&mesh.indices, index++);
-
-            add_vertex(&mesh.vertices, p0, n0, uv0);
-            add_vertex(&mesh.vertices, p1, n1, uv1);
-            add_vertex(&mesh.vertices, p2, n2, uv2);
-            i += 3;
-        }
-
-        reset_array(&uv_indices);
-        reset_array(&vertex_indices);
-    }
-
-    return mesh;
-}
-
 Mesh load_mesh_obj(FilePathView path)
 {
     Mesh mesh = {};
@@ -800,7 +246,7 @@ Mesh load_mesh_obj(FilePathView path)
     usize size;
     char *file = read_file(path, &size, g_frame);
     if (file == nullptr) {
-        LOG("unable to read file: %s", path);
+        LOG("unable to read file: %s", path.absolute.bytes);
         return mesh;
     }
 
@@ -938,72 +384,66 @@ Mesh load_mesh_obj(FilePathView path)
         }
     }
 
-    mesh.vertices = create_array<f32>(g_persistent);
-    mesh.indices  = create_array<u32>(g_persistent);
+    init_array(&mesh.indices, g_heap);
+    init_array(&mesh.points, g_heap);
+
+    if (has_normals) {
+        init_array(&mesh.normals, g_heap);
+    }
+
+    if (has_uvs) {
+        init_array(&mesh.uvs, g_heap);
+    }
+
 
     if (has_normals && has_uvs) {
         u32 index = 0;
         for (i32 i = 0; i < vertices.count; i += 8) {
-            bool unique = true;
+            Vector3 point  = { vertices[i], vertices[i+1], vertices[i+2] };
+            Vector3 normal = { vertices[i+3], vertices[i+4], vertices[i+5] };
+            Vector2 uv     = { vertices[i+6], vertices[i+7] };
 
-            i32 j = 0;
-            for (j = 0; j < mesh.vertices.count; j += 8) {
-
-                if (vertices[i] == mesh.vertices[j] &&
-                    vertices[i+1] == mesh.vertices[j+1] &&
-                    vertices[i+2] == mesh.vertices[j+2] &&
-                    vertices[i+3] == mesh.vertices[j+3] &&
-                    vertices[i+4] == mesh.vertices[j+4] &&
-                    vertices[i+5] == mesh.vertices[j+5] &&
-                    vertices[i+6] == mesh.vertices[j+6] &&
-                    vertices[i+7] == mesh.vertices[j+7])
+            for (i32 j = 0; j < mesh.points.count; j++) {
+                if (mesh.points[j].x == point.x &&
+                    mesh.points[j].y == point.y &&
+                    mesh.points[j].z == point.z &&
+                    mesh.normals[j].x == normal.x &&
+                    mesh.normals[j].y == normal.y &&
+                    mesh.normals[j].z == normal.z &&
+                    mesh.uvs[j].u == uv.u &&
+                    mesh.uvs[j].v == uv.v)
                 {
-                    unique = false;
-                    break;
+                    array_add(&mesh.indices, (u32)j);
+                    goto merged0;
                 }
             }
 
-            if (unique) {
-                array_add(&mesh.indices, index++);
-
-                array_add(&mesh.vertices, vertices[i]);
-                array_add(&mesh.vertices, vertices[i+1]);
-                array_add(&mesh.vertices, vertices[i+2]);
-                array_add(&mesh.vertices, vertices[i+3]);
-                array_add(&mesh.vertices, vertices[i+4]);
-                array_add(&mesh.vertices, vertices[i+5]);
-                array_add(&mesh.vertices, vertices[i+6]);
-                array_add(&mesh.vertices, vertices[i+7]);
-            } else {
-                array_add(&mesh.indices, (u32)(j) / 8);
-            }
+            array_add(&mesh.indices, index++);
+            array_add(&mesh.points, point);
+            array_add(&mesh.normals, normal);
+            array_add(&mesh.uvs, uv);
+merged0:
+            continue;
         }
     } else {
         u32 index = 0;
         for (i32 i = 0; i < vertices.count; i += 3) {
-            bool unique = true;
+            Vector3 point  = { vertices[i], vertices[i+1], vertices[i+2] };
 
-            i32 j = 0;
-            for (j = 0; j < mesh.vertices.count; j += 3) {
-
-                if (vertices[i] == mesh.vertices[j] &&
-                    vertices[i+1] == mesh.vertices[j+1] &&
-                    vertices[i+2] == mesh.vertices[j+2])
+            for (i32 j = 0; j < mesh.points.count; j++) {
+                if (mesh.points[j].x == point.x &&
+                    mesh.points[j].y == point.y &&
+                    mesh.points[j].z == point.z)
                 {
-                    unique = false;
-                    break;
+                    array_add(&mesh.indices, (u32)j);
+                    goto merged1;
                 }
             }
 
-            if (unique) {
-                array_add(&mesh.indices, index++);
-
-                array_add(&mesh.vertices, vertices[i]);
-                array_add(&mesh.vertices, vertices[i+1]);
-                array_add(&mesh.vertices, vertices[i+2]);
-            } else {
-                array_add(&mesh.indices, (u32)(j) / 3);
-            }
+            array_add(&mesh.indices, index++);
+            array_add(&mesh.points, point);
+merged1:
+            continue;
         }
     }
 
@@ -1022,7 +462,13 @@ TextureAsset* add_texture(
 {
     TextureAsset ta = {};
     ta.asset_id = g_catalog.next_asset_id++;
-    ta.gfx_texture = gfx_create_texture(width, height, format, components, pixels);
+
+    ta.gfx_texture = gfx_create_texture(
+        width, height,
+        1,
+        format,
+        components,
+        pixels);
 
     TextureID texture_id = (TextureID)array_add(&g_textures, ta);
 
@@ -1032,65 +478,82 @@ TextureAsset* add_texture(
     return &g_textures[texture_id];
 }
 
-TextureAsset* add_texture_bmp(FilePath path)
+void update_mesh(MeshID id, Mesh mesh)
 {
-    TextureData t = load_texture_bmp(path, g_frame);
-    if (t.pixels == nullptr) {
-        return nullptr;
+    (void)id;
+    (void)mesh;
+#if 0
+    Mesh *existing = find_mesh(id);
+    ASSERT(existing != nullptr);
+
+    gfx_update_buffer(
+        &existing->vbo,
+        mesh.vertices.data,
+        mesh.vertices.count * sizeof mesh.vertices[0]);
+
+    if (mesh.indices.count > 0) {
+        usize indices_size = mesh.indices.count  * sizeof mesh.indices[0];
+        if (existing->indices.count > 0) {
+            gfx_update_buffer(
+                &existing->vbo,
+                mesh.vertices.data,
+                indices_size);
+        } else {
+            existing->ibo = create_ibo(mesh.indices.data, indices_size);
+        }
+
+        existing->element_count = mesh.indices.count;
+    } else {
+        existing->element_count = mesh.vertices.count;
+    }
+#endif
+}
+
+i32 add_mesh(Mesh mesh, StringView name)
+{
+    if (mesh.indices.count > 0) {
+        mesh.element_count = mesh.indices.count;
+        mesh.ibo = create_ibo(mesh.indices.data, mesh.indices.count * sizeof mesh.indices[0]);
+
+        mesh.vbo.points = create_vbo(mesh.points.data, mesh.points.count * sizeof mesh.points[0]);
+        mesh.vbo.normals = create_vbo(mesh.normals.data, mesh.normals.count * sizeof mesh.normals[0]);
+        mesh.vbo.tangents = create_vbo(mesh.tangents.data, mesh.tangents.count * sizeof mesh.tangents[0]);
+        mesh.vbo.bitangents = create_vbo(mesh.bitangents.data, mesh.bitangents.count * sizeof mesh.bitangents[0]);
+        mesh.vbo.uvs = create_vbo(mesh.uvs.data, mesh.uvs.count * sizeof mesh.uvs[0]);
+    } else {
+        mesh.element_count = mesh.points.count;
+
+        mesh.vbo.points = create_vbo(mesh.points.data, mesh.points.count * sizeof mesh.points[0]);
+        mesh.vbo.normals = create_vbo(mesh.normals.data, mesh.normals.count * sizeof mesh.normals[0]);
+        mesh.vbo.tangents = create_vbo(mesh.tangents.data, mesh.tangents.count * sizeof mesh.tangents[0]);
+        mesh.vbo.bitangents = create_vbo(mesh.bitangents.data, mesh.bitangents.count * sizeof mesh.bitangents[0]);
+        mesh.vbo.uvs = create_vbo(mesh.uvs.data, mesh.uvs.count * sizeof mesh.uvs[0]);
     }
 
-    TextureAsset ta = {};
-    ta.asset_id = g_catalog.next_asset_id++;
-    ta.gfx_texture = gfx_create_texture(
-        t.width,
-        t.height,
-        t.format,
-        VkComponentMapping{},
-        t.pixels);
+    mesh.asset_id = g_catalog.next_asset_id++;
+    MeshID mesh_id = (MeshID)array_add(&g_meshes, mesh);
 
-    TextureID texture_id = (TextureID)array_add(&g_textures, ta);
+    map_add(&g_catalog.assets, name, mesh.asset_id);
+    map_add(&g_catalog.meshes, mesh.asset_id, mesh_id);
 
-    map_add(&g_catalog.assets,   path.filename, ta.asset_id);
-    map_add(&g_catalog.textures, ta.asset_id,   texture_id);
-
-    return &g_textures[texture_id];
+    return mesh_id;
 }
+
 
 Mesh* add_mesh_obj(FilePath path)
 {
     Mesh m = load_mesh_obj(path);
-    if (m.vertices.count == 0) {
+    if (m.points.count == 0) {
         return nullptr;
     }
 
-    m.asset_id = g_catalog.next_asset_id++;
-    MeshID mesh_id = (MeshID)array_add(&g_meshes, m);
-
-    map_add(&g_catalog.assets, path.filename, m.asset_id);
-    map_add(&g_catalog.meshes, m.asset_id,    mesh_id);
-
-    return &g_meshes[mesh_id];
-}
-
-Mesh* add_mesh_fbx(FilePath path)
-{
-    Mesh m = load_mesh_fbx(path);
-    if (m.vertices.count == 0) {
-        return nullptr;
-    }
-
-    m.asset_id = g_catalog.next_asset_id++;
-    MeshID mesh_id = (MeshID)array_add(&g_meshes, m);
-
-    map_add(&g_catalog.assets, path.filename, m.asset_id);
-    map_add(&g_catalog.meshes, m.asset_id,    mesh_id);
-
+    i32 mesh_id = add_mesh(m, path.filename);
     return &g_meshes[mesh_id];
 }
 
 AssetID find_asset_id(StringView name)
 {
-    i32 *id = map_find(&g_catalog.assets, name);
+    AssetID *id = map_find(&g_catalog.assets, name);
     if (id == nullptr) {
         return ASSET_INVALID_ID;
     }
@@ -1101,18 +564,18 @@ AssetID find_asset_id(StringView name)
 TextureAsset* find_texture(AssetID id)
 {
     if (id == ASSET_INVALID_ID) {
-        LOG(Log_error, "invalid texture id: %d", id);
+        LOG_ERROR("invalid texture id: %d", (i32)id);
         return {};
     }
 
     TextureID *tid = map_find(&g_catalog.textures, id);
     if (tid == nullptr) {
-        LOG(Log_error, "invalid asset id for texture: %d", id);
+        LOG_ERROR("invalid asset id for texture: %d", (i32)id);
         return nullptr;
     }
 
     if (*tid >= g_textures.count) {
-        LOG(Log_error, "invalid texture id for texture: %d", tid);
+        LOG_ERROR("invalid texture id for texture: %d", (i32)*tid);
         return nullptr;
     }
 
@@ -1123,34 +586,63 @@ TextureAsset* find_texture(StringView name)
 {
     AssetID *id = map_find(&g_catalog.assets, name);
     if (id == nullptr || *id == ASSET_INVALID_ID) {
-        LOG(Log_error, "unable to find texture with name: %s", name);
+        LOG_ERROR("unable to find texture with name: %s", name.bytes);
         return nullptr;
     }
 
     TextureID *tid = map_find(&g_catalog.textures, *id);
     if (tid == nullptr || *tid == ASSET_INVALID_ID) {
-        LOG(Log_error, "unable to find texture with name: %s", name);
+        LOG_ERROR("unable to find texture with name: %s", name.bytes);
         return nullptr;
     }
 
     return &g_textures[*tid];
 }
 
-Mesh* find_mesh(StringView name)
+MeshID find_mesh_id(StringView name)
 {
     AssetID *id = map_find(&g_catalog.assets, name);
     if (id == nullptr || *id == ASSET_INVALID_ID) {
-        LOG(Log_error, "unable to find mesh with name: %s", name.bytes);
-        return nullptr;
+        LOG_ERROR("unable to find mesh with name: %s", name.bytes);
+        return ASSET_INVALID_ID;
     }
 
     MeshID *mid = map_find(&g_catalog.meshes, *id);
     if (mid == nullptr || *mid == ASSET_INVALID_ID) {
-        LOG(Log_error, "unable to find mesh with name: %s", name.bytes);
+        LOG_ERROR("unable to find mesh with name: %s", name.bytes);
+        return ASSET_INVALID_ID;
+    }
+
+    return *mid;
+}
+
+Mesh* find_mesh(StringView name)
+{
+    MeshID mid = find_mesh_id(name);
+    if (mid == ASSET_INVALID_ID) {
         return nullptr;
     }
 
-    return &g_meshes[*mid];
+    if (mid >= g_meshes.count) {
+        LOG_ERROR("mesh id is out of bounds");
+        return nullptr;
+    }
+
+    return &g_meshes[mid];
+}
+
+Mesh* find_mesh(MeshID mesh_id)
+{
+    if (mesh_id == ASSET_INVALID_ID) {
+        return nullptr;
+    }
+
+    if (mesh_id >= g_meshes.count) {
+        LOG_ERROR("mesh id is out of bounds");
+        return nullptr;
+    }
+
+    return &g_meshes[mesh_id];
 }
 
 Vector3 parse_vector3(FilePathView path, Lexer *lexer)
@@ -1226,7 +718,7 @@ EntityData parse_entity_data(FilePath p)
     char *fp = read_file(p.absolute.bytes, &size, g_frame);
 
     if (fp == nullptr) {
-        LOG(Log_error, "unable to read entity file: %s", p.absolute.bytes);
+        LOG_ERROR("unable to read entity file: %s", p.absolute.bytes);
         return {};
     }
 
@@ -1265,12 +757,26 @@ EntityData parse_entity_data(FilePath p)
         data.mesh = create_string(g_frame, "cube.obj");
     }
 
+    init_array(&data.textures, g_heap);
+    if (version < 5) {
+        array_add(&data.textures, create_string(g_frame, "greybox.bmp"));
+    }
+
     data.scale    = { 1.0f, 1.0f, 1.0f };
     data.rotation = Quaternion::make( Vector3{ 0.0f, 1.0f, 0.0f } );
 
     while (t.type != Token::eof) {
         if (is_identifier(t, "position")) {
             data.position = parse_vector3(p, &l);
+        } else if (version >= 2 && is_identifier(t, "mesh")) {
+            Token m = next_token(&l);
+
+            if (eat_until(p, &l, &t, Token::semicolon) == false) {
+                return {};
+            }
+
+            i32 length = (i32)(t.str - m.str);
+            data.mesh = create_string(g_frame, StringView{ m.str, length+1 });
         } else if (version >= 3 && is_identifier(t, "scale")) {
             data.scale = parse_vector3(p, &l);
         } else if (version >= 4 && is_identifier(t, "rotation")) {
@@ -1293,7 +799,7 @@ EntityData parse_entity_data(FilePath p)
                     return {};
                 }
             }
-        } else if (version >= 2 && is_identifier(t, "mesh")) {
+        } else if (version >= 5 && is_identifier(t, "texture")) {
             Token m = next_token(&l);
 
             if (eat_until(p, &l, &t, Token::semicolon) == false) {
@@ -1301,7 +807,7 @@ EntityData parse_entity_data(FilePath p)
             }
 
             i32 length = (i32)(t.str - m.str);
-            data.mesh = create_string(g_frame, StringView{ length, m.str });
+            array_add(&data.textures, create_string(g_frame, StringView{ m.str, length+1 }));
         } else {
             PARSE_ERROR_F(p, l, "unknown identifier: %.*s", t.length, t.str);
             return {};
@@ -1311,51 +817,29 @@ EntityData parse_entity_data(FilePath p)
     }
 
     data.valid = true;
+
+    if (data.mesh.size > 0) {
+        data.mesh_id = find_mesh_id(data.mesh);
+        data.valid = data.mesh_id != ASSET_INVALID_ID;
+    }
+
     return data;
 }
 
-i32 add_entity(FilePath p)
+EntityID find_entity_id(StringView name)
 {
-    EntityData data = parse_entity_data(p);
-    if (data.valid == false) {
-        ASSERT(false && "failed parsing entity data");
-        return -1;
+    AssetID *asset_id = map_find(&g_catalog.assets, name);
+    if (asset_id == nullptr) {
+        LOG_ERROR("Invalid entity: %s", name.bytes);
+        return ASSET_INVALID_ID;
     }
 
-    Entity e = entities_add(data);
+    EntityID *entity_id = map_find(&g_catalog.entities, *asset_id);
+    if (entity_id == nullptr) {
+        return ASSET_INVALID_ID;
+    }
 
-    // TODO(jesper): determine if entity has physics enabled
-    i32 pid = physics_add(e);
-    (void)pid;
-
-    Mesh *m = find_mesh(data.mesh);
-    ASSERT(m != nullptr);
-
-    IndexRenderObject obj = {};
-    obj.material = &g_game->materials.phong;
-
-    usize vertex_size = m->vertices.count * sizeof(m->vertices[0]);
-    usize index_size  = m->indices.count  * sizeof(m->indices[0]);
-
-    obj.entity_id   = e.id;
-    obj.pipeline    = Pipeline_mesh;
-    obj.index_count = m->indices.count;
-    obj.vbo         = create_vbo(m->vertices.data, vertex_size);
-    obj.ibo         = create_ibo(m->indices.data, index_size);
-
-    array_add(&g_game->index_render_objects, obj);
-
-    AssetID asset_id = g_catalog.next_asset_id++;
-
-    map_add(&g_catalog.assets,   p.filename, asset_id);
-    map_add(&g_catalog.entities, asset_id,   e.id);
-
-    return 1;
-}
-
-i32 add_entity(const char *p)
-{
-    return add_entity(create_file_path(g_system_alloc, p));
+    return *entity_id;
 }
 
 void process_catalog_system()
@@ -1371,9 +855,9 @@ void process_catalog_system()
 
         catalog_process_t **func = map_find(&g_catalog.processes, p.extension);
         if (func == nullptr) {
-            LOG(Log_error,
-                "could not find process function for extension: %.*s",
-                p.extension.size, p.extension.bytes);
+            LOG_ERROR("could not find process function for extension: %.*s",
+                      p.extension.size,
+                      p.extension.bytes);
             continue;
         }
 
@@ -1388,7 +872,7 @@ void process_catalog_system()
 
 CATALOG_CALLBACK(catalog_thread_proc)
 {
-    i32 *id = map_find(&g_catalog.assets, path.filename);
+    AssetID *id = map_find(&g_catalog.assets, path.filename);
     if (id == nullptr || *id == ASSET_INVALID_ID) {
         LOG("asset not found in catalogue system: %s\n",
             path.filename.bytes);
@@ -1411,45 +895,103 @@ CATALOG_PROCESS_FUNC(catalog_process_bmp)
 {
     AssetID id = find_asset_id(path.filename.bytes);
     if (id == ASSET_INVALID_ID) {
-        add_texture_bmp(path);
-        return;
-    }
+        TextureData t = load_texture_bmp(path, g_heap);
+        defer { dealloc(g_heap, t.pixels); };
 
-    TextureAsset *t = find_texture(id);
-    if (t != nullptr) {
+        if (t.pixels != nullptr) {
+            u32 mip_levels = (u32)floor(log2(max(t.width, t.height))) + 1;
+
+            TextureAsset ta = {};
+            ta.asset_id = g_catalog.next_asset_id++;
+            ta.gfx_texture = gfx_create_texture(
+                t.width,
+                t.height,
+                mip_levels,
+                t.format,
+                VkComponentMapping{},
+                t.pixels);
+
+            TextureID texture_id = (TextureID)array_add(&g_textures, ta);
+
+            map_add(&g_catalog.assets,   path.filename, ta.asset_id);
+            map_add(&g_catalog.textures, ta.asset_id,   texture_id);
+        }
+    } else {
+        TextureAsset *t = find_texture(id);
+        ASSERT(t != nullptr);
+
         TextureData n = load_texture_bmp(path, g_frame);
+
         if (n.pixels != nullptr) {
-            // TODO(jesper): function to copy straight from staging texture
-            // into destination texture instead of what we're doing here
+            u32 mip_levels = (u32)floor(log2(max(n.width, n.height))) + 1;
+
             GfxTexture texture = gfx_create_texture(
                 n.width,
                 n.height,
+                mip_levels,
                 n.format,
                 VkComponentMapping{},
                 n.pixels);
-            gfx_copy_texture(&t->gfx_texture, &texture, {}, {});
+            gfx_copy_texture(&t->gfx_texture, &texture);
             gfx_destroy_texture(texture);
         }
     }
 }
 
+void set_entity_data(Entity *entity, EntityData data)
+{
+    entity->position = data.position;
+    entity->scale    = data.scale;
+    entity->rotation = data.rotation;
+    entity->mesh_id  = data.mesh_id;
+
+    i32 binding = 0;
+    for (i32 i = 0; i < data.textures.count; i++) {
+        TextureAsset *texture = find_texture(data.textures[i]);
+        if (texture != nullptr) {
+            gfx_set_texture(
+                Pipeline_mesh,
+                entity->descriptor_set, binding++,
+                texture->gfx_texture);
+        }
+    }
+}
 
 CATALOG_PROCESS_FUNC(catalog_process_entity)
 {
     AssetID id = find_asset_id(path.filename.bytes);
     if (id == ASSET_INVALID_ID) {
-        add_entity(path);
-        return;
-    }
-
-    EntityID *eid = map_find(&g_catalog.entities, id);
-    if (eid && *eid != ASSET_INVALID_ID) {
-        Entity &e = g_entities[*eid];
-
         EntityData data = parse_entity_data(path);
-        e.position = data.position;
-        e.scale    = data.scale;
-        e.rotation = data.rotation;
+
+        if (data.valid == false) {
+            LOG_ERROR("failed parsing entity data");
+            return;
+        }
+
+        Entity e = {};
+        e.id = (i32)g_entities.count;
+        e.descriptor_set = gfx_create_descriptor(
+            VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+            g_vulkan->pipelines[Pipeline_mesh].set_layouts[1]);
+
+        set_entity_data(&e, data);
+        array_add(&g_entities, e);
+
+        AssetID asset_id = g_catalog.next_asset_id++;
+
+        map_add(&g_catalog.assets, path.filename, asset_id);
+        map_add(&g_catalog.entities, asset_id, e.id);
+    } else {
+        EntityID *eid = map_find(&g_catalog.entities, id);
+        if (eid && *eid != ASSET_INVALID_ID) {
+            EntityData data = parse_entity_data(path);
+            if (data.valid == false) {
+                LOG_ERROR("failed parsing entity data");
+                return;
+            }
+
+            set_entity_data(&g_entities[*eid], data);
+        }
     }
 }
 
@@ -1466,13 +1008,247 @@ CATALOG_PROCESS_FUNC(catalog_process_obj)
 
 CATALOG_PROCESS_FUNC(catalog_process_fbx)
 {
+    String prefix = create_string(
+        g_frame,
+        { StringView(path.filename.bytes, path.filename.size - path.extension.size),
+        "_" });
+    FilePath output = resolve_file_path(GamePath_models, "", g_frame);
+    AlcResult result = alc_convert_fbx(path.absolute.bytes, output.absolute.bytes, prefix.bytes);
+    ASSERT(result == ALC_RESULT_SUCCESS);
+}
+
+CATALOG_PROCESS_FUNC(catalog_process_msh)
+{
     AssetID id = find_asset_id(path.filename.bytes);
-    if (id == ASSET_INVALID_ID) {
-        add_mesh_fbx(path);
+    LOG("loading mesh: %s", path.filename.bytes);
+
+    usize size;
+    char *file = read_file(path, &size, g_frame);
+    if (file == nullptr) {
+        LOG("unable to read file: %s", path.absolute.bytes);
         return;
     }
 
-    ASSERT(false && "hot reloading changed meshes not supported");
+    LOG("-- file size: %llu bytes", size);
+
+    AlcMeshHeader *amesh = (AlcMeshHeader*)file;
+    if (amesh->identifier != ALC_MESH_IDENTIFIER) {
+        LOG("-- invalid Alchemy Mesh (%s) identifier: %d",
+            path.filename.bytes,
+            amesh->identifier);
+        return;
+    }
+
+    if (amesh->num_vertices == 0) {
+        LOG("-- Mesh (%s) contains no vertices", path.filename.bytes);
+        return;
+    }
+
+    // TODO(jesper): support meshes without uvs?
+    if ((amesh->flags & ALC_MESH_FLAG_NORMAL_BIT) == 0) {
+        LOG("-- Mesh (%s) contains no normals", path.filename.bytes);
+        return;
+    }
+
+    // TODO(jesper): support meshes without normals?
+    if ((amesh->flags & ALC_MESH_FLAG_UV_BIT) == 0) {
+        LOG("-- Mesh (%s) contains no uvs", path.filename.bytes);
+        return;
+    }
+
+    LOG(" -- num vertices: %d", amesh->num_vertices);
+    LOG(" -- num indices: %d", amesh->num_vertices);
+    LOG(" -- normals: %s", amesh->flags & ALC_MESH_FLAG_NORMAL_BIT ? "yes" : "no");
+    LOG(" -- uvs: %s", amesh->flags & ALC_MESH_FLAG_UV_BIT ? "yes" : "no");
+
+    Mesh mesh = {};
+    init_array(&mesh.points, g_heap, amesh->num_vertices);
+
+    if (amesh->flags & ALC_MESH_FLAG_NORMAL_BIT) {
+        init_array(&mesh.normals, g_heap, amesh->num_vertices);
+    }
+
+    if (amesh->flags & ALC_MESH_FLAG_UV_BIT) {
+        init_array(&mesh.uvs, g_heap, amesh->num_vertices);
+        init_array(&mesh.tangents, g_heap, amesh->num_vertices);
+        init_array(&mesh.bitangents, g_heap, amesh->num_vertices);
+    }
+
+    if (amesh->version < 2) {
+        f32 *vertices = (f32*)(file + sizeof *amesh);
+        for (u32 i = 0; i < amesh->num_vertices; i++) {
+            Vector3 point;
+            point.x = *vertices++;
+            point.y = *vertices++;
+            point.z = *vertices++;
+
+            array_add(&mesh.points, point);
+
+            if (amesh->flags & ALC_MESH_FLAG_NORMAL_BIT) {
+                Vector3 normal;
+                normal.x = *vertices++;
+                normal.y = *vertices++;
+                normal.z = *vertices++;
+
+                array_add(&mesh.normals, normal);
+            }
+
+            if (amesh->flags & ALC_MESH_FLAG_UV_BIT) {
+                Vector2 uv;
+                uv.u = *vertices++;
+                uv.v = *vertices++;
+
+                array_add(&mesh.uvs, uv);
+            }
+        }
+
+        if (amesh->flags & ALC_MESH_FLAG_UV_BIT) {
+            for (i32 i = 0; i < mesh.points.count; i += 3) {
+                Vector3 p0 = mesh.points[i];
+                Vector3 p1 = mesh.points[i+1];
+                Vector3 p2 = mesh.points[i+2];
+
+                Vector2 uv0 = mesh.uvs[i];
+                Vector2 uv1 = mesh.uvs[i+1];
+                Vector2 uv2 = mesh.uvs[i+2];
+
+                Vector3 t, b;
+                calc_tangent_and_bitangent(
+                    &t, &b,
+                    p1 - p0, p2 - p0,
+                    uv1 - uv0, uv2 - uv0);
+
+                array_add(&mesh.tangents, t);
+                array_add(&mesh.tangents, t);
+                array_add(&mesh.tangents, t);
+
+                array_add(&mesh.bitangents, b);
+                array_add(&mesh.bitangents, b);
+                array_add(&mesh.bitangents, b);
+            }
+        }
+    } else {
+        isize offset = sizeof *amesh;
+
+        usize points_size  = amesh->num_vertices * sizeof(f32) * 3;
+        usize normals_size = amesh->num_vertices * sizeof(f32) * 3;
+        usize uvs_size     = amesh->num_vertices * sizeof(f32) * 2;
+
+        f32 *points  = (f32*)(file + offset);
+        memcpy(mesh.points.data, points, points_size);
+        mesh.points.count = amesh->num_vertices;
+        offset += points_size;
+        
+        // NOTE(jesper): swap to counter-clockwise-winding
+        for (i32 i = 0; i < mesh.points.count; i+=3) {
+            Vector3 tmp = mesh.points[i];
+            mesh.points[i] = mesh.points[i+2];
+            mesh.points[i+2] = tmp;
+        }
+        
+        if (amesh->flags & ALC_MESH_FLAG_NORMAL_BIT) {
+            f32 *normals  = (f32*)(file + offset);
+            memcpy(mesh.normals.data, normals, normals_size);
+            mesh.normals.count = amesh->num_vertices;
+            offset += normals_size;
+            
+            // NOTE(jesper): swap to counter-clockwise-winding
+            for (i32 i = 0; i < mesh.normals.count; i+=3) {
+                Vector3 tmp = mesh.normals[i];
+                mesh.normals[i] = mesh.normals[i+2];
+                mesh.normals[i+2] = tmp;
+            }
+        }
+
+        if (amesh->flags & ALC_MESH_FLAG_UV_BIT) {
+            f32 *uvs  = (f32*)(file + offset);
+            memcpy(mesh.uvs.data, uvs, uvs_size);
+            mesh.uvs.count = amesh->num_vertices;
+            offset += uvs_size;
+            
+            // NOTE(jesper): swap to counter-clockwise-winding
+            for (i32 i = 0; i < mesh.uvs.count; i+=3) {
+                Vector2 tmp = mesh.uvs[i];
+                mesh.uvs[i] = mesh.uvs[i+2];
+                mesh.uvs[i+2] = tmp;
+            }
+
+            for (i32 i = 0; i < mesh.points.count; i += 3) {
+                Vector3 p0 = mesh.points[i];
+                Vector3 p1 = mesh.points[i+1];
+                Vector3 p2 = mesh.points[i+2];
+
+                Vector2 uv0 = mesh.uvs[i];
+                Vector2 uv1 = mesh.uvs[i+1];
+                Vector2 uv2 = mesh.uvs[i+2];
+
+                Vector3 t, b;
+                calc_tangent_and_bitangent(
+                    &t, &b,
+                    p1 - p0, p2 - p0,
+                    uv1 - uv0, uv2 - uv0);
+
+                array_add(&mesh.tangents, t);
+                array_add(&mesh.tangents, t);
+                array_add(&mesh.tangents, t);
+
+                array_add(&mesh.bitangents, b);
+                array_add(&mesh.bitangents, b);
+                array_add(&mesh.bitangents, b);
+            }
+        }
+    }
+
+    if (id == ASSET_INVALID_ID) {
+        add_mesh(mesh, path.filename);
+    } else {
+        MeshID *mesh_id = map_find(&g_catalog.meshes, id);
+        ASSERT(mesh_id != nullptr);
+        update_mesh(*mesh_id, mesh);
+    }
+}
+
+CATALOG_PROCESS_FUNC(catalog_process_glsl)
+{
+    AssetID id = find_asset_id(path.filename.bytes);
+    LOG("loading shader: %s", path.filename.bytes);
+
+    usize size;
+    char *file = read_file(path, &size, g_frame);
+    if (file == nullptr) {
+        LOG("unable to read file: %s", path.absolute.bytes);
+        return;
+    }
+
+    LOG("-- file size: %llu bytes", size);
+
+    PipelineID pipeline;
+    if (path.filename == "mesh.glsl") {
+        pipeline = Pipeline_mesh;
+    } else if (path.filename == "font.glsl") {
+        pipeline = Pipeline_font;
+    } else if (path.filename == "basic2d.glsl") {
+        pipeline = Pipeline_basic2d;
+    } else if (path.filename == "gui_basic.glsl") {
+        pipeline = Pipeline_gui_basic;
+    } else if (path.filename == "terrain.glsl") {
+        pipeline = Pipeline_terrain;
+    } else if (path.filename == "line.glsl") {
+        pipeline = Pipeline_line;
+    } else if (path.filename == "wireframe.glsl") {
+        pipeline = Pipeline_wireframe;
+    } else if (path.filename == "wireframe_lines.glsl") {
+        pipeline = Pipeline_wireframe_lines;
+    } else {
+        LOG_ERROR("unknown shader pipeline: %s", path.filename.bytes);
+        return;
+    }
+
+    create_pipeline(pipeline);
+    if (id == ASSET_INVALID_ID) {
+        AssetID asset_id = g_catalog.next_asset_id++;
+        map_add(&g_catalog.assets, path.filename, asset_id);
+    }
 }
 
 void init_catalog_system()
@@ -1490,6 +1266,7 @@ void init_catalog_system()
 
     init_mutex(&g_catalog.mutex);
 
+    array_add(&g_catalog.folders, resolve_folder_path(GamePath_data, "shaders", g_persistent));
     array_add(&g_catalog.folders, resolve_folder_path(GamePath_data, "textures", g_persistent));
     array_add(&g_catalog.folders, resolve_folder_path(GamePath_data, "models", g_persistent));
     array_add(&g_catalog.folders, resolve_folder_path(GamePath_data, "entities", g_persistent));
@@ -1498,6 +1275,8 @@ void init_catalog_system()
     map_add(&g_catalog.processes, "ent", catalog_process_entity);
     map_add(&g_catalog.processes, "obj", catalog_process_obj);
     map_add(&g_catalog.processes, "fbx", catalog_process_fbx);
+    map_add(&g_catalog.processes, "msh", catalog_process_msh);
+    map_add(&g_catalog.processes, "glsl", catalog_process_glsl);
 
     init_array(&g_textures, g_heap);
     init_array(&g_meshes,   g_heap);
@@ -1511,9 +1290,9 @@ void init_catalog_system()
                 p.extension);
 
             if (func == nullptr) {
-                LOG(Log_error,
-                    "could not find process function for extension: %.*s",
-                    p.extension.size, p.extension.bytes);
+                LOG_ERROR("could not find process function for extension: %.*s",
+                          p.extension.size,
+                          p.extension.bytes);
                 continue;
             }
 

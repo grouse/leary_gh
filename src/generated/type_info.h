@@ -1,6 +1,3 @@
-#ifndef TYPE_INFO_H
-#define TYPE_INFO_H
-
 enum VariableType {
 	VariableType_int32,
 	VariableType_uint32,
@@ -64,5 +61,3 @@ StructMemberInfo Vector4_members[] = {
 StructMemberInfo Matrix4_members[] = {
 	{ VariableType_carray, "columns", offsetof(Matrix4, columns), { VariableType_Vector4, 4 } },
 };
-
-#endif // TYPE_INFO

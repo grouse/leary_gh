@@ -3,34 +3,12 @@
  * created: 2017-02-27
  * authors: Jesper Stefansson (jesper.stefansson@gmail.com)
  *
- * Copyright (c) 2017 - all rights reserved
+ * Copyright (c) 2017-2018 - all rights reserved
  */
-
-#include "profiler.h"
-#include "gfx_vulkan.h"
-#include "random.h"
 
 #define PROFILER_MAX_STACK_DEPTH (256)
 
 extern VulkanDevice* g_vulkan;
-
-enum ProfileEventType {
-    ProfileEvent_start,
-    ProfileEvent_end
-};
-
-struct ProfileEvent {
-    ProfileEventType type;
-    const char *name;
-    u64 timestamp;
-};
-
-struct ProfileTimer {
-    const char *name;
-    u64 duration;
-    u64 calls;
-    i32 parent;
-};
 
 Array<ProfileEvent> g_profile_events;
 Array<ProfileEvent> g_profile_events_prev;
@@ -41,21 +19,25 @@ GfxTexture g_profiler_gpu_graph;
 constexpr i32 kProfilerGraphWidth  = 128;
 constexpr i32 kProfilerGraphHeight = 512;
 
-void profiler_start(const char *name)
+void profiler_start(const char *name, const char *file, i32 line)
 {
     ProfileEvent event;
     event.type = ProfileEvent_start;
     event.name = name;
+    event.file = file;
+    event.line = line;
     event.timestamp = cpu_ticks();
 
     array_add(&g_profile_events, event);
 }
 
-void profiler_end(const char *name)
+void profiler_end(const char *name, const char *file, i32 line)
 {
     ProfileEvent event;
     event.type = ProfileEvent_end;
     event.name = name;
+    event.file = file;
+    event.line = line;
     event.timestamp = cpu_ticks();
 
     array_add(&g_profile_events, event);
@@ -78,14 +60,18 @@ void init_profiler_gui()
 
     f32 vertices[] = {
         0.0f, 0.0f,  1.0f, 0.0f,
-        dim.x, 0.0f,  1.0f, 1.0f,
+        0.0f, dim.y,  0.0f, 0.0f,
         dim.x, dim.y, 0.0f, 1.0f,
 
         dim.x, dim.y, 0.0f, 1.0f,
-        0.0f,  dim.y, 0.0f, 0.0f,
+        dim.x,  0.0f, 1.0f, 1.0f,
         0.0f,  0.0f,  1.0f, 0.0f,
     };
-    VulkanBuffer vbo = create_vbo(vertices, sizeof(vertices));
+
+    // TODO(jesper): these are separate VBOs right now because of how we're
+    // handling the VBO dstruction of overlay render items.
+    VulkanBuffer cpu_vbo = create_vbo(vertices, sizeof(vertices));
+    VulkanBuffer gpu_vbo = create_vbo(vertices, sizeof(vertices));
 
     // TODO(jesper): we should double buffer this texture in some way so we can
     // transition the next frame's image for CPU access, avoiding
@@ -94,22 +80,29 @@ void init_profiler_gui()
         g_profiler_cpu_graph = gfx_create_texture(
             kProfilerGraphWidth,
             kProfilerGraphHeight,
+            1,
             VK_FORMAT_B8G8R8A8_UNORM,
+            VK_IMAGE_TILING_LINEAR,
             VkComponentMapping{},
             VK_IMAGE_USAGE_SAMPLED_BIT,
             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT );
 
         GfxDescriptorSet ds = gfx_create_descriptor(
             VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-            pipeline.descriptor_layout_material);
+            pipeline.set_layouts[1]);
         ASSERT(ds.id != -1);
 
-        gfx_set_texture(ds, g_profiler_cpu_graph, ResourceSlot_diffuse, Pipeline_basic2d);
+        gfx_transition_immediate(
+            &g_profiler_cpu_graph,
+            VK_IMAGE_LAYOUT_GENERAL,
+            VK_PIPELINE_STAGE_HOST_BIT);
+
+        gfx_set_texture(Pipeline_basic2d, ds, 0, g_profiler_cpu_graph);
 
         debug_add_texture(
             "CPU",
             { (f32)kProfilerGraphHeight, (f32)kProfilerGraphWidth },
-            vbo,
+            cpu_vbo,
             ds,
             Pipeline_basic2d,
             &g_game->overlay);
@@ -119,22 +112,29 @@ void init_profiler_gui()
         g_profiler_gpu_graph = gfx_create_texture(
             kProfilerGraphWidth,
             kProfilerGraphHeight,
+            1,
             VK_FORMAT_B8G8R8A8_UNORM,
+            VK_IMAGE_TILING_LINEAR,
             VkComponentMapping{},
             VK_IMAGE_USAGE_SAMPLED_BIT,
             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT );
 
+        gfx_transition_immediate(
+            &g_profiler_gpu_graph,
+            VK_IMAGE_LAYOUT_GENERAL,
+            VK_PIPELINE_STAGE_HOST_BIT);
+
         GfxDescriptorSet ds = gfx_create_descriptor(
             VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-            pipeline.descriptor_layout_material);
+            pipeline.set_layouts[1]);
         ASSERT(ds.id != -1);
 
-        gfx_set_texture(ds, g_profiler_gpu_graph, ResourceSlot_diffuse, Pipeline_basic2d);
+        gfx_set_texture(Pipeline_basic2d, ds, 0, g_profiler_gpu_graph);
 
         debug_add_texture(
             "GPU",
             { (f32)kProfilerGraphHeight, (f32)kProfilerGraphWidth },
-            vbo,
+            gpu_vbo,
             ds,
             Pipeline_basic2d,
             &g_game->overlay);
@@ -172,12 +172,6 @@ void profiler_begin_frame()
         f32 df = (f32)duration / (f32)max_duration;
         i32 w = (i32)(df * kProfilerGraphWidth);
 
-        // TODO(jesper): look into persistent mapping of this texture memory
-        gfx_transition_immediate(
-            &g_profiler_cpu_graph,
-            VK_IMAGE_LAYOUT_GENERAL,
-            VK_PIPELINE_STAGE_HOST_BIT);
-
         BGRA8 *pixels = nullptr;
         vkMapMemory(
             g_vulkan->handle,
@@ -213,13 +207,6 @@ void profiler_begin_frame()
 
         f32 df = g_vulkan->gpu_time/ max_gpu_time;
         i32 w = (i32)(df * kProfilerGraphWidth);
-
-
-        // TODO(jesper): look into persistent mapping of this texture memory
-        gfx_transition_immediate(
-            &g_profiler_gpu_graph,
-            VK_IMAGE_LAYOUT_GENERAL,
-            VK_PIPELINE_STAGE_HOST_BIT);
 
         BGRA8 *pixels = nullptr;
         vkMapMemory(
@@ -273,7 +260,9 @@ void profiler_begin_frame()
                 ASSERT(event.name == parent.name || strcmp(event.name, parent.name) == 0);
 
                 ProfileTimer timer;
-                timer.name = event.name;
+                timer.name = parent.name;
+                timer.file = parent.file;
+                timer.line = parent.line;
                 timer.duration = event.timestamp - parent.timestamp;
                 timer.calls = 1;
 
@@ -281,9 +270,7 @@ void profiler_begin_frame()
                 for (j = 0; j < g_profile_timers.count; j++) {
                     ProfileTimer exist = g_profile_timers[j];
 
-                    if (exist.name == timer.name ||
-                        strcmp(exist.name, timer.name) == 0)
-                    {
+                    if (timer.file == exist.file && timer.line == exist.line) {
                         goto merge_existing;
                     }
                 }

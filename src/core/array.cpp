@@ -6,8 +6,6 @@
  * Copyright (c) 2017-2018 - all rights reserved
  */
 
-#include "array.h"
-
 template<typename T>
 Array<T> create_array(Allocator *allocator)
 {
@@ -18,15 +16,15 @@ Array<T> create_array(Allocator *allocator)
 }
 
 template<typename T>
-Array<T> create_array(Allocator *allocator, i32 capacity)
+Array<T> create_array(Allocator *a, i32 capacity)
 {
-    Array<T> a;
-    a.allocator = allocator;
-    a.data      = alloc_array<T>(allocator, capacity);
-    a.count     = 0;
-    a.capacity  = capacity;
+    Array<T> arr;
+    arr.allocator = a;
+    arr.data      = (T*)alloc(a, sizeof(T) * capacity);
+    arr.count     = 0;
+    arr.capacity  = capacity;
 
-    return a;
+    return arr;
 }
 
 template<typename T>
@@ -42,7 +40,7 @@ template<typename T>
 void init_array(Array<T> *arr, Allocator *a, i32 capacity)
 {
     arr->allocator = a;
-    arr->data      = alloc_array<T>(a, capacity);
+    arr->data      = (T*)alloc(a, sizeof(T) * capacity);
     arr->count     = 0;
     arr->capacity  = capacity;
 }
@@ -121,57 +119,6 @@ i32 array_remove_ordered(Array<T> *a, i32 i)
     std::memmove(&a->data[i], &a->data[i+1], (a->count-i-1) * sizeof(T));
     return --a->count;
 }
-
-
-
-template<typename T>
-StaticArray<T> create_static_array(void *data, i32 capacity)
-{
-    StaticArray<T> a;
-    a.data      = (T*)data;
-    a.capacity  = capacity;
-
-    return a;
-}
-
-template<typename T>
-StaticArray<T> create_static_array(void* ptr, i32 offset, i32 capacity)
-{
-    StaticArray<T> a;
-    a.data      = (T*)((u8*)ptr + offset);
-    a.capacity  = capacity;
-
-    return a;
-}
-
-template<typename T>
-void destroy_array(StaticArray<T> *a)
-{
-    a->data     = nullptr;
-    a->capacity = 0;
-    a->count    = 0;
-}
-
-template<typename T>
-i32 array_add(StaticArray<T> *a, T e)
-{
-    ASSERT(a->count <= a->capacity);
-
-    a->data[a->count] = e;
-    return a->count++;
-}
-
-template<typename T>
-i32 array_remove(StaticArray<T> *a, i32 i)
-{
-    if ((a->count - 1) == i) {
-        return --a->count;
-    }
-
-    a->data[i] = a->data[--a->count];
-    return a->count;
-}
-
 
 template<typename T>
 void array_clear(Array<T> *a)

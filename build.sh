@@ -1,7 +1,15 @@
 #!/bin/bash
 
 ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+CONFIG=$1
 
-pushd $ROOT
-make -Oline -j12
-popd
+if [ "$1" = "w64" ]
+then
+    cmd.exe /c build.bat
+else
+    pushd $ROOT
+    make -Oline -j12
+    popd
+fi
+
+

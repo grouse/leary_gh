@@ -1,52 +1,50 @@
 @ECHO off
 
+set start_time=%time%
+
 SET ROOT=%~dp0
 SET BUILD_DIR=%ROOT%\build
 
-SET INCLUDE_DIR=-I%ROOT%\src -I%ROOT%
-SET WARNINGS=/W4 /wd4996 /wd4577 /wd4065 /wd4800 /wd4201 /wd4127
-SET DEFINITIONS=-DWIN32_LEAN_AND_MEAN -DNOMINMAX
+REM if NOT "%Platform%" == "X64" IF NOT "%Platform%" == "x64" (call "%ROOT%\setup_cl_x64.bat")
 
-SET FLAGS=%WARNINGS% %DEFINITIONS% /std:c++latest
-SET FLAGS=%FLAGS% /Zi /EHsc /permissive-
+SET DEFINITIONS=-DLEARY_WIN -DWIN32_LEAN_AND_MEAN -DNOMINMAX -D_CRT_SECURE_NO_WARNINGS
 
-SET OPTIMIZED=/O2
-SET UNOPTIMIZED=/Od
+SET WARNINGS=-Wall -Wextra -Wno-missing-braces
+SET FLAGS=%DEFINITIONS% %WARNINGS% -gcodeview -g -fno-exceptions -fno-rtti -std=c++17 -fno-color-diagnostics
 
 if not exist %BUILD_DIR% mkdir %BUILD_DIR%
-if not exist %BUILD_DIR%\data mkdir %BUILD_DIR%\data
-if not exist %BUILD_DIR%\data\shaders mkdir %BUILD_DIR%\data\shaders
 
-echo "-----------"
-echo %VULKAN_LOCATION%
+SET ALCHEMY_LIB=%ROOT%\external\alchemy\alchemy.lib
+SET ALCHEMY_DLL=%ROOT%\external\alchemy\alchemy.dll
 
-SET INCLUDE_DIR=%INCLUDE_DIR% -I%VULKAN_LOCATION%\Include
+SET GLSLANG_LIB_DIR=%ROOT%\external\glslang\lib\win64
+SET GLSLANG_LIB=%GLSLANG_LIB_DIR%\glslang.lib %GLSLANG_LIB_DIR%\HLSL.lib %GLSLANG_LIB_DIR%\OGLCompiler.lib %GLSLANG_LIB_DIR%\SPIRV.lib %GLSLANG_LIB_DIR%\SPVRemapper.lib %GLSLANG_LIB_DIR%\OSDependent.lib %GLSLANG_LIB_DIR%\SPIRV-Tools.lib %GLSLANG_LIB_DIR%\SPIRV-Tools-opt.lib %GLSLANG_LIB_DIR%\SPIRV-Tools-link.lib
 
-SET LIBS=User32.lib Shlwapi.lib Shell32.lib %VULKAN_LOCATION%\Lib\vulkan-1.lib
-echo %LIBS%
+SET INCLUDE_DIR=-I%ROOT%\src -I%ROOT% -I%VULKAN_LOCATION%\Include -I%ROOT%\external -I%ROOT%\external\glslang\include
+SET DLL_LIBS=-lUser32.lib -lShlwapi.lib -lShell32.lib %VULKAN_LOCATION%\Lib\vulkan-1.lib %ALCHEMY_LIB% %GLSLANG_LIB%
+SET EXE_LIBS=-lUser32.lib
 
 PUSHD %BUILD_DIR%
-REM TODO(jesper): move this into a separate build script; we won't need to and
-REM don't want to rebuild all the assets every build, it'll become real slow
-REM real fast
-glslangValidator -V %ROOT%\src\shaders\generic.glsl -DVERTEX_SHADER -S vert -g -o %BUILD_DIR%\data\shaders\generic.vert.spv
-glslangValidator -V %ROOT%\src\shaders\generic.glsl -DFRAGMENT_SHADER -S frag -g -o %BUILD_DIR%\data\shaders\generic.frag.spv
-glslangValidator -V %ROOT%\src\shaders\font.glsl -DVERTEX_SHADER -S vert -g -o %BUILD_DIR%\data\shaders\font.vert.spv
-glslangValidator -V %ROOT%\src\shaders\font.glsl -DFRAGMENT_SHADER -S frag -g -o %BUILD_DIR%\data\shaders\font.frag.spv
-glslangValidator -V %ROOT%\src\shaders\basic2d.glsl -DVERTEX_SHADER -S vert -g -o %BUILD_DIR%\data\shaders\basic2d.vert.spv
-glslangValidator -V %ROOT%\src\shaders\basic2d.glsl -DFRAGMENT_SHADER -S frag -g -o %BUILD_DIR%\data\shaders\basic2d.frag.spv
-glslangValidator -V %ROOT%\src\shaders\mesh.glsl -DVERTEX_SHADER -S vert -g -o %BUILD_DIR%\data\shaders\mesh.vert.spv
-glslangValidator -V %ROOT%\src\shaders\mesh.glsl -DFRAGMENT_SHADER -S frag -g -o %BUILD_DIR%\data\shaders\mesh.frag.spv
-glslangValidator -V %ROOT%\src\shaders\terrain.glsl -DVERTEX_SHADER -S vert -g -o %BUILD_DIR%\data\shaders\terrain.vert.spv
-glslangValidator -V %ROOT%\src\shaders\terrain.glsl -DFRAGMENT_SHADER -S frag -g -o %BUILD_DIR%\data\shaders\terrain.frag.spv
-glslangValidator -V %ROOT%\src\shaders\wireframe.glsl -DVERTEX_SHADER -S vert -g -o %BUILD_DIR%\data\shaders\wireframe.vert.spv
-glslangValidator -V %ROOT%\src\shaders\wireframe.glsl -DFRAGMENT_SHADER -S frag -g -o %BUILD_DIR%\data\shaders\wireframe.frag.spv
-glslangValidator -V %ROOT%\src\shaders\gui_basic.glsl -DVERTEX_SHADER -S vert -g -o %BUILD_DIR%\data\shaders\gui_basic.vert.spv
-glslangValidator -V %ROOT%\src\shaders\gui_basic.glsl -DFRAGMENT_SHADER -S frag -g -o %BUILD_DIR%\data\shaders\gui_basic.frag.spv
-
-REM cl %FLAGS% %UNOPTIMIZED% %INCLUDE_DIR% %ROOT%\src\platform\win32_leary.cpp /link %LIBS% /DLL /OUT:game_compiled.dll
-cl %FLAGS% %UNOPTIMIZED% %INCLUDE_DIR% /Feleary.exe %ROOT%\src\platform/win32_main.cpp /SUBSYSTEM:WINDOWS /link %LIBS%
-REM cl %FLAGS% %OPTIMIZED% %INCLUDE_DIR% /Febenchmark.exe %ROOT%\benchmarks\main.cpp /SUBSYSTEM:CONSOLE /link %LIBS%
-cl %FLAGS% %UNOPTIMIZED% %INCLUDE_DIR% %ROOT%\tools\exporter.cpp /link %LIBS% /DLL /OUT:exporter.dll
-rename game_compiled.dll game.dll
+REM xcopy /y %ALCHEMY_DLL%
+clang++ -shared -O0 %FLAGS% %INCLUDE_DIR% %DLL_LIBS% -o game.dll %ROOT%\src\leary.cpp
+REM clang++ -O0 %FLAGS% %INCLUDE_DIR% %EXE_LIBS% -o leary.exe %ROOT%\src\main.cpp
 POPD
+
+set end_time=%time%
+
+set options="tokens=1-4 delims=:.,"
+for /f %options% %%a in ("%start_time%") do set start_h=%%a&set /a start_m=100%%b %% 100&set /a start_s=100%%c %% 100&set /a start_ms=100%%d %% 100
+for /f %options% %%a in ("%end_time%") do set end_h=%%a&set /a end_m=100%%b %% 100&set /a end_s=100%%c %% 100&set /a end_ms=100%%d %% 100
+
+set /a hours=%end_h%-%start_h%
+set /a mins=%end_m%-%start_m%
+set /a secs=%end_s%-%start_s%
+set /a ms=%end_ms%-%start_ms%
+if %ms% lss 0 set /a secs = %secs% - 1 & set /a ms = 100%ms%
+if %secs% lss 0 set /a mins = %mins% - 1 & set /a secs = 60%secs%
+if %mins% lss 0 set /a hours = %hours% - 1 & set /a mins = 60%mins%
+if %hours% lss 0 set /a hours = 24%hours%
+if 1%ms% lss 100 set ms=0%ms%
+
+set /a totalsecs = %hours%*3600 + %mins%*60 + %secs%
+echo compilation took %totalsecs%.%ms% seconds

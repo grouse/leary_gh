@@ -3,7 +3,7 @@
  * created: 2017-11-15
  * authors: Jesper Stefansson (jesper.stefansson@gmail.com)
  *
- * Copyright (c) 2017 - all rights reserved
+ * Copyright (c) 2017-2018 - all rights reserved
  */
 
 #include <unordered_map>

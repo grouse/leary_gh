@@ -6,13 +6,6 @@
  * Copyright (c) 2017 - all rights reserved
  */
 
-#include "allocator.h"
-
-#include "platform/platform.h"
-#include "leary_macros.h"
-
-#include <stdlib.h>
-
 // TODO(jesper): zalloc - alloc and zero memset
 // TODO(jesper): ialloc - alloc and default initialise struct
 
@@ -48,11 +41,6 @@ static u8 align_address_adjustment(void *address, u8 alignment, u8 header_size)
 }
 
 
-void* stack_alloc(Allocator *a, isize size);
-void* stack_realloc(Allocator *a, void *ptr, isize size);
-void stack_dealloc(Allocator *a, void *ptr);
-void stack_reset(Allocator *a, void *ptr);
-
 void* linear_alloc(Allocator *a, isize size);
 void* linear_realloc(Allocator *a, void *ptr, isize size);
 void linear_dealloc(Allocator *a, void *ptr);
@@ -75,12 +63,13 @@ Allocator stack_allocator(void *mem, isize size)
     a.size      = size;
     a.remaining = a.size;
 
-    a.sp = a.mem;
+    a.sp   = a.mem;
+    a.last = nullptr;
 
-    a.alloc   = &stack_alloc;
-    a.dealloc = &stack_dealloc;
-    a.realloc = &stack_realloc;
-    a.reset   = &stack_reset;
+    a.alloc   = &linear_alloc;
+    a.dealloc = &linear_dealloc;
+    a.realloc = &linear_realloc;
+    a.reset   = &linear_reset;
 
     return a;
 }
@@ -140,66 +129,10 @@ Allocator system_allocator()
 
 
 
-void* stack_alloc(Allocator *a, isize asize)
-{
-    u8 header_size = sizeof(AllocationHeader);
-
-    void *unaligned = a->sp;
-    void *aligned   = align_address(unaligned, 16, header_size);
-
-    a->sp = (void*)((uptr)aligned + asize);
-    a->remaining = a->size - (isize)((uptr)a->sp - (uptr)a->mem);
-
-    ASSERT(a->remaining > 0);
-
-    auto header = (AllocationHeader*)((uptr)aligned - header_size);
-    header->size      = asize;
-    header->unaligned = unaligned;
-
-    return aligned;
-}
-
-void stack_dealloc(Allocator *a, void *ptr)
-{
-    if (ptr == nullptr) {
-        return;
-    }
-
-    auto header  = (AllocationHeader*)((uptr)ptr - sizeof(AllocationHeader));
-    a->sp        = header->unaligned;
-    a->remaining = a->size - (isize)((uptr)a->sp - (uptr)a->mem);
-}
-
-void* stack_realloc(Allocator *a, void *ptr, isize asize)
-{
-    if (ptr == nullptr) {
-        return stack_alloc(a, asize);
-    }
-
-    // NOTE(jesper): reallocing can be bad as we'll almost certainly leak the
-    // memory, but for the general use case this should be fine
-    auto header = (AllocationHeader*)((uptr)ptr - sizeof(AllocationHeader));
-    if ((uptr)ptr + header->size == (uptr)a->sp) {
-        isize extra = asize - header->size;
-        ASSERT(extra > 0); // NOTE(jesper): untested
-
-        a->sp        = (void*)((uptr)a->sp + extra);
-        a->remaining = a->size - (isize)((uptr)a->sp - (uptr)a->mem);
-        ASSERT(a->remaining > 0);
-
-        header->size = asize;
-        return ptr;
-    } else {
-        //LOG("can't expand stack allocation, leaking memory");
-        void *nptr = stack_alloc(a, asize);
-        memcpy(nptr, ptr, header->size);
-        return nptr;
-    }
-}
-
 void stack_reset(Allocator *a, void *ptr)
 {
     a->sp        = ptr;
+    a->last      = nullptr;
     a->remaining = a->size - (isize)((uptr)a->sp - (uptr)a->mem);
 }
 
@@ -215,8 +148,9 @@ void* linear_alloc(Allocator *a, isize asize)
     void *unaligned = a->current;
     void *aligned   = align_address(unaligned, 16, header_size);
 
-    a->current = (void*)((uptr)aligned + asize);
+    a->current   = (void*)((uptr)aligned + asize);
     a->remaining = a->size - (isize)((uptr)a->current - (uptr)a->mem);
+    a->last      = aligned;
     ASSERT((uptr)a->current < ((uptr)a->mem + a->size));
 
     AllocationHeader *header = (AllocationHeader*)((uptr)aligned - header_size);
@@ -235,12 +169,11 @@ void linear_dealloc(Allocator *a, void *ptr)
     lock_mutex(&a->mutex);
     defer { unlock_mutex(&a->mutex); };
 
-    auto header = (AllocationHeader*)((uptr)ptr - sizeof(AllocationHeader));
-    if ((uptr)ptr + header->size == (uptr)a->current) {
-        a->current = header->unaligned;
+    if (a->last == ptr) {
+        auto header  = (AllocationHeader*)((uptr)ptr - sizeof(AllocationHeader));
+        a->current   = header->unaligned;
         a->remaining = a->size - (isize)((uptr)a->current - (uptr)a->mem);
-    } else {
-        LOG("calling dealloc on linear allocator, leaking memory");
+        a->last = nullptr;
     }
 }
 
@@ -251,19 +184,18 @@ void* linear_realloc(Allocator *a, void *ptr, isize asize)
     }
 
     lock_mutex(&a->mutex);
-    defer { unlock_mutex(&a->mutex); };
 
     auto header = (AllocationHeader*)((uptr)ptr - sizeof(AllocationHeader));
-    if ((uptr)ptr + header->size == (uptr)a->current) {
+    if (a->last == ptr) {
         isize extra = asize - header->size;
         ASSERT(extra > 0); // NOTE(jesper): untested
-
         a->current   = (void*)((uptr)a->current + extra);
         a->remaining = a->size - (isize)((uptr)a->current - (uptr)a->mem);
         header->size = asize;
+        unlock_mutex(&a->mutex);
         return ptr;
     } else {
-        //LOG("can't expand linear allocation, leaking memory");
+        unlock_mutex(&a->mutex);
         void *nptr = linear_alloc(a, asize);
         memcpy(nptr, ptr, header->size);
         return nptr;
@@ -276,6 +208,7 @@ void linear_reset(Allocator *a, void*)
     defer { unlock_mutex(&a->mutex); };
 
     a->current   = a->mem;
+    a->last      = nullptr;
     a->remaining = a->size - (isize)((uptr)a->current - (uptr)a->mem);
 }
 
@@ -283,6 +216,9 @@ void linear_reset(Allocator *a, void*)
 
 void* heap_alloc(Allocator *a, isize asize)
 {
+    lock_mutex(&a->mutex);
+    defer { unlock_mutex(&a->mutex); };
+
     using FreeBlock = Allocator::FreeBlock;
 
     u8 header_size = sizeof(AllocationHeader);
@@ -352,6 +288,9 @@ void heap_dealloc(Allocator *a, void *ptr)
     if (ptr == nullptr) {
         return;
     }
+
+    lock_mutex(&a->mutex);
+    defer { unlock_mutex(&a->mutex); };
 
     auto  header = (AllocationHeader*)((uptr)ptr - sizeof(AllocationHeader));
     isize asize  = header->size;
@@ -435,4 +374,55 @@ void* system_realloc(Allocator *a, void *ptr, isize asize)
 {
     (void)a;
     return ::realloc(ptr, asize);
+}
+
+
+// TODO(jesper): replace these with macros so we can track allocation context
+void* alloc(Allocator *a, isize size)
+{
+    ASSERT(a->alloc != nullptr);
+    return a->alloc(a, size);
+}
+
+void dealloc(Allocator *a, void *ptr)
+{
+    ASSERT(a->dealloc != nullptr);
+    a->dealloc(a, ptr);
+}
+
+void* realloc(Allocator *a, void *ptr, isize size)
+{
+    ASSERT(a->realloc != nullptr);
+    return a->realloc(a, ptr, size);
+}
+
+void reset(Allocator *a, void *ptr)
+{
+    ASSERT(a->reset != nullptr);
+    a->reset(a, ptr);
+}
+
+
+template<typename T>
+T* realloc_array(Allocator *a, T *current, i32 capacity)
+{
+    return (T*)realloc(a, current, capacity * sizeof(T));
+}
+
+template<typename T>
+T* ialloc(Allocator *a)
+{
+    T *ptr = (T*)alloc(a, sizeof(T));
+    *ptr = {};
+    return ptr;
+}
+
+template<typename T>
+T* ialloc_array(Allocator *a, i32 count, T value)
+{
+    T *ptr = (T*)alloc(a, sizeof(T) * count);
+    for (i32 i = 0; i < count; i++) {
+        ptr[i] = value;
+    }
+    return ptr;
 }

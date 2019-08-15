@@ -6,9 +6,6 @@
  * Copyright (c) 2018 - all rights reserved
  */
 
-#ifndef LEARY_HASHTABLE_H
-#define LEARY_HASHTABLE_H
-
 #define TABLE_SIZE 128
 
 template <typename K, typename V>
@@ -42,6 +39,3 @@ struct RHHashMap {
     i32 resize_threshold = 0;
     u32 mask             = 0;
 };
-
-#endif // LEARY_HASHTABLE_H
-

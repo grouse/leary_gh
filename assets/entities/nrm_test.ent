@@ -1,0 +1,6 @@
+#version 5
+position 0.0, 4.0, 0.0;
+rotation euler 0.0, 0.0, 0.0;
+mesh plane_plane.msh;
+texture greybox.bmp;
+texture test_nrm.bmp;

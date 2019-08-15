@@ -6,16 +6,6 @@
  * Copyright (c) 2017-2018 - all rights reserved
  */
 
-#include <stdio.h>
-
-#include "platform.h"
-#include "leary.h"
-
-#include "win32_debug.cpp"
-#include "win32_file.cpp"
-#include "win32_input.cpp"
-#include "win32_thread.cpp"
-
 PlatformState   *g_platform;
 Settings         g_settings;
 
@@ -25,10 +15,6 @@ Allocator *g_debug_frame;
 Allocator *g_persistent;
 Allocator *g_stack;
 Allocator *g_system_alloc;
-
-#include "win32_vulkan.cpp"
-#include "leary.cpp"
-#include "generated/type_info.h"
 
 struct CatalogThreadData {
     FolderPathView folder;
@@ -79,9 +65,17 @@ DWORD catalog_thread_process(void *data)
 
                 FilePath p;
                 if (eslash) {
-                    p = create_file_path( g_system_alloc, ctd->folder, fni->FileName);
+                    // TODO(jesper): remove g_system_alloc
+                    p = create_file_path(
+                        g_system_alloc, {
+                        ctd->folder.absolute,
+                        string_from_utf16((u16*)fni->FileName, wcslen(fni->FileName)) });
                 } else {
-                    p = create_file_path(g_system_alloc, ctd->folder, '\\', fni->FileName);
+                    // TODO(jesper): remove g_system_alloc
+                    p = create_file_path(
+                        g_system_alloc, {
+                        ctd->folder.absolute, "\\",
+                        string_from_utf16((u16*)fni->FileName, wcslen(fni->FileName)) });
                 }
 
                 ctd->callback(p);
@@ -110,9 +104,16 @@ void create_catalog_thread(Array<FolderPath> folders, catalog_callback_t *callba
 
 void platform_quit()
 {
-    FilePath settings_path = resolve_file_path(GamePath_preferences, "settings.conf", g_stack);
-    serialize_save_conf(settings_path, Settings_members,
-                        ARRAY_SIZE(Settings_members), &g_settings);
+    FilePath settings_path = resolve_file_path(
+        GamePath_preferences,
+        "settings.conf",
+        g_stack);;
+
+    serialize_save_conf(
+        settings_path,
+        Settings_members,
+        ARRAY_SIZE(Settings_members),
+        &g_settings);
 
     _exit(EXIT_SUCCESS);
 }
@@ -158,14 +159,19 @@ void platform_set_raw_mouse(bool enable)
     }
 }
 
+MouseState g_mouse = {};
+
+Vector2 get_mouse_position()
+{
+    return { g_mouse.x, g_mouse.y };
+}
+
 LRESULT CALLBACK
 window_proc(HWND   hwnd,
             UINT   message,
             WPARAM wparam,
             LPARAM lparam)
 {
-    static MouseState mouse_state = {};
-
     switch (message) {
     case WM_CLOSE:
     case WM_QUIT:
@@ -206,26 +212,26 @@ window_proc(HWND   hwnd,
         i32 x = lparam & 0xffff;
         i32 y = (lparam >> 16) & 0xffff;
 
-        if (!mouse_state.in_window) {
-            mouse_state.in_window = false;
-            mouse_state.dx = 0.0f;
-            mouse_state.dy = 0.0f;
-            mouse_state.x = (f32)x;
-            mouse_state.y = (f32)y;
+        if (!g_mouse.in_window) {
+            g_mouse.in_window = true;
+            g_mouse.dx = 0.0f;
+            g_mouse.dy = 0.0f;
+            g_mouse.x = (f32)x;
+            g_mouse.y = (f32)y;
             break;
         }
 
-        mouse_state.dx = (f32)(x - mouse_state.x);
-        mouse_state.dy = (f32)(y - mouse_state.y);
-        mouse_state.x  = (f32)x;
-        mouse_state.y  = (f32)y;
+        g_mouse.dx = (f32)(x - g_mouse.x);
+        g_mouse.dy = (f32)(y - g_mouse.y);
+        g_mouse.x  = (f32)x;
+        g_mouse.y  = (f32)y;
 
         InputEvent event;
         event.type = InputType_mouse_move;
-        event.mouse.x  = mouse_state.x;
-        event.mouse.y  = mouse_state.y;
-        event.mouse.dx = mouse_state.dx;
-        event.mouse.dy = mouse_state.dy;
+        event.mouse.x  = g_mouse.x;
+        event.mouse.y  = g_mouse.y;
+        event.mouse.dx = g_mouse.dx;
+        event.mouse.dy = g_mouse.dy;
 
         game_input(event);
     } break;
@@ -241,8 +247,66 @@ window_proc(HWND   hwnd,
 
         game_input(event);
     } break;
+    case WM_RBUTTONDOWN: {
+        if (g_platform->raw_mouse) {
+            break;
+        }
+
+        InputEvent event;
+        event.type = InputType_right_mouse_press;
+        event.mouse.x = (f32)(lparam & 0xffff);
+        event.mouse.y = (f32)((lparam >> 16) & 0xffff);
+
+        game_input(event);
+    } break;
+    case WM_RBUTTONUP: {
+        if (g_platform->raw_mouse) {
+            break;
+        }
+
+        InputEvent event;
+        event.type = InputType_right_mouse_release;
+        event.mouse.x = (f32)(lparam & 0xffff);
+        event.mouse.y = (f32)((lparam >> 16) & 0xffff);
+
+        game_input(event);
+    } break;
+    case WM_MBUTTONDOWN: {
+        if (g_platform->raw_mouse) {
+            break;
+        }
+
+        InputEvent event;
+        event.type = InputType_middle_mouse_press;
+        event.mouse.x = (f32)(lparam & 0xffff);
+        event.mouse.y = (f32)((lparam >> 16) & 0xffff);
+
+        game_input(event);
+    } break;
+    case WM_MBUTTONUP: {
+        if (g_platform->raw_mouse) {
+            break;
+        }
+
+        InputEvent event;
+        event.type = InputType_middle_mouse_release;
+        event.mouse.x = (f32)(lparam & 0xffff);
+        event.mouse.y = (f32)((lparam >> 16) & 0xffff);
+
+        game_input(event);
+    } break;
+    case WM_MOUSEWHEEL: {
+        if (g_platform->raw_mouse) {
+            break;
+        }
+
+        InputEvent event;
+        event.type = InputType_mouse_wheel;
+        event.mouse_wheel = (f32)GET_WHEEL_DELTA_WPARAM(wparam);
+        game_input(event);
+    } break;
     case WM_MOUSELEAVE:
-        mouse_state.in_window = false;
+        g_mouse.in_window = false;
         break;
     case WM_INPUT: {
         u32 size;
@@ -257,9 +321,8 @@ window_proc(HWND   hwnd,
         UINT result = GetRawInputData((HRAWINPUT)lparam, RID_INPUT, data,
                                       &size, sizeof(RAWINPUTHEADER));
         if (result != size) {
-            LOG(Log_error,
-                "incorrect size from GetRawInputData. Expected: %u, received %u",
-                size, result);
+            LOG_ERROR("incorrect size from GetRawInputData. Expected: %u, received %u",
+                      size, result);
             ASSERT(false);
             break;
         }
@@ -273,26 +336,26 @@ window_proc(HWND   hwnd,
             }
 
             if (raw->data.mouse.usFlags == MOUSE_MOVE_RELATIVE) {
-                mouse_state.dx = (f32)raw->data.mouse.lLastX;
-                mouse_state.dy = (f32)raw->data.mouse.lLastY;
-                mouse_state.x  += (f32)raw->data.mouse.lLastX;
-                mouse_state.y  += (f32)raw->data.mouse.lLastY;
+                g_mouse.dx = (f32)raw->data.mouse.lLastX;
+                g_mouse.dy = (f32)raw->data.mouse.lLastY;
+                g_mouse.x  += (f32)raw->data.mouse.lLastX;
+                g_mouse.y  += (f32)raw->data.mouse.lLastY;
             } else if (raw->data.mouse.usFlags & MOUSE_MOVE_ABSOLUTE) {
-                mouse_state.dx = (f32)raw->data.mouse.lLastX - mouse_state.x;
-                mouse_state.dy = (f32)raw->data.mouse.lLastY - mouse_state.y;
-                mouse_state.x  = (f32)raw->data.mouse.lLastX;
-                mouse_state.y  = (f32)raw->data.mouse.lLastY;
+                g_mouse.dx = (f32)raw->data.mouse.lLastX - g_mouse.x;
+                g_mouse.dy = (f32)raw->data.mouse.lLastY - g_mouse.y;
+                g_mouse.x  = (f32)raw->data.mouse.lLastX;
+                g_mouse.y  = (f32)raw->data.mouse.lLastY;
             } else {
-                LOG(Log_error, "unsupported flags");
+                LOG_ERROR("unsupported flags");
                 ASSERT(false);
             }
 
             InputEvent event;
             event.type = InputType_mouse_move;
-            event.mouse.dx = mouse_state.dx;
-            event.mouse.dy = mouse_state.dy;
-            event.mouse.x  = mouse_state.x;
-            event.mouse.y  = mouse_state.y;
+            event.mouse.dx = g_mouse.dx;
+            event.mouse.dy = g_mouse.dy;
+            event.mouse.x  = g_mouse.x;
+            event.mouse.y  = g_mouse.y;
 
             game_input(event);
 
@@ -311,7 +374,217 @@ window_proc(HWND   hwnd,
     return 0;
 }
 
-DL_EXPORT
+#define XAUDIO2_CREATE(name) HRESULT name(IXAudio2 **ppXAudio2, UINT32 Flags, XAUDIO2_PROCESSOR XAudio2Processor)
+typedef XAUDIO2_CREATE(XAudio2Create_t);
+
+#define COINITIALIZEEX(name) HRESULT name(LPVOID pvReserved, DWORD dwCoInit)
+typedef COINITIALIZEEX(CoInitializeEx_t);
+
+#define COCREATEINSTANCE(name) HRESULT name(REFCLSID rclsid, LPUNKNOWN pUnkOuter, DWORD dwClsContext, REFIID riid, LPVOID *ppv)
+typedef COCREATEINSTANCE(CoCreateInstance_t);
+
+char                *g_xaudio2_buffer = nullptr;
+IXAudio2SourceVoice *g_xaudio2_voice  = nullptr;
+
+void init_xaudio2()
+{
+    HMODULE ole = LoadLibrary("Ole32.dll");
+
+    CoInitializeEx_t *CoInitializeEx = (CoInitializeEx_t*)GetProcAddress(ole, "CoInitializeEx");
+    if (CoInitializeEx != nullptr) {
+        HRESULT hr = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+        if (FAILED(hr)) {
+            ASSERT(false);
+            return;
+        }
+    }
+
+    // TODO(jesper): xaudio2_8 fallback
+    HMODULE lib = LoadLibrary("xaudio2_9.dll");
+    if (lib != nullptr) {
+        XAudio2Create_t *XAudio2Create = (XAudio2Create_t*)GetProcAddress(lib, "XAudio2Create");
+        ASSERT(XAudio2Create != nullptr);
+
+        HRESULT hr;
+        IXAudio2* xaudio2 = nullptr;
+        hr = XAudio2Create(&xaudio2, 0, XAUDIO2_DEFAULT_PROCESSOR);
+
+        if (FAILED(hr)) {
+            ASSERT(false);
+            return;
+        }
+
+        IXAudio2MasteringVoice* voice = nullptr;
+        hr = xaudio2->CreateMasteringVoice(&voice);
+
+        if (FAILED(hr)) {
+            ASSERT(false);
+            return;
+        }
+
+        WAVEFORMATEX format = {};
+        format.wFormatTag = WAVE_FORMAT_PCM;
+        format.nChannels = 2;
+        format.nSamplesPerSec = 48000;
+        format.wBitsPerSample = 16;
+        format.cbSize = 0;
+        format.nBlockAlign = (format.nChannels * format.wBitsPerSample) / 8;
+        format.nAvgBytesPerSec = format.nSamplesPerSec * format.nBlockAlign;
+
+        g_xaudio2_buffer = (char*)malloc(format.nAvgBytesPerSec * 2);
+
+        struct Sample {
+            i16 left;
+            i16 right;
+        };
+
+        Sample *samples = (Sample*)g_xaudio2_buffer;
+
+        i32 hz = 261;
+        i32 square_period = 48000 / hz;
+        i32 square_counter = 0;
+        i16 sample_value = 16000;
+        for (u32 i = 0; i < format.nSamplesPerSec * 2; i++) {
+            if (square_counter > square_period) {
+                sample_value   = -sample_value;
+                square_counter = 0;
+            }
+            square_counter++;
+
+            samples[i].left  = sample_value;
+            samples[i].right = sample_value;
+        }
+
+        XAUDIO2_BUFFER buffer = {};
+        buffer.Flags = 0;
+        buffer.AudioBytes = format.nAvgBytesPerSec * 2;
+        buffer.pAudioData = (BYTE*)g_xaudio2_buffer;
+        buffer.PlayBegin = 0;
+        buffer.PlayLength = 0;
+        buffer.LoopBegin = 0;
+        buffer.LoopLength = 0;
+        buffer.LoopCount = XAUDIO2_LOOP_INFINITE;
+        buffer.pContext = nullptr;
+
+        hr = xaudio2->CreateSourceVoice(&g_xaudio2_voice, &format);
+        if (FAILED(hr)) {
+            ASSERT(false);
+            return;
+        }
+
+        hr = g_xaudio2_voice->SubmitSourceBuffer(&buffer);
+        if (FAILED(hr)) {
+            ASSERT(false);
+            return;
+        }
+
+        hr = g_xaudio2_voice->Start(0);
+        if (FAILED(hr)) {
+            ASSERT(false);
+            return;
+        }
+    }
+}
+
+struct WASAPI {
+    IAudioClient *client = nullptr;
+    IAudioRenderClient *render_client = nullptr;
+    IAudioClock *audio_clock = nullptr;
+    i32 samples_per_second = 0;
+    i32 num_channels = 0;
+    i16 bits_per_sample = 16;
+    i32 buffer_size_samples = 0;
+    i32 bytes_per_sample = 0;
+    i32 latency_samples;
+};
+
+WASAPI g_wasapi = {};
+
+WASAPI init_wasapi(i32 samples_per_second, i32 num_channels)
+{
+    WASAPI wasapi = {};
+
+    HRESULT hr;
+
+    HMODULE ole = LoadLibrary("Ole32.dll");
+    if (ole == nullptr) {
+        ASSERT(false);
+        return {};
+    }
+
+    auto CoInitializeEx = (CoInitializeEx_t*)GetProcAddress(ole, "CoInitializeEx");
+    ASSERT(CoInitializeEx != nullptr);
+
+    hr = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+    ASSERT(SUCCEEDED(hr));
+
+    auto CoCreateInstance = (CoCreateInstance_t*)GetProcAddress(ole, "CoCreateInstance");
+    ASSERT(CoCreateInstance != nullptr);
+
+    IMMDeviceEnumerator *enumerator = nullptr;
+    hr = CoCreateInstance(
+        __uuidof(MMDeviceEnumerator),
+        nullptr,
+        CLSCTX_ALL,
+        IID_PPV_ARGS(&enumerator));
+    ASSERT(SUCCEEDED(hr));
+
+    IMMDevice *device = nullptr;
+    hr = enumerator->GetDefaultAudioEndpoint(eRender, eConsole, &device);
+    ASSERT(SUCCEEDED(hr));
+
+    hr = device->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr, (void**)&wasapi.client);
+    ASSERT(SUCCEEDED(hr));
+
+
+    wasapi.buffer_size_samples = samples_per_second;
+    wasapi.num_channels = num_channels;
+    wasapi.samples_per_second = samples_per_second;
+    wasapi.bytes_per_sample = (wasapi.num_channels * wasapi.bits_per_sample) / 8;
+
+    // TODO(jesper): tweak and ensure this works when frametime spikes and at
+    // different frequencies. Probably want something more dynamic.
+    f32 audio_latency_ms = 20.0f;
+    wasapi.latency_samples = (i32)(wasapi.samples_per_second * audio_latency_ms / 1000.0f);
+
+    WAVEFORMATEXTENSIBLE wave_format = {};
+    wave_format.Format.cbSize = sizeof wave_format;
+    wave_format.Format.wFormatTag = WAVE_FORMAT_EXTENSIBLE;
+    wave_format.Format.wBitsPerSample = wasapi.bits_per_sample;
+    wave_format.Format.nChannels = (WORD)wasapi.num_channels;
+    wave_format.Format.nSamplesPerSec = wasapi.samples_per_second;
+    wave_format.Format.nBlockAlign = (WORD)wasapi.bytes_per_sample;
+    wave_format.Format.nAvgBytesPerSec = wave_format.Format.nSamplesPerSec * wave_format.Format.nBlockAlign;
+    wave_format.Samples.wValidBitsPerSample = wasapi.bits_per_sample;
+    wave_format.dwChannelMask = KSAUDIO_SPEAKER_STEREO;
+    wave_format.SubFormat = KSDATAFORMAT_SUBTYPE_PCM;
+
+    REFERENCE_TIME buffer_duration = 10000000ULL * wasapi.buffer_size_samples / wasapi.samples_per_second;
+    hr = wasapi.client->Initialize(
+        AUDCLNT_SHAREMODE_SHARED,
+        AUDCLNT_STREAMFLAGS_NOPERSIST,
+        buffer_duration,
+        0,
+        &wave_format.Format,
+        nullptr);
+    ASSERT(SUCCEEDED(hr));
+
+    hr = wasapi.client->GetService(IID_PPV_ARGS(&wasapi.render_client));
+    ASSERT(SUCCEEDED(hr));
+
+    hr = wasapi.client->GetService(IID_PPV_ARGS(&wasapi.audio_clock));
+    ASSERT(SUCCEEDED(hr));
+
+    u32 num_samples;
+    wasapi.client->GetBufferSize(&num_samples);
+    ASSERT((u32)wasapi.buffer_size_samples <= num_samples);
+
+    wasapi.client->Start();
+
+    return wasapi;
+}
+
+DLL_EXPORT
 PLATFORM_INIT_FUNC(platform_init)
 {
     g_platform = platform;
@@ -348,10 +621,18 @@ PLATFORM_INIT_FUNC(platform_init)
     g_system_alloc = &g_platform->allocators.system;
 
     init_paths(g_persistent);
+    g_wasapi = init_wasapi(48000, 2);
 
-    FilePath settings_path = resolve_file_path(GamePath_preferences, "settings.conf", g_frame);
-    serialize_load_conf(settings_path, Settings_members,
-                        ARRAY_SIZE(Settings_members), &g_settings);
+    FilePath settings_path = resolve_file_path(
+        GamePath_preferences,
+        "settings.conf",
+        g_frame);
+
+    serialize_load_conf(
+        settings_path,
+        Settings_members,
+        ARRAY_SIZE(Settings_members),
+        &g_settings);
 
     WNDCLASS wc = {};
     wc.lpfnWndProc   = window_proc;
@@ -370,14 +651,14 @@ PLATFORM_INIT_FUNC(platform_init)
 
     if (native->hwnd == NULL) {
         char* msg = win32_system_error_message(GetLastError());
-        LOG(Log_error, "failed to create window: %s", msg);
+        LOG_ERROR("failed to create window: %s", msg);
         game_quit();
     }
 
     game_init();
 }
 
-DL_EXPORT
+DLL_EXPORT
 PLATFORM_PRE_RELOAD_FUNC(platform_pre_reload)
 {
     platform->reload_state.game = game_pre_reload();
@@ -390,7 +671,7 @@ PLATFORM_PRE_RELOAD_FUNC(platform_pre_reload)
     platform->reload_state.system_alloc = g_system_alloc;
 }
 
-DL_EXPORT
+DLL_EXPORT
 PLATFORM_RELOAD_FUNC(platform_reload)
 {
     g_frame        = platform->reload_state.frame;
@@ -404,12 +685,11 @@ PLATFORM_RELOAD_FUNC(platform_reload)
     game_reload(platform->reload_state.game);
 }
 
-DL_EXPORT
+DLL_EXPORT
 PLATFORM_UPDATE_FUNC(platform_update)
 {
     (void)platform;
 
-    profiler_begin_frame();
     game_begin_frame();
 
     PROFILE_START(win32_input);
@@ -419,8 +699,47 @@ PLATFORM_UPDATE_FUNC(platform_update)
         DispatchMessage(&msg);
     }
 
-
     PROFILE_END(win32_input);
+
+    i32 samples_to_write = 0;
+    u32 padding = 0;
+
+    HRESULT hr;
+    hr = g_wasapi.client->GetCurrentPadding(&padding);
+    if (SUCCEEDED(hr)) {
+        // NOTE(jesper): padding gets us the number of samples of audio that
+        // we've already written and is ready to be read. The samples to write
+        // this frame is thus max_audio_latency - padding. This does rely on
+        // max_audio_latency > max_frame_latency, and should probably be made
+        // more dynamic to account for different systems.
+        i32 available_samples = g_wasapi.buffer_size_samples - padding;
+        samples_to_write = g_wasapi.latency_samples - padding;
+        if (samples_to_write > available_samples) {
+            samples_to_write = available_samples;
+        }
+    } else {
+        ASSERT(false);
+        // TODO(jesper): logging
+    }
+
+    if (samples_to_write > 0) {
+        i32 *output = ialloc_array<i32>(g_frame, samples_to_write * g_wasapi.num_channels);
+        game_output_sound(output, samples_to_write);
+
+        u8 *data = nullptr;
+        hr = g_wasapi.render_client->GetBuffer(samples_to_write, &data);
+        if (SUCCEEDED(hr)) {
+            i16 *samples = (i16*)data;
+            for (i32 i = 0; i < samples_to_write * g_wasapi.num_channels; i++) {
+                i16 clamped = (i16)clamp(output[i], I16_MIN, I16_MAX);
+                samples[i] = clamped;
+            }
+            g_wasapi.render_client->ReleaseBuffer(samples_to_write, 0);
+        } else {
+            ASSERT(false);
+            // TODO(jesper): logging
+        }
+    }
 
     game_update_and_render(dt);
 }

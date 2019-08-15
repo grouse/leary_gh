@@ -1,0 +1,6 @@
+#version 5
+
+position 0.0, 0.0, 0.0;
+mesh cube_cube.msh;
+texture cobble_col.bmp;
+texture cobble_nrm.bmp;

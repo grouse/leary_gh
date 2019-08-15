@@ -6,14 +6,10 @@
  * Copyright (c) 2017 - all rights reserved
  */
 
-#ifndef LEARY_STRING_H
-#define LEARY_STRING_H
-
-#include "leary_macros.h"
-
 struct String {
     char  *bytes         = nullptr;
     Allocator *allocator = nullptr;
+    // NOTE(jesper): size and capacity includes a terminating '\0'
     i32 size             = 0;
     i32 capacity         = 0;
 
@@ -28,39 +24,27 @@ struct String {
 
 struct StringView {
     const char *bytes = nullptr;
+    // NOTE(jesper): size includes a terminating '\0'
     i32 size          = 0;
 
     StringView() {}
 
-    template<i32 N>
-    StringView(const char (&str)[N])
+    StringView(const char *str)
     {
-        size  = N;
+        size  = (i32)strlen(str) + 1;
         bytes = str;
     }
 
-    StringView(const char *str)
+    StringView(const char *str, i32 size)
     {
-        size  = (i32)strlen(str);
         bytes = str;
+        this->size = size;
     }
 
     StringView(String other)
     {
         size  = other.size;
         bytes = other.bytes;
-    }
-
-    StringView(i32 size, const char *str)
-    {
-        this->size = size;
-        bytes      = str;
-    }
-
-    ~StringView()
-    {
-        size  = 0;
-        bytes = nullptr;
     }
 
     const char& operator[] (i32 i)
@@ -75,94 +59,10 @@ struct StringView {
 bool operator==(String lhs, String rhs);
 bool operator==(StringView lhs, StringView rhs);
 
-template<i32 N>
-bool operator==(String lhs, const char (&str)[N])
-{
-    if (lhs.bytes == str && lhs.size == N) {
-        return true;
-    }
+String create_string(Allocator *a, const char* str);
+String create_string(Allocator *a, StringView str);
+String create_string(Allocator *a, String str);
+String create_string(Allocator *a, std::initializer_list<StringView> args);
 
-    return strncmp(lhs.bytes, str, N) == 0;
-}
-
-template<i32 N>
-bool operator==(StringView lhs, const char (&str)[N])
-{
-    if (lhs.bytes == str && lhs.size == N) {
-        return true;
-    }
-
-    return strncmp(lhs.bytes, str, N) == 0;
-}
-
-i32 utf8_size(char);
-i32 utf8_size(WCHAR *str);
-i32 utf8_size(char *str);
-i32 utf8_size(const char *str);
-i32 utf8_size(String str);
-i32 utf8_size(StringView str);
-
-void string_concat(String *str, char c);
-void string_concat(String *str, String other);
-void string_concat(String *str, StringView other);
-void string_concat(String *str, const char *other);
-void string_concat(String *str, char *other);
-void string_concat(String *str, WCHAR *other);
-
-
-template<typename T, typename... Args>
-i32 utf8_size(T first, Args... rest)
-{
-    return utf8_size(first) + utf8_size(rest...);
-}
-
-template<typename T, typename... Args>
-void string_concat(String *str, T first, Args... rest)
-{
-    string_concat(str, first);
-    string_concat(str, rest...);
-}
-
-template<typename T>
-String create_string(Allocator *a, T first)
-{
-    String str = {};
-    str.allocator = a;
-
-    i32 size = utf8_size(first) + 1;
-
-    str.capacity = size;
-    str.bytes    = (char*)alloc(a, size);
-    string_concat(&str, first);
-
-    return str;
-}
-
-template<typename T, typename... Args>
-String create_string(Allocator *a, T first, Args... rest)
-{
-    String str = {};
-    str.allocator = a;
-
-    i32 size = utf8_size(first) + utf8_size(rest...) + 1;
-
-    str.capacity = size;
-    str.bytes    = (char*)alloc(a, size);
-    string_concat(&str, first, rest...);
-
-    return str;
-}
-
-void destroy_string(String *string)
-{
-    ASSERT(string->bytes != nullptr);
-    ASSERT(string->allocator != nullptr);
-
-    dealloc(string->allocator, string->bytes);
-    string->bytes    = nullptr;
-    string->capacity = 0;
-    string->size     = 0;
-}
-
-#endif /* LEARY_STRING_H */
-
+// NOTE(jesper): allocates the new string in temporary storage
+String string_from_utf16(const u16 *in_str, i32 length);

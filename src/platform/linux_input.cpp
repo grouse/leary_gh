@@ -3,10 +3,8 @@
  * created: 2017-02-18
  * authors: Jesper Stefansson (jesper.stefansson@gmail.com)
  *
- * Copyright (c) 2017 - all rights reserved
+ * Copyright (c) 2017-2018 - all rights reserved
  */
-
-#include "platform_input.h"
 
 enum LinuxKey {
     LinuxKey_escape    = 9,

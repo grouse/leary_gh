@@ -6,39 +6,6 @@
  * Copyright (c) 2018 - all rights reserved
  */
 
-#include "gui.h"
-#include "gfx_vulkan.h"
-
-struct DebugInfo
-{
-    const char* file;
-    u32         line;
-};
-
-struct GuiRenderItem
-{
-    Vector2                position;
-    VulkanBuffer           vbo;
-    VkDeviceSize           vbo_offset;
-    i32                    vertex_count;
-
-    PipelineID              pipeline_id;
-    Array<GfxDescriptorSet> descriptors;
-    PushConstants           constants;
-
-#if LEARY_DEBUG
-    DebugInfo              debug_info;
-#endif
-};
-
-struct GuiWidget
-{
-    Vector2 size     = { 0.0f, 0.0f };
-    Vector2 position = { 0.0f, 0.0f };
-    bool pressed     = false;
-    bool hover       = false;
-};
-
 static GuiRenderItem
 gui_frame_render_item(Vector2 position, f32 width, f32 height, Vector4 color);
 
@@ -48,12 +15,13 @@ usize g_gui_vbo_offset = 0;
 void* g_gui_vbo_map = nullptr;
 
 Array<GuiRenderItem> g_gui_render_queue;
+Array<GuiRenderItem> g_gui_tooltip_render_queue;
 Array<InputEvent> g_gui_input_queue;
-
 
 void init_gui()
 {
     init_array(&g_gui_render_queue, g_frame);
+    init_array(&g_gui_tooltip_render_queue, g_frame);
     init_array(&g_gui_input_queue, g_frame);
 
     g_gui_vbo = create_vbo(1024*1024);
@@ -64,10 +32,118 @@ void destroy_gui()
     destroy_buffer(g_gui_vbo);
 }
 
+GuiTextbox gui_textbox_data(StringView text, Vector4 color, Vector2 *pos)
+{
+    PROFILE_FUNCTION();
+
+    GuiTextbox tb = {};
+    tb.position = { F32_MAX, F32_MAX };
+    tb.vertices = (GuiTextbox::Vertex*)((uptr)g_gui_vbo_map + g_gui_vbo_offset);
+    tb.vertices_cap = g_gui_vbo.size - g_gui_vbo_offset;
+
+    f32 bx = pos->x;
+
+    for (i32 i = 0; i < text.size; i++) {
+        char c = text[i];
+
+        stbtt_aligned_quad q = {};
+
+        {
+            PROFILE_SCOPE(gui_textbox_GetBakedQuad);
+            stbtt_GetBakedQuad(g_font.atlas, 1024, 1024, c, &pos->x, &pos->y, &q, 1);
+        }
+
+        {
+            PROFILE_SCOPE(gui_textbox_widget_sizing);
+            tb.position.x = min(tb.position.x, q.x0);
+            tb.position.y = min(tb.position.y, q.y0);
+
+            tb.size.x = max(tb.size.x, q.x1 - tb.position.x);
+            tb.size.y = max(tb.size.y, q.y1 - tb.position.y);
+        }
+
+        GuiTextbox::Vertex v = {};
+        v.position = { q.x0, q.y0 };
+        v.uv       = { q.s0, q.t0 };
+        v.color    = color;
+        tb.vertices[tb.vertices_count++] = v;
+
+        v.position = { q.x0, q.y1 };
+        v.uv       = { q.s0, q.t1 };
+        v.color    = color;
+        tb.vertices[tb.vertices_count++] = v;
+
+        v.position = { q.x1, q.y1 };
+        v.uv       = { q.s1, q.t1 };
+        v.color    = color;
+        tb.vertices[tb.vertices_count++] = v;
+
+        v.position = { q.x1, q.y1 };
+        v.uv       = { q.s1, q.t1 };
+        v.color    = color;
+        tb.vertices[tb.vertices_count++] = v;
+
+        v.position = { q.x1, q.y0 };
+        v.uv       = { q.s1, q.t0 };
+        v.color    = color;
+        tb.vertices[tb.vertices_count++] = v;
+
+        v.position = { q.x0, q.y0 };
+        v.uv       = { q.s0, q.t0 };
+        v.color    = color;
+        tb.vertices[tb.vertices_count++] = v;
+    }
+
+    pos->x = bx;
+    pos->y += 20.0f;
+
+    return tb;
+}
+
+GuiRenderItem gui_textbox_render_item(GuiTextbox tb)
+{
+    PROFILE_FUNCTION();
+
+    GuiRenderItem item = {};
+    item.pipeline_id = Pipeline_font;
+
+#if LEARY_DEBUG
+    item.debug_info.file = __FILE__;
+    item.debug_info.line = __LINE__;
+#endif // LEARY_DEBUG
+
+    init_array(&item.descriptors, g_frame);
+    array_add(&item.descriptors, g_game->materials.font.descriptor_set);
+
+    item.vbo          = g_gui_vbo;
+    item.vbo_offset   = g_gui_vbo_offset;
+    item.vertex_count = tb.vertices_count;
+
+    Matrix4 t = matrix4_identity();
+
+    t[0][0] = 2.0f / g_vulkan->resolution.x;
+    t[1][1] = 2.0f / g_vulkan->resolution.y;
+
+    t[3][0] = -1.0f;
+    t[3][1] = -1.0f;
+
+    item.constants.offset = 0;
+    item.constants.size   = sizeof t;
+    item.constants.data   = alloc(g_frame, item.constants.size);
+    memcpy(item.constants.data, &t, sizeof t);
+
+    tb.vertices_cap = tb.vertices_count;
+    g_gui_vbo_offset += tb.vertices_count * sizeof tb.vertices[0];
+
+    return item;
+}
+
+
 void gui_begin_frame()
 {
-    g_gui_render_queue.count = g_gui_render_queue.capacity = 0;
-    g_gui_input_queue.count  = g_gui_input_queue.capacity = 0;
+    init_array(&g_gui_render_queue, g_frame);
+    init_array(&g_gui_tooltip_render_queue, g_frame);
+    init_array(&g_gui_input_queue, g_frame);
 
     g_gui_vbo_offset = 0;
 
@@ -87,17 +163,12 @@ void gui_input(InputEvent event)
     array_add(&g_gui_input_queue, event);
 }
 
-void gui_render(VkCommandBuffer command)
+void gui_render_items(VkCommandBuffer command, Array<GuiRenderItem> items)
 {
     PROFILE_FUNCTION();
 
-    if (g_gui_vbo_map != nullptr) {
-        vkUnmapMemory(g_vulkan->handle, g_gui_vbo.memory);
-        g_gui_vbo_map = nullptr;
-    }
-
-    for (i32 i = 0; i < g_gui_render_queue.count; i++) {
-        auto &item = g_gui_render_queue[i];
+    for (i32 i = 0; i < items.count; i++) {
+        auto &item = items[i];
 
         ASSERT(item.pipeline_id < Pipeline_count);
         VulkanPipeline &pipeline = g_vulkan->pipelines[item.pipeline_id];
@@ -128,128 +199,70 @@ void gui_render(VkCommandBuffer command)
     }
 }
 
-GuiWidget gui_textbox(StringView text, Vector2 *pos)
+void gui_render(VkCommandBuffer command)
 {
     PROFILE_FUNCTION();
 
-    GuiWidget widget = {};
-    widget.position = { F32_MAX, F32_MAX };
-
-    i32 vertex_count = 0;
-
-    usize vertices_size = sizeof(f32) * 24 * text.size;
-    auto vertices = (f32*)alloc(g_frame, vertices_size);
-    f32 *v        = &vertices[0];
-
-    f32 bx = pos->x;
-
-    for (i32 i = 0; i < text.size; i++) {
-        char c = text[i];
-
-        vertex_count += 6;
-        stbtt_aligned_quad q = {};
-
-        {
-            PROFILE_SCOPE(gui_textbox_GetBakedQuad);
-            stbtt_GetBakedQuad(g_font.atlas, 1024, 1024, c, &pos->x, &pos->y, &q, 1);
-        }
-
-        {
-            PROFILE_SCOPE(gui_textbox_widget_sizing);
-            widget.position.x = min(widget.position.x, q.x0);
-            widget.position.y = min(widget.position.y, q.y0);
-
-            widget.size.x = max(widget.size.x, q.x1 - widget.position.x);
-            widget.size.y = max(widget.size.y, q.y1 - widget.position.y);
-        }
-
-        Vector2 tl, tr, br, bl;
-        tl = Vector2{q.x0, q.y0};
-        tr = Vector2{q.x1, q.y0};
-        br = Vector2{q.x1, q.y1};
-        bl = Vector2{q.x0, q.y1};
-
-        *v++ = tl.x;
-        *v++ = tl.y;
-        *v++ = q.s0;
-        *v++ = q.t0;
-
-        *v++ = tr.x;
-        *v++ = tr.y;
-        *v++ = q.s1;
-        *v++ = q.t0;
-
-        *v++ = br.x;
-        *v++ = br.y;
-        *v++ = q.s1;
-        *v++ = q.t1;
-
-        *v++ = br.x;
-        *v++ = br.y;
-        *v++ = q.s1;
-        *v++ = q.t1;
-
-        *v++ = bl.x;
-        *v++ = bl.y;
-        *v++ = q.s0;
-        *v++ = q.t1;
-
-        *v++ = tl.x;
-        *v++ = tl.y;
-        *v++ = q.s0;
-        *v++ = q.t0;
+    if (g_gui_vbo_map != nullptr) {
+        vkUnmapMemory(g_vulkan->handle, g_gui_vbo.memory);
+        g_gui_vbo_map = nullptr;
     }
 
-    pos->x = bx;
-    pos->y += 20.0f;
-
-    GuiRenderItem item = {};
-    item.pipeline_id = Pipeline_font;
-
-#if LEARY_DEBUG
-    item.debug_info.file = __FILE__;
-    item.debug_info.line = __LINE__;
-#endif // LEARY_DEBUG
-
-    init_array(&item.descriptors, g_frame);
-    array_add(&item.descriptors, g_game->materials.font.descriptor_set);
-
-    item.vbo          = g_gui_vbo;
-    item.vbo_offset   = g_gui_vbo_offset;
-    item.vertex_count = vertex_count;
-
-    Matrix4 t = Matrix4::identity();
-
-    t[0][0] = 2.0f / g_vulkan->resolution.x;
-    t[1][1] = 2.0f / g_vulkan->resolution.y;
-
-    t[3][0] = -1.0f;
-    t[3][1] = -1.0f;
-
-    item.constants.offset = 0;
-    item.constants.size   = sizeof t;
-    item.constants.data   = alloc(g_frame, item.constants.size);
-    memcpy(item.constants.data, &t, sizeof t);
-
-    ASSERT(g_gui_vbo_offset + vertices_size < g_gui_vbo.size);
-    memcpy((void*)((uptr)g_gui_vbo_map + g_gui_vbo_offset), vertices, vertices_size);
-    g_gui_vbo_offset += vertices_size;
-
-    array_add(&g_gui_render_queue, item);
-
-    return widget;
+    gui_render_items(command, g_gui_render_queue);
+    gui_render_items(command, g_gui_tooltip_render_queue);
 }
 
-GuiWidget gui_textbox(GuiFrame *frame, StringView text, Vector2 *pos)
+GuiTextbox gui_textbox(StringView text, Vector4 color, Vector2 *pos)
 {
-    GuiWidget w = gui_textbox(text, pos);
+    PROFILE_FUNCTION();
 
-    frame->position.x = min(frame->position.x, w.position.x);
-    frame->position.y = min(frame->position.y, w.position.y);
-    frame->width      = max(frame->width,      w.position.x + w.size.x);
-    frame->height     = max(frame->height,     w.position.y + w.size.y);
+    GuiTextbox tb = gui_textbox_data(text, color, pos);
+    GuiRenderItem item = gui_textbox_render_item(tb);
 
-    return w;
+    array_add(&g_gui_render_queue, item);
+    return tb;
+}
+
+GuiTextbox gui_textbox(
+    GuiFrame *frame,
+    StringView text,
+    Vector4 color,
+    Vector2 *pos)
+{
+    PROFILE_FUNCTION();
+
+    GuiTextbox tb = gui_textbox(text, color, pos);
+
+    frame->position.x = min(frame->position.x, tb.position.x);
+    frame->position.y = min(frame->position.y, tb.position.y);
+
+    frame->width = max(
+        frame->width,
+        tb.position.x + tb.size.x - frame->position.x);
+
+    frame->height = max(
+        frame->height,
+        tb.position.y + tb.size.y - frame->position.y);
+
+    return tb;
+}
+
+GuiTextbox gui_textbox(
+    GuiFrame *frame,
+    StringView text,
+    Vector4 color,
+    Vector4 highlight,
+    Vector2 *pos)
+{
+    PROFILE_FUNCTION();
+
+    GuiTextbox tb = gui_textbox(frame, text, color, pos);
+    if (is_mouse_over(tb)) {
+        for (i32 i = 0; i < tb.vertices_count; i++) {
+            tb.vertices[i].color = highlight;
+        }
+    }
+    return tb;
 }
 
 bool is_pressed(GuiWidget widget)
@@ -272,9 +285,56 @@ bool is_pressed(GuiWidget widget)
     return false;
 }
 
+bool is_pressed(GuiTextbox textbox)
+{
+    PROFILE_FUNCTION();
+
+    Vector2 tl = textbox.position;
+    Vector2 br = textbox.position + textbox.size;
+
+    for (auto event : g_gui_input_queue) {
+        if (event.type == InputType_mouse_press) {
+            if (event.mouse.x >= tl.x && event.mouse.x <= br.x &&
+                event.mouse.y >= tl.y && event.mouse.y <= br.y)
+            {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+bool is_mouse_over(GuiTextbox textbox)
+{
+    PROFILE_FUNCTION();
+
+    Vector2 tl = textbox.position;
+    Vector2 br = textbox.position + textbox.size;
+
+    Vector2 mouse = get_mouse_position();
+
+    if (mouse.x >= tl.x && mouse.x <= br.x &&
+        mouse.y >= tl.y && mouse.y <= br.y)
+    {
+        return true;
+    }
+
+    return false;
+}
+
 GuiFrame gui_frame_begin(Vector4 color)
 {
     GuiFrame frame = {};
+    frame.color        = color;
+    frame.render_index = array_add(&g_gui_render_queue, {});
+    return frame;
+}
+
+GuiFrame gui_frame_begin(Vector2 position, Vector4 color)
+{
+    GuiFrame frame = {};
+    frame.position     = position;
     frame.color        = color;
     frame.render_index = array_add(&g_gui_render_queue, {});
     return frame;
@@ -295,9 +355,7 @@ void gui_frame(Vector2 position, f32 width, f32 height, Vector4 color)
     array_add(&g_gui_render_queue, item);
 }
 
-
-
-static GuiRenderItem
+GuiRenderItem
 gui_frame_render_item(Vector2 position, f32 width, f32 height, Vector4 color)
 {
     PROFILE_FUNCTION();
@@ -332,18 +390,18 @@ gui_frame_render_item(Vector2 position, f32 width, f32 height, Vector4 color)
     Array<Vertex> vertices;
     init_array(&vertices, g_frame, 6);
     array_add(&vertices, tl);
-    array_add(&vertices, tr);
+    array_add(&vertices, bl);
     array_add(&vertices, br);
 
     array_add(&vertices, br);
-    array_add(&vertices, bl);
+    array_add(&vertices, tr);
     array_add(&vertices, tl);
 
     item.vbo          = g_gui_vbo;
     item.vbo_offset   = g_gui_vbo_offset;
     item.vertex_count = 6;
 
-    Matrix4 t = translate(Matrix4::identity(), camera_from_screen(position));
+    Matrix4 t = translate(matrix4_identity(), camera_from_screen(position));
     item.constants.offset = 0;
     item.constants.size   = sizeof t;
     item.constants.data   = alloc(g_frame, item.constants.size);
@@ -359,3 +417,37 @@ gui_frame_render_item(Vector2 position, f32 width, f32 height, Vector4 color)
     g_gui_vbo_offset += vertices_size;
     return item;
 }
+
+void gui_tooltip(StringView text, Vector4 fg, Vector4 bg)
+{
+    PROFILE_FUNCTION();
+
+    Vector2 mouse_pos = get_mouse_position();
+
+    GuiFrame frame = {};
+    frame.position = mouse_pos;
+    frame.color = bg;
+
+    GuiTextbox tb = gui_textbox_data(text, fg, &mouse_pos);
+    GuiRenderItem text_item = gui_textbox_render_item(tb);
+
+    frame.position.x = min(frame.position.x, tb.position.x);
+    frame.position.y = min(frame.position.y, tb.position.y);
+
+    frame.width = max(
+        frame.width,
+        tb.position.x + tb.size.x - frame.position.x);
+
+    frame.height = max(
+        frame.height,
+        tb.position.y + tb.size.y - frame.position.y);
+
+    GuiRenderItem frame_item = gui_frame_render_item(
+        frame.position,
+        frame.width, frame.height,
+        frame.color);
+
+    array_add(&g_gui_tooltip_render_queue, frame_item);
+    array_add(&g_gui_tooltip_render_queue, text_item);
+}
+

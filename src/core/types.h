@@ -6,12 +6,6 @@
  * Copyright (c) 2017 - all rights reserved
  */
 
-#ifndef TYPES_H
-#define TYPES_H
-
-#include <stddef.h>
-#include <stdint.h>
-
 typedef int8_t   i8;
 typedef int16_t  i16;
 typedef int32_t  i32;
@@ -36,7 +30,6 @@ typedef double   f64;
 #define U64_MAX UINT64_MAX
 #define I64_MAX INT64_MAX
 #define I32_MAX INT32_MAX
-
-
-#endif /* TYPES_H */
+#define I16_MAX INT16_MAX
+#define I16_MIN INT16_MIN
 

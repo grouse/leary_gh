@@ -1,0 +1,4 @@
+#version 2
+
+position 0.0, 0.0, 5.0;
+mesh cube_cube.msh;

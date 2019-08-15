@@ -6,8 +6,6 @@
  * Copyright (c) 2018 - all rights reserved
  */
 
-#include "thread.h"
-
 void init_mutex(Mutex *m)
 {
     m->native = CreateMutex(NULL, FALSE, NULL);
